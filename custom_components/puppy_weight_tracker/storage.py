@@ -47,7 +47,7 @@ def _empty_data() -> dict[str, Any]:
     now = _now_iso()
 
     return {
-        "schema_version": 3,
+        "schema_version": 4,
         "created_at": now,
         "updated_at": now,
         "settings": _default_settings(),
@@ -122,8 +122,8 @@ class PuppyWeightStorage:
         if self._migrate_litter_summaries():
             changed = True
 
-        if self._data.get("schema_version", 1) < 3:
-            self._data["schema_version"] = 3
+        if self._data.get("schema_version", 1) < 4:
+            self._data["schema_version"] = 4
             changed = True
 
         if changed:
@@ -172,6 +172,13 @@ class PuppyWeightStorage:
                         if key not in measurement:
                             measurement[key] = value
                             changed = True
+
+                # Versions 0.4.0-0.6.0 could leave the predecessor of a
+                # deleted correction marked as superseded. Repair those chains
+                # before birth-profile synchronization so the previous version
+                # of the same measurement becomes active again.
+                if self._repair_deleted_correction_chains(puppy):
+                    changed = True
 
                 birth_weight = puppy.get("birth_weight")
                 birth_time = puppy.get("birth_time")
@@ -303,11 +310,50 @@ class PuppyWeightStorage:
             current = by_id[next_id]
         return current
 
+    @staticmethod
+    def _measurement_by_id(
+        puppy: dict[str, Any],
+        measurement_id: str | None,
+    ) -> dict[str, Any] | None:
+        """Return a measurement by id."""
+        if not measurement_id:
+            return None
+        for measurement in puppy.get("measurements", []):
+            if measurement.get("id") == measurement_id:
+                return measurement
+        return None
+
+    @classmethod
+    def _repair_deleted_correction_chains(
+        cls,
+        puppy: dict[str, Any],
+    ) -> bool:
+        """Reactivate predecessors of deleted terminal corrections.
+
+        A correction forms a chain A -> B -> C. Deleting the current terminal
+        correction C must make B effective again. Older releases left
+        B.superseded_by pointing at deleted C, which caused the whole corrected
+        measurement to disappear and an earlier chronological weighing to become
+        current instead.
+        """
+        changed = False
+        for measurement in puppy.get("measurements", []):
+            if not measurement.get("deleted", False):
+                continue
+            source_id = measurement.get("source_measurement_id")
+            source = cls._measurement_by_id(puppy, source_id)
+            if source is None:
+                continue
+            if source.get("superseded_by") == measurement.get("id"):
+                source["superseded_by"] = None
+                changed = True
+        return changed
+
     def _find_birth_measurement(
         self,
         puppy: dict[str, Any],
     ) -> dict[str, Any] | None:
-        """Find the current birth measurement for a puppy."""
+        """Find the current active birth measurement for a puppy."""
         measurements = puppy.get("measurements", [])
         by_id = {
             item.get("id"): item
@@ -317,7 +363,12 @@ class PuppyWeightStorage:
 
         stored_id = puppy.get("birth_measurement_id")
         if stored_id in by_id:
-            return self._follow_replacement_chain(puppy, by_id[stored_id])
+            stored = self._follow_replacement_chain(puppy, by_id[stored_id])
+            if (
+                not stored.get("deleted", False)
+                and stored.get("superseded_by") is None
+            ):
+                return stored
 
         candidates = [
             item
@@ -332,7 +383,17 @@ class PuppyWeightStorage:
             for item in candidates
             if not item.get("deleted", False) and item.get("superseded_by") is None
         ]
-        chosen = active[0] if active else candidates[0]
+        if active:
+            active.sort(
+                key=lambda item: (
+                    item.get("timestamp") or "",
+                    item.get("created_at") or "",
+                ),
+                reverse=True,
+            )
+            return active[0]
+
+        chosen = candidates[0]
         return self._follow_replacement_chain(puppy, chosen)
 
     @staticmethod
@@ -1210,7 +1271,7 @@ class PuppyWeightStorage:
         measurement_id: str,
         reason: str | None = None,
     ) -> None:
-        """Soft-delete a current measurement."""
+        """Soft-delete a current measurement and reactivate its predecessor."""
         async with self._lock:
             puppy = self._require_puppy(litter_id, puppy_id)
             measurement = self._require_measurement(puppy, measurement_id)
@@ -1221,6 +1282,23 @@ class PuppyWeightStorage:
                 raise ValueError("Cannot delete a superseded measurement")
 
             now = _now_iso()
+            source = self._measurement_by_id(
+                puppy,
+                measurement.get("source_measurement_id"),
+            )
+            reactivated_measurement_id: str | None = None
+
+            # If this is a correction, deleting it behaves like an undo:
+            # reactivate the immediately preceding version of the same
+            # measurement instead of falling back to an unrelated older weighing.
+            if (
+                source is not None
+                and source.get("superseded_by") == measurement_id
+            ):
+                source["superseded_by"] = None
+                source["updated_at"] = now
+                reactivated_measurement_id = source.get("id")
+
             measurement["deleted"] = True
             measurement["deleted_at"] = now
             measurement["updated_at"] = now
@@ -1228,8 +1306,18 @@ class PuppyWeightStorage:
             self._data["litters"][litter_id]["updated_at"] = now
 
             if measurement.get("kind") == "birth":
-                puppy["birth_weight"] = None
-                puppy["birth_measurement_id"] = None
+                if (
+                    source is not None
+                    and not source.get("deleted", False)
+                    and source.get("superseded_by") is None
+                    and source.get("kind") == "birth"
+                ):
+                    puppy["birth_weight"] = float(source["weight"])
+                    puppy["birth_time"] = source.get("timestamp")
+                    puppy["birth_measurement_id"] = source.get("id")
+                else:
+                    puppy["birth_weight"] = None
+                    puppy["birth_measurement_id"] = None
 
             self._add_audit_entry(
                 action="delete_weight",
@@ -1241,6 +1329,7 @@ class PuppyWeightStorage:
                     "timestamp": measurement.get("timestamp"),
                     "reason": reason,
                     "kind": measurement.get("kind"),
+                    "reactivated_measurement_id": reactivated_measurement_id,
                 },
             )
 
@@ -1253,7 +1342,7 @@ class PuppyWeightStorage:
         measurement_id: str,
         reason: str | None = None,
     ) -> None:
-        """Restore a soft-deleted measurement when it has not been superseded."""
+        """Restore a soft-deleted measurement and reapply its correction chain."""
         async with self._lock:
             puppy = self._require_puppy(litter_id, puppy_id)
             measurement = self._require_measurement(puppy, measurement_id)
@@ -1264,6 +1353,24 @@ class PuppyWeightStorage:
                 raise ValueError("Cannot restore a superseded measurement")
 
             now = _now_iso()
+            source = self._measurement_by_id(
+                puppy,
+                measurement.get("source_measurement_id"),
+            )
+
+            if source is not None:
+                if source.get("deleted", False):
+                    raise ValueError(
+                        "Cannot restore correction while its previous version is deleted"
+                    )
+                current_successor = source.get("superseded_by")
+                if current_successor not in (None, measurement_id):
+                    raise ValueError(
+                        "Cannot restore correction because a newer correction is active"
+                    )
+                source["superseded_by"] = measurement_id
+                source["updated_at"] = now
+
             measurement["deleted"] = False
             measurement["deleted_at"] = None
             measurement["updated_at"] = now
@@ -1285,6 +1392,9 @@ class PuppyWeightStorage:
                     "timestamp": measurement.get("timestamp"),
                     "reason": reason,
                     "kind": measurement.get("kind"),
+                    "supersedes_measurement_id": (
+                        source.get("id") if source is not None else None
+                    ),
                 },
             )
 

@@ -51,6 +51,7 @@ class PuppyNotificationManager:
         self._unsub: list[CALLBACK_TYPE] = []
         self._check_lock = asyncio.Lock()
         self._pending_task: asyncio.Task[Any] | None = None
+        self._rerun_requested = False
         self._puppy_state: dict[str, dict[str, Any]] = {}
         self._last_session_completed_at: str | None = None
 
@@ -88,6 +89,7 @@ class PuppyNotificationManager:
         if self._pending_task is not None and not self._pending_task.done():
             self._pending_task.cancel()
         self._pending_task = None
+        self._rerun_requested = False
 
     @callback
     def _handle_signal(self, *args: Any) -> None:
@@ -99,11 +101,33 @@ class PuppyNotificationManager:
 
     @callback
     def _schedule_check(self) -> None:
+        """Schedule a check without losing changes that arrive mid-check."""
         if self._pending_task is not None and not self._pending_task.done():
+            self._rerun_requested = True
             return
+
         self._pending_task = self.hass.async_create_task(
-            self.async_check()
+            self._async_check_runner()
         )
+
+    async def _async_check_runner(self) -> None:
+        """Run checks until all coalesced state changes are evaluated."""
+        try:
+            while True:
+                self._rerun_requested = False
+                await self.async_check()
+                # Give dispatcher callbacks queued in the same event-loop turn a
+                # chance to request one more evaluation.
+                await asyncio.sleep(0)
+                if not self._rerun_requested:
+                    break
+        finally:
+            self._pending_task = None
+            # Cover the narrow race where a callback requested a rerun between
+            # the loop condition above and task finalization.
+            if self._rerun_requested:
+                self._rerun_requested = False
+                self._schedule_check()
 
     async def async_check(self) -> None:
         """Evaluate all active puppies and update notifications."""
