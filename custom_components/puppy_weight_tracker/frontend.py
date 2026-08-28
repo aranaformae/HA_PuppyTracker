@@ -20,6 +20,10 @@ FRONTEND_VERSION = VERSION
 CARD_FILES = (
     "puppy-weight-tracker-card.js",
     "puppy-weight-overview-card.js",
+    "puppy-weight-summary-card.js",
+    "puppy-weight-attention-card.js",
+    "puppy-weight-litter-card.js",
+    "puppy-weight-report-card.js",
 )
 
 # Static HTTP routes cannot currently be cleanly unregistered. Keep this flag
