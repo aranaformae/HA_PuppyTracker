@@ -22,6 +22,8 @@ class PuppyWeightSummaryCard extends HTMLElement {
     this._error = "";
     this._unsubscribe = null;
     this._subscriptionPending = false;
+    this._refreshing = false;
+    this._refreshAgain = false;
   }
 
   static getStubConfig() {
@@ -51,11 +53,20 @@ class PuppyWeightSummaryCard extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
-    if (!this._litters.length && !this._loading) this._loadInitial();
+    if (!this._litters.length && !this._loading) {
+      this._loadInitial();
+    } else if (this.isConnected) {
+      this._subscribe();
+    }
   }
 
   connectedCallback() {
-    if (this._hass && !this._litters.length && !this._loading) this._loadInitial();
+    if (!this._hass) return;
+    if (!this._litters.length && !this._loading) {
+      this._loadInitial();
+    } else {
+      this._subscribe();
+    }
   }
 
   disconnectedCallback() {
@@ -88,20 +99,41 @@ class PuppyWeightSummaryCard extends HTMLElement {
   }
 
   async _subscribe() {
-    if (!this._hass || this._unsubscribe || this._subscriptionPending) return;
+    if (!this._hass || this._unsubscribe || this._subscriptionPending || !this.isConnected) return;
     this._subscriptionPending = true;
     try {
-      this._unsubscribe = await subscribeUpdates(this._hass, async () => {
-        try {
-          const response = await fetchLitters(this._hass);
-          this._litters = response?.litters || this._litters;
-          await this._loadData(true);
-        } catch (_err) {
-          // Keep the last good state visible.
-        }
-      });
+      this._unsubscribe = await subscribeUpdates(this._hass, () => this._queueRefresh());
+    } catch (_err) {
+      this._unsubscribe = null;
     } finally {
       this._subscriptionPending = false;
+    }
+  }
+
+  async _queueRefresh() {
+    if (!this._hass) return;
+    if (this._refreshing) {
+      this._refreshAgain = true;
+      return;
+    }
+    this._refreshing = true;
+    try {
+      do {
+        this._refreshAgain = false;
+        const response = await fetchLitters(this._hass);
+        this._litters = response?.litters || this._litters;
+        this._selectedLitterId = selectDefaultLitter(
+          this._litters,
+          this._selectedLitterId || this._config.litter_id
+        );
+        await this._loadData(false);
+      } while (this._refreshAgain);
+      this._error = "";
+    } catch (err) {
+      this._error = err?.message || "Nieuwe Puppy Weight Tracker-data kon niet worden geladen.";
+    } finally {
+      this._refreshing = false;
+      this._render();
     }
   }
 
@@ -141,7 +173,7 @@ class PuppyWeightSummaryCard extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <ha-card class="${navigate ? "navigable" : ""}">
         <style>
-          ha-card{padding:16px;overflow:hidden}.navigable{cursor:pointer}
+          ha-card{padding:16px;overflow:hidden;container-type:inline-size;container-name:summary-card}.navigable{cursor:pointer}
           .top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
           .title{font-size:18px;font-weight:600;min-width:0}.sub{font-size:12px;color:var(--secondary-text-color);margin-top:2px}
           select{max-width:45%;min-height:38px;border:1px solid var(--divider-color);border-radius:10px;background:var(--card-background-color);color:var(--primary-text-color);padding:0 10px;font-size:14px}
@@ -149,7 +181,7 @@ class PuppyWeightSummaryCard extends HTMLElement {
           .value{font-size:18px;font-weight:700;white-space:nowrap}.label{font-size:11px;color:var(--secondary-text-color);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
           .danger .value{color:var(--error-color)}.footer{margin-top:10px;font-size:12px;color:var(--secondary-text-color);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
           .error{color:var(--error-color);font-size:13px}
-          @media(max-width:520px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.top{align-items:flex-start}.title{font-size:17px}select{max-width:52%}}
+          @container summary-card (max-width:520px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.top{align-items:flex-start}.title{font-size:17px}select{max-width:52%}}
         </style>
         <div class="top">
           <div class="title">${escapeHtml(this._config.title || "Puppy Tracker")}<div class="sub">${escapeHtml(litter?.name || (this._loading ? "Laden…" : "Geen nest"))}</div></div>

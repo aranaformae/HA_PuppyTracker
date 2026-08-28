@@ -31,6 +31,9 @@ class PuppyWeightReportCard extends HTMLElement {
     this._error = "";
     this._status = "";
     this._unsubscribe = null;
+    this._subscriptionPending = false;
+    this._refreshing = false;
+    this._refreshAgain = false;
   }
 
   static getStubConfig() {
@@ -65,7 +68,20 @@ class PuppyWeightReportCard extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
-    if (!this._litters.length && !this._loading) this._loadInitial();
+    if (!this._litters.length && !this._loading) {
+      this._loadInitial();
+    } else if (this.isConnected) {
+      this._ensureSubscription();
+    }
+  }
+
+  connectedCallback() {
+    if (!this._hass) return;
+    if (!this._litters.length && !this._loading) {
+      this._loadInitial();
+    } else {
+      this._ensureSubscription();
+    }
   }
 
   disconnectedCallback() {
@@ -84,11 +100,51 @@ class PuppyWeightReportCard extends HTMLElement {
       this._litters = response?.litters || [];
       this._selectedLitterId = selectDefaultLitter(this._litters, this._selectedLitterId || this._config.litter_id);
       await this._loadData(false);
-      this._unsubscribe = await subscribeUpdates(this._hass, () => this._loadData(true));
+      await this._ensureSubscription();
     } catch (err) {
       this._error = err?.message || "Rapportgegevens konden niet worden geladen.";
     } finally {
       this._loading = false;
+      this._render();
+    }
+  }
+
+  async _ensureSubscription() {
+    if (!this._hass || this._unsubscribe || this._subscriptionPending || !this.isConnected) return;
+    this._subscriptionPending = true;
+    try {
+      this._unsubscribe = await subscribeUpdates(this._hass, () => this._queueRefresh());
+    } catch (err) {
+      // Keep showing the last good data. The next hass/connected cycle retries.
+      this._unsubscribe = null;
+    } finally {
+      this._subscriptionPending = false;
+    }
+  }
+
+  async _queueRefresh() {
+    if (!this._hass) return;
+    if (this._refreshing) {
+      this._refreshAgain = true;
+      return;
+    }
+    this._refreshing = true;
+    try {
+      do {
+        this._refreshAgain = false;
+        const response = await fetchLitters(this._hass);
+        this._litters = response?.litters || this._litters;
+        this._selectedLitterId = selectDefaultLitter(
+          this._litters,
+          this._selectedLitterId || this._config.litter_id
+        );
+        await this._loadData(false);
+      } while (this._refreshAgain);
+      this._error = "";
+    } catch (err) {
+      this._error = err?.message || "Nieuwe Puppy Weight Tracker-data kon niet worden geladen.";
+    } finally {
+      this._refreshing = false;
       this._render();
     }
   }
@@ -193,17 +249,55 @@ class PuppyWeightReportCard extends HTMLElement {
 
   _printReport() {
     if (!this._data) return;
-    const popup = window.open("", "_blank");
-    if (!popup) {
-      this._status = "Pop-up geblokkeerd. Sta pop-ups toe om het rapport af te drukken.";
-      this._render();
-      return;
-    }
-    popup.document.open();
-    popup.document.write(this._buildReportHtml());
-    popup.document.close();
-    popup.focus();
-    window.setTimeout(() => popup.print(), 250);
+
+    // Print from a same-origin iframe instead of window.open(). This avoids
+    // popup blockers in Safari, iPadOS and the Home Assistant companion app.
+    const existing = document.getElementById("puppy-weight-tracker-print-frame");
+    existing?.remove();
+
+    const frame = document.createElement("iframe");
+    frame.id = "puppy-weight-tracker-print-frame";
+    frame.setAttribute("title", "Puppy Weight Tracker afdrukrapport");
+    frame.style.position = "fixed";
+    frame.style.right = "0";
+    frame.style.bottom = "0";
+    frame.style.width = "1px";
+    frame.style.height = "1px";
+    frame.style.opacity = "0";
+    frame.style.pointerEvents = "none";
+    frame.style.border = "0";
+
+    const cleanup = () => {
+      window.setTimeout(() => frame.remove(), 250);
+    };
+
+    frame.addEventListener("load", () => {
+      try {
+        const printWindow = frame.contentWindow;
+        if (!printWindow) throw new Error("Geen afdrukvenster beschikbaar");
+        printWindow.addEventListener?.("afterprint", cleanup, { once: true });
+        printWindow.focus();
+        window.setTimeout(() => {
+          try {
+            printWindow.print();
+            this._status = "Afdrukdialoog geopend. Kies op iPad/iPhone 'Bewaar in Bestanden' of deel als PDF.";
+            this._render();
+          } catch (err) {
+            cleanup();
+            this._status = err?.message || "Afdrukken kon niet worden gestart.";
+            this._render();
+          }
+        }, 80);
+      } catch (err) {
+        cleanup();
+        this._status = err?.message || "Afdrukken kon niet worden gestart.";
+        this._render();
+      }
+    }, { once: true });
+
+    frame.srcdoc = this._buildReportHtml();
+    document.body.appendChild(frame);
+    window.setTimeout(() => { if (frame.isConnected) frame.remove(); }, 60000);
   }
 
   async _export(format) {
@@ -241,8 +335,9 @@ class PuppyWeightReportCard extends HTMLElement {
 
     this.shadowRoot.innerHTML = `
       <ha-card><style>
-        ha-card{padding:16px}.title{font-size:18px;font-weight:600;margin-bottom:3px}.sub{font-size:12px;color:var(--secondary-text-color);margin-bottom:12px}.controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.field label{display:block;font-size:11px;color:var(--secondary-text-color);margin:0 0 4px 2px}.field select{width:100%;min-height:42px;border:1px solid var(--divider-color);border-radius:10px;background:var(--card-background-color);color:var(--primary-text-color);padding:0 9px;font-size:14px}.preview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px}.box{border:1px solid var(--divider-color);border-radius:12px;padding:10px}.box span{display:block;font-size:11px;color:var(--secondary-text-color)}.box b{display:block;margin-top:3px;font-size:16px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.actions button{min-height:42px;border:0;border-radius:10px;padding:0 13px;font-weight:600;cursor:pointer;background:var(--primary-color);color:var(--text-primary-color,#fff)}.actions button.secondary{background:var(--secondary-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color)}.status{font-size:12px;color:var(--secondary-text-color);margin-top:9px}.error{color:var(--error-color)}.note{font-size:11px;color:var(--secondary-text-color);margin-top:10px;line-height:1.4}
-        @media(max-width:600px){.controls{grid-template-columns:1fr}.preview{grid-template-columns:repeat(3,minmax(0,1fr))}.actions button{flex:1 1 auto}}
+        ha-card{padding:16px;container-type:inline-size;container-name:report-card}.title{font-size:18px;font-weight:600;margin-bottom:3px}.sub{font-size:12px;color:var(--secondary-text-color);margin-bottom:12px}.controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.field{min-width:0}.field label{display:block;font-size:11px;color:var(--secondary-text-color);margin:0 0 4px 2px}.field select{width:100%;min-width:0;min-height:42px;border:1px solid var(--divider-color);border-radius:10px;background:var(--card-background-color);color:var(--primary-text-color);padding:0 9px;font-size:14px}.preview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px}.box{min-width:0;border:1px solid var(--divider-color);border-radius:12px;padding:10px}.box span{display:block;font-size:11px;color:var(--secondary-text-color)}.box b{display:block;margin-top:3px;font-size:16px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.actions button{min-height:42px;border:0;border-radius:10px;padding:0 13px;font-weight:600;cursor:pointer;background:var(--primary-color);color:var(--text-primary-color,#fff)}.actions button.secondary{background:var(--secondary-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color)}.status{font-size:12px;color:var(--secondary-text-color);margin-top:9px}.error{color:var(--error-color)}.note{font-size:11px;color:var(--secondary-text-color);margin-top:10px;line-height:1.4}
+        @container report-card (max-width:600px){.controls{grid-template-columns:1fr}.preview{grid-template-columns:repeat(3,minmax(0,1fr))}.actions button{flex:1 1 auto}}
+        @container report-card (max-width:380px){ha-card{padding:13px}.preview{grid-template-columns:1fr}.actions{display:grid;grid-template-columns:1fr}.actions button{width:100%}}
       </style>
       <div class="title">${escapeHtml(this._config.title)}</div><div class="sub">Printvriendelijk pup- of nestrapport met bestaande CSV/JSON-export.</div>
       ${this._error ? `<div class="error">${escapeHtml(this._error)}</div>` : `

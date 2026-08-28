@@ -22,6 +22,9 @@ class PuppyWeightAttentionCard extends HTMLElement {
     this._loading = false;
     this._error = "";
     this._unsubscribe = null;
+    this._subscriptionPending = false;
+    this._refreshing = false;
+    this._refreshAgain = false;
   }
 
   static getStubConfig() {
@@ -46,7 +49,20 @@ class PuppyWeightAttentionCard extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
-    if (!this._litters.length && !this._loading) this._loadInitial();
+    if (!this._litters.length && !this._loading) {
+      this._loadInitial();
+    } else if (this.isConnected) {
+      this._ensureSubscription();
+    }
+  }
+
+  connectedCallback() {
+    if (!this._hass) return;
+    if (!this._litters.length && !this._loading) {
+      this._loadInitial();
+    } else {
+      this._ensureSubscription();
+    }
   }
 
   disconnectedCallback() {
@@ -65,11 +81,51 @@ class PuppyWeightAttentionCard extends HTMLElement {
       this._litters = response?.litters || [];
       this._selectedLitterId = selectDefaultLitter(this._litters, this._selectedLitterId || this._config.litter_id);
       await this._loadData(false);
-      this._unsubscribe = await subscribeUpdates(this._hass, () => this._loadData(true));
+      await this._ensureSubscription();
     } catch (err) {
       this._error = err?.message || "Aandachtsgegevens konden niet worden geladen.";
     } finally {
       this._loading = false;
+      this._render();
+    }
+  }
+
+  async _ensureSubscription() {
+    if (!this._hass || this._unsubscribe || this._subscriptionPending || !this.isConnected) return;
+    this._subscriptionPending = true;
+    try {
+      this._unsubscribe = await subscribeUpdates(this._hass, () => this._queueRefresh());
+    } catch (err) {
+      // Keep showing the last good data. The next hass/connected cycle retries.
+      this._unsubscribe = null;
+    } finally {
+      this._subscriptionPending = false;
+    }
+  }
+
+  async _queueRefresh() {
+    if (!this._hass) return;
+    if (this._refreshing) {
+      this._refreshAgain = true;
+      return;
+    }
+    this._refreshing = true;
+    try {
+      do {
+        this._refreshAgain = false;
+        const response = await fetchLitters(this._hass);
+        this._litters = response?.litters || this._litters;
+        this._selectedLitterId = selectDefaultLitter(
+          this._litters,
+          this._selectedLitterId || this._config.litter_id
+        );
+        await this._loadData(false);
+      } while (this._refreshAgain);
+      this._error = "";
+    } catch (err) {
+      this._error = err?.message || "Nieuwe Puppy Weight Tracker-data kon niet worden geladen.";
+    } finally {
+      this._refreshing = false;
       this._render();
     }
   }
@@ -109,10 +165,10 @@ class PuppyWeightAttentionCard extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <ha-card>
         <style>
-          ha-card{padding:16px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px}.title{font-size:18px;font-weight:600}.sub{font-size:12px;color:var(--secondary-text-color);margin-top:2px}
+          ha-card{padding:16px;container-type:inline-size;container-name:attention-card}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px}.title{font-size:18px;font-weight:600}.sub{font-size:12px;color:var(--secondary-text-color);margin-top:2px}
           select{min-height:38px;max-width:48%;border:1px solid var(--divider-color);border-radius:10px;background:var(--card-background-color);color:var(--primary-text-color);padding:0 10px;font-size:14px}
           .list{display:grid;gap:8px}.row{display:grid;grid-template-columns:34px minmax(0,1fr) auto;align-items:center;gap:10px;padding:10px 11px;border:1px solid var(--divider-color);border-radius:12px}.icon{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--secondary-background-color);font-weight:700}.name{font-weight:600}.collar{font-weight:400;color:var(--secondary-text-color);margin-left:7px}.reason{font-size:12px;color:var(--secondary-text-color);margin-top:2px}.status{font-size:12px;font-weight:600;white-space:nowrap}.danger .status,.danger .icon{color:var(--error-color)}.warning .status{color:var(--warning-color,var(--primary-color))}.all-ok{display:flex;align-items:center;gap:12px;padding:13px;border:1px solid var(--divider-color);border-radius:12px}.all-ok>span{font-size:24px}.all-ok div div{font-size:12px;color:var(--secondary-text-color);margin-top:2px}.error{color:var(--error-color)}
-          .row.clickable{cursor:pointer}@media(max-width:520px){.status{display:none}.row{grid-template-columns:34px minmax(0,1fr)}}
+          .row.clickable{cursor:pointer}@container attention-card (max-width:520px){.status{display:none}.row{grid-template-columns:34px minmax(0,1fr)}.top{align-items:flex-start}.top select{max-width:52%}}
         </style>
         <div class="top"><div class="title">${escapeHtml(this._config.title)}<div class="sub">${escapeHtml(litter?.name || (this._loading ? "Laden…" : "Geen nest"))}</div></div>${selector}</div>
         ${body}
