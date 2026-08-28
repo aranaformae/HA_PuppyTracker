@@ -20,7 +20,8 @@
           "add_puppy": "Puppy toevoegen",
           "manage_puppy": "Puppy beheren",
           "manage_measurements": "Metingen beheren",
-          "settings": "Monitoringinstellingen"
+          "settings": "Monitoringinstellingen",
+          "integrity": "Data-integriteit controleren"
         }
       },
       "create_litter": {
@@ -188,6 +189,10 @@
           "reason": "Reden voor verwijderen",
           "confirm": "Ja, deze meting verwijderen"
         }
+      },
+      "integrity": {
+        "title": "Data-integriteit controleren",
+        "description": "Opslagcontrole voltooid. Status: {status}. {measurements} meetversies gecontroleerd. {issues} probleem/problemen gevonden en {repairs} veilig gerepareerd. Niet-opgeloste kritieke problemen: {critical}; waarschuwingen: {warnings}. Veilige reparaties kiezen nooit automatisch tussen dubbelzinnige meettakken. Download de integratiediagnostiek als er kritieke problemen overblijven."
       }
     },
     "error": {

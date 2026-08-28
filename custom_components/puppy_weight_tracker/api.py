@@ -21,7 +21,7 @@ from .storage import PuppyWeightStorage
 from .time_utils import timestamp_sort_key
 
 DATA_API_REGISTERED = f"{DOMAIN}_websocket_api_registered"
-API_VERSION = 2
+API_VERSION = 3
 
 
 def _runtime_storage(hass: HomeAssistant) -> PuppyWeightStorage | None:
@@ -114,6 +114,7 @@ def _litter_payload(
         "generated_at": dt_util.now().isoformat(),
         "storage_updated_at": storage.get_data().get("updated_at"),
         "can_manage_measurements": can_manage_measurements,
+        "integrity": storage.get_integrity_report(),
         "litter": {
             "id": litter_id,
             "name": litter.get("name"),
@@ -399,6 +400,7 @@ async def websocket_correct_measurement(
         connection.send_error(msg["id"], "invalid_measurement", str(err))
         return
 
+    storage.refresh_integrity_report()
     _signal_measurement_change(hass, msg["puppy_id"])
     connection.send_result(
         msg["id"],
@@ -447,6 +449,7 @@ async def websocket_delete_measurement(
         connection.send_error(msg["id"], "invalid_measurement", str(err))
         return
 
+    storage.refresh_integrity_report()
     _signal_measurement_change(hass, msg["puppy_id"])
     connection.send_result(
         msg["id"],
@@ -494,6 +497,7 @@ async def websocket_restore_measurement(
         connection.send_error(msg["id"], "invalid_measurement", str(err))
         return
 
+    storage.refresh_integrity_report()
     _signal_measurement_change(hass, msg["puppy_id"])
     connection.send_result(
         msg["id"],
@@ -509,6 +513,32 @@ async def websocket_restore_measurement(
             ),
         },
     )
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/integrity",
+        vol.Optional("repair", default=False): bool,
+    }
+)
+@websocket_api.async_response
+async def websocket_integrity_check(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Run or retrieve the storage integrity check."""
+    storage = _storage_or_error(hass, connection, msg)
+    if storage is None:
+        return
+
+    report = await storage.async_run_integrity_check(
+        repair=bool(msg.get("repair", False)),
+    )
+    if msg.get("repair"):
+        async_dispatcher_send(hass, SIGNAL_DASHBOARD_UPDATE)
+    connection.send_result(msg["id"], report)
 
 
 @websocket_api.websocket_command(
@@ -588,6 +618,7 @@ def async_setup_api(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, websocket_correct_measurement)
     websocket_api.async_register_command(hass, websocket_delete_measurement)
     websocket_api.async_register_command(hass, websocket_restore_measurement)
+    websocket_api.async_register_command(hass, websocket_integrity_check)
     websocket_api.async_register_command(hass, websocket_export_data)
     websocket_api.async_register_command(hass, websocket_subscribe_updates)
     hass.data[DATA_API_REGISTERED] = True

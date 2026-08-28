@@ -9,13 +9,13 @@ from homeassistant.components.frontend import add_extra_js_url, remove_extra_js_
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN
+from .const import DOMAIN, VERSION
 
 _LOGGER = logging.getLogger(__name__)
 
 FRONTEND_DIR = Path(__file__).parent / "frontend"
 FRONTEND_URL = f"/{DOMAIN}/frontend"
-FRONTEND_VERSION = "0.8.2"
+FRONTEND_VERSION = VERSION
 
 CARD_FILES = (
     "puppy-weight-tracker-card.js",
