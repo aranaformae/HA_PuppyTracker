@@ -250,54 +250,152 @@ class PuppyWeightReportCard extends HTMLElement {
   _printReport() {
     if (!this._data) return;
 
-    // Print from a same-origin iframe instead of window.open(). This avoids
-    // popup blockers in Safari, iPadOS and the Home Assistant companion app.
-    const existing = document.getElementById("puppy-weight-tracker-print-frame");
-    existing?.remove();
+    // iPadOS/Safari can ignore print() when it is called from an iframe load
+    // handler because that call is no longer considered part of the user's tap.
+    // Build a print-only document in the current page and call top-level
+    // window.print() synchronously from the click handler instead.
+    const rootId = "puppy-weight-tracker-print-root";
+    const styleId = "puppy-weight-tracker-print-style";
+    document.getElementById(rootId)?.remove();
+    document.getElementById(styleId)?.remove();
 
-    const frame = document.createElement("iframe");
-    frame.id = "puppy-weight-tracker-print-frame";
-    frame.setAttribute("title", "Puppy Weight Tracker afdrukrapport");
-    frame.style.position = "fixed";
-    frame.style.right = "0";
-    frame.style.bottom = "0";
-    frame.style.width = "1px";
-    frame.style.height = "1px";
-    frame.style.opacity = "0";
-    frame.style.pointerEvents = "none";
-    frame.style.border = "0";
+    const reportDocument = new DOMParser().parseFromString(
+      this._buildReportHtml(),
+      "text/html"
+    );
+
+    const printRoot = document.createElement("div");
+    printRoot.id = rootId;
+    printRoot.setAttribute("aria-hidden", "true");
+    printRoot.innerHTML = reportDocument.body.innerHTML;
+
+    const printStyle = document.createElement("style");
+    printStyle.id = styleId;
+    printStyle.textContent = `
+      @page { size: A4; margin: 14mm; }
+      @media screen {
+        #${rootId} { display: none !important; }
+      }
+      @media print {
+        html, body {
+          background: #fff !important;
+          color: #222 !important;
+        }
+        body > *:not(#${rootId}) {
+          display: none !important;
+        }
+        #${rootId} {
+          display: block !important;
+          position: static !important;
+          width: auto !important;
+          height: auto !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          background: #fff !important;
+          color: #222 !important;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+          font-size: 11px;
+          line-height: 1.35;
+        }
+        #${rootId}, #${rootId} * { box-sizing: border-box; }
+        #${rootId} h1 { font-size: 22px; margin: 0 0 4px; }
+        #${rootId} h2 { font-size: 15px; margin: 20px 0 7px; }
+        #${rootId} .meta { color: #666; margin-bottom: 14px; }
+        #${rootId} .grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 8px;
+          margin: 12px 0;
+        }
+        #${rootId} .box {
+          border: 1px solid #ddd;
+          border-radius: 8px;
+          padding: 8px;
+        }
+        #${rootId} .box span { display: block; color: #666; font-size: 9px; }
+        #${rootId} .box b { display: block; margin-top: 2px; font-size: 12px; }
+        #${rootId} .warning {
+          border-left: 4px solid #c00;
+          background: #faf5f5;
+          padding: 8px 10px;
+          margin: 8px 0;
+        }
+        #${rootId} .ok {
+          border-left: 4px solid #398439;
+          background: #f5faf5;
+          padding: 8px 10px;
+          margin: 8px 0;
+        }
+        #${rootId} table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 6px 0 14px;
+        }
+        #${rootId} th,
+        #${rootId} td {
+          text-align: left;
+          padding: 5px 6px;
+          border-bottom: 1px solid #ddd;
+          vertical-align: top;
+        }
+        #${rootId} th { font-size: 9px; color: #555; background: #f5f5f5; }
+        #${rootId} .chart { margin: 12px 0 18px; break-inside: avoid; }
+        #${rootId} .chart svg { width: 100%; height: auto; display: block; }
+        #${rootId} .legend { font-size: 9px; margin-top: 4px; }
+        #${rootId} section { break-inside: auto; }
+        #${rootId} tr { break-inside: avoid; }
+        #${rootId} .footer {
+          margin-top: 20px;
+          padding-top: 8px;
+          border-top: 1px solid #ddd;
+          color: #777;
+          font-size: 9px;
+        }
+        #${rootId} button { display: none !important; }
+      }
+    `;
+
+    const scrollX = window.scrollX;
+    const scrollY = window.scrollY;
+    let cleaned = false;
 
     const cleanup = () => {
-      window.setTimeout(() => frame.remove(), 250);
+      if (cleaned) return;
+      cleaned = true;
+      window.removeEventListener("afterprint", cleanup);
+      printRoot.remove();
+      printStyle.remove();
+      // Some WebKit versions move the underlying dashboard while preparing
+      // the print view. Restore the user's position after the dialog closes.
+      window.requestAnimationFrame(() => window.scrollTo(scrollX, scrollY));
     };
 
-    frame.addEventListener("load", () => {
-      try {
-        const printWindow = frame.contentWindow;
-        if (!printWindow) throw new Error("Geen afdrukvenster beschikbaar");
-        printWindow.addEventListener?.("afterprint", cleanup, { once: true });
-        printWindow.focus();
-        window.setTimeout(() => {
-          try {
-            printWindow.print();
-            this._status = "Afdrukdialoog geopend. Kies op iPad/iPhone 'Bewaar in Bestanden' of deel als PDF.";
-            this._render();
-          } catch (err) {
-            cleanup();
-            this._status = err?.message || "Afdrukken kon niet worden gestart.";
-            this._render();
-          }
-        }, 80);
-      } catch (err) {
-        cleanup();
-        this._status = err?.message || "Afdrukken kon niet worden gestart.";
-        this._render();
-      }
-    }, { once: true });
+    document.head.appendChild(printStyle);
+    document.body.appendChild(printRoot);
 
-    frame.srcdoc = this._buildReportHtml();
-    document.body.appendChild(frame);
-    window.setTimeout(() => { if (frame.isConnected) frame.remove(); }, 60000);
+    if (typeof window.print !== "function") {
+      cleanup();
+      this._status = "Afdrukken wordt door deze browserweergave niet ondersteund.";
+      this._render();
+      return;
+    }
+
+    window.addEventListener("afterprint", cleanup, { once: true });
+
+    try {
+      // Keep this synchronous: Safari/iPadOS requires print() to remain in the
+      // direct user-activation chain of the button tap.
+      window.print();
+      this._status = "Afdrukopdracht gestart. Kies in iPadOS voor Afdrukken of bewaar/deel als PDF.";
+    } catch (err) {
+      cleanup();
+      this._status = err?.message || "Afdrukken kon niet worden gestart.";
+    }
+
+    // afterprint is not reliable in every WKWebView version. The print-only
+    // root is hidden on screen, so a delayed fallback cleanup is safe.
+    window.setTimeout(cleanup, 120000);
+    this._render();
   }
 
   async _export(format) {
