@@ -40,6 +40,7 @@ from .devices import (
     async_sync_devices,
 )
 from .storage import PuppyWeightStorage
+from .time_utils import current_selector_datetime, selector_datetime_value
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -674,14 +675,7 @@ class PuppyWeightTrackerOptionsFlow(
 
                     vol.Optional(
                         "birth_time",
-                        default=(
-                            dt_util.now()
-                            .replace(
-                                second=0,
-                                microsecond=0,
-                            )
-                            .isoformat()
-                        ),
+                        default=current_selector_datetime(),
                     ): selector.DateTimeSelector(),
 
                     vol.Optional(
@@ -988,7 +982,7 @@ class PuppyWeightTrackerOptionsFlow(
             fields[
                 vol.Optional(
                     "birth_time",
-                    default=birth_time,
+                    default=selector_datetime_value(birth_time),
                 )
             ] = selector.DateTimeSelector()
         else:
@@ -1353,7 +1347,10 @@ class PuppyWeightTrackerOptionsFlow(
                         )
                     ),
                     vol.Required(
-                        "timestamp", default=measurement.get("timestamp")
+                        "timestamp",
+                        default=selector_datetime_value(
+                            measurement.get("timestamp")
+                        ),
                     ): selector.DateTimeSelector(),
                     vol.Optional("reason"): selector.TextSelector(
                         selector.TextSelectorConfig(multiline=True)
