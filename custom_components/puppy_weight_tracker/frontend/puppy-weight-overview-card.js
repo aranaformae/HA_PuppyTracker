@@ -1,3 +1,4 @@
+// Puppy Weight Overview Card v1.3.0
 class PuppyWeightOverviewCard extends HTMLElement {
   constructor() {
     super();
@@ -24,6 +25,20 @@ class PuppyWeightOverviewCard extends HTMLElement {
     this._dataUnsubscribe = null;
     this._dataSubscriptionPending = false;
     this._exportStatus = "";
+    this._measurementPanelOpen = false;
+    this._measurementData = null;
+    this._measurementLoading = false;
+    this._measurementError = "";
+    this._measurementKey = "";
+    this._measurementReloadTimer = null;
+    this._editingMeasurementId = null;
+    this._deletingMeasurementId = null;
+    this._measurementActionStatus = "";
+    this._chartSelectedOnly = false;
+    this._interactionActive = false;
+    this._interactionReleaseTimer = null;
+    this._renderPending = false;
+    this._renderScheduled = false;
   }
 
   static getStubConfig() {
@@ -92,7 +107,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
       ? this._config.default_metric
       : "weight";
 
-    this._render();
+    this._scheduleRender();
   }
 
   set hass(hass) {
@@ -110,13 +125,73 @@ class PuppyWeightOverviewCard extends HTMLElement {
       if (hadSignature) this._scheduleHistoryReload();
     }
 
-    this._render();
+    this._scheduleRender();
+  }
+
+  _interactiveControlFocused() {
+    const active = this.shadowRoot?.activeElement;
+    return Boolean(active && active.matches?.("input, select, textarea"));
+  }
+
+  _beginInteraction() {
+    if (this._interactionReleaseTimer) {
+      window.clearTimeout(this._interactionReleaseTimer);
+      this._interactionReleaseTimer = null;
+    }
+    this._interactionActive = true;
+  }
+
+  _endInteraction(delay = 220) {
+    if (this._interactionReleaseTimer) {
+      window.clearTimeout(this._interactionReleaseTimer);
+    }
+
+    this._interactionReleaseTimer = window.setTimeout(() => {
+      this._interactionReleaseTimer = null;
+      this._interactionActive = false;
+      if (this._renderPending && !this._interactiveControlFocused()) {
+        this._renderPending = false;
+        this._scheduleRender(true);
+      }
+    }, delay);
+  }
+
+  _scheduleRender(force = false) {
+    if (!this.shadowRoot) return;
+
+    if (!force && (this._interactionActive || this._interactiveControlFocused())) {
+      this._renderPending = true;
+      return;
+    }
+
+    if (this._renderScheduled) return;
+    this._renderScheduled = true;
+
+    window.requestAnimationFrame(() => {
+      this._renderScheduled = false;
+      if (!force && (this._interactionActive || this._interactiveControlFocused())) {
+        this._renderPending = true;
+        return;
+      }
+      this._renderPending = false;
+      this._render();
+    });
   }
 
   disconnectedCallback() {
     if (this._historyReloadTimer) {
       clearTimeout(this._historyReloadTimer);
       this._historyReloadTimer = null;
+    }
+
+    if (this._measurementReloadTimer) {
+      clearTimeout(this._measurementReloadTimer);
+      this._measurementReloadTimer = null;
+    }
+
+    if (this._interactionReleaseTimer) {
+      clearTimeout(this._interactionReleaseTimer);
+      this._interactionReleaseTimer = null;
     }
 
     if (this._dataUnsubscribe) {
@@ -177,7 +252,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
         err?.message || "Puppy Weight Tracker kon niet automatisch worden gevonden.";
     } finally {
       this._registryLoading = false;
-      this._render();
+      this._scheduleRender();
     }
   }
 
@@ -464,7 +539,10 @@ class PuppyWeightOverviewCard extends HTMLElement {
 
     try {
       this._dataUnsubscribe = await this._hass.connection.subscribeMessage(
-        () => this._scheduleHistoryReload(),
+        () => {
+          this._scheduleHistoryReload();
+          this._scheduleMeasurementReload();
+        },
         { type: "puppy_weight_tracker/subscribe" }
       );
     } catch (err) {
@@ -486,13 +564,13 @@ class PuppyWeightOverviewCard extends HTMLElement {
       this._history = {};
       this._historyKey = key;
       this._historyError = "";
-      this._render();
+      this._scheduleRender();
       return;
     }
 
     this._historyLoading = true;
     this._historyError = "";
-    this._render();
+    this._scheduleRender();
 
     try {
       const result = await this._hass.callWS({
@@ -511,7 +589,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
       this._historyKey = key;
     } finally {
       this._historyLoading = false;
-      this._render();
+      this._scheduleRender();
     }
   }
 
@@ -522,6 +600,345 @@ class PuppyWeightOverviewCard extends HTMLElement {
       this._historyReloadTimer = null;
       this._loadHistory(true);
     }, 250);
+  }
+
+  _measurementCacheKey() {
+    return `${this._selectedLitterStorageId() || ""}:${this._selectedPuppyId || ""}`;
+  }
+
+  async _loadMeasurements(force = false) {
+    if (!this._hass || !this._measurementPanelOpen || this._measurementLoading) return;
+
+    const litterId = this._selectedLitterStorageId();
+    const puppyId = this._selectedPuppyId;
+    const key = this._measurementCacheKey();
+
+    if (!litterId || !puppyId) {
+      this._measurementData = null;
+      this._measurementKey = key;
+      this._measurementError = "";
+      this._scheduleRender();
+      return;
+    }
+
+    if (!force && this._measurementData && this._measurementKey === key) return;
+
+    this._measurementLoading = true;
+    this._measurementError = "";
+    this._scheduleRender();
+
+    try {
+      const result = await this._hass.callWS({
+        type: "puppy_weight_tracker/measurements",
+        litter_id: litterId,
+        puppy_id: puppyId,
+      });
+      this._measurementData = result && typeof result === "object" ? result : null;
+      this._measurementKey = key;
+    } catch (err) {
+      console.error("Puppy Weight Overview card: measurement history failed", err);
+      this._measurementError =
+        err?.message || "De meetgeschiedenis kon niet worden geladen.";
+      this._measurementData = null;
+      this._measurementKey = key;
+    } finally {
+      this._measurementLoading = false;
+      this._scheduleRender();
+    }
+  }
+
+  _scheduleMeasurementReload() {
+    if (!this._measurementPanelOpen) return;
+    if (this._measurementReloadTimer) clearTimeout(this._measurementReloadTimer);
+
+    this._measurementReloadTimer = window.setTimeout(() => {
+      this._measurementReloadTimer = null;
+      this._loadMeasurements(true);
+    }, 260);
+  }
+
+  _measurementStatusLabel(status) {
+    if (status === "active") return "Actief";
+    if (status === "deleted") return "Verwijderd";
+    if (status === "superseded") return "Vorige versie";
+    return "Onbekend";
+  }
+
+  _measurementStatusClass(status) {
+    if (status === "active") return "active";
+    if (status === "deleted") return "deleted";
+    if (status === "superseded") return "superseded";
+    return "neutral";
+  }
+
+  _dateTimeLocalValue(value) {
+    const date = new Date(value || "");
+    if (!Number.isFinite(date.getTime())) return "";
+    const pad = (number) => String(number).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
+      date.getHours()
+    )}:${pad(date.getMinutes())}`;
+  }
+
+  _dateTimeLocalToIso(value) {
+    const date = new Date(value || "");
+    return Number.isFinite(date.getTime()) ? date.toISOString() : null;
+  }
+
+  _measurementById(measurementId) {
+    const items = Array.isArray(this._measurementData?.measurements)
+      ? this._measurementData.measurements
+      : [];
+    return items.find((item) => item?.id === measurementId) || null;
+  }
+
+  async _saveMeasurementEdit(measurementId) {
+    const litterId = this._selectedLitterStorageId();
+    const puppyId = this._selectedPuppyId;
+    const weightInput = this.shadowRoot?.querySelector("#measurement-edit-weight");
+    const timeInput = this.shadowRoot?.querySelector("#measurement-edit-time");
+    const reasonInput = this.shadowRoot?.querySelector("#measurement-edit-reason");
+    const weight = Number(weightInput?.value);
+    const timestamp = this._dateTimeLocalToIso(timeInput?.value);
+
+    if (!litterId || !puppyId || !measurementId) return;
+    if (!Number.isFinite(weight) || weight <= 0) {
+      this._measurementActionStatus = "Voer een geldig gewicht in.";
+      this._scheduleRender(true);
+      return;
+    }
+    if (!timestamp) {
+      this._measurementActionStatus = "Voer een geldige datum en tijd in.";
+      this._scheduleRender(true);
+      return;
+    }
+
+    this._measurementActionStatus = "Correctie opslaan…";
+    this._interactionActive = false;
+    this._scheduleRender(true);
+
+    try {
+      await this._hass.callWS({
+        type: "puppy_weight_tracker/measurement/correct",
+        litter_id: litterId,
+        puppy_id: puppyId,
+        measurement_id: measurementId,
+        weight,
+        timestamp,
+        reason: String(reasonInput?.value || "Dashboardcorrectie").trim() || "Dashboardcorrectie",
+      });
+      this._editingMeasurementId = null;
+      this._measurementActionStatus = "Correctie opgeslagen.";
+      await Promise.all([this._loadHistory(true), this._loadMeasurements(true)]);
+    } catch (err) {
+      console.error("Puppy Weight Overview card: correction failed", err);
+      this._measurementActionStatus = err?.message || "Correctie opslaan mislukt.";
+    }
+
+    this._scheduleRender(true);
+  }
+
+  async _deleteMeasurement(measurementId) {
+    const litterId = this._selectedLitterStorageId();
+    const puppyId = this._selectedPuppyId;
+    const reasonInput = this.shadowRoot?.querySelector("#measurement-delete-reason");
+    if (!litterId || !puppyId || !measurementId) return;
+
+    this._measurementActionStatus = "Meting verwijderen…";
+    this._interactionActive = false;
+    this._scheduleRender(true);
+
+    try {
+      await this._hass.callWS({
+        type: "puppy_weight_tracker/measurement/delete",
+        litter_id: litterId,
+        puppy_id: puppyId,
+        measurement_id: measurementId,
+        reason: String(reasonInput?.value || "Dashboard verwijderen").trim() || "Dashboard verwijderen",
+      });
+      this._deletingMeasurementId = null;
+      this._editingMeasurementId = null;
+      this._measurementActionStatus = "Meting verwijderd; een vorige correctieversie wordt zo nodig hersteld.";
+      await Promise.all([this._loadHistory(true), this._loadMeasurements(true)]);
+    } catch (err) {
+      console.error("Puppy Weight Overview card: delete failed", err);
+      this._measurementActionStatus = err?.message || "Meting verwijderen mislukt.";
+    }
+
+    this._scheduleRender(true);
+  }
+
+  async _restoreMeasurement(measurementId) {
+    const litterId = this._selectedLitterStorageId();
+    const puppyId = this._selectedPuppyId;
+    if (!litterId || !puppyId || !measurementId) return;
+
+    this._measurementActionStatus = "Meting herstellen…";
+    this._interactionActive = false;
+    this._scheduleRender(true);
+
+    try {
+      await this._hass.callWS({
+        type: "puppy_weight_tracker/measurement/restore",
+        litter_id: litterId,
+        puppy_id: puppyId,
+        measurement_id: measurementId,
+        reason: "Hersteld vanuit dashboard",
+      });
+      this._measurementActionStatus = "Meting hersteld.";
+      await Promise.all([this._loadHistory(true), this._loadMeasurements(true)]);
+    } catch (err) {
+      console.error("Puppy Weight Overview card: restore failed", err);
+      this._measurementActionStatus = err?.message || "Meting herstellen mislukt.";
+    }
+
+    this._scheduleRender(true);
+  }
+
+  _measurementPanelHtml(selected) {
+    if (!selected || !this._measurementPanelOpen) return "";
+
+    if (this._measurementLoading && !this._measurementData) {
+      return `<div class="measurement-panel"><div class="loading compact">Meetgeschiedenis laden…</div></div>`;
+    }
+
+    if (this._measurementError) {
+      return `<div class="measurement-panel"><div class="message error">${this._escape(
+        this._measurementError
+      )}</div></div>`;
+    }
+
+    const measurements = Array.isArray(this._measurementData?.measurements)
+      ? this._measurementData.measurements
+      : [];
+    const counts = this._measurementData?.counts || {};
+
+    const rows = measurements
+      .map((measurement) => {
+        const status = measurement.status || "unknown";
+        const isEditing = this._editingMeasurementId === measurement.id;
+        const isDeleting = this._deletingMeasurementId === measurement.id;
+        const isActive = status === "active";
+        const isDeleted = status === "deleted";
+        const sourceShort = measurement.source_measurement_id
+          ? String(measurement.source_measurement_id).slice(0, 8)
+          : "";
+        const supersededShort = measurement.superseded_by
+          ? String(measurement.superseded_by).slice(0, 8)
+          : "";
+
+        const lineage = [
+          sourceShort ? `correctie van ${sourceShort}` : "",
+          supersededShort ? `vervangen door ${supersededShort}` : "",
+        ]
+          .filter(Boolean)
+          .join(" · ");
+
+        const editForm = isEditing
+          ? `
+            <div class="measurement-edit-form" data-editor-for="${this._escape(measurement.id)}">
+              <label><span>Gewicht</span><div class="inline-unit"><input id="measurement-edit-weight" type="number" inputmode="decimal" min="1" max="10000" step="1" value="${this._escape(
+                measurement.weight ?? ""
+              )}"><b>g</b></div></label>
+              <label><span>Datum en tijd</span><input id="measurement-edit-time" type="datetime-local" value="${this._escape(
+                this._dateTimeLocalValue(measurement.timestamp)
+              )}"></label>
+              <label class="reason-field"><span>Reden</span><input id="measurement-edit-reason" type="text" value="${this._escape(
+                measurement.correction_reason || "Dashboardcorrectie"
+              )}" maxlength="160"></label>
+              <div class="measurement-form-actions">
+                <button class="mini-button primary-mini" id="measurement-edit-save" data-measurement-id="${this._escape(
+                  measurement.id
+                )}">Opslaan</button>
+                <button class="mini-button" id="measurement-edit-cancel">Annuleren</button>
+              </div>
+            </div>`
+          : "";
+
+        const deleteForm = isDeleting
+          ? `
+            <div class="measurement-delete-form">
+              <div><strong>Deze meting verwijderen?</strong><span>De meting blijft bewaard en kan later worden hersteld.</span></div>
+              <label><span>Reden (optioneel)</span><input id="measurement-delete-reason" type="text" maxlength="160" placeholder="Bijv. foutieve invoer"></label>
+              <div class="measurement-form-actions">
+                <button class="mini-button danger-mini" id="measurement-delete-confirm" data-measurement-id="${this._escape(
+                  measurement.id
+                )}">Verwijderen</button>
+                <button class="mini-button" id="measurement-delete-cancel">Annuleren</button>
+              </div>
+            </div>`
+          : "";
+
+        const actions = isEditing || isDeleting
+          ? ""
+          : `
+            <div class="measurement-actions">
+              ${
+                isActive
+                  ? `<button class="mini-button" data-edit-measurement="${this._escape(
+                      measurement.id
+                    )}">Wijzigen</button><button class="mini-button danger-text" data-delete-measurement="${this._escape(
+                      measurement.id
+                    )}">Verwijderen</button>`
+                  : ""
+              }
+              ${
+                isDeleted && !measurement.superseded_by
+                  ? `<button class="mini-button" data-restore-measurement="${this._escape(
+                      measurement.id
+                    )}">Herstellen</button>`
+                  : ""
+              }
+            </div>`;
+
+        return `
+          <div class="measurement-row ${this._measurementStatusClass(status)}">
+            <div class="measurement-main">
+              <div>
+                <strong>${this._formatNumber(Number(measurement.weight), "g")}</strong>
+                <span>${this._escape(this._formatDateTime(measurement.timestamp))}</span>
+              </div>
+              <span class="measurement-status ${this._measurementStatusClass(status)}">${this._escape(
+                this._measurementStatusLabel(status)
+              )}</span>
+            </div>
+            <div class="measurement-meta">
+              <span>${measurement.kind === "birth" ? "Geboortegewicht" : "Weging"}</span>
+              ${measurement.note ? `<span>Notitie: ${this._escape(measurement.note)}</span>` : ""}
+              ${
+                measurement.correction_reason
+                  ? `<span>Correctiereden: ${this._escape(measurement.correction_reason)}</span>`
+                  : ""
+              }
+              ${lineage ? `<span class="lineage">${this._escape(lineage)}</span>` : ""}
+            </div>
+            ${actions}
+            ${editForm}
+            ${deleteForm}
+          </div>`;
+      })
+      .join("");
+
+    return `
+      <div class="measurement-panel">
+        <div class="measurement-panel-header">
+          <div>
+            <span class="eyebrow">Meetgeschiedenis</span>
+            <h3>${this._escape(selected.name)}</h3>
+          </div>
+          <div class="measurement-counts">
+            <span>${Number(counts.active || 0)} actief</span>
+            ${Number(counts.superseded || 0) ? `<span>${Number(counts.superseded)} vorige versies</span>` : ""}
+            ${Number(counts.deleted || 0) ? `<span>${Number(counts.deleted)} verwijderd</span>` : ""}
+          </div>
+        </div>
+        ${
+          this._measurementActionStatus
+            ? `<div class="measurement-action-status">${this._escape(this._measurementActionStatus)}</div>`
+            : ""
+        }
+        ${rows || `<div class="empty small">Nog geen metingen voor deze pup.</div>`}
+      </div>`;
   }
 
   _currentStateSignature() {
@@ -869,6 +1286,13 @@ class PuppyWeightOverviewCard extends HTMLElement {
     this._tooltip = null;
     this._history = {};
     this._historyKey = "";
+    this._measurementData = null;
+    this._measurementKey = "";
+    this._measurementPanelOpen = false;
+    this._editingMeasurementId = null;
+    this._deletingMeasurementId = null;
+    this._measurementActionStatus = "";
+    this._chartSelectedOnly = false;
 
     const litter = this._selectedLitter();
     const station = this._station();
@@ -895,7 +1319,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
       }
     }
 
-    this._render();
+    this._scheduleRender();
     await this._loadHistory(true);
   }
 
@@ -904,7 +1328,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
     if (!this._hass || !litterId) return;
 
     this._exportStatus = `${format.toUpperCase()} maken…`;
-    this._render();
+    this._scheduleRender();
 
     try {
       const result = await this._hass.callWS({
@@ -933,11 +1357,11 @@ class PuppyWeightOverviewCard extends HTMLElement {
       this._exportStatus = err?.message || `${format.toUpperCase()} export mislukt`;
     }
 
-    this._render();
+    this._scheduleRender();
     window.setTimeout(() => {
       if (this._exportStatus) {
         this._exportStatus = "";
-        this._render();
+        this._scheduleRender();
       }
     }, 3500);
   }
@@ -986,6 +1410,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
     const rows = this._puppyRows();
     const selected = rows.find((row) => row.puppyId === this._selectedPuppyId) || rows[0] || null;
     const summary = this._summary(rows);
+    const chartRows = this._chartSelectedOnly && selected ? [selected] : rows;
 
     const litterOptions = litters
       .map(
@@ -1050,9 +1475,21 @@ class PuppyWeightOverviewCard extends HTMLElement {
               <span class="eyebrow">Geselecteerde pup</span>
               <h3>${this._escape(selected.name)}</h3>
             </div>
-            <span class="status-pill ${this._statusClass(selected.statusCode)}">${this._escape(
+            <div class="detail-actions">
+              <button class="mini-button" id="toggle-chart-focus">${
+                this._chartSelectedOnly ? "Alle pups in grafiek" : "Alleen deze pup"
+              }</button>
+              ${
+                this._history?.can_manage_measurements
+                  ? `<button class="mini-button" id="toggle-measurements">${
+                      this._measurementPanelOpen ? "Metingen sluiten" : "Metingen beheren"
+                    }</button>`
+                  : ""
+              }
+              <span class="status-pill ${this._statusClass(selected.statusCode)}">${this._escape(
           selected.status
         )}</span>
+            </div>
           </div>
           <div class="detail-grid">
             <div><span>Leeftijd</span><strong>${this._escape(selected.age)}</strong></div>
@@ -1127,6 +1564,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
       ${summaryHtml}
       ${puppyCards}
       ${selectedDetails}
+      ${this._measurementPanelHtml(selected)}
 
       <div class="chart-panel">
         <div class="chart-header">
@@ -1140,12 +1578,12 @@ class PuppyWeightOverviewCard extends HTMLElement {
                 : "Groei sinds geboorte"
             )}</h3>
           </div>
-          <span>${rows.length} ${rows.length === 1 ? "pup" : "pups"} · eigen meetdata</span>
+          <span>${chartRows.length} ${chartRows.length === 1 ? "pup" : "pups"} · eigen meetdata</span>
         </div>
         ${this._exportStatus ? `<div class="export-status">${this._escape(this._exportStatus)}</div>` : ""}
-        ${this._chartSvg(rows)}
+        ${this._chartSvg(chartRows)}
         <div class="legend">
-          ${rows
+          ${chartRows
             .map(
               (row, index) => `
                 <button class="legend-item ${row.puppyId === this._selectedPuppyId ? "selected" : ""}" data-puppy-id="${this._escape(
@@ -1180,27 +1618,111 @@ class PuppyWeightOverviewCard extends HTMLElement {
     const refresh = this.shadowRoot?.querySelector("#refresh-history");
     const exportCsv = this.shadowRoot?.querySelector("#export-csv");
     const exportJson = this.shadowRoot?.querySelector("#export-json");
+    const toggleMeasurements = this.shadowRoot?.querySelector("#toggle-measurements");
+    const toggleChartFocus = this.shadowRoot?.querySelector("#toggle-chart-focus");
+
+    const interactiveControls = this.shadowRoot?.querySelectorAll(
+      "input, select, textarea, button"
+    );
+    interactiveControls?.forEach((control) => {
+      control.addEventListener("pointerdown", () => this._beginInteraction());
+      control.addEventListener("touchstart", () => this._beginInteraction(), { passive: true });
+      control.addEventListener("pointerup", () => this._endInteraction());
+      control.addEventListener("pointercancel", () => this._endInteraction());
+    });
+
+    this.shadowRoot?.querySelectorAll("input, select, textarea").forEach((control) => {
+      control.addEventListener("focus", () => this._beginInteraction());
+      control.addEventListener("blur", () => this._endInteraction(160));
+    });
 
     litterSelect?.addEventListener("change", async (event) => {
-      await this._selectLitter(event.target.value);
+      const value = event.target.value;
+      event.target.blur();
+      this._interactionActive = false;
+      await this._selectLitter(value);
+      this._scheduleRender(true);
     });
 
     metricSelect?.addEventListener("change", (event) => {
       this._metric = event.target.value;
       this._tooltip = null;
-      this._render();
+      event.target.blur();
+      this._interactionActive = false;
+      this._scheduleRender(true);
     });
 
     refresh?.addEventListener("click", () => this._loadHistory(true));
     exportCsv?.addEventListener("click", () => this._exportData("csv"));
     exportJson?.addEventListener("click", () => this._exportData("json"));
 
+    toggleChartFocus?.addEventListener("click", () => {
+      this._chartSelectedOnly = !this._chartSelectedOnly;
+      this._tooltip = null;
+      this._interactionActive = false;
+      this._scheduleRender(true);
+    });
+
+    toggleMeasurements?.addEventListener("click", async () => {
+      this._measurementPanelOpen = !this._measurementPanelOpen;
+      this._editingMeasurementId = null;
+      this._deletingMeasurementId = null;
+      this._measurementActionStatus = "";
+      this._interactionActive = false;
+      this._scheduleRender(true);
+      if (this._measurementPanelOpen) await this._loadMeasurements(true);
+    });
+
+    this.shadowRoot?.querySelectorAll("[data-edit-measurement]").forEach((button) => {
+      button.addEventListener("click", () => {
+        this._editingMeasurementId = button.dataset.editMeasurement;
+        this._deletingMeasurementId = null;
+        this._measurementActionStatus = "";
+        this._interactionActive = false;
+        this._scheduleRender(true);
+      });
+    });
+
+    this.shadowRoot?.querySelector("#measurement-edit-save")?.addEventListener("click", (event) => {
+      const id = event.currentTarget?.dataset?.measurementId;
+      this._saveMeasurementEdit(id);
+    });
+    this.shadowRoot?.querySelector("#measurement-edit-cancel")?.addEventListener("click", () => {
+      this._editingMeasurementId = null;
+      this._interactionActive = false;
+      this._scheduleRender(true);
+    });
+
+    this.shadowRoot?.querySelectorAll("[data-delete-measurement]").forEach((button) => {
+      button.addEventListener("click", () => {
+        this._deletingMeasurementId = button.dataset.deleteMeasurement;
+        this._editingMeasurementId = null;
+        this._measurementActionStatus = "";
+        this._interactionActive = false;
+        this._scheduleRender(true);
+      });
+    });
+    this.shadowRoot?.querySelector("#measurement-delete-confirm")?.addEventListener("click", (event) => {
+      const id = event.currentTarget?.dataset?.measurementId;
+      this._deleteMeasurement(id);
+    });
+    this.shadowRoot?.querySelector("#measurement-delete-cancel")?.addEventListener("click", () => {
+      this._deletingMeasurementId = null;
+      this._interactionActive = false;
+      this._scheduleRender(true);
+    });
+
+    this.shadowRoot?.querySelectorAll("[data-restore-measurement]").forEach((button) => {
+      button.addEventListener("click", () => this._restoreMeasurement(button.dataset.restoreMeasurement));
+    });
+
     this.shadowRoot?.querySelectorAll("[data-range]").forEach((button) => {
       button.addEventListener("click", () => {
         const value = Number(button.dataset.range);
         this._rangeHours = Number.isFinite(value) ? value : 168;
         this._tooltip = null;
-        this._render();
+        this._interactionActive = false;
+        this._scheduleRender(true);
       });
     });
 
@@ -1208,7 +1730,13 @@ class PuppyWeightOverviewCard extends HTMLElement {
       item.addEventListener("click", () => {
         this._selectedPuppyId = item.dataset.puppyId;
         this._tooltip = null;
-        this._render();
+        this._editingMeasurementId = null;
+        this._deletingMeasurementId = null;
+        this._measurementData = null;
+        this._measurementKey = "";
+        this._interactionActive = false;
+        this._scheduleRender(true);
+        if (this._measurementPanelOpen) this._loadMeasurements(true);
       });
     });
 
@@ -1224,11 +1752,14 @@ class PuppyWeightOverviewCard extends HTMLElement {
           unit: point.dataset.unit || "",
           statusClass: this._statusClass(row?.statusCode || "unknown"),
         };
-        this._render();
+        this._measurementData = null;
+        this._measurementKey = "";
+        this._interactionActive = false;
+        this._scheduleRender(true);
+        if (this._measurementPanelOpen) this._loadMeasurements(true);
       };
 
       point.addEventListener("click", show);
-      point.addEventListener("mouseenter", show);
     });
   }
 
@@ -1629,11 +2160,206 @@ class PuppyWeightOverviewCard extends HTMLElement {
           background: var(--secondary-background-color);
         }
 
+        .detail-actions {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .measurement-panel {
+          margin-top: 14px;
+          padding: 14px;
+          border: 1px solid var(--divider-color);
+          border-radius: 12px;
+          background: var(--secondary-background-color);
+        }
+
+        .measurement-panel-header {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 12px;
+          margin-bottom: 10px;
+        }
+
+        .measurement-panel-header h3 { margin: 0; }
+
+        .measurement-counts {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+          gap: 5px;
+          color: var(--secondary-text-color);
+          font-size: 11px;
+        }
+
+        .measurement-counts span {
+          padding: 4px 7px;
+          border-radius: 999px;
+          background: var(--ha-card-background, var(--card-background-color, #fff));
+        }
+
+        .measurement-row {
+          padding: 11px 0;
+          border-top: 1px solid var(--divider-color);
+        }
+
+        .measurement-row:first-of-type { border-top: 0; }
+        .measurement-row.deleted { opacity: .72; }
+        .measurement-row.superseded { opacity: .68; }
+
+        .measurement-main {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 10px;
+        }
+
+        .measurement-main > div {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+
+        .measurement-main > div > strong { font-size: 16px; }
+        .measurement-main > div > span {
+          color: var(--secondary-text-color);
+          font-size: 12px;
+        }
+
+        .measurement-status {
+          display: inline-flex;
+          min-height: 25px;
+          align-items: center;
+          padding: 3px 8px;
+          border-radius: 999px;
+          font-size: 11px;
+          font-weight: 700;
+          background: var(--secondary-background-color);
+        }
+        .measurement-status.active {
+          color: var(--success-color, #2e7d32);
+          background: color-mix(in srgb, var(--success-color, #2e7d32) 12%, transparent);
+        }
+        .measurement-status.deleted {
+          color: var(--error-color, #db4437);
+          background: color-mix(in srgb, var(--error-color, #db4437) 10%, transparent);
+        }
+        .measurement-status.superseded { color: var(--secondary-text-color); }
+
+        .measurement-meta {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 4px 10px;
+          margin-top: 6px;
+          color: var(--secondary-text-color);
+          font-size: 11px;
+        }
+        .measurement-meta .lineage { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+        .measurement-actions,
+        .measurement-form-actions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 7px;
+          margin-top: 9px;
+        }
+
+        .mini-button {
+          min-height: 34px;
+          padding: 5px 10px;
+          border-radius: 8px;
+          border: 1px solid var(--divider-color);
+          background: var(--ha-card-background, var(--card-background-color, #fff));
+          color: var(--primary-text-color);
+          font: inherit;
+          cursor: pointer;
+        }
+        .primary-mini {
+          background: var(--primary-color);
+          border-color: var(--primary-color);
+          color: var(--text-primary-color, #fff);
+        }
+        .danger-mini {
+          background: var(--error-color, #db4437);
+          border-color: var(--error-color, #db4437);
+          color: #fff;
+        }
+        .danger-text { color: var(--error-color, #db4437); }
+
+        .measurement-edit-form,
+        .measurement-delete-form {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 10px;
+          margin-top: 10px;
+          padding: 11px;
+          border-radius: 10px;
+          background: var(--ha-card-background, var(--card-background-color, #fff));
+        }
+        .measurement-delete-form { grid-template-columns: 1fr; }
+        .measurement-edit-form label,
+        .measurement-delete-form label {
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+          min-width: 0;
+        }
+        .measurement-edit-form label > span,
+        .measurement-delete-form label > span {
+          color: var(--secondary-text-color);
+          font-size: 11px;
+          font-weight: 600;
+        }
+        .measurement-edit-form input,
+        .measurement-delete-form input {
+          width: 100%;
+          min-width: 0;
+          min-height: 42px;
+          padding: 8px 10px;
+          border: 1px solid var(--divider-color);
+          border-radius: 8px;
+          background: var(--card-background-color);
+          color: var(--primary-text-color);
+          font: inherit;
+          font-size: 16px;
+        }
+        .measurement-edit-form .reason-field,
+        .measurement-edit-form .measurement-form-actions { grid-column: 1 / -1; }
+        .inline-unit { display: flex; align-items: center; gap: 7px; }
+        .inline-unit input { flex: 1; }
+        .inline-unit b { color: var(--secondary-text-color); }
+        .measurement-delete-form > div:first-child {
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+        }
+        .measurement-delete-form > div:first-child span {
+          color: var(--secondary-text-color);
+          font-size: 12px;
+        }
+        .measurement-action-status {
+          margin: 8px 0;
+          padding: 8px 10px;
+          border-radius: 8px;
+          background: var(--ha-card-background, var(--card-background-color, #fff));
+          color: var(--secondary-text-color);
+          font-size: 12px;
+        }
+        .loading.compact { padding: 10px 4px; }
+
         @media (max-width: 650px) {
           .summary-grid { grid-template-columns: repeat(2, 1fr); }
           .summary-grid > div:last-child { grid-column: span 2; }
           .puppy-grid { grid-template-columns: 1fr; }
           .detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          .measurement-panel-header { flex-direction: column; }
+          .measurement-counts { justify-content: flex-start; }
+          .measurement-edit-form { grid-template-columns: 1fr; }
+          .measurement-edit-form .reason-field,
+          .measurement-edit-form .measurement-form-actions { grid-column: auto; }
         }
 
         @media (max-width: 430px) {
@@ -1667,7 +2393,7 @@ if (!window.customCards.some((card) => card.type === "puppy-weight-overview-card
 }
 
 console.info(
-  "%c PUPPY-WEIGHT-OVERVIEW-CARD %c v1.2.0 ",
+  "%c PUPPY-WEIGHT-OVERVIEW-CARD %c v1.3.0 ",
   "color: white; background: #607d8b; font-weight: 700;",
   "color: #607d8b; background: white; font-weight: 700;"
 );

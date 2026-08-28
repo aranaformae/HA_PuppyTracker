@@ -1,4 +1,4 @@
-// Puppy Weight Tracker Card v1.2.0
+// Puppy Weight Tracker Card v1.3.0
 class PuppyWeightTrackerCard extends HTMLElement {
   constructor() {
     super();
@@ -17,6 +17,8 @@ class PuppyWeightTrackerCard extends HTMLElement {
     this._interactionActive = false;
     this._interactionReleaseTimer = null;
     this._renderScheduled = false;
+    this._optimisticLitterOption = null;
+    this._optimisticPuppyOption = null;
   }
 
   static getStubConfig() {
@@ -53,6 +55,20 @@ class PuppyWeightTrackerCard extends HTMLElement {
     if (!this._registryLoaded && !this._registryLoading) {
       this._loadRegistry();
       return;
+    }
+
+    const station = this._station();
+    if (
+      this._optimisticLitterOption &&
+      this._state(station?.ids?.litter)?.state === this._optimisticLitterOption
+    ) {
+      this._optimisticLitterOption = null;
+    }
+    if (
+      this._optimisticPuppyOption &&
+      this._state(station?.ids?.puppy)?.state === this._optimisticPuppyOption
+    ) {
+      this._optimisticPuppyOption = null;
     }
 
     // Home Assistant can publish several state updates during a single tap.
@@ -347,7 +363,7 @@ class PuppyWeightTrackerCard extends HTMLElement {
     const litterState = this._state(station?.ids?.litter);
     if (!litterState) return null;
 
-    const selected = String(litterState.state || "");
+    const selected = String(this._optimisticLitterOption || litterState.state || "");
     const normalizedSelected = selected.replace(/ · \d+$/, "");
 
     const litterDevices = this._devices.filter((device) =>
@@ -372,7 +388,7 @@ class PuppyWeightTrackerCard extends HTMLElement {
       ? puppySelect.attributes.options.map(String)
       : [];
 
-    const selectedOption = puppySelect?.state || "";
+    const selectedOption = this._optimisticPuppyOption || puppySelect?.state || "";
 
     const puppyDevices = this._devices.filter(
       (device) =>
@@ -492,7 +508,10 @@ class PuppyWeightTrackerCard extends HTMLElement {
       );
       this._localMessage = "";
     } catch (err) {
+      if (entityId === this._station()?.ids?.litter) this._optimisticLitterOption = null;
+      if (entityId === this._station()?.ids?.puppy) this._optimisticPuppyOption = null;
       this._setError(err);
+      this._scheduleRender(true);
     }
   }
 
@@ -667,7 +686,7 @@ class PuppyWeightTrackerCard extends HTMLElement {
           .map(
             (option) =>
               `<option value="${this._escape(option)}" ${
-                option === litterState?.state ? "selected" : ""
+                option === (this._optimisticLitterOption || litterState?.state) ? "selected" : ""
               }>${this._escape(option)}</option>`
           )
           .join("")}
@@ -680,7 +699,7 @@ class PuppyWeightTrackerCard extends HTMLElement {
           .map(
             (option) =>
               `<option value="${this._escape(option)}" ${
-                option === puppyState?.state ? "selected" : ""
+                option === (this._optimisticPuppyOption || puppyState?.state) ? "selected" : ""
               }>${this._escape(option)}</option>`
           )
           .join("")}
@@ -850,18 +869,38 @@ class PuppyWeightTrackerCard extends HTMLElement {
     litterSelect?.addEventListener("focus", () => this._beginInteraction());
     puppySelect?.addEventListener("focus", () => this._beginInteraction());
 
-    litterSelect?.addEventListener("change", async (event) => {
+    litterSelect?.addEventListener("change", (event) => {
+      const option = event.target.value;
       this._draftWeight = null;
-      await this._select(station.ids.litter, event.target.value);
+      this._optimisticLitterOption = option;
+      this._optimisticPuppyOption = null;
+
+      // The native iOS select can remain focused after a choice. At this point
+      // the change event has completed, so it is safe to commit the visual
+      // selection immediately instead of waiting for an extra tap elsewhere.
       event.target.blur();
-      this._endInteraction(320);
+      this._interactionActive = false;
+      this._renderPending = false;
+      this._scheduleRender(true);
+
+      this._select(station.ids.litter, option).then(() => {
+        this._endInteraction(0);
+      });
     });
 
-    puppySelect?.addEventListener("change", async (event) => {
+    puppySelect?.addEventListener("change", (event) => {
+      const option = event.target.value;
       this._draftWeight = null;
-      await this._select(station.ids.puppy, event.target.value);
+      this._optimisticPuppyOption = option;
+
       event.target.blur();
-      this._endInteraction(320);
+      this._interactionActive = false;
+      this._renderPending = false;
+      this._scheduleRender(true);
+
+      this._select(station.ids.puppy, option).then(() => {
+        this._endInteraction(0);
+      });
     });
 
     litterSelect?.addEventListener("blur", () => this._endInteraction(320));
@@ -926,11 +965,13 @@ class PuppyWeightTrackerCard extends HTMLElement {
 
     this.shadowRoot?.querySelectorAll("[data-puppy-option]").forEach((row) => {
       row.addEventListener("click", () => {
+        const option = row.dataset.puppyOption;
         this._draftWeight = null;
-        this._beginInteraction();
-        this._select(station.ids.puppy, row.dataset.puppyOption).finally(() =>
-          this._endInteraction(320)
-        );
+        this._optimisticPuppyOption = option;
+        this._interactionActive = false;
+        this._renderPending = false;
+        this._scheduleRender(true);
+        this._select(station.ids.puppy, option).then(() => this._endInteraction(0));
       });
     });
   }

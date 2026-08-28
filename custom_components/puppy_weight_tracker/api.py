@@ -1,4 +1,4 @@
-"""WebSocket data and export API for Puppy Weight Tracker."""
+"""WebSocket data, measurement management, and export API for Puppy Weight Tracker."""
 
 from __future__ import annotations
 
@@ -13,14 +13,14 @@ import voluptuous as vol
 
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.helpers.dispatcher import async_dispatcher_connect, async_dispatcher_send
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, SIGNAL_DASHBOARD_UPDATE
+from .const import DOMAIN, SIGNAL_DASHBOARD_UPDATE, SIGNAL_UPDATE
 from .storage import PuppyWeightStorage
 
 DATA_API_REGISTERED = f"{DOMAIN}_websocket_api_registered"
-API_VERSION = 1
+API_VERSION = 2
 
 
 def _runtime_storage(hass: HomeAssistant) -> PuppyWeightStorage | None:
@@ -56,7 +56,34 @@ def _active_measurements(puppy: dict[str, Any]) -> list[dict[str, Any]]:
     return measurements
 
 
-def _litter_payload(storage: PuppyWeightStorage, litter_id: str) -> dict[str, Any]:
+def _all_measurements(puppy: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return all measurement versions, newest first, including deleted data."""
+    measurements = [deepcopy(item) for item in puppy.get("measurements", [])]
+    measurements.sort(
+        key=lambda item: (
+            item.get("timestamp") or "",
+            item.get("created_at") or "",
+        ),
+        reverse=True,
+    )
+    return measurements
+
+
+def _measurement_status(measurement: dict[str, Any]) -> str:
+    """Return a compact status for a stored measurement version."""
+    if measurement.get("deleted", False):
+        return "deleted"
+    if measurement.get("superseded_by") is not None:
+        return "superseded"
+    return "active"
+
+
+def _litter_payload(
+    storage: PuppyWeightStorage,
+    litter_id: str,
+    *,
+    can_manage_measurements: bool = False,
+) -> dict[str, Any]:
     """Build graph data from Puppy Weight Tracker's own persistent storage."""
     litter = storage.get_litter(litter_id)
     if litter is None:
@@ -85,6 +112,7 @@ def _litter_payload(storage: PuppyWeightStorage, litter_id: str) -> dict[str, An
         "api_version": API_VERSION,
         "generated_at": dt_util.now().isoformat(),
         "storage_updated_at": storage.get_data().get("updated_at"),
+        "can_manage_measurements": can_manage_measurements,
         "litter": {
             "id": litter_id,
             "name": litter.get("name"),
@@ -97,6 +125,59 @@ def _litter_payload(storage: PuppyWeightStorage, litter_id: str) -> dict[str, An
             "last_completed_session": deepcopy(litter.get("last_completed_session")),
         },
         "puppies": puppies,
+    }
+
+
+def _puppy_measurements_payload(
+    storage: PuppyWeightStorage,
+    litter_id: str,
+    puppy_id: str,
+) -> dict[str, Any]:
+    """Build complete measurement history for one puppy."""
+    litter = storage.get_litter(litter_id)
+    if litter is None:
+        raise ValueError("Unknown litter")
+
+    puppy = storage.get_puppy(litter_id, puppy_id)
+    if puppy is None:
+        raise ValueError("Unknown puppy")
+
+    measurements = _all_measurements(puppy)
+    for measurement in measurements:
+        measurement["status"] = _measurement_status(measurement)
+        measurement["is_birth_measurement"] = (
+            measurement.get("id") == puppy.get("birth_measurement_id")
+            or measurement.get("kind") == "birth"
+        )
+
+    active_count = sum(item["status"] == "active" for item in measurements)
+    deleted_count = sum(item["status"] == "deleted" for item in measurements)
+    superseded_count = sum(item["status"] == "superseded" for item in measurements)
+
+    return {
+        "api_version": API_VERSION,
+        "generated_at": dt_util.now().isoformat(),
+        "storage_updated_at": storage.get_data().get("updated_at"),
+        "litter": {
+            "id": litter_id,
+            "name": litter.get("name"),
+        },
+        "puppy": {
+            "id": puppy_id,
+            "name": puppy.get("name"),
+            "collar_color": puppy.get("collar_color"),
+            "sex": puppy.get("sex"),
+            "birth_weight": puppy.get("birth_weight"),
+            "birth_time": puppy.get("birth_time"),
+            "birth_measurement_id": puppy.get("birth_measurement_id"),
+        },
+        "counts": {
+            "total_versions": len(measurements),
+            "active": active_count,
+            "deleted": deleted_count,
+            "superseded": superseded_count,
+        },
+        "measurements": measurements,
     }
 
 
@@ -205,6 +286,24 @@ def _json_export(storage: PuppyWeightStorage, litter_id: str) -> tuple[str, str,
     return filename, "application/json;charset=utf-8", content
 
 
+def _storage_or_error(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> PuppyWeightStorage | None:
+    """Return storage or send a consistent websocket error."""
+    storage = _runtime_storage(hass)
+    if storage is None:
+        connection.send_error(msg["id"], "not_loaded", "Puppy Weight Tracker is not loaded")
+    return storage
+
+
+def _signal_measurement_change(hass: HomeAssistant, puppy_id: str) -> None:
+    """Refresh entities, cards, and monitoring after a measurement mutation."""
+    async_dispatcher_send(hass, SIGNAL_UPDATE, puppy_id)
+    async_dispatcher_send(hass, SIGNAL_DASHBOARD_UPDATE)
+
+
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/data",
@@ -218,18 +317,168 @@ def websocket_get_data(
     msg: dict[str, Any],
 ) -> None:
     """Return persistent measurement data for a litter."""
-    storage = _runtime_storage(hass)
+    storage = _storage_or_error(hass, connection, msg)
     if storage is None:
-        connection.send_error(msg["id"], "not_loaded", "Puppy Weight Tracker is not loaded")
         return
 
     try:
-        result = _litter_payload(storage, msg["litter_id"])
+        result = _litter_payload(
+            storage,
+            msg["litter_id"],
+            can_manage_measurements=bool(connection.user and connection.user.is_admin),
+        )
     except ValueError as err:
         connection.send_error(msg["id"], "not_found", str(err))
         return
 
     connection.send_result(msg["id"], result)
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/measurements",
+        vol.Required("litter_id"): str,
+        vol.Required("puppy_id"): str,
+    }
+)
+@callback
+def websocket_get_measurements(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Return complete editable measurement history for one puppy."""
+    storage = _storage_or_error(hass, connection, msg)
+    if storage is None:
+        return
+
+    try:
+        result = _puppy_measurements_payload(storage, msg["litter_id"], msg["puppy_id"])
+    except ValueError as err:
+        connection.send_error(msg["id"], "not_found", str(err))
+        return
+
+    connection.send_result(msg["id"], result)
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/measurement/correct",
+        vol.Required("litter_id"): str,
+        vol.Required("puppy_id"): str,
+        vol.Required("measurement_id"): str,
+        vol.Required("weight"): vol.All(vol.Coerce(float), vol.Range(min=1, max=10000)),
+        vol.Required("timestamp"): str,
+        vol.Optional("reason"): vol.Any(str, None),
+    }
+)
+@websocket_api.async_response
+async def websocket_correct_measurement(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Correct one active measurement while preserving its history."""
+    storage = _storage_or_error(hass, connection, msg)
+    if storage is None:
+        return
+
+    try:
+        replacement_id = await storage.async_correct_measurement(
+            msg["litter_id"],
+            msg["puppy_id"],
+            msg["measurement_id"],
+            new_weight=float(msg["weight"]),
+            new_timestamp=msg["timestamp"],
+            reason=(msg.get("reason") or None),
+        )
+    except ValueError as err:
+        connection.send_error(msg["id"], "invalid_measurement", str(err))
+        return
+
+    _signal_measurement_change(hass, msg["puppy_id"])
+    connection.send_result(
+        msg["id"],
+        {
+            "ok": True,
+            "measurement_id": replacement_id,
+            "action": "correct",
+        },
+    )
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/measurement/delete",
+        vol.Required("litter_id"): str,
+        vol.Required("puppy_id"): str,
+        vol.Required("measurement_id"): str,
+        vol.Optional("reason"): vol.Any(str, None),
+    }
+)
+@websocket_api.async_response
+async def websocket_delete_measurement(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Soft-delete one current measurement."""
+    storage = _storage_or_error(hass, connection, msg)
+    if storage is None:
+        return
+
+    try:
+        await storage.async_delete_weight(
+            msg["litter_id"],
+            msg["puppy_id"],
+            msg["measurement_id"],
+            reason=(msg.get("reason") or None),
+        )
+    except ValueError as err:
+        connection.send_error(msg["id"], "invalid_measurement", str(err))
+        return
+
+    _signal_measurement_change(hass, msg["puppy_id"])
+    connection.send_result(msg["id"], {"ok": True, "action": "delete"})
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/measurement/restore",
+        vol.Required("litter_id"): str,
+        vol.Required("puppy_id"): str,
+        vol.Required("measurement_id"): str,
+        vol.Optional("reason"): vol.Any(str, None),
+    }
+)
+@websocket_api.async_response
+async def websocket_restore_measurement(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Restore one soft-deleted measurement."""
+    storage = _storage_or_error(hass, connection, msg)
+    if storage is None:
+        return
+
+    try:
+        await storage.async_restore_weight(
+            msg["litter_id"],
+            msg["puppy_id"],
+            msg["measurement_id"],
+            reason=(msg.get("reason") or None),
+        )
+    except ValueError as err:
+        connection.send_error(msg["id"], "invalid_measurement", str(err))
+        return
+
+    _signal_measurement_change(hass, msg["puppy_id"])
+    connection.send_result(msg["id"], {"ok": True, "action": "restore"})
 
 
 @websocket_api.websocket_command(
@@ -246,9 +495,8 @@ def websocket_export_data(
     msg: dict[str, Any],
 ) -> None:
     """Return a downloadable CSV or JSON export."""
-    storage = _runtime_storage(hass)
+    storage = _storage_or_error(hass, connection, msg)
     if storage is None:
-        connection.send_error(msg["id"], "not_loaded", "Puppy Weight Tracker is not loaded")
         return
 
     try:
@@ -306,6 +554,10 @@ def async_setup_api(hass: HomeAssistant) -> None:
         return
 
     websocket_api.async_register_command(hass, websocket_get_data)
+    websocket_api.async_register_command(hass, websocket_get_measurements)
+    websocket_api.async_register_command(hass, websocket_correct_measurement)
+    websocket_api.async_register_command(hass, websocket_delete_measurement)
+    websocket_api.async_register_command(hass, websocket_restore_measurement)
     websocket_api.async_register_command(hass, websocket_export_data)
     websocket_api.async_register_command(hass, websocket_subscribe_updates)
     hass.data[DATA_API_REGISTERED] = True
