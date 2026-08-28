@@ -660,7 +660,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
   _measurementStatusLabel(status) {
     if (status === "active") return "Actief";
     if (status === "deleted") return "Verwijderd";
-    if (status === "superseded") return "Vorige versie";
+    if (status === "superseded") return "Oude versie (bewaard)";
     return "Onbekend";
   }
 
@@ -718,7 +718,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
     this._scheduleRender(true);
 
     try {
-      await this._hass.callWS({
+      const result = await this._hass.callWS({
         type: "puppy_weight_tracker/measurement/correct",
         litter_id: litterId,
         puppy_id: puppyId,
@@ -727,9 +727,16 @@ class PuppyWeightOverviewCard extends HTMLElement {
         timestamp,
         reason: String(reasonInput?.value || "Dashboardcorrectie").trim() || "Dashboardcorrectie",
       });
+      if (result?.measurement_data) {
+        this._measurementData = result.measurement_data;
+        this._measurementKey = this._measurementCacheKey();
+        this._measurementError = "";
+      }
       this._editingMeasurementId = null;
-      this._measurementActionStatus = "Correctie opgeslagen.";
-      await Promise.all([this._loadHistory(true), this._loadMeasurements(true)]);
+      this._measurementActionStatus = `Correctie opgeslagen als actieve versie${
+        result?.measurement_id ? ` (${String(result.measurement_id).slice(0, 8)})` : ""
+      }.`;
+      await this._loadHistory(true);
     } catch (err) {
       console.error("Puppy Weight Overview card: correction failed", err);
       this._measurementActionStatus = err?.message || "Correctie opslaan mislukt.";
@@ -749,17 +756,22 @@ class PuppyWeightOverviewCard extends HTMLElement {
     this._scheduleRender(true);
 
     try {
-      await this._hass.callWS({
+      const result = await this._hass.callWS({
         type: "puppy_weight_tracker/measurement/delete",
         litter_id: litterId,
         puppy_id: puppyId,
         measurement_id: measurementId,
         reason: String(reasonInput?.value || "Dashboard verwijderen").trim() || "Dashboard verwijderen",
       });
+      if (result?.measurement_data) {
+        this._measurementData = result.measurement_data;
+        this._measurementKey = this._measurementCacheKey();
+        this._measurementError = "";
+      }
       this._deletingMeasurementId = null;
       this._editingMeasurementId = null;
-      this._measurementActionStatus = "Meting verwijderd; een vorige correctieversie wordt zo nodig hersteld.";
-      await Promise.all([this._loadHistory(true), this._loadMeasurements(true)]);
+      this._measurementActionStatus = "Meting verwijderd. Bij een correctie is de direct vorige versie weer actief.";
+      await this._loadHistory(true);
     } catch (err) {
       console.error("Puppy Weight Overview card: delete failed", err);
       this._measurementActionStatus = err?.message || "Meting verwijderen mislukt.";
@@ -778,15 +790,22 @@ class PuppyWeightOverviewCard extends HTMLElement {
     this._scheduleRender(true);
 
     try {
-      await this._hass.callWS({
+      const result = await this._hass.callWS({
         type: "puppy_weight_tracker/measurement/restore",
         litter_id: litterId,
         puppy_id: puppyId,
         measurement_id: measurementId,
         reason: "Hersteld vanuit dashboard",
       });
-      this._measurementActionStatus = "Meting hersteld.";
-      await Promise.all([this._loadHistory(true), this._loadMeasurements(true)]);
+      if (result?.measurement_data) {
+        this._measurementData = result.measurement_data;
+        this._measurementKey = this._measurementCacheKey();
+        this._measurementError = "";
+      }
+      this._measurementActionStatus = result?.restored_as_new_version
+        ? "Meting hersteld als nieuwe actieve versie, omdat de correctieketen intussen was gewijzigd."
+        : "Meting hersteld en weer actief.";
+      await this._loadHistory(true);
     } catch (err) {
       console.error("Puppy Weight Overview card: restore failed", err);
       this._measurementActionStatus = err?.message || "Meting herstellen mislukt.";
@@ -928,7 +947,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
           </div>
           <div class="measurement-counts">
             <span>${Number(counts.active || 0)} actief</span>
-            ${Number(counts.superseded || 0) ? `<span>${Number(counts.superseded)} vorige versies</span>` : ""}
+            ${Number(counts.superseded || 0) ? `<span>${Number(counts.superseded)} oude versies</span>` : ""}
             ${Number(counts.deleted || 0) ? `<span>${Number(counts.deleted)} verwijderd</span>` : ""}
           </div>
         </div>

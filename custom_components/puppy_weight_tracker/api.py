@@ -405,6 +405,11 @@ async def websocket_correct_measurement(
             "ok": True,
             "measurement_id": replacement_id,
             "action": "correct",
+            "measurement_data": _puppy_measurements_payload(
+                storage,
+                msg["litter_id"],
+                msg["puppy_id"],
+            ),
         },
     )
 
@@ -442,7 +447,18 @@ async def websocket_delete_measurement(
         return
 
     _signal_measurement_change(hass, msg["puppy_id"])
-    connection.send_result(msg["id"], {"ok": True, "action": "delete"})
+    connection.send_result(
+        msg["id"],
+        {
+            "ok": True,
+            "action": "delete",
+            "measurement_data": _puppy_measurements_payload(
+                storage,
+                msg["litter_id"],
+                msg["puppy_id"],
+            ),
+        },
+    )
 
 
 @websocket_api.require_admin
@@ -467,7 +483,7 @@ async def websocket_restore_measurement(
         return
 
     try:
-        await storage.async_restore_weight(
+        restored_id = await storage.async_restore_weight(
             msg["litter_id"],
             msg["puppy_id"],
             msg["measurement_id"],
@@ -478,7 +494,20 @@ async def websocket_restore_measurement(
         return
 
     _signal_measurement_change(hass, msg["puppy_id"])
-    connection.send_result(msg["id"], {"ok": True, "action": "restore"})
+    connection.send_result(
+        msg["id"],
+        {
+            "ok": True,
+            "action": "restore",
+            "measurement_id": restored_id,
+            "restored_as_new_version": restored_id != msg["measurement_id"],
+            "measurement_data": _puppy_measurements_payload(
+                storage,
+                msg["litter_id"],
+                msg["puppy_id"],
+            ),
+        },
+    )
 
 
 @websocket_api.websocket_command(

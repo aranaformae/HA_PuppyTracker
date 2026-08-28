@@ -180,6 +180,14 @@ class PuppyWeightStorage:
                 if self._repair_deleted_correction_chains(puppy):
                     changed = True
 
+                # Also recover from a dangling superseded_by reference. This
+                # can happen when an older buggy frontend/backend combination
+                # marked a version as superseded but the replacement record was
+                # never persisted. In that case the predecessor is the only
+                # recoverable version and must become active again.
+                if self._repair_dangling_correction_chains(puppy):
+                    changed = True
+
                 birth_weight = puppy.get("birth_weight")
                 birth_time = puppy.get("birth_time")
                 birth_measurement = self._find_birth_measurement(puppy)
@@ -347,6 +355,28 @@ class PuppyWeightStorage:
             if source.get("superseded_by") == measurement.get("id"):
                 source["superseded_by"] = None
                 changed = True
+        return changed
+
+    @classmethod
+    def _repair_dangling_correction_chains(
+        cls,
+        puppy: dict[str, Any],
+    ) -> bool:
+        """Reactivate versions whose replacement record no longer exists."""
+        measurements = puppy.get("measurements", [])
+        known_ids = {
+            item.get("id")
+            for item in measurements
+            if item.get("id")
+        }
+        changed = False
+
+        for measurement in measurements:
+            successor_id = measurement.get("superseded_by")
+            if successor_id and successor_id not in known_ids:
+                measurement["superseded_by"] = None
+                changed = True
+
         return changed
 
     def _find_birth_measurement(
@@ -1341,46 +1371,93 @@ class PuppyWeightStorage:
         puppy_id: str,
         measurement_id: str,
         reason: str | None = None,
-    ) -> None:
-        """Restore a soft-deleted measurement and reapply its correction chain."""
+    ) -> str:
+        """Restore a soft-deleted measurement without creating a broken branch.
+
+        When the deleted record is still the terminal correction in its chain,
+        it can simply be reactivated. If that chain has received another
+        correction in the meantime, restoring the deleted value creates a new
+        terminal correction containing the restored weight/timestamp. This
+        keeps every historical version and guarantees one unambiguous active
+        version per correction chain.
+        """
         async with self._lock:
             puppy = self._require_puppy(litter_id, puppy_id)
             measurement = self._require_measurement(puppy, measurement_id)
 
             if not measurement.get("deleted", False):
                 raise ValueError("Measurement is not deleted")
-            if measurement.get("superseded_by") is not None:
-                raise ValueError("Cannot restore a superseded measurement")
 
             now = _now_iso()
             source = self._measurement_by_id(
                 puppy,
                 measurement.get("source_measurement_id"),
             )
+            restored_id = measurement_id
+            restored_as_new_version = False
 
-            if source is not None:
+            if source is None:
+                # A normal (non-correction) measurement can be restored in place
+                # as long as it is not an old superseded version.
+                if measurement.get("superseded_by") is not None:
+                    raise ValueError(
+                        "Cannot restore this historical version because a newer version exists"
+                    )
+                measurement["deleted"] = False
+                measurement["deleted_at"] = None
+                measurement["updated_at"] = now
+                restored = measurement
+            else:
                 if source.get("deleted", False):
                     raise ValueError(
-                        "Cannot restore correction while its previous version is deleted"
+                        "Cannot restore this correction because its previous version is deleted"
                     )
-                current_successor = source.get("superseded_by")
-                if current_successor not in (None, measurement_id):
-                    raise ValueError(
-                        "Cannot restore correction because a newer correction is active"
-                    )
-                source["superseded_by"] = measurement_id
-                source["updated_at"] = now
 
-            measurement["deleted"] = False
-            measurement["deleted_at"] = None
-            measurement["updated_at"] = now
+                current_successor = source.get("superseded_by")
+
+                if current_successor in (None, measurement_id):
+                    # Normal undo/redo path: reconnect the exact historical
+                    # correction to its predecessor.
+                    source["superseded_by"] = measurement_id
+                    source["updated_at"] = now
+                    measurement["deleted"] = False
+                    measurement["deleted_at"] = None
+                    measurement["updated_at"] = now
+                    restored = measurement
+                else:
+                    # The chain changed after this version was deleted. Do not
+                    # branch the chain. Clone the deleted value as a new terminal
+                    # correction after the current active tip instead.
+                    tip = self._follow_replacement_chain(puppy, source)
+                    if tip.get("deleted", False):
+                        raise ValueError(
+                            "Cannot restore this correction because the current correction chain is deleted"
+                        )
+                    if tip.get("superseded_by") is not None:
+                        raise ValueError(
+                            "Cannot restore this correction because the current correction chain is inconsistent"
+                        )
+
+                    restored = self._create_replacement_measurement(
+                        puppy,
+                        tip,
+                        new_weight=float(measurement["weight"]),
+                        new_timestamp=measurement.get("timestamp") or now,
+                        reason=reason or "Hersteld vanuit verwijderde versie",
+                        now=now,
+                    )
+                    restored["kind"] = measurement.get("kind")
+                    restored["note"] = measurement.get("note")
+                    restored_id = restored["id"]
+                    restored_as_new_version = True
+
             puppy["updated_at"] = now
             self._data["litters"][litter_id]["updated_at"] = now
 
-            if measurement.get("kind") == "birth":
-                puppy["birth_weight"] = float(measurement["weight"])
-                puppy["birth_time"] = measurement.get("timestamp")
-                puppy["birth_measurement_id"] = measurement.get("id")
+            if restored.get("kind") == "birth":
+                puppy["birth_weight"] = float(restored["weight"])
+                puppy["birth_time"] = restored.get("timestamp")
+                puppy["birth_measurement_id"] = restored.get("id")
 
             self._add_audit_entry(
                 action="restore_weight",
@@ -1392,13 +1469,18 @@ class PuppyWeightStorage:
                     "timestamp": measurement.get("timestamp"),
                     "reason": reason,
                     "kind": measurement.get("kind"),
+                    "restored_measurement_id": restored_id,
+                    "restored_as_new_version": restored_as_new_version,
                     "supersedes_measurement_id": (
-                        source.get("id") if source is not None else None
+                        restored.get("source_measurement_id")
+                        if restored_as_new_version
+                        else (source.get("id") if source is not None else None)
                     ),
                 },
             )
 
             await self.async_save()
+            return restored_id
 
     def get_measurement(
         self,
