@@ -1,0 +1,14 @@
+{
+"domain": "puppy_weight_tracker",
+"name": "Puppy Weight Tracker",
+"version": "0.5.0",
+"documentation": "https://github.com/aranaformae/HA_PuppyTracker",
+"issue_tracker": "https://github.com/aranaformae/HA_PuppyTracker/issues",
+"codeowners": [
+"@aranaformae"
+],
+"config_flow": true,
+"integration_type": "helper",
+"requirements": [],
+"iot_class": "calculated"
+}
