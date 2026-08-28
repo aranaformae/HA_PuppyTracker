@@ -1,0 +1,235 @@
+{
+  "title": "Puppy Weight Tracker",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Puppy Weight Tracker instellen",
+        "description": "Stel Puppy Weight Tracker in om puppygewichten te registreren en te volgen."
+      }
+    },
+    "abort": {
+      "already_configured": "Puppy Weight Tracker is al ingesteld."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "menu_options": {
+          "create_litter": "Nest aanmaken",
+          "manage_litter": "Nest beheren",
+          "add_puppy": "Puppy toevoegen",
+          "manage_puppy": "Puppy beheren",
+          "manage_measurements": "Metingen beheren",
+          "settings": "Monitoringinstellingen"
+        }
+      },
+      "create_litter": {
+        "title": "Nest aanmaken",
+        "description": "Maak een nieuw nest aan.",
+        "data": {
+          "name": "Naam",
+          "birth_date": "Geboortedatum",
+          "mother": "Moeder",
+          "father": "Vader"
+        },
+        "data_description": {
+          "name": "Bijvoorbeeld Luna 2026",
+          "birth_date": "Geboortedatum van het nest",
+          "mother": "Naam van de moederhond",
+          "father": "Naam van de vaderhond"
+        }
+      },
+      "manage_litter": {
+        "title": "Nest beheren",
+        "description": "Selecteer het nest dat je wilt beheren.",
+        "data": {
+          "litter_id": "Nest"
+        }
+      },
+      "edit_litter": {
+        "title": "Nest aanpassen",
+        "description": "Pas de gegevens van het nest aan, archiveer of herstel het nest, of verwijder het permanent.",
+        "data": {
+          "name": "Naam",
+          "birth_date": "Geboortedatum",
+          "mother": "Moeder",
+          "father": "Vader",
+          "action": "Actie"
+        },
+        "data_description": {
+          "name": "Naam van het nest",
+          "birth_date": "Geboortedatum van het nest",
+          "mother": "Naam van de moederhond",
+          "father": "Naam van de vaderhond",
+          "action": "Kies wat je met dit nest wilt doen"
+        }
+      },
+      "confirm_delete_litter": {
+        "title": "Nest permanent verwijderen",
+        "description": "Je staat op het punt {name} permanent te verwijderen. Dit nest bevat {puppies} puppy's en {measurements} opgeslagen metingen. Dit kan niet ongedaan worden gemaakt.",
+        "data": {
+          "confirm": "Ik begrijp dit en wil dit nest permanent verwijderen"
+        }
+      },
+      "add_puppy": {
+        "title": "Puppy toevoegen",
+        "description": "Voeg een puppy toe aan een bestaand nest.",
+        "data": {
+          "litter_id": "Nest",
+          "name": "Naam",
+          "collar_color": "Halsbandkleur",
+          "sex": "Geslacht",
+          "birth_weight": "Geboortegewicht",
+          "birth_time": "Geboortedatum en tijd",
+          "notes": "Notities"
+        },
+        "data_description": {
+          "litter_id": "Kies het nest waar de pup bij hoort",
+          "name": "Bijvoorbeeld Rood, Blauw of een tijdelijke naam",
+          "collar_color": "Optionele halsband- of herkenningskleur",
+          "sex": "Geslacht van de pup",
+          "birth_weight": "Gewicht direct na geboorte in gram",
+          "birth_time": "Exacte geboortedatum en tijd indien bekend",
+          "notes": "Eventuele bijzonderheden over de pup"
+        }
+      },
+      "manage_puppy": {
+        "title": "Puppy beheren",
+        "description": "Selecteer de puppy die je wilt beheren.",
+        "data": {
+          "puppy": "Puppy"
+        }
+      },
+      "edit_puppy": {
+        "title": "Puppy aanpassen",
+        "description": "Pas de gegevens van de puppy aan, archiveer of herstel de puppy, of verwijder deze permanent.",
+        "data": {
+          "name": "Naam",
+          "collar_color": "Halsbandkleur",
+          "sex": "Geslacht",
+          "birth_weight": "Geboortegewicht",
+          "birth_time": "Geboortedatum en tijd",
+          "notes": "Notities",
+          "action": "Actie"
+        },
+        "data_description": {
+          "name": "Naam of herkenningsnaam van de puppy",
+          "collar_color": "Halsband- of herkenningskleur",
+          "sex": "Geslacht van de pup",
+          "birth_weight": "Geboortegewicht in gram",
+          "birth_time": "Exacte geboortedatum en tijd",
+          "notes": "Eventuele bijzonderheden",
+          "action": "Kies wat je met deze puppy wilt doen"
+        }
+      },
+      "confirm_delete_puppy": {
+        "title": "Puppy permanent verwijderen",
+        "description": "Je staat op het punt {name} permanent te verwijderen. Voor deze puppy zijn {measurements} metingen opgeslagen. Dit kan niet ongedaan worden gemaakt.",
+        "data": {
+          "confirm": "Ik begrijp dit en wil deze puppy permanent verwijderen"
+        }
+      },
+      "settings": {
+        "title": "Monitoringinstellingen",
+        "description": "Stel in wanneer Puppy Weight Tracker een puppy voor aandacht moet markeren. Standaard geldt een minimale groei van 5% per 24 uur gedurende de eerste 14 dagen.",
+        "data": {
+          "min_daily_growth_percent": "Minimale groei per 24 uur",
+          "max_hours_between_weighings": "Maximale tijd tussen wegingen",
+          "growth_monitoring_days": "Minimale groei bewaken tot leeftijd"
+        },
+        "data_description": {
+          "min_daily_growth_percent": "Markeer de genormaliseerde dagelijkse groei als deze onder dit percentage ligt.",
+          "max_hours_between_weighings": "Markeer een puppy wanneer binnen dit aantal uren geen nieuw gewicht is geregistreerd.",
+          "growth_monitoring_days": "Na deze leeftijd wordt de minimale dagelijkse groeigrens niet meer toegepast. Gewichtsverlies kan nog steeds worden gemarkeerd."
+        }
+      },
+      "manage_measurements": {
+        "title": "Metingen beheren",
+        "description": "Selecteer de puppy waarvan je de opgeslagen wegingen wilt bekijken of beheren.",
+        "data": {
+          "puppy": "Puppy"
+        }
+      },
+      "select_measurement": {
+        "title": "Meting selecteren",
+        "description": "{puppy} heeft {count} opgeslagen meetrecords. 🗑 betekent verwijderd en ↪ betekent vervangen door een correctie.",
+        "data": {
+          "measurement_id": "Meting"
+        }
+      },
+      "edit_measurement": {
+        "title": "Meting beheren",
+        "description": "{puppy}: {measurement}. Een correctie overschrijft de oude meting niet; de oorspronkelijke waarde blijft als historie bewaard.",
+        "data": {
+          "weight": "Gewicht",
+          "timestamp": "Datum en tijd",
+          "reason": "Reden / notitie bij wijziging",
+          "action": "Actie"
+        },
+        "data_description": {
+          "weight": "Gewicht in gram.",
+          "timestamp": "Datum en tijd waarop deze weging is uitgevoerd.",
+          "reason": "Optionele toelichting die in het auditlog wordt bewaard.",
+          "action": "Corrigeer, verwijder of herstel deze meting."
+        }
+      },
+      "confirm_delete_measurement": {
+        "title": "Meting verwijderen",
+        "description": "Je staat op het punt deze meting van {puppy} te verwijderen: {measurement}. De meting wordt alleen soft-deleted en blijft in de historie bewaard. Als dit het geboortegewicht is, wordt ook het veld geboortegewicht bij de puppy leeggemaakt.",
+        "data": {
+          "reason": "Reden voor verwijderen",
+          "confirm": "Ja, deze meting verwijderen"
+        }
+      }
+    },
+    "error": {
+      "unknown": "Er is een onverwachte fout opgetreden.",
+      "invalid_litter": "Het geselecteerde nest bestaat niet meer.",
+      "invalid_puppy": "De geselecteerde puppy bestaat niet meer.",
+      "invalid_settings": "Een of meer monitoringinstellingen zijn ongeldig.",
+      "invalid_measurement": "De geselecteerde meting bestaat niet meer of kan in de huidige toestand niet worden aangepast."
+    },
+    "abort": {
+      "no_litters": "Er zijn nog geen nesten beschikbaar.",
+      "no_puppies": "Er zijn nog geen puppy's beschikbaar.",
+      "invalid_litter": "Het geselecteerde nest bestaat niet meer.",
+      "invalid_puppy": "De geselecteerde puppy bestaat niet meer.",
+      "no_measurements": "Voor deze puppy zijn nog geen metingen opgeslagen.",
+      "invalid_measurement": "De geselecteerde meting bestaat niet meer.",
+      "historical_measurement": "Deze historische meting van {puppy} is vervangen door een correctie en is daarom alleen-lezen: {measurement}. Vervangende meet-ID: {replacement}."
+    }
+  },
+  "selector": {
+    "sex": {
+      "options": {
+        "male": "Reu",
+        "female": "Teef"
+      }
+    },
+    "active_item_action": {
+      "options": {
+        "save": "Wijzigingen opslaan",
+        "toggle_archive": "Archiveren",
+        "delete": "Permanent verwijderen"
+      }
+    },
+    "archived_item_action": {
+      "options": {
+        "save": "Wijzigingen opslaan",
+        "toggle_archive": "Herstellen",
+        "delete": "Permanent verwijderen"
+      }
+    },
+    "active_measurement_action": {
+      "options": {
+        "save": "Correctie opslaan",
+        "delete": "Meting verwijderen"
+      }
+    },
+    "deleted_measurement_action": {
+      "options": {
+        "restore": "Verwijderde meting herstellen"
+      }
+    }
+  }
+}

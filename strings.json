@@ -1,0 +1,235 @@
+{
+  "title": "Puppy Weight Tracker",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Puppy Weight Tracker",
+        "description": "Set up Puppy Weight Tracker to register and monitor puppy weights."
+      }
+    },
+    "abort": {
+      "already_configured": "Puppy Weight Tracker is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "menu_options": {
+          "create_litter": "Create litter",
+          "manage_litter": "Manage litter",
+          "add_puppy": "Add puppy",
+          "manage_puppy": "Manage puppy",
+          "manage_measurements": "Manage measurements",
+          "settings": "Monitoring settings"
+        }
+      },
+      "create_litter": {
+        "title": "Create litter",
+        "description": "Create a new litter.",
+        "data": {
+          "name": "Name",
+          "birth_date": "Birth date",
+          "mother": "Mother",
+          "father": "Father"
+        },
+        "data_description": {
+          "name": "For example Luna 2026",
+          "birth_date": "Birth date of the litter",
+          "mother": "Name of the mother",
+          "father": "Name of the father"
+        }
+      },
+      "manage_litter": {
+        "title": "Manage litter",
+        "description": "Select the litter you want to manage.",
+        "data": {
+          "litter_id": "Litter"
+        }
+      },
+      "edit_litter": {
+        "title": "Edit litter",
+        "description": "Edit litter details, archive or restore the litter, or permanently delete it.",
+        "data": {
+          "name": "Name",
+          "birth_date": "Birth date",
+          "mother": "Mother",
+          "father": "Father",
+          "action": "Action"
+        },
+        "data_description": {
+          "name": "Name of the litter",
+          "birth_date": "Birth date of the litter",
+          "mother": "Name of the mother",
+          "father": "Name of the father",
+          "action": "Choose what you want to do with this litter"
+        }
+      },
+      "confirm_delete_litter": {
+        "title": "Permanently delete litter",
+        "description": "You are about to permanently delete {name}. This litter contains {puppies} puppies and {measurements} stored measurements. This cannot be undone.",
+        "data": {
+          "confirm": "I understand and want to permanently delete this litter"
+        }
+      },
+      "add_puppy": {
+        "title": "Add puppy",
+        "description": "Add a puppy to an existing litter.",
+        "data": {
+          "litter_id": "Litter",
+          "name": "Name",
+          "collar_color": "Collar color",
+          "sex": "Sex",
+          "birth_weight": "Birth weight",
+          "birth_time": "Birth date and time",
+          "notes": "Notes"
+        },
+        "data_description": {
+          "litter_id": "Select the litter this puppy belongs to",
+          "name": "For example Red, Blue, or a temporary name",
+          "collar_color": "Optional collar or identification color",
+          "sex": "Sex of the puppy",
+          "birth_weight": "Weight immediately after birth in grams",
+          "birth_time": "Exact date and time of birth if known",
+          "notes": "Optional notes about the puppy"
+        }
+      },
+      "manage_puppy": {
+        "title": "Manage puppy",
+        "description": "Select the puppy you want to manage.",
+        "data": {
+          "puppy": "Puppy"
+        }
+      },
+      "edit_puppy": {
+        "title": "Edit puppy",
+        "description": "Edit puppy details, archive or restore the puppy, or permanently delete it.",
+        "data": {
+          "name": "Name",
+          "collar_color": "Collar color",
+          "sex": "Sex",
+          "birth_weight": "Birth weight",
+          "birth_time": "Birth date and time",
+          "notes": "Notes",
+          "action": "Action"
+        },
+        "data_description": {
+          "name": "Name or identification name of the puppy",
+          "collar_color": "Collar or identification color",
+          "sex": "Sex of the puppy",
+          "birth_weight": "Birth weight in grams",
+          "birth_time": "Exact date and time of birth",
+          "notes": "Optional notes",
+          "action": "Choose what you want to do with this puppy"
+        }
+      },
+      "confirm_delete_puppy": {
+        "title": "Permanently delete puppy",
+        "description": "You are about to permanently delete {name}. This puppy has {measurements} stored measurements. This cannot be undone.",
+        "data": {
+          "confirm": "I understand and want to permanently delete this puppy"
+        }
+      },
+      "settings": {
+        "title": "Monitoring settings",
+        "description": "Configure when Puppy Weight Tracker should flag a puppy for attention. The default minimum growth threshold is 5% per 24 hours during the first 14 days.",
+        "data": {
+          "min_daily_growth_percent": "Minimum growth per 24 hours",
+          "max_hours_between_weighings": "Maximum time between weighings",
+          "growth_monitoring_days": "Monitor minimum growth until age"
+        },
+        "data_description": {
+          "min_daily_growth_percent": "Flag normalized daily growth below this percentage. General veterinary guidance describes approximately 5–10% daily weight gain as normal during the neonatal period.",
+          "max_hours_between_weighings": "Flag a puppy when no new weight has been recorded within this number of hours.",
+          "growth_monitoring_days": "After this age the minimum daily growth threshold is no longer applied. Weight loss can still be flagged."
+        }
+      },
+      "manage_measurements": {
+        "title": "Manage measurements",
+        "description": "Select the puppy whose stored weighings you want to inspect or manage.",
+        "data": {
+          "puppy": "Puppy"
+        }
+      },
+      "select_measurement": {
+        "title": "Select measurement",
+        "description": "{puppy} has {count} stored measurement records. 🗑 means deleted and ↪ means superseded by a correction.",
+        "data": {
+          "measurement_id": "Measurement"
+        }
+      },
+      "edit_measurement": {
+        "title": "Manage measurement",
+        "description": "{puppy}: {measurement}. A correction never overwrites the old record; the original remains stored as history.",
+        "data": {
+          "weight": "Weight",
+          "timestamp": "Date and time",
+          "reason": "Reason / change note",
+          "action": "Action"
+        },
+        "data_description": {
+          "weight": "Weight in grams.",
+          "timestamp": "Date and time when this weighing was performed.",
+          "reason": "Optional explanation stored in the audit log.",
+          "action": "Correct, delete, or restore this measurement."
+        }
+      },
+      "confirm_delete_measurement": {
+        "title": "Delete measurement",
+        "description": "You are about to delete this measurement for {puppy}: {measurement}. The measurement is only soft-deleted and remains stored in history. If this is the birth-weight measurement, the puppy birth-weight field is cleared as well.",
+        "data": {
+          "reason": "Reason for deletion",
+          "confirm": "Yes, delete this measurement"
+        }
+      }
+    },
+    "error": {
+      "unknown": "An unexpected error occurred.",
+      "invalid_litter": "The selected litter no longer exists.",
+      "invalid_puppy": "The selected puppy no longer exists.",
+      "invalid_settings": "One or more monitoring settings are invalid.",
+      "invalid_measurement": "The selected measurement no longer exists or cannot be changed in its current state."
+    },
+    "abort": {
+      "no_litters": "There are no litters available yet.",
+      "no_puppies": "There are no puppies available yet.",
+      "invalid_litter": "The selected litter no longer exists.",
+      "invalid_puppy": "The selected puppy no longer exists.",
+      "no_measurements": "There are no stored measurements for this puppy yet.",
+      "invalid_measurement": "The selected measurement no longer exists.",
+      "historical_measurement": "This historical measurement for {puppy} was superseded by a correction and is read-only: {measurement}. Replacement measurement ID: {replacement}."
+    }
+  },
+  "selector": {
+    "sex": {
+      "options": {
+        "male": "Male",
+        "female": "Female"
+      }
+    },
+    "active_item_action": {
+      "options": {
+        "save": "Save changes",
+        "toggle_archive": "Archive",
+        "delete": "Permanently delete"
+      }
+    },
+    "archived_item_action": {
+      "options": {
+        "save": "Save changes",
+        "toggle_archive": "Restore",
+        "delete": "Permanently delete"
+      }
+    },
+    "active_measurement_action": {
+      "options": {
+        "save": "Save correction",
+        "delete": "Delete measurement"
+      }
+    },
+    "deleted_measurement_action": {
+      "options": {
+        "restore": "Restore deleted measurement"
+      }
+    }
+  }
+}

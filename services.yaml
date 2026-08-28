@@ -1,0 +1,145 @@
+create_litter:
+  name: Nest aanmaken
+  description: Maak een nieuw nest aan.
+  fields:
+    name:
+      name: Naam
+      description: Naam van het nest.
+      required: true
+      example: "Luna 2026"
+      selector:
+        text:
+
+    birth_date:
+      name: Geboortedatum
+      description: Geboortedatum van het nest.
+      required: false
+      selector:
+        date:
+
+    mother:
+      name: Moeder
+      description: Naam van de moederhond.
+      required: false
+      selector:
+        text:
+
+    father:
+      name: Vader
+      description: Naam van de vaderhond.
+      required: false
+      selector:
+        text:
+
+
+add_puppy:
+  name: Puppy toevoegen
+  description: Voeg een puppy toe aan een bestaand nest.
+  fields:
+    litter_id:
+      name: Nest ID
+      description: Unieke ID van het nest.
+      required: true
+      selector:
+        text:
+
+    name:
+      name: Naam
+      description: Naam of herkenningsnaam van de pup.
+      required: true
+      example: "Rood"
+      selector:
+        text:
+
+    collar_color:
+      name: Halsbandkleur
+      description: Herkenningskleur van de pup.
+      required: false
+      selector:
+        text:
+
+    sex:
+      name: Geslacht
+      description: Geslacht van de pup.
+      required: false
+      selector:
+        select:
+          options:
+            - label: Reu
+              value: male
+            - label: Teef
+              value: female
+
+    birth_weight:
+      name: Geboortegewicht
+      description: Geboortegewicht in gram.
+      required: false
+      selector:
+        number:
+          min: 1
+          max: 5000
+          step: 1
+          unit_of_measurement: g
+          mode: box
+
+    birth_time:
+      name: Geboortetijd
+      description: Datum en tijd waarop de pup geboren is.
+      required: false
+      selector:
+        datetime:
+
+    notes:
+      name: Notities
+      description: Optionele notities over de pup.
+      required: false
+      selector:
+        text:
+          multiline: true
+
+
+record_weight:
+  name: Gewicht registreren
+  description: Registreer een nieuwe gewichtsmeting voor een puppy.
+  fields:
+    litter_id:
+      name: Nest ID
+      description: Unieke ID van het nest.
+      required: true
+      selector:
+        text:
+
+    puppy_id:
+      name: Puppy ID
+      description: Unieke ID van de puppy.
+      required: true
+      selector:
+        text:
+
+    weight:
+      name: Gewicht
+      description: Gewicht van de puppy in gram.
+      required: true
+      example: 428
+      selector:
+        number:
+          min: 1
+          max: 10000
+          step: 1
+          unit_of_measurement: g
+          mode: box
+
+    timestamp:
+      name: Tijdstip
+      description: Tijdstip van de meting. Leeg laten gebruikt de huidige tijd.
+      required: false
+      selector:
+        datetime:
+
+    note:
+      name: Notitie
+      description: Optionele notitie bij de meting.
+      required: false
+      selector:
+        text:
+          multiline: true
