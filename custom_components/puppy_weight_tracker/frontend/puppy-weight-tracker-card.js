@@ -1,4 +1,4 @@
-// Puppy Weight Tracker Card v1.3.1
+// Puppy Weight Tracker Card v1.3.0
 class PuppyWeightTrackerCard extends HTMLElement {
   constructor() {
     super();
@@ -19,7 +19,6 @@ class PuppyWeightTrackerCard extends HTMLElement {
     this._renderScheduled = false;
     this._optimisticLitterOption = null;
     this._optimisticPuppyOption = null;
-    this._lastStateSignature = "";
   }
 
   static getStubConfig() {
@@ -59,32 +58,24 @@ class PuppyWeightTrackerCard extends HTMLElement {
     }
 
     const station = this._station();
-    let optimisticChanged = false;
     if (
       this._optimisticLitterOption &&
       this._state(station?.ids?.litter)?.state === this._optimisticLitterOption
     ) {
       this._optimisticLitterOption = null;
-      optimisticChanged = true;
     }
     if (
       this._optimisticPuppyOption &&
       this._state(station?.ids?.puppy)?.state === this._optimisticPuppyOption
     ) {
       this._optimisticPuppyOption = null;
-      optimisticChanged = true;
     }
 
-    const signature = this._currentStateSignature(station);
-    const stateChanged = signature && signature !== this._lastStateSignature;
-    if (stateChanged) this._lastStateSignature = signature;
-
-    // Ignore unrelated Home Assistant state traffic. This significantly
-    // reduces full shadow-DOM replacements and keeps native iOS controls
-    // stable while a user is tapping, selecting or typing.
-    if (stateChanged || optimisticChanged || !this.shadowRoot?.querySelector("ha-card")) {
-      this._scheduleRender();
-    }
+    // Home Assistant can publish several state updates during a single tap.
+    // Replacing shadowRoot.innerHTML between pointerdown and click breaks taps
+    // on iOS/iPadOS and also closes native select/input controls. Keep the DOM
+    // completely stable while any user interaction is in progress.
+    this._scheduleRender();
   }
 
   _interactiveControlFocused() {
@@ -461,25 +452,6 @@ class PuppyWeightTrackerCard extends HTMLElement {
         };
       })
       .filter(Boolean);
-  }
-
-  _currentStateSignature(station = this._station()) {
-    if (!this._registryLoaded || !this._hass || !station) return "";
-
-    const entityIds = new Set(Object.values(station.ids || {}).filter(Boolean));
-    this._puppyRows(station).forEach((row) => {
-      Object.values(row.entityIds || {}).forEach((entityId) => {
-        if (entityId) entityIds.add(entityId);
-      });
-    });
-
-    return [...entityIds]
-      .sort()
-      .map((entityId) => {
-        const state = this._state(entityId);
-        return `${entityId}:${state?.state || ""}:${state?.last_updated || ""}`;
-      })
-      .join("|");
   }
 
   _statusClass(code) {

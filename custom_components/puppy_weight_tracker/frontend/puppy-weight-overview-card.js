@@ -1,4 +1,4 @@
-// Puppy Weight Overview Card v1.3.1
+// Puppy Weight Overview Card v1.3.0
 class PuppyWeightOverviewCard extends HTMLElement {
   constructor() {
     super();
@@ -35,9 +35,6 @@ class PuppyWeightOverviewCard extends HTMLElement {
     this._deletingMeasurementId = null;
     this._measurementActionStatus = "";
     this._chartSelectedOnly = false;
-    this._measurementFilters = { active: true, superseded: false, deleted: false };
-    this._expandedMeasurementChains = new Set();
-    this._highlightedMeasurementId = null;
     this._interactionActive = false;
     this._interactionReleaseTimer = null;
     this._renderPending = false;
@@ -126,15 +123,9 @@ class PuppyWeightOverviewCard extends HTMLElement {
       const hadSignature = Boolean(this._lastStateSignature);
       this._lastStateSignature = signature;
       if (hadSignature) this._scheduleHistoryReload();
-      this._scheduleRender();
-      return;
     }
 
-    // Ignore unrelated Home Assistant state traffic. Rebuilding the complete
-    // shadow DOM for every state update is unnecessary and can interrupt
-    // native controls on iOS/iPadOS. Explicit card actions still force a
-    // render when the local UI state changes.
-    if (!this.shadowRoot?.querySelector("ha-card")) this._scheduleRender();
+    this._scheduleRender();
   }
 
   _interactiveControlFocused() {
@@ -742,7 +733,6 @@ class PuppyWeightOverviewCard extends HTMLElement {
         this._measurementError = "";
       }
       this._editingMeasurementId = null;
-      this._highlightedMeasurementId = result?.measurement_id || null;
       this._measurementActionStatus = `Correctie opgeslagen als actieve versie${
         result?.measurement_id ? ` (${String(result.measurement_id).slice(0, 8)})` : ""
       }.`;
@@ -780,7 +770,6 @@ class PuppyWeightOverviewCard extends HTMLElement {
       }
       this._deletingMeasurementId = null;
       this._editingMeasurementId = null;
-      this._highlightedMeasurementId = null;
       this._measurementActionStatus = "Meting verwijderd. Bij een correctie is de direct vorige versie weer actief.";
       await this._loadHistory(true);
     } catch (err) {
@@ -813,7 +802,6 @@ class PuppyWeightOverviewCard extends HTMLElement {
         this._measurementKey = this._measurementCacheKey();
         this._measurementError = "";
       }
-      this._highlightedMeasurementId = result?.measurement_id || measurementId;
       this._measurementActionStatus = result?.restored_as_new_version
         ? "Meting hersteld als nieuwe actieve versie, omdat de correctieketen intussen was gewijzigd."
         : "Meting hersteld en weer actief.";
@@ -824,68 +812,6 @@ class PuppyWeightOverviewCard extends HTMLElement {
     }
 
     this._scheduleRender(true);
-  }
-
-  _measurementTimestamp(measurement) {
-    const value = new Date(measurement?.timestamp || "").getTime();
-    return Number.isFinite(value) ? value : 0;
-  }
-
-  _measurementChains(measurements) {
-    const byId = new Map(
-      measurements.filter((item) => item?.id).map((item) => [item.id, item])
-    );
-    const groups = new Map();
-
-    const rootFor = (measurement) => {
-      let current = measurement;
-      const seen = new Set();
-      while (current?.source_measurement_id && byId.has(current.source_measurement_id)) {
-        if (seen.has(current.id)) break;
-        seen.add(current.id);
-        current = byId.get(current.source_measurement_id);
-      }
-      return current?.id || measurement?.id || "unknown";
-    };
-
-    measurements.forEach((measurement) => {
-      const rootId = rootFor(measurement);
-      if (!groups.has(rootId)) groups.set(rootId, []);
-      groups.get(rootId).push(measurement);
-    });
-
-    return [...groups.entries()]
-      .map(([rootId, items]) => ({
-        rootId,
-        items: items.sort(
-          (a, b) => this._measurementTimestamp(b) - this._measurementTimestamp(a)
-        ),
-      }))
-      .sort((a, b) => {
-        const aActive = a.items.find((item) => item.status === "active");
-        const bActive = b.items.find((item) => item.status === "active");
-        const aTime = aActive
-          ? this._measurementTimestamp(aActive)
-          : Math.max(...a.items.map((item) => this._measurementTimestamp(item)));
-        const bTime = bActive
-          ? this._measurementTimestamp(bActive)
-          : Math.max(...b.items.map((item) => this._measurementTimestamp(item)));
-        return bTime - aTime;
-      });
-  }
-
-  _measurementFilterEnabled(status) {
-    return Boolean(this._measurementFilters?.[status]);
-  }
-
-  _scrollToHighlightedMeasurement() {
-    if (!this._highlightedMeasurementId) return;
-    window.requestAnimationFrame(() => {
-      const row = this.shadowRoot?.querySelector(
-        `[data-measurement-row="${CSS.escape(this._highlightedMeasurementId)}"]`
-      );
-      row?.scrollIntoView?.({ behavior: "smooth", block: "center" });
-    });
   }
 
   _measurementPanelHtml(selected) {
@@ -905,177 +831,112 @@ class PuppyWeightOverviewCard extends HTMLElement {
       ? this._measurementData.measurements
       : [];
     const counts = this._measurementData?.counts || {};
-    const chains = this._measurementChains(measurements);
-    const activeMeasurements = measurements
-      .filter((item) => item?.status === "active")
-      .sort((a, b) => this._measurementTimestamp(b) - this._measurementTimestamp(a));
-    const latestActive = activeMeasurements[0] || null;
 
-    const renderRow = (measurement, options = {}) => {
-      const status = measurement.status || "unknown";
-      const isEditing = this._editingMeasurementId === measurement.id;
-      const isDeleting = this._deletingMeasurementId === measurement.id;
-      const isActive = status === "active";
-      const isDeleted = status === "deleted";
-      const sourceShort = measurement.source_measurement_id
-        ? String(measurement.source_measurement_id).slice(0, 8)
-        : "";
-      const supersededShort = measurement.superseded_by
-        ? String(measurement.superseded_by).slice(0, 8)
-        : "";
-      const highlighted = this._highlightedMeasurementId === measurement.id;
+    const rows = measurements
+      .map((measurement) => {
+        const status = measurement.status || "unknown";
+        const isEditing = this._editingMeasurementId === measurement.id;
+        const isDeleting = this._deletingMeasurementId === measurement.id;
+        const isActive = status === "active";
+        const isDeleted = status === "deleted";
+        const sourceShort = measurement.source_measurement_id
+          ? String(measurement.source_measurement_id).slice(0, 8)
+          : "";
+        const supersededShort = measurement.superseded_by
+          ? String(measurement.superseded_by).slice(0, 8)
+          : "";
 
-      const lineage = [
-        sourceShort ? `correctie van ${sourceShort}` : "",
-        supersededShort ? `vervangen door ${supersededShort}` : "",
-      ]
-        .filter(Boolean)
-        .join(" · ");
+        const lineage = [
+          sourceShort ? `correctie van ${sourceShort}` : "",
+          supersededShort ? `vervangen door ${supersededShort}` : "",
+        ]
+          .filter(Boolean)
+          .join(" · ");
 
-      const editForm = isEditing
-        ? `
-          <div class="measurement-edit-form" data-editor-for="${this._escape(measurement.id)}">
-            <label><span>Gewicht</span><div class="inline-unit"><input id="measurement-edit-weight" type="number" inputmode="decimal" min="1" max="10000" step="1" value="${this._escape(
-              measurement.weight ?? ""
-            )}"><b>g</b></div></label>
-            <label><span>Datum en tijd</span><input id="measurement-edit-time" type="datetime-local" value="${this._escape(
-              this._dateTimeLocalValue(measurement.timestamp)
-            )}"></label>
-            <label class="reason-field"><span>Reden</span><input id="measurement-edit-reason" type="text" value="${this._escape(
-              measurement.correction_reason || "Dashboardcorrectie"
-            )}" maxlength="160"></label>
-            <div class="measurement-form-actions">
-              <button class="mini-button primary-mini" id="measurement-edit-save" data-measurement-id="${this._escape(
-                measurement.id
-              )}">Opslaan</button>
-              <button class="mini-button" id="measurement-edit-cancel">Annuleren</button>
-            </div>
-          </div>`
-        : "";
+        const editForm = isEditing
+          ? `
+            <div class="measurement-edit-form" data-editor-for="${this._escape(measurement.id)}">
+              <label><span>Gewicht</span><div class="inline-unit"><input id="measurement-edit-weight" type="number" inputmode="decimal" min="1" max="10000" step="1" value="${this._escape(
+                measurement.weight ?? ""
+              )}"><b>g</b></div></label>
+              <label><span>Datum en tijd</span><input id="measurement-edit-time" type="datetime-local" value="${this._escape(
+                this._dateTimeLocalValue(measurement.timestamp)
+              )}"></label>
+              <label class="reason-field"><span>Reden</span><input id="measurement-edit-reason" type="text" value="${this._escape(
+                measurement.correction_reason || "Dashboardcorrectie"
+              )}" maxlength="160"></label>
+              <div class="measurement-form-actions">
+                <button class="mini-button primary-mini" id="measurement-edit-save" data-measurement-id="${this._escape(
+                  measurement.id
+                )}">Opslaan</button>
+                <button class="mini-button" id="measurement-edit-cancel">Annuleren</button>
+              </div>
+            </div>`
+          : "";
 
-      const deleteForm = isDeleting
-        ? `
-          <div class="measurement-delete-form">
-            <div><strong>Deze meting verwijderen?</strong><span>De meting blijft bewaard en kan later worden hersteld.</span></div>
-            <label><span>Reden (optioneel)</span><input id="measurement-delete-reason" type="text" maxlength="160" placeholder="Bijv. foutieve invoer"></label>
-            <div class="measurement-form-actions">
-              <button class="mini-button danger-mini" id="measurement-delete-confirm" data-measurement-id="${this._escape(
-                measurement.id
-              )}">Verwijderen</button>
-              <button class="mini-button" id="measurement-delete-cancel">Annuleren</button>
-            </div>
-          </div>`
-        : "";
+        const deleteForm = isDeleting
+          ? `
+            <div class="measurement-delete-form">
+              <div><strong>Deze meting verwijderen?</strong><span>De meting blijft bewaard en kan later worden hersteld.</span></div>
+              <label><span>Reden (optioneel)</span><input id="measurement-delete-reason" type="text" maxlength="160" placeholder="Bijv. foutieve invoer"></label>
+              <div class="measurement-form-actions">
+                <button class="mini-button danger-mini" id="measurement-delete-confirm" data-measurement-id="${this._escape(
+                  measurement.id
+                )}">Verwijderen</button>
+                <button class="mini-button" id="measurement-delete-cancel">Annuleren</button>
+              </div>
+            </div>`
+          : "";
 
-      const actions = isEditing || isDeleting
-        ? ""
-        : `
-          <div class="measurement-actions">
-            ${
-              isActive
-                ? `<button class="mini-button" data-edit-measurement="${this._escape(
-                    measurement.id
-                  )}">Wijzigen</button><button class="mini-button danger-text" data-delete-measurement="${this._escape(
-                    measurement.id
-                  )}">Verwijderen</button>`
-                : ""
-            }
-            ${
-              isDeleted && !measurement.superseded_by
-                ? `<button class="mini-button" data-restore-measurement="${this._escape(
-                    measurement.id
-                  )}">Herstellen</button>`
-                : ""
-            }
-          </div>`;
-
-      return `
-        <div class="measurement-row ${this._measurementStatusClass(status)} ${
-          options.nested ? "nested" : ""
-        } ${highlighted ? "highlighted" : ""}" data-measurement-row="${this._escape(
-          measurement.id
-        )}">
-          <div class="measurement-main">
-            <div>
-              <strong>${this._formatNumber(Number(measurement.weight), "g")}</strong>
-              <span>${this._escape(this._formatDateTime(measurement.timestamp))}</span>
-            </div>
-            <span class="measurement-status ${this._measurementStatusClass(status)}">${this._escape(
-              this._measurementStatusLabel(status)
-            )}</span>
-          </div>
-          <div class="measurement-meta">
-            <span>${measurement.kind === "birth" ? "Geboortegewicht" : "Weging"}</span>
-            ${measurement.note ? `<span>Notitie: ${this._escape(measurement.note)}</span>` : ""}
-            ${
-              measurement.correction_reason
-                ? `<span>Correctiereden: ${this._escape(measurement.correction_reason)}</span>`
-                : ""
-            }
-            ${lineage ? `<span class="lineage">${this._escape(lineage)}</span>` : ""}
-          </div>
-          ${actions}
-          ${editForm}
-          ${deleteForm}
-        </div>`;
-    };
-
-    const chainRows = chains
-      .map((chain) => {
-        const matching = chain.items.filter((item) => this._measurementFilterEnabled(item.status));
-        if (!matching.length) return "";
-
-        const active = chain.items.find((item) => item.status === "active");
-        const lead = active && this._measurementFilterEnabled("active") ? active : matching[0];
-        const history = chain.items.filter((item) => item.id !== lead.id);
-        const isExpanded = this._expandedMeasurementChains.has(chain.rootId);
-        const visibleHistory = isExpanded
-          ? history
-          : history.filter((item) => this._measurementFilterEnabled(item.status));
-        const hiddenCount = history.length - visibleHistory.length;
+        const actions = isEditing || isDeleting
+          ? ""
+          : `
+            <div class="measurement-actions">
+              ${
+                isActive
+                  ? `<button class="mini-button" data-edit-measurement="${this._escape(
+                      measurement.id
+                    )}">Wijzigen</button><button class="mini-button danger-text" data-delete-measurement="${this._escape(
+                      measurement.id
+                    )}">Verwijderen</button>`
+                  : ""
+              }
+              ${
+                isDeleted && !measurement.superseded_by
+                  ? `<button class="mini-button" data-restore-measurement="${this._escape(
+                      measurement.id
+                    )}">Herstellen</button>`
+                  : ""
+              }
+            </div>`;
 
         return `
-          <div class="measurement-chain ${isExpanded ? "expanded" : ""}">
-            ${renderRow(lead)}
-            ${
-              history.length
-                ? `<button class="chain-toggle" data-chain-id="${this._escape(chain.rootId)}">
-                    ${
-                      isExpanded
-                        ? "Historie inklappen"
-                        : `${history.length} ${history.length === 1 ? "eerdere versie" : "eerdere versies"}`
-                    }
-                  </button>`
-                : ""
-            }
-            <div class="chain-history ${isExpanded ? "open" : ""}">
-              ${visibleHistory.map((item) => renderRow(item, { nested: true })).join("")}
+          <div class="measurement-row ${this._measurementStatusClass(status)}">
+            <div class="measurement-main">
+              <div>
+                <strong>${this._formatNumber(Number(measurement.weight), "g")}</strong>
+                <span>${this._escape(this._formatDateTime(measurement.timestamp))}</span>
+              </div>
+              <span class="measurement-status ${this._measurementStatusClass(status)}">${this._escape(
+                this._measurementStatusLabel(status)
+              )}</span>
             </div>
-            ${!isExpanded && hiddenCount > 0 ? `<span class="chain-hidden-hint">${hiddenCount} historische ${hiddenCount === 1 ? "versie" : "versies"} ingeklapt</span>` : ""}
+            <div class="measurement-meta">
+              <span>${measurement.kind === "birth" ? "Geboortegewicht" : "Weging"}</span>
+              ${measurement.note ? `<span>Notitie: ${this._escape(measurement.note)}</span>` : ""}
+              ${
+                measurement.correction_reason
+                  ? `<span>Correctiereden: ${this._escape(measurement.correction_reason)}</span>`
+                  : ""
+              }
+              ${lineage ? `<span class="lineage">${this._escape(lineage)}</span>` : ""}
+            </div>
+            ${actions}
+            ${editForm}
+            ${deleteForm}
           </div>`;
       })
-      .filter(Boolean)
       .join("");
-
-    const filterButton = (status, label, count) => `
-      <button class="measurement-filter ${this._measurementFilterEnabled(status) ? "active" : ""}"
-              data-measurement-filter="${status}">
-        ${this._escape(label)} <b>${Number(count || 0)}</b>
-      </button>`;
-
-    const latestHtml = latestActive
-      ? `
-        <div class="current-measurement">
-          <div>
-            <span class="eyebrow">Huidige meting</span>
-            <strong>${this._formatNumber(Number(latestActive.weight), "g")}</strong>
-          </div>
-          <div>
-            <span>${this._escape(this._formatDateTime(latestActive.timestamp))}</span>
-            <small>${latestActive.kind === "birth" ? "Geboortegewicht" : "Laatste geldige weging"}</small>
-          </div>
-        </div>`
-      : "";
 
     return `
       <div class="measurement-panel">
@@ -1090,51 +951,25 @@ class PuppyWeightOverviewCard extends HTMLElement {
             ${Number(counts.deleted || 0) ? `<span>${Number(counts.deleted)} verwijderd</span>` : ""}
           </div>
         </div>
-        ${latestHtml}
-        <div class="measurement-mini-chart">
-          <div class="mini-chart-heading">
-            <div><span class="eyebrow">Geselecteerde pup</span><strong>${this._escape(
-              this._metric === "weight"
-                ? "Gewichtsontwikkeling"
-                : this._metric === "growth24"
-                ? "Groei per 24 uur"
-                : "Groei sinds geboorte"
-            )}</strong></div>
-            <span>${this._rangeHours === 0 ? "Alles" : `${this._rangeHours} uur`}</span>
-          </div>
-          ${this._chartSvg([selected])}
-        </div>
-        <div class="measurement-filterbar" role="group" aria-label="Meetgeschiedenis filteren">
-          ${filterButton("active", "Actief", counts.active)}
-          ${filterButton("superseded", "Oude versies", counts.superseded)}
-          ${filterButton("deleted", "Verwijderd", counts.deleted)}
-        </div>
         ${
           this._measurementActionStatus
             ? `<div class="measurement-action-status">${this._escape(this._measurementActionStatus)}</div>`
             : ""
         }
-        ${chainRows || `<div class="empty small">Geen metingen binnen de gekozen filters.</div>`}
+        ${rows || `<div class="empty small">Nog geen metingen voor deze pup.</div>`}
       </div>`;
   }
 
   _currentStateSignature() {
     if (!this._registryLoaded || !this._hass) return "";
 
-    const entityIds = new Set();
-    this._puppyRows().forEach((row) => {
-      Object.values(row.entityIds || {}).forEach((entityId) => {
-        if (entityId) entityIds.add(entityId);
-      });
-    });
-
-    const station = this._station();
-    Object.values(station || {}).forEach((entityId) => {
-      if (typeof entityId === "string") entityIds.add(entityId);
-    });
-
-    return [...entityIds]
-      .sort()
+    return this._puppyRows()
+      .flatMap((row) => [
+        row.entityIds.weight,
+        row.entityIds.growth24,
+        row.entityIds.growthBirth,
+      ])
+      .filter(Boolean)
       .map((entityId) => {
         const state = this._state(entityId);
         return `${entityId}:${state?.state || ""}:${state?.last_updated || ""}`;
@@ -1348,7 +1183,6 @@ class PuppyWeightOverviewCard extends HTMLElement {
                 data-time="${point.time}"
                 data-value="${point.value}"
                 data-unit="${this._escape(item.unit)}"
-                data-measurement-id="${this._escape(point.measurementId || "")}"
                 style="--series-index:${item.index}"
               ></circle>`
           )
@@ -1478,9 +1312,6 @@ class PuppyWeightOverviewCard extends HTMLElement {
     this._deletingMeasurementId = null;
     this._measurementActionStatus = "";
     this._chartSelectedOnly = false;
-    this._measurementFilters = { active: true, superseded: false, deleted: false };
-    this._expandedMeasurementChains = new Set();
-    this._highlightedMeasurementId = null;
 
     const litter = this._selectedLitter();
     const station = this._station();
@@ -1904,32 +1735,6 @@ class PuppyWeightOverviewCard extends HTMLElement {
       button.addEventListener("click", () => this._restoreMeasurement(button.dataset.restoreMeasurement));
     });
 
-    this.shadowRoot?.querySelectorAll("[data-measurement-filter]").forEach((button) => {
-      button.addEventListener("click", () => {
-        const status = button.dataset.measurementFilter;
-        if (!Object.prototype.hasOwnProperty.call(this._measurementFilters, status)) return;
-        this._measurementFilters = {
-          ...this._measurementFilters,
-          [status]: !this._measurementFilters[status],
-        };
-        this._interactionActive = false;
-        this._scheduleRender(true);
-      });
-    });
-
-    this.shadowRoot?.querySelectorAll("[data-chain-id]").forEach((button) => {
-      button.addEventListener("click", () => {
-        const id = button.dataset.chainId;
-        if (!id) return;
-        const next = new Set(this._expandedMeasurementChains);
-        if (next.has(id)) next.delete(id);
-        else next.add(id);
-        this._expandedMeasurementChains = next;
-        this._interactionActive = false;
-        this._scheduleRender(true);
-      });
-    });
-
     this.shadowRoot?.querySelectorAll("[data-range]").forEach((button) => {
       button.addEventListener("click", () => {
         const value = Number(button.dataset.range);
@@ -1940,7 +1745,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
       });
     });
 
-    this.shadowRoot?.querySelectorAll("[data-puppy-id]:not(.chart-point)").forEach((item) => {
+    this.shadowRoot?.querySelectorAll("[data-puppy-id]").forEach((item) => {
       item.addEventListener("click", () => {
         this._selectedPuppyId = item.dataset.puppyId;
         this._tooltip = null;
@@ -1948,7 +1753,6 @@ class PuppyWeightOverviewCard extends HTMLElement {
         this._deletingMeasurementId = null;
         this._measurementData = null;
         this._measurementKey = "";
-        this._highlightedMeasurementId = null;
         this._interactionActive = false;
         this._scheduleRender(true);
         if (this._measurementPanelOpen) this._loadMeasurements(true);
@@ -1956,12 +1760,10 @@ class PuppyWeightOverviewCard extends HTMLElement {
     });
 
     this.shadowRoot?.querySelectorAll(".chart-point").forEach((point) => {
-      const show = async () => {
+      const show = () => {
         const puppyId = point.dataset.puppyId;
-        const measurementId = point.dataset.measurementId || null;
         const row = this._puppyRows().find((item) => item.puppyId === puppyId);
         this._selectedPuppyId = puppyId;
-        this._highlightedMeasurementId = measurementId;
         this._tooltip = {
           name: point.dataset.name || "Puppy",
           time: Number(point.dataset.time),
@@ -1969,27 +1771,11 @@ class PuppyWeightOverviewCard extends HTMLElement {
           unit: point.dataset.unit || "",
           statusClass: this._statusClass(row?.statusCode || "unknown"),
         };
-        this._editingMeasurementId = null;
-        this._deletingMeasurementId = null;
         this._measurementData = null;
         this._measurementKey = "";
-
-        if (measurementId && this._history?.can_manage_measurements) {
-          this._measurementPanelOpen = true;
-          this._measurementFilters = {
-            ...this._measurementFilters,
-            active: true,
-          };
-        }
-
         this._interactionActive = false;
         this._scheduleRender(true);
-
-        if (this._measurementPanelOpen) {
-          await this._loadMeasurements(true);
-          this._scheduleRender(true);
-          this._scrollToHighlightedMeasurement();
-        }
+        if (this._measurementPanelOpen) this._loadMeasurements(true);
       };
 
       point.addEventListener("click", show);
@@ -2434,99 +2220,6 @@ class PuppyWeightOverviewCard extends HTMLElement {
           background: var(--ha-card-background, var(--card-background-color, #fff));
         }
 
-        .current-measurement {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-          margin: 8px 0 12px;
-          padding: 12px;
-          border-radius: 10px;
-          border: 1px solid color-mix(in srgb, var(--success-color, #2e7d32) 30%, var(--divider-color));
-          background: color-mix(in srgb, var(--success-color, #2e7d32) 7%, var(--ha-card-background, var(--card-background-color, #fff)));
-        }
-        .current-measurement > div { min-width: 0; }
-        .current-measurement > div:first-child strong {
-          display: block;
-          font-size: 22px;
-          line-height: 1.15;
-        }
-        .current-measurement > div:last-child {
-          text-align: right;
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-        }
-        .current-measurement span,
-        .current-measurement small { color: var(--secondary-text-color); }
-
-        .measurement-mini-chart {
-          margin: 0 0 12px;
-          padding: 10px;
-          border-radius: 10px;
-          background: var(--ha-card-background, var(--card-background-color, #fff));
-        }
-        .measurement-mini-chart .chart { max-height: 230px; }
-        .mini-chart-heading {
-          display: flex;
-          align-items: flex-end;
-          justify-content: space-between;
-          gap: 10px;
-          margin-bottom: 4px;
-        }
-        .mini-chart-heading > div strong { display: block; font-size: 14px; }
-        .mini-chart-heading > span { color: var(--secondary-text-color); font-size: 11px; }
-
-        .measurement-filterbar {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 6px;
-          margin: 0 0 9px;
-        }
-        .measurement-filter {
-          min-height: 36px;
-          padding: 6px 10px;
-          border: 1px solid var(--divider-color);
-          border-radius: 999px;
-          background: var(--ha-card-background, var(--card-background-color, #fff));
-          color: var(--secondary-text-color);
-        }
-        .measurement-filter.active {
-          border-color: var(--primary-color);
-          color: var(--primary-text-color);
-          background: color-mix(in srgb, var(--primary-color) 9%, transparent);
-        }
-        .measurement-filter b { margin-left: 3px; }
-
-        .measurement-chain {
-          border-top: 1px solid var(--divider-color);
-          padding-top: 2px;
-        }
-        .measurement-chain:first-of-type { border-top: 0; }
-        .measurement-chain .measurement-row { border-top: 0; }
-        .chain-toggle {
-          min-height: 34px;
-          margin: 0 0 7px;
-          padding: 5px 9px;
-          border: 1px solid var(--divider-color);
-          border-radius: 8px;
-          background: transparent;
-          color: var(--secondary-text-color);
-          font-size: 12px;
-        }
-        .chain-history {
-          margin-left: 12px;
-          padding-left: 10px;
-          border-left: 2px solid var(--divider-color);
-        }
-        .chain-history:not(.open):empty { display: none; }
-        .chain-hidden-hint {
-          display: block;
-          margin: -2px 0 8px 2px;
-          color: var(--secondary-text-color);
-          font-size: 10px;
-        }
-
         .measurement-row {
           padding: 11px 0;
           border-top: 1px solid var(--divider-color);
@@ -2535,16 +2228,6 @@ class PuppyWeightOverviewCard extends HTMLElement {
         .measurement-row:first-of-type { border-top: 0; }
         .measurement-row.deleted { opacity: .72; }
         .measurement-row.superseded { opacity: .68; }
-        .measurement-row.nested { padding: 9px 0; }
-        .measurement-row.highlighted {
-          margin-left: -8px;
-          margin-right: -8px;
-          padding-left: 8px;
-          padding-right: 8px;
-          border-radius: 9px;
-          background: color-mix(in srgb, var(--primary-color) 10%, transparent);
-          outline: 1px solid color-mix(in srgb, var(--primary-color) 35%, transparent);
-        }
 
         .measurement-main {
           display: flex;
@@ -2696,9 +2379,6 @@ class PuppyWeightOverviewCard extends HTMLElement {
           .measurement-edit-form { grid-template-columns: 1fr; }
           .measurement-edit-form .reason-field,
           .measurement-edit-form .measurement-form-actions { grid-column: auto; }
-          .current-measurement { align-items: flex-start; }
-          .measurement-mini-chart { padding: 8px; }
-          .chain-history { margin-left: 6px; padding-left: 8px; }
         }
 
         @media (max-width: 430px) {
@@ -2707,12 +2387,6 @@ class PuppyWeightOverviewCard extends HTMLElement {
           .puppy-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
           .status-pill { max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
           .chart-tooltip b { margin-left: 0; }
-          .current-measurement { flex-direction: column; gap: 7px; }
-          .current-measurement > div:last-child { text-align: left; }
-          .measurement-meta { gap: 3px 7px; }
-          .measurement-main > div > strong { font-size: 18px; }
-          .measurement-filter { flex: 1 1 auto; }
-          .measurement-actions .mini-button { min-height: 40px; }
         }
       </style>
       <ha-card>
@@ -2738,7 +2412,7 @@ if (!window.customCards.some((card) => card.type === "puppy-weight-overview-card
 }
 
 console.info(
-  "%c PUPPY-WEIGHT-OVERVIEW-CARD %c v1.3.1 ",
+  "%c PUPPY-WEIGHT-OVERVIEW-CARD %c v1.3.0 ",
   "color: white; background: #607d8b; font-weight: 700;",
   "color: #607d8b; background: white; font-weight: 700;"
 );
