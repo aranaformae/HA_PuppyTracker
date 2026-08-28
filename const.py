@@ -23,5 +23,6 @@ DUPLICATE_CONFIRMATION_SECONDS = 30
 
 # Dispatcher signals.
 SIGNAL_UPDATE = f"{DOMAIN}_update"
+SIGNAL_NEW_LITTER = f"{DOMAIN}_new_litter"
 SIGNAL_NEW_PUPPY = f"{DOMAIN}_new_puppy"
 SIGNAL_DASHBOARD_UPDATE = f"{DOMAIN}_dashboard_update"

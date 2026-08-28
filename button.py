@@ -514,13 +514,19 @@ class PuppySaveWeightButton(
             )
         )
 
-        mark_weight_recorded(
+        session_completed = mark_weight_recorded(
             self.data,
             litter_id=litter_id,
             puppy_id=puppy_id,
             puppy_name=puppy_name,
             weight=weight,
         )
+
+        if session_completed:
+            await self.storage.async_record_completed_weighing_session(
+                litter_id,
+                get_session(self.data),
+            )
 
         # Clear input to prevent accidentally reusing
         # the previous puppy's weight.

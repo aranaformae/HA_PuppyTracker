@@ -14,11 +14,13 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from .const import (
     DOMAIN,
     SIGNAL_DASHBOARD_UPDATE,
+    SIGNAL_NEW_LITTER,
     SIGNAL_NEW_PUPPY,
     SIGNAL_UPDATE,
 )
 from .devices import async_sync_devices
 from .session import (
+    get_session,
     mark_weight_recorded,
     new_session_state,
 )
@@ -206,6 +208,12 @@ async def async_setup_entry(
 
         async_dispatcher_send(
             hass,
+            SIGNAL_NEW_LITTER,
+            litter_id,
+        )
+
+        async_dispatcher_send(
+            hass,
             SIGNAL_DASHBOARD_UPDATE,
         )
 
@@ -319,7 +327,7 @@ async def async_setup_entry(
             )
         )
 
-        mark_weight_recorded(
+        session_completed = mark_weight_recorded(
             runtime,
             litter_id=litter_id,
             puppy_id=puppy_id,
@@ -329,6 +337,12 @@ async def async_setup_entry(
             ),
             weight=weight,
         )
+
+        if session_completed:
+            await storage.async_record_completed_weighing_session(
+                litter_id,
+                get_session(runtime),
+            )
 
         async_dispatcher_send(
             hass,

@@ -26,6 +26,7 @@ from .const import (
     DEFAULT_MIN_DAILY_GROWTH_PERCENT,
     DOMAIN,
     SIGNAL_DASHBOARD_UPDATE,
+    SIGNAL_NEW_LITTER,
     SIGNAL_NEW_PUPPY,
     SIGNAL_UPDATE,
 )
@@ -125,7 +126,7 @@ class PuppyWeightTrackerOptionsFlow(
             storage = self._get_storage()
 
             try:
-                await storage.async_create_litter(
+                litter_id = await storage.async_create_litter(
                     name=user_input["name"],
                     birth_date=user_input.get(
                         "birth_date"
@@ -142,6 +143,12 @@ class PuppyWeightTrackerOptionsFlow(
                     self.hass,
                     self.config_entry,
                     storage.get_data(),
+                )
+
+                async_dispatcher_send(
+                    self.hass,
+                    SIGNAL_NEW_LITTER,
+                    litter_id,
                 )
 
                 async_dispatcher_send(

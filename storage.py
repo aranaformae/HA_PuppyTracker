@@ -39,7 +39,7 @@ def _empty_data() -> dict[str, Any]:
     now = _now_iso()
 
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "created_at": now,
         "updated_at": now,
         "settings": _default_settings(),
@@ -111,12 +111,27 @@ class PuppyWeightStorage:
         if self._migrate_measurements():
             changed = True
 
-        if self._data.get("schema_version", 1) < 2:
-            self._data["schema_version"] = 2
+        if self._migrate_litter_summaries():
+            changed = True
+
+        if self._data.get("schema_version", 1) < 3:
+            self._data["schema_version"] = 3
             changed = True
 
         if changed:
             await self.async_save()
+
+    def _migrate_litter_summaries(self) -> bool:
+        """Add persistent litter summary metadata without changing measurements."""
+
+        changed = False
+
+        for litter in self._data.get("litters", {}).values():
+            if "last_completed_session" not in litter:
+                litter["last_completed_session"] = None
+                changed = True
+
+        return changed
 
     def _migrate_measurements(self) -> bool:
         """Normalize measurement records and synchronize birth measurements."""
@@ -512,6 +527,7 @@ class PuppyWeightStorage:
                 "created_at": now,
                 "updated_at": now,
                 "puppies": {},
+                "last_completed_session": None,
             }
 
             self._add_audit_entry(
@@ -967,6 +983,50 @@ class PuppyWeightStorage:
             await self.async_save()
 
             return removed
+
+    async def async_record_completed_weighing_session(
+        self,
+        litter_id: str,
+        session: dict[str, Any],
+    ) -> None:
+        """Persist metadata for a fully completed weighing session."""
+
+        completed_at = session.get("completed_at")
+        if not completed_at:
+            return
+
+        async with self._lock:
+            litter = self._require_litter(litter_id)
+
+            existing = litter.get("last_completed_session")
+            if (
+                isinstance(existing, dict)
+                and existing.get("completed_at") == completed_at
+            ):
+                return
+
+            puppy_ids = list(session.get("puppy_ids", []))
+            weighed_ids = list(session.get("weighed_puppy_ids", []))
+
+            summary = {
+                "started_at": session.get("started_at"),
+                "completed_at": completed_at,
+                "puppy_ids": puppy_ids,
+                "weighed_puppy_ids": weighed_ids,
+                "total_puppies": len(puppy_ids),
+                "weighed_puppies": len(weighed_ids),
+            }
+
+            litter["last_completed_session"] = summary
+            litter["updated_at"] = _now_iso()
+
+            self._add_audit_entry(
+                action="complete_weighing_session",
+                litter_id=litter_id,
+                details=deepcopy(summary),
+            )
+
+            await self.async_save()
 
     async def async_record_weight(
         self,

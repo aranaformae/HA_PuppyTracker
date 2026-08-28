@@ -147,8 +147,11 @@ def mark_weight_recorded(
     puppy_id: str,
     puppy_name: str,
     weight: float,
-) -> None:
-    """Update runtime session after a stored weight."""
+) -> bool:
+    """Update runtime session after a stored weight.
+
+    Return True only when this weight just completed the active session.
+    """
 
     session = get_session(
         runtime
@@ -183,13 +186,13 @@ def mark_weight_recorded(
         session.get("status")
         != SESSION_ACTIVE
     ):
-        return
+        return False
 
     if (
         session.get("litter_id")
         != litter_id
     ):
-        return
+        return False
 
     if (
         puppy_id
@@ -198,7 +201,7 @@ def mark_weight_recorded(
             [],
         )
     ):
-        return
+        return False
 
     weighed = session.setdefault(
         "weighed_puppy_ids",
@@ -219,7 +222,7 @@ def mark_weight_recorded(
             "selected_puppy_id"
         ] = remaining[0]
 
-        return
+        return False
 
     session[
         "status"
@@ -237,3 +240,4 @@ def mark_weight_recorded(
         f"{len(session.get('puppy_ids', []))} "
         f"pups gewogen"
     )
+    return True
