@@ -131,16 +131,24 @@
       },
       "settings": {
         "title": "Monitoringinstellingen",
-        "description": "Stel in wanneer Puppy Weight Tracker een puppy voor aandacht moet markeren. Standaard geldt een minimale groei van 5% per 24 uur gedurende de eerste 14 dagen.",
+        "description": "Stel de bewakingsgrenzen en optionele Home Assistant-meldingen in. Meldingen worden gededupliceerd: dezelfde waarschuwing verschijnt één keer totdat de status verandert.",
         "data": {
           "min_daily_growth_percent": "Minimale groei per 24 uur",
           "max_hours_between_weighings": "Maximale tijd tussen wegingen",
-          "growth_monitoring_days": "Minimale groei bewaken tot leeftijd"
+          "growth_monitoring_days": "Minimale groei bewaken tot leeftijd",
+          "notifications_enabled": "Home Assistant-meldingen",
+          "notify_recovery": "Melding wanneer puppy herstelt",
+          "notify_session_complete": "Melding na voltooide weegsessie",
+          "notify_entities": "Pushmeldingen naar"
         },
         "data_description": {
           "min_daily_growth_percent": "Markeer de genormaliseerde dagelijkse groei als deze onder dit percentage ligt.",
           "max_hours_between_weighings": "Markeer een puppy wanneer binnen dit aantal uren geen nieuw gewicht is geregistreerd.",
-          "growth_monitoring_days": "Na deze leeftijd wordt de minimale dagelijkse groeigrens niet meer toegepast. Gewichtsverlies kan nog steeds worden gemarkeerd."
+          "growth_monitoring_days": "Na deze leeftijd wordt de minimale dagelijkse groeigrens niet meer toegepast. Gewichtsverlies kan nog steeds worden gemarkeerd.",
+          "notifications_enabled": "Maak een blijvende Home Assistant-melding wanneer een actieve puppy naar een aandachtstatus verandert. Standaard uitgeschakeld.",
+          "notify_recovery": "Vervang de actieve waarschuwing één keer door een herstelmelding wanneer de puppy weer een normale status heeft.",
+          "notify_session_complete": "Maak één melding wanneer een volledige weegsessie is afgerond.",
+          "notify_entities": "Optionele notify-entiteiten, bijvoorbeeld je telefoon. Waarschuwingen, herstelmeldingen en sessiemeldingen worden daar ook naartoe gestuurd wanneer ze zijn ingeschakeld. De blijvende Home Assistant-melding wordt altijd gemaakt."
         }
       },
       "manage_measurements": {

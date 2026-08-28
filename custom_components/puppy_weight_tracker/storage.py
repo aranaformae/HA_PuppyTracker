@@ -15,6 +15,10 @@ from .const import (
     DEFAULT_GROWTH_MONITORING_DAYS,
     DEFAULT_MAX_HOURS_BETWEEN_WEIGHINGS,
     DEFAULT_MIN_DAILY_GROWTH_PERCENT,
+    DEFAULT_NOTIFICATIONS_ENABLED,
+    DEFAULT_NOTIFY_RECOVERY,
+    DEFAULT_NOTIFY_SESSION_COMPLETE,
+    DEFAULT_NOTIFY_ENTITIES,
     STORAGE_KEY,
     STORAGE_VERSION,
 )
@@ -31,6 +35,10 @@ def _default_settings() -> dict[str, Any]:
         "min_daily_growth_percent": DEFAULT_MIN_DAILY_GROWTH_PERCENT,
         "max_hours_between_weighings": DEFAULT_MAX_HOURS_BETWEEN_WEIGHINGS,
         "growth_monitoring_days": DEFAULT_GROWTH_MONITORING_DAYS,
+        "notifications_enabled": DEFAULT_NOTIFICATIONS_ENABLED,
+        "notify_recovery": DEFAULT_NOTIFY_RECOVERY,
+        "notify_session_complete": DEFAULT_NOTIFY_SESSION_COMPLETE,
+        "notify_entities": list(DEFAULT_NOTIFY_ENTITIES),
     }
 
 
@@ -450,6 +458,10 @@ class PuppyWeightStorage:
         min_daily_growth_percent: float,
         max_hours_between_weighings: float,
         growth_monitoring_days: int,
+        notifications_enabled: bool,
+        notify_recovery: bool,
+        notify_session_complete: bool,
+        notify_entities: list[str] | None = None,
     ) -> None:
         """Update monitoring settings."""
 
@@ -490,6 +502,14 @@ class PuppyWeightStorage:
                 "min_daily_growth_percent": min_growth,
                 "max_hours_between_weighings": max_hours,
                 "growth_monitoring_days": monitoring_days,
+                "notifications_enabled": bool(notifications_enabled),
+                "notify_recovery": bool(notify_recovery),
+                "notify_session_complete": bool(notify_session_complete),
+                "notify_entities": [
+                    str(entity_id)
+                    for entity_id in (notify_entities or [])
+                    if str(entity_id).startswith("notify.")
+                ],
             }
 
             self._data["settings"] = settings

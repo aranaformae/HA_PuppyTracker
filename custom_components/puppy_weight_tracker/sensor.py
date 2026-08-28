@@ -1684,6 +1684,20 @@ class PuppyStatusSensor(
         return data
 
 
+def calculate_puppy_status(
+    storage: PuppyWeightStorage,
+    litter_id: str,
+    puppy_id: str,
+) -> dict[str, Any]:
+    """Return the canonical monitoring status for one puppy."""
+
+    return PuppyStatusSensor(
+        storage,
+        litter_id,
+        puppy_id,
+    )._status_data()
+
+
 class PuppyCollarColorSensor(
     PuppyBaseSensor
 ):

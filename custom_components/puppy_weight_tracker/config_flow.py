@@ -24,6 +24,10 @@ from .const import (
     DEFAULT_GROWTH_MONITORING_DAYS,
     DEFAULT_MAX_HOURS_BETWEEN_WEIGHINGS,
     DEFAULT_MIN_DAILY_GROWTH_PERCENT,
+    DEFAULT_NOTIFICATIONS_ENABLED,
+    DEFAULT_NOTIFY_RECOVERY,
+    DEFAULT_NOTIFY_SESSION_COMPLETE,
+    DEFAULT_NOTIFY_ENTITIES,
     DOMAIN,
     SIGNAL_DASHBOARD_UPDATE,
     SIGNAL_NEW_LITTER,
@@ -1458,6 +1462,18 @@ class PuppyWeightTrackerOptionsFlow(
                             ]
                         )
                     ),
+                    notifications_enabled=bool(
+                        user_input["notifications_enabled"]
+                    ),
+                    notify_recovery=bool(
+                        user_input["notify_recovery"]
+                    ),
+                    notify_session_complete=bool(
+                        user_input["notify_session_complete"]
+                    ),
+                    notify_entities=list(
+                        user_input.get("notify_entities", [])
+                    ),
                 )
 
                 async_dispatcher_send(
@@ -1534,6 +1550,43 @@ class PuppyWeightTrackerOptionsFlow(
                             step=1,
                             unit_of_measurement=UnitOfTime.DAYS,
                             mode=selector.NumberSelectorMode.BOX,
+                        )
+                    ),
+
+                    vol.Required(
+                        "notifications_enabled",
+                        default=settings.get(
+                            "notifications_enabled",
+                            DEFAULT_NOTIFICATIONS_ENABLED,
+                        ),
+                    ): selector.BooleanSelector(),
+
+                    vol.Required(
+                        "notify_recovery",
+                        default=settings.get(
+                            "notify_recovery",
+                            DEFAULT_NOTIFY_RECOVERY,
+                        ),
+                    ): selector.BooleanSelector(),
+
+                    vol.Required(
+                        "notify_session_complete",
+                        default=settings.get(
+                            "notify_session_complete",
+                            DEFAULT_NOTIFY_SESSION_COMPLETE,
+                        ),
+                    ): selector.BooleanSelector(),
+
+                    vol.Optional(
+                        "notify_entities",
+                        default=settings.get(
+                            "notify_entities",
+                            list(DEFAULT_NOTIFY_ENTITIES),
+                        ),
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(
+                            domain="notify",
+                            multiple=True,
                         )
                     ),
                 }

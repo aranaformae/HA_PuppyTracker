@@ -131,16 +131,24 @@
       },
       "settings": {
         "title": "Monitoring settings",
-        "description": "Configure when Puppy Weight Tracker should flag a puppy for attention. The default minimum growth threshold is 5% per 24 hours during the first 14 days.",
+        "description": "Configure monitoring thresholds and optional Home Assistant notifications. Notifications are deduplicated: an unchanged warning is shown once until the status changes.",
         "data": {
           "min_daily_growth_percent": "Minimum growth per 24 hours",
           "max_hours_between_weighings": "Maximum time between weighings",
-          "growth_monitoring_days": "Monitor minimum growth until age"
+          "growth_monitoring_days": "Monitor minimum growth until age",
+          "notifications_enabled": "Home Assistant notifications",
+          "notify_recovery": "Notification when puppy recovers",
+          "notify_session_complete": "Notification after completed weighing session",
+          "notify_entities": "Push notification targets"
         },
         "data_description": {
           "min_daily_growth_percent": "Flag normalized daily growth below this percentage. General veterinary guidance describes approximately 5–10% daily weight gain as normal during the neonatal period.",
           "max_hours_between_weighings": "Flag a puppy when no new weight has been recorded within this number of hours.",
-          "growth_monitoring_days": "After this age the minimum daily growth threshold is no longer applied. Weight loss can still be flagged."
+          "growth_monitoring_days": "After this age the minimum daily growth threshold is no longer applied. Weight loss can still be flagged.",
+          "notifications_enabled": "Create persistent Home Assistant notifications when an active puppy changes into an attention state. Disabled by default.",
+          "notify_recovery": "Replace the active warning with a one-time recovery message when the puppy returns to a normal status.",
+          "notify_session_complete": "Create one notification when a weighing session is fully completed.",
+          "notify_entities": "Optional notify entities (for example your phone). Attention, recovery and session messages are also sent there when enabled. The Home Assistant persistent notification is always created."
         }
       },
       "manage_measurements": {

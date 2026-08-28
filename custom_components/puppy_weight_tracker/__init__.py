@@ -20,6 +20,7 @@ from .const import (
 )
 from .devices import async_sync_devices
 from .frontend import async_setup_frontend, async_unload_frontend
+from .notifications import PuppyNotificationManager
 from .session import (
     get_session,
     mark_weight_recorded,
@@ -33,6 +34,7 @@ _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS = [
     "sensor",
+    "binary_sensor",
     "select",
     "number",
     "button",
@@ -182,6 +184,15 @@ async def async_setup_entry(
         entry,
         PLATFORMS,
     )
+
+    notification_manager = PuppyNotificationManager(
+        hass,
+        entry,
+        storage,
+        runtime,
+    )
+    runtime["notification_manager"] = notification_manager
+    await notification_manager.async_start()
 
     async def handle_create_litter(
         call: ServiceCall,
@@ -420,6 +431,11 @@ async def async_unload_entry(
 
     if not unload_ok:
         return False
+
+    runtime = hass.data.get(DOMAIN, {}).get(entry.entry_id, {})
+    notification_manager = runtime.get("notification_manager")
+    if notification_manager is not None:
+        await notification_manager.async_stop()
 
     async_unload_frontend(hass)
 
