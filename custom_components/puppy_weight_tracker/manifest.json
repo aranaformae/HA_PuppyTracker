@@ -1,7 +1,7 @@
 {
   "domain": "puppy_weight_tracker",
   "name": "Puppy Weight Tracker",
-  "version": "0.8.3",
+  "version": "0.9.3",
   "documentation": "https://github.com/aranaformae/HA_PuppyTracker",
   "issue_tracker": "https://github.com/aranaformae/HA_PuppyTracker/issues",
   "codeowners": [

@@ -150,6 +150,19 @@ async def async_setup_entry(
 
     await storage.async_load()
 
+    integrity_report = storage.get_integrity_report()
+    if integrity_report.get("unresolved_critical", 0):
+        _LOGGER.warning(
+            "Puppy Weight Tracker storage integrity check found %s unresolved critical issue(s); "
+            "download integration diagnostics for details",
+            integrity_report.get("unresolved_critical", 0),
+        )
+    elif integrity_report.get("repairs_applied", 0):
+        _LOGGER.info(
+            "Puppy Weight Tracker safely repaired %s storage integrity issue(s) during startup",
+            integrity_report.get("repairs_applied", 0),
+        )
+
     hass.data.setdefault(
         DOMAIN,
         {},

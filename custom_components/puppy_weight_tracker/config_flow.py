@@ -40,6 +40,7 @@ from .devices import (
     async_sync_devices,
 )
 from .storage import PuppyWeightStorage
+from .time_utils import current_selector_datetime, selector_datetime_value
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -114,6 +115,7 @@ class PuppyWeightTrackerOptionsFlow(
                 "add_puppy",
                 "manage_puppy",
                 "manage_measurements",
+                "integrity",
                 "settings",
             ],
         )
@@ -673,14 +675,7 @@ class PuppyWeightTrackerOptionsFlow(
 
                     vol.Optional(
                         "birth_time",
-                        default=(
-                            dt_util.now()
-                            .replace(
-                                second=0,
-                                microsecond=0,
-                            )
-                            .isoformat()
-                        ),
+                        default=current_selector_datetime(),
                     ): selector.DateTimeSelector(),
 
                     vol.Optional(
@@ -987,7 +982,7 @@ class PuppyWeightTrackerOptionsFlow(
             fields[
                 vol.Optional(
                     "birth_time",
-                    default=birth_time,
+                    default=selector_datetime_value(birth_time),
                 )
             ] = selector.DateTimeSelector()
         else:
@@ -1352,7 +1347,10 @@ class PuppyWeightTrackerOptionsFlow(
                         )
                     ),
                     vol.Required(
-                        "timestamp", default=measurement.get("timestamp")
+                        "timestamp",
+                        default=selector_datetime_value(
+                            measurement.get("timestamp")
+                        ),
                     ): selector.DateTimeSelector(),
                     vol.Optional("reason"): selector.TextSelector(
                         selector.TextSelectorConfig(multiline=True)
@@ -1429,6 +1427,56 @@ class PuppyWeightTrackerOptionsFlow(
                     vol.Required("confirm", default=False): selector.BooleanSelector(),
                 }
             ),
+        )
+
+    async def async_step_integrity(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> ConfigFlowResult:
+        """Run the safe storage integrity checker."""
+        if user_input is not None:
+            return self.async_create_entry(
+                title="",
+                data={},
+            )
+
+        storage = self._get_storage()
+        report = await storage.async_run_integrity_check(
+            repair=True,
+        )
+
+        async_dispatcher_send(
+            self.hass,
+            SIGNAL_UPDATE,
+            None,
+        )
+        async_dispatcher_send(
+            self.hass,
+            SIGNAL_DASHBOARD_UPDATE,
+        )
+
+        status = (
+            "OK"
+            if report.get("healthy", False)
+            else "⚠"
+        )
+
+        return self.async_show_form(
+            step_id="integrity",
+            description_placeholders={
+                "status": status,
+                "issues": str(report.get("issues_found", 0)),
+                "repairs": str(report.get("repairs_applied", 0)),
+                "critical": str(report.get("unresolved_critical", 0)),
+                "warnings": str(report.get("unresolved_warnings", 0)),
+                "measurements": str(
+                    report.get("checked", {}).get(
+                        "measurement_versions",
+                        0,
+                    )
+                ),
+            },
+            data_schema=vol.Schema({}),
         )
 
     async def async_step_settings(

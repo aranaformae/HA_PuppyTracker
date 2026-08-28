@@ -9,17 +9,21 @@ from homeassistant.components.frontend import add_extra_js_url, remove_extra_js_
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN
+from .const import DOMAIN, VERSION
 
 _LOGGER = logging.getLogger(__name__)
 
 FRONTEND_DIR = Path(__file__).parent / "frontend"
 FRONTEND_URL = f"/{DOMAIN}/frontend"
-FRONTEND_VERSION = "0.8.3"
+FRONTEND_VERSION = VERSION
 
 CARD_FILES = (
     "puppy-weight-tracker-card.js",
     "puppy-weight-overview-card.js",
+    "puppy-weight-summary-card.js",
+    "puppy-weight-attention-card.js",
+    "puppy-weight-litter-card.js",
+    "puppy-weight-report-card.js",
 )
 
 # Static HTTP routes cannot currently be cleanly unregistered. Keep this flag

@@ -1,4 +1,4 @@
-// Puppy Weight Overview Card v1.3.1
+// Puppy Weight Overview Card v1.3.2
 class PuppyWeightOverviewCard extends HTMLElement {
   constructor() {
     super();
@@ -1695,6 +1695,13 @@ class PuppyWeightOverviewCard extends HTMLElement {
       `
       : "";
 
+    const integrity = this._history?.integrity || null;
+    const integrityWarning = integrity && Number(integrity.unresolved_critical || 0) > 0
+      ? `<div class="integrity-warning"><strong>Data-integriteit vraagt aandacht</strong><span>${this._escape(
+          String(integrity.unresolved_critical || 0)
+        )} kritisch probleem/problemen konden niet automatisch worden gerepareerd. Open Puppy Weight Tracker → Configureren → Data-integriteit controleren en download eventueel diagnostiek.</span></div>`
+      : "";
+
     const tooltipHtml = this._tooltip
       ? `
         <div class="chart-tooltip ${this._tooltip.statusClass || ""}">
@@ -1717,6 +1724,8 @@ class PuppyWeightOverviewCard extends HTMLElement {
           <button class="icon-button" id="refresh-history" title="Meetgegevens vernieuwen">↻</button>
         </div>
       </div>
+
+      ${integrityWarning}
 
       <div class="toolbar">
         <label>
@@ -2069,6 +2078,22 @@ class PuppyWeightOverviewCard extends HTMLElement {
         h2, h3 { margin: 0; line-height: 1.2; }
         h2 { font-size: 21px; }
         h3 { font-size: 17px; }
+
+        .integrity-warning {
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+          margin-bottom: 12px;
+          padding: 10px 12px;
+          border-radius: 10px;
+          background: color-mix(in srgb, var(--warning-color, #ff9800) 14%, transparent);
+          border: 1px solid color-mix(in srgb, var(--warning-color, #ff9800) 35%, transparent);
+        }
+        .integrity-warning span {
+          color: var(--secondary-text-color);
+          font-size: 12px;
+          line-height: 1.4;
+        }
 
         .toolbar {
           display: grid;
@@ -2738,7 +2763,7 @@ if (!window.customCards.some((card) => card.type === "puppy-weight-overview-card
 }
 
 console.info(
-  "%c PUPPY-WEIGHT-OVERVIEW-CARD %c v1.3.1 ",
+  "%c PUPPY-WEIGHT-OVERVIEW-CARD %c v1.3.2 ",
   "color: white; background: #607d8b; font-weight: 700;",
   "color: #607d8b; background: white; font-weight: 700;"
 );

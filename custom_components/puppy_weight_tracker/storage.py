@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import asyncio
 from copy import deepcopy
+from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
-from homeassistant.util import dt as dt_util
-
+from .integrity import inspect_and_repair_data
 from .time_utils import normalize_timestamp, timestamp_sort_key
 
 from .const import (
@@ -27,8 +27,8 @@ from .const import (
 
 
 def _now_iso() -> str:
-    """Return current Home Assistant local time as ISO string."""
-    return dt_util.now().isoformat()
+    """Return current time as a timezone-aware UTC ISO string."""
+    return datetime.now(timezone.utc).isoformat()
 
 
 def _default_settings() -> dict[str, Any]:
@@ -49,7 +49,7 @@ def _empty_data() -> dict[str, Any]:
     now = _now_iso()
 
     return {
-        "schema_version": 5,
+        "schema_version": 6,
         "created_at": now,
         "updated_at": now,
         "settings": _default_settings(),
@@ -73,6 +73,18 @@ class PuppyWeightStorage:
 
         self._data: dict[str, Any] = {}
         self._lock = asyncio.Lock()
+        self._last_integrity_report: dict[str, Any] = {
+            "healthy": True,
+            "issues_found": 0,
+            "repairs_applied": 0,
+            "unresolved_count": 0,
+            "unresolved_critical": 0,
+            "unresolved_warnings": 0,
+            "checked": {"litters": 0, "puppies": 0, "measurement_versions": 0},
+            "issue_counts": {},
+            "repair_counts": {},
+            "unresolved": [],
+        }
 
     async def async_load(self) -> None:
         """Load data from Home Assistant storage and migrate older data."""
@@ -124,12 +136,37 @@ class PuppyWeightStorage:
         if self._migrate_litter_summaries():
             changed = True
 
-        if self._data.get("schema_version", 1) < 5:
-            self._data["schema_version"] = 5
+        if self._migrate_metadata_timestamps():
+            changed = True
+
+        integrity_changed, integrity_report = inspect_and_repair_data(
+            self._data,
+            repair=True,
+        )
+        self._last_integrity_report = integrity_report
+        if integrity_changed:
+            changed = True
+            self._add_audit_entry(
+                action="integrity_repair",
+                details={
+                    "issues_found": integrity_report.get("issues_found", 0),
+                    "repairs_applied": integrity_report.get("repairs_applied", 0),
+                    "unresolved_critical": integrity_report.get("unresolved_critical", 0),
+                    "repair_counts": integrity_report.get("repair_counts", {}),
+                },
+            )
+
+        if self._data.get("schema_version", 1) < 6:
+            self._data["schema_version"] = 6
             changed = True
 
         if changed:
             await self.async_save()
+
+        # Keep the startup repair report available for setup logging and
+        # diagnostics even though async_save refreshes the current clean state.
+        if integrity_changed:
+            self._last_integrity_report = integrity_report
 
     def _migrate_litter_summaries(self) -> bool:
         """Add persistent litter summary metadata without changing measurements."""
@@ -143,6 +180,30 @@ class PuppyWeightStorage:
 
         return changed
 
+    def _migrate_metadata_timestamps(self) -> bool:
+        """Normalize storage and audit metadata timestamps to UTC."""
+        changed = False
+
+        for field in ("created_at", "updated_at"):
+            raw_value = self._data.get(field)
+            if raw_value:
+                normalized_value = normalize_timestamp(raw_value)
+                if normalized_value and normalized_value != raw_value:
+                    self._data[field] = normalized_value
+                    changed = True
+
+        for entry in self._data.get("audit_log", []):
+            if not isinstance(entry, dict):
+                continue
+            raw_value = entry.get("timestamp")
+            if raw_value:
+                normalized_value = normalize_timestamp(raw_value)
+                if normalized_value and normalized_value != raw_value:
+                    entry["timestamp"] = normalized_value
+                    changed = True
+
+        return changed
+
     def _migrate_measurements(self) -> bool:
         """Normalize measurement records and synchronize birth measurements."""
         changed = False
@@ -153,8 +214,24 @@ class PuppyWeightStorage:
                 litter["puppies"] = {}
                 changed = True
 
+            for field in ("created_at", "updated_at"):
+                raw_value = litter.get(field)
+                if raw_value:
+                    normalized_value = normalize_timestamp(raw_value)
+                    if normalized_value and normalized_value != raw_value:
+                        litter[field] = normalized_value
+                        changed = True
+
             for puppy_id, puppy in litter.get("puppies", {}).items():
                 measurements = puppy.setdefault("measurements", [])
+
+                for field in ("created_at", "updated_at"):
+                    raw_value = puppy.get(field)
+                    if raw_value:
+                        normalized_value = normalize_timestamp(raw_value)
+                        if normalized_value and normalized_value != raw_value:
+                            puppy[field] = normalized_value
+                            changed = True
 
                 for measurement in measurements:
                     defaults = {
@@ -183,6 +260,14 @@ class PuppyWeightStorage:
                     if normalized_timestamp and normalized_timestamp != raw_timestamp:
                         measurement["timestamp"] = normalized_timestamp
                         changed = True
+
+                    for field in ("created_at", "updated_at", "deleted_at"):
+                        raw_value = measurement.get(field)
+                        if raw_value:
+                            normalized_value = normalize_timestamp(raw_value)
+                            if normalized_value and normalized_value != raw_value:
+                                measurement[field] = normalized_value
+                                changed = True
 
                 raw_birth_time = puppy.get("birth_time")
                 if raw_birth_time:
@@ -370,7 +455,14 @@ class PuppyWeightStorage:
             source = cls._measurement_by_id(puppy, source_id)
             if source is None:
                 continue
-            if source.get("superseded_by") == measurement.get("id"):
+            if (
+                source.get("superseded_by") == measurement.get("id")
+                and measurement.get("superseded_by") is None
+                and not (
+                    measurement.get("kind") == "birth"
+                    and puppy.get("birth_weight") is None
+                )
+            ):
                 source["superseded_by"] = None
                 changed = True
         return changed
@@ -495,9 +587,54 @@ class PuppyWeightStorage:
         puppy["updated_at"] = now
         return replacement
 
+    def get_integrity_report(self) -> dict[str, Any]:
+        """Return the most recent data integrity report."""
+        return deepcopy(self._last_integrity_report)
+
+    async def async_run_integrity_check(
+        self,
+        *,
+        repair: bool = True,
+    ) -> dict[str, Any]:
+        """Run a full storage integrity check and optionally apply safe repairs."""
+        async with self._lock:
+            changed, report = inspect_and_repair_data(
+                self._data,
+                repair=repair,
+            )
+            self._last_integrity_report = report
+
+            if changed:
+                self._add_audit_entry(
+                    action="integrity_repair",
+                    details={
+                        "issues_found": report.get("issues_found", 0),
+                        "repairs_applied": report.get("repairs_applied", 0),
+                        "unresolved_critical": report.get("unresolved_critical", 0),
+                        "repair_counts": report.get("repair_counts", {}),
+                    },
+                )
+                await self.async_save()
+
+            return deepcopy(report)
+
+    def refresh_integrity_report(self) -> dict[str, Any]:
+        """Refresh integrity diagnostics without modifying stored data."""
+        _changed, report = inspect_and_repair_data(
+            self._data,
+            repair=False,
+        )
+        self._last_integrity_report = report
+        return deepcopy(report)
+
     async def async_save(self) -> None:
-        """Immediately save data to disk."""
+        """Immediately save data to disk and refresh integrity diagnostics."""
         self._data["updated_at"] = _now_iso()
+        _changed, report = inspect_and_repair_data(
+            self._data,
+            repair=False,
+        )
+        self._last_integrity_report = report
         await self._store.async_save(self._data)
 
     def get_data(self) -> dict[str, Any]:
@@ -1569,6 +1706,12 @@ class PuppyWeightStorage:
             if not measurement.get("deleted", False)
             and measurement.get("superseded_by") is None
         ]
+        measurements.sort(
+            key=lambda item: (
+                timestamp_sort_key(item.get("timestamp")),
+                timestamp_sort_key(item.get("created_at")),
+            )
+        )
         return deepcopy(measurements)
 
     def _require_litter(

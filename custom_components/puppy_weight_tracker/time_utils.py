@@ -49,3 +49,25 @@ def timestamp_sort_key(value: str | None) -> float:
     if parsed is None:
         return float("-inf")
     return parsed.timestamp()
+
+def selector_datetime_value(value: str | None) -> str | None:
+    """Format a timestamp for Home Assistant's datetime selector.
+
+    The frontend datetime selector expects a local, timezone-less value in the
+    form ``YYYY-MM-DD HH:MM:SS``. Stored Puppy Weight Tracker timestamps are
+    timezone-aware UTC ISO strings, so passing them directly causes the
+    selector to split the value incorrectly.
+    """
+    parsed = parse_timestamp(value)
+    if parsed is None:
+        return None
+
+    return dt_util.as_local(parsed).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def current_selector_datetime() -> str:
+    """Return the current local time formatted for a datetime selector."""
+    return dt_util.now().replace(second=0, microsecond=0).strftime(
+        "%Y-%m-%d %H:%M:%S"
+    )
+
