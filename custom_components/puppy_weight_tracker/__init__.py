@@ -19,6 +19,7 @@ from .const import (
     SIGNAL_UPDATE,
 )
 from .devices import async_sync_devices
+from .frontend import async_setup_frontend, async_unload_frontend
 from .session import (
     get_session,
     mark_weight_recorded,
@@ -168,6 +169,8 @@ async def async_setup_entry(
     ][
         entry.entry_id
     ]
+
+    await async_setup_frontend(hass)
 
     async_sync_devices(
         hass,
@@ -417,6 +420,8 @@ async def async_unload_entry(
 
     if not unload_ok:
         return False
+
+    async_unload_frontend(hass)
 
     for service in (
         SERVICE_CREATE_LITTER,
