@@ -16,6 +16,8 @@ class PuppyWeightOverviewCard extends HTMLElement {
     this._historyLoading = false;
     this._historyError = "";
     this._historyKey = "";
+    this._historyWindowStart = null;
+    this._historyWindowEnd = null;
     this._lastStateSignature = "";
     this._historyReloadTimer = null;
     this._tooltip = null;
@@ -461,12 +463,18 @@ class PuppyWeightOverviewCard extends HTMLElement {
       const end = new Date();
       const start = new Date(end.getTime() - this._rangeHours * 3600 * 1000);
 
+      // Keep the requested time window separate from the returned points.
+      // The graph must always represent the complete selected period, even
+      // when there are only a few measurements inside that period.
+      this._historyWindowStart = start.getTime();
+      this._historyWindowEnd = end.getTime();
+
       const history = await this._hass.callWS({
         type: "history/history_during_period",
         start_time: start.toISOString(),
         end_time: end.toISOString(),
         entity_ids: entityIds,
-        include_start_time_state: false,
+        include_start_time_state: true,
         significant_changes_only: false,
         minimal_response: true,
         no_attributes: true,
@@ -518,7 +526,14 @@ class PuppyWeightOverviewCard extends HTMLElement {
     const raw = this._history?.[entityId];
     if (!Array.isArray(raw)) return [];
 
-    return raw
+    const start = Number.isFinite(this._historyWindowStart)
+      ? this._historyWindowStart
+      : Date.now() - this._rangeHours * 3600 * 1000;
+    const end = Number.isFinite(this._historyWindowEnd)
+      ? this._historyWindowEnd
+      : Date.now();
+
+    const points = raw
       .map((item) => {
         const value = Number(item?.s ?? item?.state);
         let time = null;
@@ -532,10 +547,26 @@ class PuppyWeightOverviewCard extends HTMLElement {
         }
 
         if (!Number.isFinite(value) || !Number.isFinite(time)) return null;
-        return { time, value };
+        if (time < start || time > end + 60000) return null;
+        return { time: Math.min(time, end), value };
       })
       .filter(Boolean)
       .sort((a, b) => a.time - b.time);
+
+    // Home Assistant history represents state changes. If a sensor did not
+    // change after its last recorded point, there may be no point at "now".
+    // Extend the current state to the right edge so the complete selected
+    // period remains visible instead of appearing to stop at the first part.
+    const current = this._state(entityId);
+    const currentValue = Number(current?.state);
+    if (Number.isFinite(currentValue)) {
+      const last = points[points.length - 1];
+      if (!last || end - last.time > 1000) {
+        points.push({ time: end, value: currentValue });
+      }
+    }
+
+    return points;
   }
 
   _chartSeries(rows) {
@@ -572,8 +603,16 @@ class PuppyWeightOverviewCard extends HTMLElement {
     }
 
     const allPoints = series.flatMap((item) => item.points);
-    let minTime = Math.min(...allPoints.map((point) => point.time));
-    let maxTime = Math.max(...allPoints.map((point) => point.time));
+
+    // The x-axis always covers the selected range. Previously it was based on
+    // the first and last returned state change, which could make only a small
+    // part of 7/14/30 days appear to be displayed.
+    let minTime = Number.isFinite(this._historyWindowStart)
+      ? this._historyWindowStart
+      : Date.now() - this._rangeHours * 3600 * 1000;
+    let maxTime = Number.isFinite(this._historyWindowEnd)
+      ? this._historyWindowEnd
+      : Date.now();
     let minValue = Math.min(...allPoints.map((point) => point.value));
     let maxValue = Math.max(...allPoints.map((point) => point.value));
 
@@ -1318,14 +1357,15 @@ class PuppyWeightOverviewCard extends HTMLElement {
 
         .chart-scroll {
           width: 100%;
-          overflow-x: auto;
-          -webkit-overflow-scrolling: touch;
+          min-width: 0;
+          overflow: hidden;
         }
 
         .chart {
           display: block;
           width: 100%;
-          min-width: 560px;
+          min-width: 0;
+          max-width: 100%;
           height: auto;
           overflow: visible;
         }
