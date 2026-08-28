@@ -21,6 +21,9 @@ class PuppyWeightOverviewCard extends HTMLElement {
     this._lastStateSignature = "";
     this._historyReloadTimer = null;
     this._tooltip = null;
+    this._dataUnsubscribe = null;
+    this._dataSubscriptionPending = false;
+    this._exportStatus = "";
   }
 
   static getStubConfig() {
@@ -48,6 +51,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
                 { value: "7d", label: "7 dagen" },
                 { value: "14d", label: "14 dagen" },
                 { value: "30d", label: "30 dagen" },
+                { value: "all", label: "Alles" },
               ],
             },
           },
@@ -114,6 +118,12 @@ class PuppyWeightOverviewCard extends HTMLElement {
       clearTimeout(this._historyReloadTimer);
       this._historyReloadTimer = null;
     }
+
+    if (this._dataUnsubscribe) {
+      const unsubscribe = this._dataUnsubscribe;
+      this._dataUnsubscribe = null;
+      Promise.resolve(unsubscribe()).catch(() => undefined);
+    }
   }
 
   getCardSize() {
@@ -128,13 +138,18 @@ class PuppyWeightOverviewCard extends HTMLElement {
   }
 
   _rangeToHours(range) {
-    return {
+    const ranges = {
       "24h": 24,
       "3d": 72,
       "7d": 168,
       "14d": 336,
       "30d": 720,
-    }[range] || 168;
+      all: 0,
+    };
+
+    return Object.prototype.hasOwnProperty.call(ranges, range)
+      ? ranges[range]
+      : 168;
   }
 
   async _loadRegistry() {
@@ -154,6 +169,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
 
       this._initializeSelection();
       this._lastStateSignature = this._currentStateSignature();
+      await this._subscribeToData();
       await this._loadHistory(true);
     } catch (err) {
       console.error("Puppy Weight Overview card: discovery failed", err);
@@ -425,29 +441,48 @@ class PuppyWeightOverviewCard extends HTMLElement {
     };
   }
 
-  _historyEntityIds(rows) {
-    return rows
-      .map((row) => this._metricConfig(row).entityId)
-      .filter(Boolean);
+  _selectedLitterStorageId() {
+    const litter = this._selectedLitter();
+    const identifier = this._deviceIdentifier(litter, "litter_");
+    return identifier ? identifier.slice("litter_".length) : null;
   }
 
-  _historyCacheKey(rows) {
-    const ids = this._historyEntityIds(rows).sort().join(",");
-    return `${this._selectedLitterId}|${this._rangeHours}|${this._metric}|${ids}`;
+  _historyCacheKey() {
+    return this._selectedLitterStorageId() || "";
+  }
+
+  async _subscribeToData() {
+    if (
+      !this._hass?.connection ||
+      this._dataUnsubscribe ||
+      this._dataSubscriptionPending
+    ) {
+      return;
+    }
+
+    this._dataSubscriptionPending = true;
+
+    try {
+      this._dataUnsubscribe = await this._hass.connection.subscribeMessage(
+        () => this._scheduleHistoryReload(),
+        { type: "puppy_weight_tracker/subscribe" }
+      );
+    } catch (err) {
+      console.warn("Puppy Weight Overview card: update subscription failed", err);
+    } finally {
+      this._dataSubscriptionPending = false;
+    }
   }
 
   async _loadHistory(force = false) {
     if (!this._hass || !this._registryLoaded || this._historyLoading) return;
 
-    const rows = this._puppyRows();
-    const entityIds = this._historyEntityIds(rows);
-    const key = this._historyCacheKey(rows);
+    const litterId = this._selectedLitterStorageId();
+    const key = this._historyCacheKey();
 
-    if (!force && key === this._historyKey && Object.keys(this._history).length) {
-      return;
-    }
+    if (!force && key === this._historyKey && this._history?.litter) return;
 
-    if (!entityIds.length) {
+    if (!litterId) {
       this._history = {};
       this._historyKey = key;
       this._historyError = "";
@@ -460,33 +495,18 @@ class PuppyWeightOverviewCard extends HTMLElement {
     this._render();
 
     try {
-      const end = new Date();
-      const start = new Date(end.getTime() - this._rangeHours * 3600 * 1000);
-
-      // Keep the requested time window separate from the returned points.
-      // The graph must always represent the complete selected period, even
-      // when there are only a few measurements inside that period.
-      this._historyWindowStart = start.getTime();
-      this._historyWindowEnd = end.getTime();
-
-      const history = await this._hass.callWS({
-        type: "history/history_during_period",
-        start_time: start.toISOString(),
-        end_time: end.toISOString(),
-        entity_ids: entityIds,
-        include_start_time_state: true,
-        significant_changes_only: false,
-        minimal_response: true,
-        no_attributes: true,
+      const result = await this._hass.callWS({
+        type: "puppy_weight_tracker/data",
+        litter_id: litterId,
       });
 
-      this._history = history && typeof history === "object" ? history : {};
+      this._history = result && typeof result === "object" ? result : {};
       this._historyKey = key;
     } catch (err) {
-      console.error("Puppy Weight Overview card: history failed", err);
+      console.error("Puppy Weight Overview card: measurement data failed", err);
       this._historyError =
         err?.message ||
-        "De historie kon niet worden geladen. Controleer of Recorder/History actief is.";
+        "De opgeslagen meetgegevens konden niet worden geladen.";
       this._history = {};
       this._historyKey = key;
     } finally {
@@ -501,7 +521,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
     this._historyReloadTimer = setTimeout(() => {
       this._historyReloadTimer = null;
       this._loadHistory(true);
-    }, 900);
+    }, 250);
   }
 
   _currentStateSignature() {
@@ -521,59 +541,116 @@ class PuppyWeightOverviewCard extends HTMLElement {
       .join("|");
   }
 
-  _historyPoints(entityId) {
-    if (!entityId) return [];
-    const raw = this._history?.[entityId];
-    if (!Array.isArray(raw)) return [];
+  _dataPuppy(row) {
+    const puppies = Array.isArray(this._history?.puppies)
+      ? this._history.puppies
+      : [];
+    return puppies.find((puppy) => puppy?.id === row.puppyId) || null;
+  }
 
-    const start = Number.isFinite(this._historyWindowStart)
-      ? this._historyWindowStart
-      : Date.now() - this._rangeHours * 3600 * 1000;
-    const end = Number.isFinite(this._historyWindowEnd)
-      ? this._historyWindowEnd
-      : Date.now();
+  _measurementSeries(row) {
+    const puppy = this._dataPuppy(row);
+    const measurements = Array.isArray(puppy?.measurements)
+      ? puppy.measurements
+      : [];
 
-    const points = raw
-      .map((item) => {
-        const value = Number(item?.s ?? item?.state);
-        let time = null;
-
-        if (Number.isFinite(Number(item?.lu))) {
-          time = Number(item.lu) * 1000;
-        } else if (item?.last_updated) {
-          time = new Date(item.last_updated).getTime();
-        } else if (item?.last_changed) {
-          time = new Date(item.last_changed).getTime();
-        }
-
+    return measurements
+      .map((measurement) => {
+        const value = Number(measurement?.weight);
+        const time = new Date(measurement?.timestamp || "").getTime();
         if (!Number.isFinite(value) || !Number.isFinite(time)) return null;
-        if (time < start || time > end + 60000) return null;
-        return { time: Math.min(time, end), value };
+        return {
+          time,
+          value,
+          measurementId: measurement.id || "",
+          kind: measurement.kind || "weight",
+        };
       })
       .filter(Boolean)
       .sort((a, b) => a.time - b.time);
+  }
 
-    // Home Assistant history represents state changes. If a sensor did not
-    // change after its last recorded point, there may be no point at "now".
-    // Extend the current state to the right edge so the complete selected
-    // period remains visible instead of appearing to stop at the first part.
-    const current = this._state(entityId);
-    const currentValue = Number(current?.state);
-    if (Number.isFinite(currentValue)) {
-      const last = points[points.length - 1];
-      if (!last || end - last.time > 1000) {
-        points.push({ time: end, value: currentValue });
+  _growth24Points(series) {
+    const result = [];
+    const minimumIntervalHours = 6;
+
+    for (let index = 1; index < series.length; index += 1) {
+      const current = series[index];
+      const targetTime = current.time - 24 * 3600 * 1000;
+      let best = null;
+
+      for (let previousIndex = 0; previousIndex < index; previousIndex += 1) {
+        const candidate = series[previousIndex];
+        const intervalHours = (current.time - candidate.time) / 3600000;
+        if (intervalHours < minimumIntervalHours || candidate.value <= 0) continue;
+
+        const distance = Math.abs(candidate.time - targetTime);
+        if (!best || distance < best.distance) {
+          best = { candidate, intervalHours, distance };
+        }
+      }
+
+      if (!best) continue;
+
+      const actualPercent =
+        ((current.value - best.candidate.value) / best.candidate.value) * 100;
+      const normalizedPercent = actualPercent * (24 / best.intervalHours);
+
+      if (Number.isFinite(normalizedPercent)) {
+        result.push({
+          time: current.time,
+          value: Math.round(normalizedPercent * 100) / 100,
+          measurementId: current.measurementId,
+        });
       }
     }
 
-    return points;
+    return result;
+  }
+
+  _metricPoints(row) {
+    const puppy = this._dataPuppy(row);
+    const series = this._measurementSeries(row);
+    let points = [];
+
+    if (this._metric === "growth24") {
+      points = this._growth24Points(series);
+    } else if (this._metric === "growthBirth") {
+      let birthWeight = Number(puppy?.birth_weight);
+      if (!Number.isFinite(birthWeight) || birthWeight <= 0) {
+        const birthMeasurement = series.find((point) => point.kind === "birth");
+        birthWeight = birthMeasurement?.value;
+      }
+
+      if (Number.isFinite(birthWeight) && birthWeight > 0) {
+        points = series.map((point) => ({
+          time: point.time,
+          value: Math.round(((point.value - birthWeight) / birthWeight) * 10000) / 100,
+          measurementId: point.measurementId,
+        }));
+      }
+    } else {
+      points = series;
+    }
+
+    const end = Date.now();
+    const start = this._rangeHours > 0
+      ? end - this._rangeHours * 3600 * 1000
+      : Number.NEGATIVE_INFINITY;
+
+    this._historyWindowStart = Number.isFinite(start) ? start : null;
+    this._historyWindowEnd = end;
+
+    return points.filter(
+      (point) => point.time >= start && point.time <= end + 60000
+    );
   }
 
   _chartSeries(rows) {
     return rows
       .map((row, index) => {
         const config = this._metricConfig(row);
-        const points = this._historyPoints(config.entityId);
+        const points = this._metricPoints(row);
 
         return {
           puppyId: row.puppyId,
@@ -604,15 +681,12 @@ class PuppyWeightOverviewCard extends HTMLElement {
 
     const allPoints = series.flatMap((item) => item.points);
 
-    // The x-axis always covers the selected range. Previously it was based on
-    // the first and last returned state change, which could make only a small
-    // part of 7/14/30 days appear to be displayed.
-    let minTime = Number.isFinite(this._historyWindowStart)
-      ? this._historyWindowStart
-      : Date.now() - this._rangeHours * 3600 * 1000;
-    let maxTime = Number.isFinite(this._historyWindowEnd)
-      ? this._historyWindowEnd
-      : Date.now();
+    // Fixed periods always span the complete selected window. "Alles" starts
+    // at the first effective measurement and runs through the current time.
+    let maxTime = Date.now();
+    let minTime = this._rangeHours > 0
+      ? maxTime - this._rangeHours * 3600 * 1000
+      : Math.min(...allPoints.map((point) => point.time));
     let minValue = Math.min(...allPoints.map((point) => point.value));
     let maxValue = Math.max(...allPoints.map((point) => point.value));
 
@@ -825,6 +899,49 @@ class PuppyWeightOverviewCard extends HTMLElement {
     await this._loadHistory(true);
   }
 
+  async _exportData(format) {
+    const litterId = this._selectedLitterStorageId();
+    if (!this._hass || !litterId) return;
+
+    this._exportStatus = `${format.toUpperCase()} maken…`;
+    this._render();
+
+    try {
+      const result = await this._hass.callWS({
+        type: "puppy_weight_tracker/export",
+        litter_id: litterId,
+        format,
+      });
+
+      const content = format === "csv" ? `\ufeff${result.content || ""}` : result.content || "";
+      const blob = new Blob([content], {
+        type: result.mime_type || "application/octet-stream",
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = result.filename || `puppy-weight-tracker.${format}`;
+      link.rel = "noopener";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 30000);
+
+      this._exportStatus = `${format.toUpperCase()} export klaar`;
+    } catch (err) {
+      console.error(`Puppy Weight Overview card: ${format} export failed`, err);
+      this._exportStatus = err?.message || `${format.toUpperCase()} export mislukt`;
+    }
+
+    this._render();
+    window.setTimeout(() => {
+      if (this._exportStatus) {
+        this._exportStatus = "";
+        this._render();
+      }
+    }, 3500);
+  }
+
   _escape(value) {
     return String(value ?? "")
       .replaceAll("&", "&amp;")
@@ -969,7 +1086,11 @@ class PuppyWeightOverviewCard extends HTMLElement {
           <div class="eyebrow">Puppy Weight Tracker</div>
           <h2>${this._escape(this._config.title)}</h2>
         </div>
-        <button class="icon-button" id="refresh-history" title="Grafiek vernieuwen">↻</button>
+        <div class="header-actions">
+          <button class="export-button" id="export-csv" title="Actieve metingen exporteren als CSV">CSV</button>
+          <button class="export-button" id="export-json" title="Volledige nestdata exporteren als JSON">JSON</button>
+          <button class="icon-button" id="refresh-history" title="Meetgegevens vernieuwen">↻</button>
+        </div>
       </div>
 
       <div class="toolbar">
@@ -994,6 +1115,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
           [168, "7d"],
           [336, "14d"],
           [720, "30d"],
+          [0, "Alles"],
         ]
           .map(
             ([hours, label]) => `
@@ -1018,8 +1140,9 @@ class PuppyWeightOverviewCard extends HTMLElement {
                 : "Groei sinds geboorte"
             )}</h3>
           </div>
-          <span>${rows.length} ${rows.length === 1 ? "pup" : "pups"}</span>
+          <span>${rows.length} ${rows.length === 1 ? "pup" : "pups"} · eigen meetdata</span>
         </div>
+        ${this._exportStatus ? `<div class="export-status">${this._escape(this._exportStatus)}</div>` : ""}
         ${this._chartSvg(rows)}
         <div class="legend">
           ${rows
@@ -1055,30 +1178,29 @@ class PuppyWeightOverviewCard extends HTMLElement {
     const litterSelect = this.shadowRoot?.querySelector("#litter-select");
     const metricSelect = this.shadowRoot?.querySelector("#metric-select");
     const refresh = this.shadowRoot?.querySelector("#refresh-history");
+    const exportCsv = this.shadowRoot?.querySelector("#export-csv");
+    const exportJson = this.shadowRoot?.querySelector("#export-json");
 
     litterSelect?.addEventListener("change", async (event) => {
       await this._selectLitter(event.target.value);
     });
 
-    metricSelect?.addEventListener("change", async (event) => {
+    metricSelect?.addEventListener("change", (event) => {
       this._metric = event.target.value;
       this._tooltip = null;
-      this._history = {};
-      this._historyKey = "";
       this._render();
-      await this._loadHistory(true);
     });
 
     refresh?.addEventListener("click", () => this._loadHistory(true));
+    exportCsv?.addEventListener("click", () => this._exportData("csv"));
+    exportJson?.addEventListener("click", () => this._exportData("json"));
 
     this.shadowRoot?.querySelectorAll("[data-range]").forEach((button) => {
-      button.addEventListener("click", async () => {
-        this._rangeHours = Number(button.dataset.range) || 168;
+      button.addEventListener("click", () => {
+        const value = Number(button.dataset.range);
+        this._rangeHours = Number.isFinite(value) ? value : 168;
         this._tooltip = null;
-        this._history = {};
-        this._historyKey = "";
         this._render();
-        await this._loadHistory(true);
       });
     });
 
@@ -1137,6 +1259,36 @@ class PuppyWeightOverviewCard extends HTMLElement {
           align-items: flex-start;
           justify-content: space-between;
           gap: 12px;
+        }
+
+        .header-actions {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+        }
+
+        .export-button {
+          min-height: 38px;
+          padding: 6px 10px;
+          border: 1px solid var(--divider-color);
+          border-radius: 9px;
+          background: var(--secondary-background-color);
+          color: var(--primary-text-color);
+          font: inherit;
+          font-size: 12px;
+          font-weight: 600;
+          cursor: pointer;
+        }
+
+        .export-status {
+          margin: 8px 0 4px;
+          padding: 7px 9px;
+          border-radius: 8px;
+          background: var(--secondary-background-color);
+          color: var(--secondary-text-color);
+          font-size: 12px;
         }
 
         .header { margin-bottom: 14px; }
@@ -1515,7 +1667,7 @@ if (!window.customCards.some((card) => card.type === "puppy-weight-overview-card
 }
 
 console.info(
-  "%c PUPPY-WEIGHT-OVERVIEW-CARD %c v1.0.0 ",
+  "%c PUPPY-WEIGHT-OVERVIEW-CARD %c v1.2.0 ",
   "color: white; background: #607d8b; font-weight: 700;",
   "color: #607d8b; background: white; font-weight: 700;"
 );

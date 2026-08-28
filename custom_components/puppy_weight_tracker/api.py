@@ -1,0 +1,311 @@
+"""WebSocket data and export API for Puppy Weight Tracker."""
+
+from __future__ import annotations
+
+import csv
+import io
+import json
+import re
+from copy import deepcopy
+from typing import Any
+
+import voluptuous as vol
+
+from homeassistant.components import websocket_api
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.util import dt as dt_util
+
+from .const import DOMAIN, SIGNAL_DASHBOARD_UPDATE
+from .storage import PuppyWeightStorage
+
+DATA_API_REGISTERED = f"{DOMAIN}_websocket_api_registered"
+API_VERSION = 1
+
+
+def _runtime_storage(hass: HomeAssistant) -> PuppyWeightStorage | None:
+    """Return the storage instance for the configured integration entry."""
+    domain_data = hass.data.get(DOMAIN)
+    if not isinstance(domain_data, dict):
+        return None
+
+    for runtime in domain_data.values():
+        if not isinstance(runtime, dict):
+            continue
+        storage = runtime.get("storage")
+        if isinstance(storage, PuppyWeightStorage):
+            return storage
+
+    return None
+
+
+def _active_measurements(puppy: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return effective measurements sorted chronologically."""
+    measurements = [
+        deepcopy(measurement)
+        for measurement in puppy.get("measurements", [])
+        if not measurement.get("deleted", False)
+        and measurement.get("superseded_by") is None
+    ]
+    measurements.sort(
+        key=lambda item: (
+            item.get("timestamp") or "",
+            item.get("created_at") or "",
+        )
+    )
+    return measurements
+
+
+def _litter_payload(storage: PuppyWeightStorage, litter_id: str) -> dict[str, Any]:
+    """Build graph data from Puppy Weight Tracker's own persistent storage."""
+    litter = storage.get_litter(litter_id)
+    if litter is None:
+        raise ValueError("Unknown litter")
+
+    puppies: list[dict[str, Any]] = []
+    for puppy_id, puppy in litter.get("puppies", {}).items():
+        puppies.append(
+            {
+                "id": puppy_id,
+                "name": puppy.get("name"),
+                "collar_color": puppy.get("collar_color"),
+                "sex": puppy.get("sex"),
+                "birth_weight": puppy.get("birth_weight"),
+                "birth_time": puppy.get("birth_time"),
+                "active": puppy.get("active", True),
+                "created_at": puppy.get("created_at"),
+                "updated_at": puppy.get("updated_at"),
+                "measurements": _active_measurements(puppy),
+            }
+        )
+
+    puppies.sort(key=lambda item: (str(item.get("name") or "").lower(), item["id"]))
+
+    return {
+        "api_version": API_VERSION,
+        "generated_at": dt_util.now().isoformat(),
+        "storage_updated_at": storage.get_data().get("updated_at"),
+        "litter": {
+            "id": litter_id,
+            "name": litter.get("name"),
+            "birth_date": litter.get("birth_date"),
+            "mother": litter.get("mother"),
+            "father": litter.get("father"),
+            "active": litter.get("active", True),
+            "created_at": litter.get("created_at"),
+            "updated_at": litter.get("updated_at"),
+            "last_completed_session": deepcopy(litter.get("last_completed_session")),
+        },
+        "puppies": puppies,
+    }
+
+
+def _safe_filename(value: str | None) -> str:
+    """Return a filesystem-friendly filename component."""
+    text = (value or "nest").strip().lower()
+    text = re.sub(r"[^a-z0-9_-]+", "-", text)
+    return text.strip("-") or "nest"
+
+
+def _csv_export(storage: PuppyWeightStorage, litter_id: str) -> tuple[str, str, str]:
+    """Export effective measurements as spreadsheet-friendly CSV."""
+    litter = storage.get_litter(litter_id)
+    if litter is None:
+        raise ValueError("Unknown litter")
+
+    output = io.StringIO(newline="")
+    writer = csv.writer(output, delimiter=";", lineterminator="\n")
+    writer.writerow(
+        [
+            "litter_id",
+            "litter_name",
+            "litter_birth_date",
+            "mother",
+            "father",
+            "puppy_id",
+            "puppy_name",
+            "collar_color",
+            "sex",
+            "puppy_birth_time",
+            "birth_weight_g",
+            "measurement_id",
+            "measurement_timestamp",
+            "weight_g",
+            "kind",
+            "note",
+            "correction_reason",
+        ]
+    )
+
+    rows: list[tuple[str, dict[str, Any], dict[str, Any]]] = []
+    for puppy_id, puppy in litter.get("puppies", {}).items():
+        for measurement in _active_measurements(puppy):
+            rows.append((puppy_id, puppy, measurement))
+
+    rows.sort(
+        key=lambda item: (
+            item[2].get("timestamp") or "",
+            str(item[1].get("name") or "").lower(),
+        )
+    )
+
+    for puppy_id, puppy, measurement in rows:
+        writer.writerow(
+            [
+                litter_id,
+                litter.get("name") or "",
+                litter.get("birth_date") or "",
+                litter.get("mother") or "",
+                litter.get("father") or "",
+                puppy_id,
+                puppy.get("name") or "",
+                puppy.get("collar_color") or "",
+                puppy.get("sex") or "",
+                puppy.get("birth_time") or "",
+                puppy.get("birth_weight") if puppy.get("birth_weight") is not None else "",
+                measurement.get("id") or "",
+                measurement.get("timestamp") or "",
+                measurement.get("weight") if measurement.get("weight") is not None else "",
+                measurement.get("kind") or "",
+                measurement.get("note") or "",
+                measurement.get("correction_reason") or "",
+            ]
+        )
+
+    stamp = dt_util.now().strftime("%Y%m%d-%H%M%S")
+    filename = f"puppy-weight-tracker-{_safe_filename(litter.get('name'))}-{stamp}.csv"
+    return filename, "text/csv;charset=utf-8", output.getvalue()
+
+
+def _json_export(storage: PuppyWeightStorage, litter_id: str) -> tuple[str, str, str]:
+    """Export a complete litter including correction/deletion history and audit data."""
+    litter = storage.get_litter(litter_id)
+    if litter is None:
+        raise ValueError("Unknown litter")
+
+    all_data = storage.get_data()
+    audit_log = [
+        deepcopy(item)
+        for item in all_data.get("audit_log", [])
+        if item.get("litter_id") == litter_id
+    ]
+
+    document = {
+        "export_version": 1,
+        "exported_at": dt_util.now().isoformat(),
+        "integration": DOMAIN,
+        "schema_version": all_data.get("schema_version"),
+        "litter": litter,
+        "audit_log": audit_log,
+    }
+
+    stamp = dt_util.now().strftime("%Y%m%d-%H%M%S")
+    filename = f"puppy-weight-tracker-{_safe_filename(litter.get('name'))}-{stamp}.json"
+    content = json.dumps(document, ensure_ascii=False, indent=2, sort_keys=False)
+    return filename, "application/json;charset=utf-8", content
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/data",
+        vol.Required("litter_id"): str,
+    }
+)
+@callback
+def websocket_get_data(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Return persistent measurement data for a litter."""
+    storage = _runtime_storage(hass)
+    if storage is None:
+        connection.send_error(msg["id"], "not_loaded", "Puppy Weight Tracker is not loaded")
+        return
+
+    try:
+        result = _litter_payload(storage, msg["litter_id"])
+    except ValueError as err:
+        connection.send_error(msg["id"], "not_found", str(err))
+        return
+
+    connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/export",
+        vol.Required("litter_id"): str,
+        vol.Required("format"): vol.In(("csv", "json")),
+    }
+)
+@callback
+def websocket_export_data(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Return a downloadable CSV or JSON export."""
+    storage = _runtime_storage(hass)
+    if storage is None:
+        connection.send_error(msg["id"], "not_loaded", "Puppy Weight Tracker is not loaded")
+        return
+
+    try:
+        if msg["format"] == "csv":
+            filename, mime_type, content = _csv_export(storage, msg["litter_id"])
+        else:
+            filename, mime_type, content = _json_export(storage, msg["litter_id"])
+    except ValueError as err:
+        connection.send_error(msg["id"], "not_found", str(err))
+        return
+
+    connection.send_result(
+        msg["id"],
+        {
+            "filename": filename,
+            "mime_type": mime_type,
+            "content": content,
+        },
+    )
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/subscribe"})
+@callback
+def websocket_subscribe_updates(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Subscribe a frontend card to integration data changes."""
+
+    @callback
+    def forward_update(*_args: Any) -> None:
+        storage = _runtime_storage(hass)
+        connection.send_event(
+            msg["id"],
+            {
+                "updated_at": (
+                    storage.get_data().get("updated_at") if storage is not None else None
+                )
+            },
+        )
+
+    connection.subscriptions[msg["id"]] = async_dispatcher_connect(
+        hass,
+        SIGNAL_DASHBOARD_UPDATE,
+        forward_update,
+    )
+    connection.send_result(msg["id"])
+
+
+@callback
+def async_setup_api(hass: HomeAssistant) -> None:
+    """Register Puppy Weight Tracker websocket commands once."""
+    if hass.data.get(DATA_API_REGISTERED):
+        return
+
+    websocket_api.async_register_command(hass, websocket_get_data)
+    websocket_api.async_register_command(hass, websocket_export_data)
+    websocket_api.async_register_command(hass, websocket_subscribe_updates)
+    hass.data[DATA_API_REGISTERED] = True

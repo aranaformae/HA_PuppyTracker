@@ -15,7 +15,7 @@ _LOGGER = logging.getLogger(__name__)
 
 FRONTEND_DIR = Path(__file__).parent / "frontend"
 FRONTEND_URL = f"/{DOMAIN}/frontend"
-FRONTEND_VERSION = "0.6.1"
+FRONTEND_VERSION = "0.7.0"
 
 CARD_FILES = (
     "puppy-weight-tracker-card.js",

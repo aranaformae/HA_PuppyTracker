@@ -11,6 +11,7 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
+from .api import async_setup_api
 from .const import (
     DOMAIN,
     SIGNAL_DASHBOARD_UPDATE,
@@ -172,6 +173,7 @@ async def async_setup_entry(
         entry.entry_id
     ]
 
+    async_setup_api(hass)
     await async_setup_frontend(hass)
 
     async_sync_devices(
