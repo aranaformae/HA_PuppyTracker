@@ -44,6 +44,7 @@ from .session import (
     remaining_puppy_ids,
 )
 from .storage import PuppyWeightStorage
+from .time_utils import timestamp_sort_key
 
 
 TIME_REFRESH_INTERVAL = timedelta(
@@ -824,11 +825,8 @@ class PuppyBaseSensor(
 
         return sorted(
             measurements,
-            key=lambda measurement: (
-                measurement.get(
-                    "timestamp",
-                    "",
-                )
+            key=lambda measurement: timestamp_sort_key(
+                measurement.get("timestamp")
             ),
         )
 
@@ -2091,7 +2089,7 @@ class LitterBaseSensor(SensorEntity):
 
         measurements = sorted(
             measurements,
-            key=lambda item: item.get("timestamp", ""),
+            key=lambda item: timestamp_sort_key(item.get("timestamp")),
         )
 
         try:

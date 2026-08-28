@@ -11,6 +11,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
+from .time_utils import normalize_timestamp, timestamp_sort_key
+
 from .const import (
     DEFAULT_GROWTH_MONITORING_DAYS,
     DEFAULT_MAX_HOURS_BETWEEN_WEIGHINGS,
@@ -47,7 +49,7 @@ def _empty_data() -> dict[str, Any]:
     now = _now_iso()
 
     return {
-        "schema_version": 4,
+        "schema_version": 5,
         "created_at": now,
         "updated_at": now,
         "settings": _default_settings(),
@@ -122,8 +124,8 @@ class PuppyWeightStorage:
         if self._migrate_litter_summaries():
             changed = True
 
-        if self._data.get("schema_version", 1) < 4:
-            self._data["schema_version"] = 4
+        if self._data.get("schema_version", 1) < 5:
+            self._data["schema_version"] = 5
             changed = True
 
         if changed:
@@ -172,6 +174,22 @@ class PuppyWeightStorage:
                         if key not in measurement:
                             measurement[key] = value
                             changed = True
+
+                    raw_timestamp = measurement.get("timestamp")
+                    normalized_timestamp = normalize_timestamp(
+                        raw_timestamp,
+                        measurement.get("created_at") or now,
+                    )
+                    if normalized_timestamp and normalized_timestamp != raw_timestamp:
+                        measurement["timestamp"] = normalized_timestamp
+                        changed = True
+
+                raw_birth_time = puppy.get("birth_time")
+                if raw_birth_time:
+                    normalized_birth_time = normalize_timestamp(raw_birth_time)
+                    if normalized_birth_time and normalized_birth_time != raw_birth_time:
+                        puppy["birth_time"] = normalized_birth_time
+                        changed = True
 
                 # Versions 0.4.0-0.6.0 could leave the predecessor of a
                 # deleted correction marked as superseded. Repair those chains
@@ -416,7 +434,7 @@ class PuppyWeightStorage:
         if active:
             active.sort(
                 key=lambda item: (
-                    item.get("timestamp") or "",
+                    timestamp_sort_key(item.get("timestamp")),
                     item.get("created_at") or "",
                 ),
                 reverse=True,
@@ -460,7 +478,7 @@ class PuppyWeightStorage:
         replacement = {
             "id": replacement_id,
             "weight": float(new_weight),
-            "timestamp": new_timestamp,
+            "timestamp": normalize_timestamp(new_timestamp, now) or now,
             "created_at": now,
             "updated_at": now,
             "deleted": False,
@@ -804,6 +822,11 @@ class PuppyWeightStorage:
 
             puppy_id = str(uuid4())
             now = _now_iso()
+            normalized_birth_time = (
+                normalize_timestamp(birth_time, now)
+                if birth_time
+                else None
+            )
 
             puppy = {
                 "id": puppy_id,
@@ -815,7 +838,7 @@ class PuppyWeightStorage:
                     if birth_weight is not None
                     else None
                 ),
-                "birth_time": birth_time,
+                "birth_time": normalized_birth_time,
                 "birth_measurement_id": None,
                 "notes": notes,
                 "active": True,
@@ -837,7 +860,7 @@ class PuppyWeightStorage:
                 details={
                     "name": name,
                     "birth_weight": birth_weight,
-                    "birth_time": birth_time,
+                    "birth_time": normalized_birth_time,
                     "collar_color": collar_color,
                     "sex": sex,
                 },
@@ -857,7 +880,8 @@ class PuppyWeightStorage:
                             birth_weight
                         ),
                         "timestamp": (
-                            birth_time
+                            normalized_birth_time
+                            or normalize_timestamp(now, now)
                             or now
                         ),
                         "created_at": now,
@@ -906,12 +930,17 @@ class PuppyWeightStorage:
 
             now = _now_iso()
             new_birth_weight = float(birth_weight) if birth_weight is not None else None
+            normalized_birth_time = (
+                normalize_timestamp(birth_time, now)
+                if birth_time
+                else None
+            )
 
             puppy["name"] = name
             puppy["collar_color"] = collar_color
             puppy["sex"] = sex
             puppy["birth_weight"] = new_birth_weight
-            puppy["birth_time"] = birth_time
+            puppy["birth_time"] = normalized_birth_time
             puppy["notes"] = notes
             puppy["updated_at"] = now
 
@@ -935,7 +964,7 @@ class PuppyWeightStorage:
                     )
                 puppy["birth_measurement_id"] = None
             else:
-                desired_timestamp = birth_time or (
+                desired_timestamp = normalized_birth_time or (
                     birth_measurement.get("timestamp") if birth_measurement is not None else now
                 )
 
@@ -1013,7 +1042,7 @@ class PuppyWeightStorage:
                         "collar_color": collar_color,
                         "sex": sex,
                         "birth_weight": new_birth_weight,
-                        "birth_time": birth_time,
+                        "birth_time": normalized_birth_time,
                         "notes": notes,
                         "active": puppy.get("active", True),
                     },
@@ -1165,11 +1194,12 @@ class PuppyWeightStorage:
             )
 
             now = _now_iso()
+            normalized_timestamp = normalize_timestamp(timestamp or now, now) or now
 
             measurement = {
                 "id": measurement_id,
                 "weight": float(weight),
-                "timestamp": timestamp or now,
+                "timestamp": normalized_timestamp,
                 "created_at": now,
                 "updated_at": now,
                 "deleted": False,
@@ -1227,6 +1257,10 @@ class PuppyWeightStorage:
         if not new_timestamp:
             raise ValueError("Timestamp is required")
 
+        normalized_new_timestamp = normalize_timestamp(new_timestamp)
+        if not normalized_new_timestamp:
+            raise ValueError("Timestamp is invalid")
+
         async with self._lock:
             puppy = self._require_puppy(litter_id, puppy_id)
             original = self._require_measurement(puppy, measurement_id)
@@ -1241,7 +1275,7 @@ class PuppyWeightStorage:
                 puppy,
                 original,
                 new_weight=float(new_weight),
-                new_timestamp=new_timestamp,
+                new_timestamp=normalized_new_timestamp,
                 reason=reason or "Correctie",
                 now=now,
             )
@@ -1251,7 +1285,7 @@ class PuppyWeightStorage:
                 replacement["note"] = "Geboortegewicht"
                 puppy["birth_measurement_id"] = replacement["id"]
                 puppy["birth_weight"] = float(new_weight)
-                puppy["birth_time"] = new_timestamp
+                puppy["birth_time"] = normalized_new_timestamp
 
             self._data["litters"][litter_id]["updated_at"] = now
 
@@ -1264,7 +1298,7 @@ class PuppyWeightStorage:
                     "old_weight": original.get("weight"),
                     "new_weight": float(new_weight),
                     "old_timestamp": original.get("timestamp"),
-                    "new_timestamp": new_timestamp,
+                    "new_timestamp": normalized_new_timestamp,
                     "replacement_measurement_id": replacement["id"],
                     "reason": reason,
                     "kind": original.get("kind"),
@@ -1515,7 +1549,7 @@ class PuppyWeightStorage:
             ]
         measurements.sort(
             key=lambda item: (
-                item.get("timestamp") or "",
+                timestamp_sort_key(item.get("timestamp")),
                 item.get("created_at") or "",
             ),
             reverse=True,

@@ -18,6 +18,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN, SIGNAL_DASHBOARD_UPDATE, SIGNAL_UPDATE
 from .storage import PuppyWeightStorage
+from .time_utils import timestamp_sort_key
 
 DATA_API_REGISTERED = f"{DOMAIN}_websocket_api_registered"
 API_VERSION = 2
@@ -49,7 +50,7 @@ def _active_measurements(puppy: dict[str, Any]) -> list[dict[str, Any]]:
     ]
     measurements.sort(
         key=lambda item: (
-            item.get("timestamp") or "",
+            timestamp_sort_key(item.get("timestamp")),
             item.get("created_at") or "",
         )
     )
@@ -61,7 +62,7 @@ def _all_measurements(puppy: dict[str, Any]) -> list[dict[str, Any]]:
     measurements = [deepcopy(item) for item in puppy.get("measurements", [])]
     measurements.sort(
         key=lambda item: (
-            item.get("timestamp") or "",
+            timestamp_sort_key(item.get("timestamp")),
             item.get("created_at") or "",
         ),
         reverse=True,
@@ -225,7 +226,7 @@ def _csv_export(storage: PuppyWeightStorage, litter_id: str) -> tuple[str, str, 
 
     rows.sort(
         key=lambda item: (
-            item[2].get("timestamp") or "",
+            timestamp_sort_key(item[2].get("timestamp")),
             str(item[1].get("name") or "").lower(),
         )
     )
