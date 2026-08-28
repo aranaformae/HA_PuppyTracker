@@ -5,6 +5,12 @@
 [![GitHub last commit](https://img.shields.io/github/last-commit/aranaformae/HA_PuppyTracker)](https://github.com/aranaformae/HA_PuppyTracker/commits)
 [![GitHub issues](https://img.shields.io/github/issues/aranaformae/HA_PuppyTracker)](https://github.com/aranaformae/HA_PuppyTracker/issues)
 
+<p align=“center”>
+  <img src=“custom_components/puppy_weight_tracker/brand/icon@2x.png”
+       alt=“Puppy Weight Tracker”
+       width=“180”>
+</p>
+
 A custom Home Assistant integration for tracking puppy weights, weighing sessions, and growth over time.
 
 > Designed to make monitoring a litter simple and accessible directly from Home Assistant.
