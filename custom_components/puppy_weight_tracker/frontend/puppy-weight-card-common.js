@@ -21,18 +21,32 @@ export async function fetchExport(hass, litterId, format, options = {}) {
   return hass.callWS(message);
 }
 
-export function downloadTextFile(result) {
-  const blob = new Blob([result.content], { type: result.mime_type || "text/plain" });
+export function downloadExportFile(result) {
+  let payload = result.content;
+  if (result.encoding === "base64") {
+    const binary = atob(String(result.content || ""));
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index);
+    }
+    payload = bytes;
+  }
+
+  const blob = new Blob([payload], { type: result.mime_type || "application/octet-stream" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = result.filename || "puppy-weight-tracker-export.txt";
+  anchor.download = result.filename || "puppy-weight-tracker-export";
+  anchor.rel = "noopener";
   anchor.style.display = "none";
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  window.setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
+
+// Backwards-compatible alias for older cards.
+export const downloadTextFile = downloadExportFile;
 
 export function escapeHtml(value) {
   return String(value ?? "")

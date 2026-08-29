@@ -17,13 +17,14 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect, async_dis
 from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN, SIGNAL_DASHBOARD_UPDATE, SIGNAL_UPDATE
+from .pdf_export import build_pdf_export
 from .sensor import calculate_puppy_status
 from .session import get_session, remaining_puppy_ids
 from .storage import PuppyWeightStorage
 from .time_utils import timestamp_sort_key
 
 DATA_API_REGISTERED = f"{DOMAIN}_websocket_api_registered"
-API_VERSION = 4
+API_VERSION = 5
 
 
 def _runtime_data(hass: HomeAssistant) -> dict[str, Any] | None:
@@ -806,7 +807,7 @@ async def websocket_integrity_check(
     {
         vol.Required("type"): f"{DOMAIN}/export",
         vol.Required("litter_id"): str,
-        vol.Required("format"): vol.In(("csv", "json")),
+        vol.Required("format"): vol.In(("csv", "json", "pdf")),
         vol.Optional("puppy_id"): str,
         vol.Optional("range_hours"): vol.All(vol.Coerce(float), vol.Range(min=0, max=24 * 3650)),
     }
@@ -817,7 +818,7 @@ def websocket_export_data(
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
-    """Return a downloadable CSV or JSON export."""
+    """Return a downloadable CSV, JSON, or PDF export."""
     storage = _storage_or_error(hass, connection, msg)
     if storage is None:
         return
@@ -830,8 +831,18 @@ def websocket_export_data(
                 puppy_id=msg.get("puppy_id"),
                 range_hours=msg.get("range_hours"),
             )
+            encoding = "text"
+        elif msg["format"] == "pdf":
+            filename, mime_type, content = build_pdf_export(
+                storage,
+                msg["litter_id"],
+                puppy_id=msg.get("puppy_id"),
+                range_hours=msg.get("range_hours"),
+            )
+            encoding = "base64"
         else:
             filename, mime_type, content = _json_export(storage, msg["litter_id"])
+            encoding = "text"
     except ValueError as err:
         connection.send_error(msg["id"], "not_found", str(err))
         return
@@ -842,6 +853,7 @@ def websocket_export_data(
             "filename": filename,
             "mime_type": mime_type,
             "content": content,
+            "encoding": encoding,
         },
     )
 
