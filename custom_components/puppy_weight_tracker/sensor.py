@@ -25,17 +25,20 @@ from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.util import dt as dt_util
 
 from .const import (
-    DEFAULT_GROWTH_MONITORING_DAYS,
-    DEFAULT_MAX_HOURS_BETWEEN_WEIGHINGS,
-    DEFAULT_MIN_DAILY_GROWTH_PERCENT,
     DOMAIN,
-    FIRST_DAY_GRACE_HOURS,
-    FIRST_DAY_MAX_WEIGHT_LOSS_PERCENT,
-    MIN_GROWTH_SAMPLE_HOURS,
     SIGNAL_DASHBOARD_UPDATE,
     SIGNAL_NEW_LITTER,
     SIGNAL_NEW_PUPPY,
     SIGNAL_UPDATE,
+)
+from .metrics import (
+    calculate_puppy_status,
+    current_weight,
+    daily_growth_data,
+    growth_since_birth_percent,
+    last_weighed,
+    previous_weight,
+    weight_change,
 )
 from .session import (
     SESSION_ACTIVE,
@@ -44,7 +47,6 @@ from .session import (
     remaining_puppy_ids,
 )
 from .storage import PuppyWeightStorage
-from .time_utils import timestamp_sort_key
 
 
 TIME_REFRESH_INTERVAL = timedelta(
@@ -798,247 +800,39 @@ class PuppyBaseSensor(
             model="Puppy",
         )
 
-    def _settings(
-        self,
-    ) -> dict[str, Any]:
-        """Return monitoring settings."""
-
-        return self._storage.get_settings()
-
-    def _active_measurements(
-        self,
-    ) -> list[dict[str, Any]]:
-        """Return active measurements."""
-
-        if self.puppy is None:
-            return []
-
-        try:
-            measurements = (
-                self._storage.get_active_measurements(
-                    self._litter_id,
-                    self._puppy_id,
-                )
-            )
-        except ValueError:
-            return []
-
-        return sorted(
-            measurements,
-            key=lambda measurement: timestamp_sort_key(
-                measurement.get("timestamp")
-            ),
-        )
-
-    @staticmethod
-    def _parse_timestamp(
-        timestamp: str | None,
-    ) -> datetime | None:
-        """Parse ISO timestamp."""
-
-        if not timestamp:
-            return None
-
-        try:
-            result = datetime.fromisoformat(
-                timestamp
-            )
-        except ValueError:
-            return None
-
-        if result.tzinfo is None:
-            result = result.replace(
-                tzinfo=(
-                    dt_util.DEFAULT_TIME_ZONE
-                )
-            )
-
-        return result
-
     def _birth_datetime(
         self,
     ) -> datetime | None:
         """Return birth datetime."""
 
         puppy = self.puppy
-
         if puppy is None:
             return None
 
-        return self._parse_timestamp(
-            puppy.get(
-                "birth_time"
-            )
-        )
+        timestamp = puppy.get("birth_time")
+        if not timestamp:
+            return None
 
-    def _measurement_series(
-        self,
-    ) -> list[
-        tuple[
-            datetime,
-            dict[str, Any],
-        ]
-    ]:
-        """Return parsed measurement series."""
+        try:
+            result = datetime.fromisoformat(timestamp)
+        except (TypeError, ValueError):
+            return None
 
-        result = []
-
-        for measurement in (
-            self._active_measurements()
-        ):
-            measured_at = (
-                self._parse_timestamp(
-                    measurement.get(
-                        "timestamp"
-                    )
-                )
-            )
-
-            if measured_at is None:
-                continue
-
-            result.append(
-                (
-                    measured_at,
-                    measurement,
-                )
-            )
-
-        result.sort(
-            key=lambda item: item[0]
-        )
+        if result.tzinfo is None:
+            result = result.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)
 
         return result
 
     def _daily_growth_data(
         self,
     ) -> dict[str, Any] | None:
-        """Calculate normalized growth over 24 hours."""
+        """Return canonical normalized 24-hour growth."""
 
-        series = self._measurement_series()
-
-        if len(series) < 2:
-            return None
-
-        latest_time, latest = series[-1]
-
-        target_time = (
-            latest_time
-            - timedelta(
-                hours=24
-            )
+        return daily_growth_data(
+            self._storage,
+            self._litter_id,
+            self._puppy_id,
         )
-
-        candidates = []
-
-        for (
-            measured_at,
-            measurement,
-        ) in series[:-1]:
-            interval_hours = (
-                latest_time
-                - measured_at
-            ).total_seconds() / 3600
-
-            if (
-                interval_hours
-                < MIN_GROWTH_SAMPLE_HOURS
-            ):
-                continue
-
-            distance = abs(
-                (
-                    measured_at
-                    - target_time
-                ).total_seconds()
-            )
-
-            candidates.append(
-                (
-                    distance,
-                    interval_hours,
-                    measured_at,
-                    measurement,
-                )
-            )
-
-        if not candidates:
-            return None
-
-        candidates.sort(
-            key=lambda item: item[0]
-        )
-
-        (
-            _distance,
-            interval_hours,
-            baseline_time,
-            baseline,
-        ) = candidates[0]
-
-        baseline_weight = float(
-            baseline["weight"]
-        )
-
-        latest_weight = float(
-            latest["weight"]
-        )
-
-        if baseline_weight <= 0:
-            return None
-
-        actual_change = (
-            latest_weight
-            - baseline_weight
-        )
-
-        factor = (
-            24.0
-            / interval_hours
-        )
-
-        daily_change = (
-            actual_change
-            * factor
-        )
-
-        actual_percent = (
-            actual_change
-            / baseline_weight
-            * 100
-        )
-
-        daily_percent = (
-            actual_percent
-            * factor
-        )
-
-        return {
-            "daily_change_grams": round(
-                daily_change,
-                1,
-            ),
-            "daily_change_percent": round(
-                daily_percent,
-                2,
-            ),
-            "actual_change_grams": round(
-                actual_change,
-                1,
-            ),
-            "sample_interval_hours": round(
-                interval_hours,
-                2,
-            ),
-            "baseline_weight": baseline_weight,
-            "current_weight": latest_weight,
-            "baseline_time": (
-                baseline_time.isoformat()
-            ),
-            "latest_time": (
-                latest_time.isoformat()
-            ),
-        }
 
 
 class PuppyTimeAwareSensor(
@@ -1097,13 +891,10 @@ class PuppyCurrentWeightSensor(
 
     @property
     def native_value(self):
-        measurements = self._active_measurements()
-
-        if not measurements:
-            return None
-
-        return float(
-            measurements[-1]["weight"]
+        return current_weight(
+            self._storage,
+            self._litter_id,
+            self._puppy_id,
         )
 
 
@@ -1173,13 +964,10 @@ class PuppyPreviousWeightSensor(
 
     @property
     def native_value(self):
-        measurements = self._active_measurements()
-
-        if len(measurements) < 2:
-            return None
-
-        return float(
-            measurements[-2]["weight"]
+        return previous_weight(
+            self._storage,
+            self._litter_id,
+            self._puppy_id,
         )
 
 
@@ -1208,19 +996,10 @@ class PuppyWeightChangeSensor(
 
     @property
     def native_value(self):
-        measurements = self._active_measurements()
-
-        if len(measurements) < 2:
-            return None
-
-        return round(
-            float(
-                measurements[-1]["weight"]
-            )
-            - float(
-                measurements[-2]["weight"]
-            ),
-            1,
+        return weight_change(
+            self._storage,
+            self._litter_id,
+            self._puppy_id,
         )
 
 
@@ -1249,41 +1028,10 @@ class PuppyGrowthPercentSensor(
 
     @property
     def native_value(self):
-        puppy = self.puppy
-
-        if puppy is None:
-            return None
-
-        birth_weight = puppy.get(
-            "birth_weight"
-        )
-
-        if not birth_weight:
-            return None
-
-        measurements = self._active_measurements()
-
-        if not measurements:
-            return None
-
-        current = float(
-            measurements[-1]["weight"]
-        )
-
-        return round(
-            (
-                (
-                    current
-                    - float(
-                        birth_weight
-                    )
-                )
-                / float(
-                    birth_weight
-                )
-            )
-            * 100,
-            2,
+        return growth_since_birth_percent(
+            self._storage,
+            self._litter_id,
+            self._puppy_id,
         )
 
 
@@ -1399,12 +1147,11 @@ class PuppyLastWeighedSensor(
 
     @property
     def native_value(self):
-        series = self._measurement_series()
-
-        if not series:
-            return None
-
-        return series[-1][0]
+        return last_weighed(
+            self._storage,
+            self._litter_id,
+            self._puppy_id,
+        )
 
 
 class PuppyStatusSensor(
@@ -1428,241 +1175,14 @@ class PuppyStatusSensor(
             "status",
         )
 
-    def _status_data(self):
-        settings = self._settings()
+    def _status_data(self) -> dict[str, Any]:
+        """Return canonical monitoring status."""
 
-        min_growth = float(
-            settings.get(
-                "min_daily_growth_percent",
-                DEFAULT_MIN_DAILY_GROWTH_PERCENT,
-            )
+        return calculate_puppy_status(
+            self._storage,
+            self._litter_id,
+            self._puppy_id,
         )
-
-        max_hours = float(
-            settings.get(
-                "max_hours_between_weighings",
-                DEFAULT_MAX_HOURS_BETWEEN_WEIGHINGS,
-            )
-        )
-
-        monitoring_days = int(
-            settings.get(
-                "growth_monitoring_days",
-                DEFAULT_GROWTH_MONITORING_DAYS,
-            )
-        )
-
-        result = {
-            "status": "Geen meting",
-            "status_code": "no_measurement",
-            "needs_attention": True,
-            "weight_loss": False,
-            "hours_since_weighing": None,
-            "daily_growth_percent": None,
-            "daily_growth_grams": None,
-            "daily_growth_sample_hours": None,
-            "first_day_weight_change_percent": None,
-            "growth_check_active": False,
-            "min_daily_growth_percent": min_growth,
-            "max_hours_between_weighings": max_hours,
-            "growth_monitoring_days": monitoring_days,
-        }
-
-        series = self._measurement_series()
-
-        if not series:
-            return result
-
-        latest_time, latest = series[-1]
-
-        now = dt_util.now()
-
-        hours_since = max(
-            0,
-            (
-                now
-                - latest_time
-            ).total_seconds()
-            / 3600,
-        )
-
-        result[
-            "hours_since_weighing"
-        ] = round(
-            hours_since,
-            1,
-        )
-
-        growth = self._daily_growth_data()
-
-        if growth is not None:
-            result[
-                "daily_growth_percent"
-            ] = growth[
-                "daily_change_percent"
-            ]
-
-            result[
-                "daily_growth_grams"
-            ] = growth[
-                "daily_change_grams"
-            ]
-
-            result[
-                "daily_growth_sample_hours"
-            ] = growth[
-                "sample_interval_hours"
-            ]
-
-        birth = self._birth_datetime()
-
-        age_hours = (
-            (
-                now
-                - birth
-            ).total_seconds()
-            / 3600
-            if birth is not None
-            else None
-        )
-
-        current_weight = float(
-            latest["weight"]
-        )
-
-        puppy = self.puppy or {}
-
-        birth_weight_raw = puppy.get(
-            "birth_weight"
-        )
-
-        birth_weight = (
-            float(
-                birth_weight_raw
-            )
-            if birth_weight_raw
-            else None
-        )
-
-        if hours_since >= max_hours:
-            result.update(
-                {
-                    "status": "Wegen",
-                    "status_code": "weigh_due",
-                    "needs_attention": True,
-                }
-            )
-
-            return result
-
-        if (
-            age_hours is not None
-            and 0
-            <= age_hours
-            < FIRST_DAY_GRACE_HOURS
-        ):
-            if (
-                birth_weight is not None
-                and birth_weight > 0
-            ):
-                change = (
-                    (
-                        current_weight
-                        - birth_weight
-                    )
-                    / birth_weight
-                    * 100
-                )
-
-                result[
-                    "first_day_weight_change_percent"
-                ] = round(
-                    change,
-                    2,
-                )
-
-                if (
-                    change
-                    < -FIRST_DAY_MAX_WEIGHT_LOSS_PERCENT
-                ):
-                    result.update(
-                        {
-                            "status": "Aandacht",
-                            "status_code": (
-                                "first_day_excess_weight_loss"
-                            ),
-                            "needs_attention": True,
-                            "weight_loss": True,
-                        }
-                    )
-
-                    return result
-
-            result.update(
-                {
-                    "status": "Eerste 24 uur",
-                    "status_code": "first_24h",
-                    "needs_attention": False,
-                }
-            )
-
-            return result
-
-        measurements = self._active_measurements()
-
-        if len(measurements) >= 2:
-            previous = float(
-                measurements[-2]["weight"]
-            )
-
-            if current_weight < previous:
-                result.update(
-                    {
-                        "status": "Gewichtsverlies",
-                        "status_code": "weight_loss",
-                        "needs_attention": True,
-                        "weight_loss": True,
-                    }
-                )
-
-                return result
-
-        if (
-            age_hours is not None
-            and age_hours >= FIRST_DAY_GRACE_HOURS
-            and age_hours
-            <= monitoring_days * 24
-        ):
-            result[
-                "growth_check_active"
-            ] = True
-
-            if (
-                growth is not None
-                and growth[
-                    "daily_change_percent"
-                ]
-                < min_growth
-            ):
-                result.update(
-                    {
-                        "status": "Lage groei",
-                        "status_code": "low_growth",
-                        "needs_attention": True,
-                    }
-                )
-
-                return result
-
-        result.update(
-            {
-                "status": "OK",
-                "status_code": "ok",
-                "needs_attention": False,
-            }
-        )
-
-        return result
 
     @property
     def native_value(self):
@@ -1680,20 +1200,6 @@ class PuppyStatusSensor(
         )
 
         return data
-
-
-def calculate_puppy_status(
-    storage: PuppyWeightStorage,
-    litter_id: str,
-    puppy_id: str,
-) -> dict[str, Any]:
-    """Return the canonical monitoring status for one puppy."""
-
-    return PuppyStatusSensor(
-        storage,
-        litter_id,
-        puppy_id,
-    )._status_data()
 
 
 class PuppyCollarColorSensor(
@@ -2076,26 +1582,11 @@ class LitterBaseSensor(SensorEntity):
     def _current_weight(self, puppy_id: str) -> float | None:
         """Return latest active weight for a puppy."""
 
-        try:
-            measurements = self.storage.get_active_measurements(
-                self._litter_id,
-                puppy_id,
-            )
-        except ValueError:
-            return None
-
-        if not measurements:
-            return None
-
-        measurements = sorted(
-            measurements,
-            key=lambda item: timestamp_sort_key(item.get("timestamp")),
+        return current_weight(
+            self.storage,
+            self._litter_id,
+            puppy_id,
         )
-
-        try:
-            return float(measurements[-1]["weight"])
-        except (KeyError, TypeError, ValueError):
-            return None
 
     def _weighted_puppies(self) -> list[tuple[str, dict[str, Any], float]]:
         """Return active puppies that have a current weight."""
@@ -2113,11 +1604,11 @@ class LitterBaseSensor(SensorEntity):
 
         result: list[tuple[str, dict[str, Any], dict[str, Any]]] = []
         for puppy_id, puppy in self._active_puppies().items():
-            status = PuppyStatusSensor(
+            status = calculate_puppy_status(
                 self.storage,
                 self._litter_id,
                 puppy_id,
-            )._status_data()
+            )
             if status.get("needs_attention"):
                 result.append((puppy_id, puppy, status))
         return result
@@ -2317,11 +1808,11 @@ class LitterAverageGrowth24hPercentSensor(LitterBaseSensor):
     def _values(self) -> list[tuple[str, dict[str, Any], float]]:
         values: list[tuple[str, dict[str, Any], float]] = []
         for puppy_id, puppy in self._active_puppies().items():
-            growth = PuppyGrowth24hPercentSensor(
+            growth = daily_growth_data(
                 self.storage,
                 self._litter_id,
                 puppy_id,
-            )._daily_growth_data()
+            )
             if growth is None:
                 continue
             values.append((puppy_id, puppy, float(growth["daily_change_percent"])))

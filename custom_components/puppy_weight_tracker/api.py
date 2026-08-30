@@ -17,8 +17,8 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect, async_dis
 from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN, SIGNAL_DASHBOARD_UPDATE, SIGNAL_UPDATE
+from .metrics import calculate_puppy_metrics
 from .pdf_export import build_pdf_export
-from .sensor import calculate_puppy_status
 from .session import get_session, remaining_puppy_ids
 from .storage import PuppyWeightStorage
 from .time_utils import timestamp_sort_key
@@ -90,17 +90,6 @@ def _measurement_status(measurement: dict[str, Any]) -> str:
     return "active"
 
 
-def _number(value: Any) -> float | None:
-    """Return a finite float when possible."""
-    try:
-        result = float(value)
-    except (TypeError, ValueError):
-        return None
-    if result != result or result in (float("inf"), float("-inf")):
-        return None
-    return result
-
-
 def _puppy_summary(
     storage: PuppyWeightStorage,
     litter_id: str,
@@ -108,57 +97,29 @@ def _puppy_summary(
     puppy: dict[str, Any],
 ) -> dict[str, Any]:
     """Build canonical current metrics for one puppy."""
-    measurements = _active_measurements(puppy)
-    current = measurements[-1] if measurements else None
-    previous = measurements[-2] if len(measurements) >= 2 else None
-
-    current_weight = _number(current.get("weight")) if current else None
-    previous_weight = _number(previous.get("weight")) if previous else None
-    birth_weight = _number(puppy.get("birth_weight"))
-
-    change_grams = None
-    if current_weight is not None and previous_weight is not None:
-        change_grams = round(current_weight - previous_weight, 1)
-
-    growth_birth_percent = None
-    if current_weight is not None and birth_weight and birth_weight > 0:
-        growth_birth_percent = round(
-            (current_weight - birth_weight) / birth_weight * 100,
-            2,
-        )
+    del puppy  # Metrics are read canonically from storage.
 
     try:
-        status = calculate_puppy_status(storage, litter_id, puppy_id)
+        return calculate_puppy_metrics(storage, litter_id, puppy_id)
     except Exception:  # Keep frontend data available if one metric is malformed.
-        status = {
+        return {
+            "current_weight": None,
+            "previous_weight": None,
+            "change_grams": None,
+            "growth_birth_percent": None,
+            "growth_24h_percent": None,
+            "growth_24h_grams": None,
+            "last_weighed": None,
+            "latest_measurement_id": None,
+            "measurement_count": 0,
             "status": "Onbekend",
             "status_code": "unknown",
             "needs_attention": False,
+            "weight_loss": False,
             "hours_since_weighing": None,
-            "daily_growth_percent": None,
-            "daily_growth_grams": None,
+            "first_day_weight_change_percent": None,
+            "growth_check_active": False,
         }
-
-    return {
-        "current_weight": current_weight,
-        "previous_weight": previous_weight,
-        "change_grams": change_grams,
-        "growth_birth_percent": growth_birth_percent,
-        "growth_24h_percent": status.get("daily_growth_percent"),
-        "growth_24h_grams": status.get("daily_growth_grams"),
-        "last_weighed": current.get("timestamp") if current else None,
-        "latest_measurement_id": current.get("id") if current else None,
-        "measurement_count": len(measurements),
-        "status": status.get("status", "Onbekend"),
-        "status_code": status.get("status_code", "unknown"),
-        "needs_attention": bool(status.get("needs_attention", False)),
-        "weight_loss": bool(status.get("weight_loss", False)),
-        "hours_since_weighing": status.get("hours_since_weighing"),
-        "first_day_weight_change_percent": status.get(
-            "first_day_weight_change_percent"
-        ),
-        "growth_check_active": bool(status.get("growth_check_active", False)),
-    }
 
 
 def _litter_summary(

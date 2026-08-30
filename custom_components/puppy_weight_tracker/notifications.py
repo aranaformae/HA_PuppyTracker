@@ -25,7 +25,7 @@ from .const import (
     SIGNAL_DASHBOARD_UPDATE,
     SIGNAL_UPDATE,
 )
-from .sensor import calculate_puppy_status
+from .metrics import calculate_puppy_status
 from .session import SESSION_COMPLETED, get_session
 from .storage import PuppyWeightStorage
 

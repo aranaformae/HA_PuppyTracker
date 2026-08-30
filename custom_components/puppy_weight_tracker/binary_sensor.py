@@ -27,7 +27,7 @@ from .const import (
     SIGNAL_NEW_PUPPY,
     SIGNAL_UPDATE,
 )
-from .sensor import calculate_puppy_status
+from .metrics import calculate_puppy_status
 from .storage import PuppyWeightStorage
 
 REFRESH_INTERVAL = timedelta(minutes=10)

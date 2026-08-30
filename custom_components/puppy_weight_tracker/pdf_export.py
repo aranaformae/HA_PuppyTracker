@@ -11,7 +11,7 @@ from typing import Any
 
 from homeassistant.util import dt as dt_util
 
-from .sensor import calculate_puppy_status
+from .metrics import calculate_puppy_metrics
 from .storage import PuppyWeightStorage
 from .time_utils import timestamp_sort_key
 
@@ -84,28 +84,6 @@ def _format_percent(value: float | None) -> str:
         return "—"
     prefix = "+" if value > 0 else "" if value == 0 else "-"
     return f"{prefix}{abs(value):.2f}%".replace(".00%", "%").replace(".", ",")
-
-
-def _growth_24h(measurements: list[dict[str, Any]]) -> float | None:
-    if len(measurements) < 2:
-        return None
-    latest = measurements[-1]
-    latest_ts = timestamp_sort_key(latest.get("timestamp"))
-    latest_weight = float(latest.get("weight") or 0)
-    candidates = []
-    for row in measurements[:-1]:
-        ts = timestamp_sort_key(row.get("timestamp"))
-        elapsed_hours = (latest_ts - ts) / 3600
-        if elapsed_hours >= 6:
-            candidates.append((abs(elapsed_hours - 24), elapsed_hours, row))
-    if not candidates:
-        return None
-    _, elapsed_hours, baseline = min(candidates, key=lambda item: item[0])
-    baseline_weight = float(baseline.get("weight") or 0)
-    if baseline_weight <= 0 or elapsed_hours <= 0:
-        return None
-    actual_percent = (latest_weight - baseline_weight) / baseline_weight * 100
-    return actual_percent * 24 / elapsed_hours
 
 
 def _pdf_literal(text: str) -> bytes:
@@ -404,19 +382,17 @@ def build_pdf_export(
     chart_series: list[tuple[str, list[dict[str, Any]]]] = []
     for current_id, puppy in puppies:
         rows = _active_measurements(puppy, range_hours)
-        all_active = _active_measurements(puppy, None)
-        latest = all_active[-1] if all_active else None
-        current_weight = float(latest.get("weight")) if latest and latest.get("weight") is not None else None
+        metrics = calculate_puppy_metrics(storage, litter_id, current_id)
+        current_weight = metrics.get("current_weight")
         birth_weight = puppy.get("birth_weight")
         try:
             birth = float(birth_weight) if birth_weight is not None else None
         except (TypeError, ValueError):
             birth = None
-        growth_birth = ((current_weight - birth) / birth * 100) if current_weight is not None and birth and birth > 0 else None
-        growth24 = _growth_24h(all_active)
-        status = calculate_puppy_status(storage, litter_id, current_id)
-        status_label = str(status.get("status") or status.get("state") or "Onbekend")
-        if status.get("needs_attention"):
+        growth_birth = metrics.get("growth_birth_percent")
+        growth24 = metrics.get("growth_24h_percent")
+        status_label = str(metrics.get("status") or "Onbekend")
+        if metrics.get("needs_attention"):
             warnings.append(f"{puppy.get('name') or 'Puppy'}: {status_label}")
         summary_rows.append([
             str(puppy.get("name") or "Puppy"),
