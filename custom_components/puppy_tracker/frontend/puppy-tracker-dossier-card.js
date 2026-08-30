@@ -28,6 +28,72 @@ const TYPE_META = Object.fromEntries(
   RECORD_TYPES.map(([value, label, icon]) => [value, { label, icon }])
 );
 
+
+const TYPE_FIELDS = {
+  vaccination: [
+    { key: "vaccine", label: "Vaccin", placeholder: "Bijvoorbeeld Nobivac Puppy DP" },
+    { key: "batch_number", label: "Batch-/lotnummer", placeholder: "Bijvoorbeeld ABC123" },
+    { key: "veterinarian", label: "Dierenarts", placeholder: "Naam dierenarts" },
+    { key: "next_due_date", label: "Volgende vaccinatie", type: "date" },
+  ],
+  test: [
+    { key: "test_name", label: "Test / onderzoek", placeholder: "Bijvoorbeeld Giardia sneltest" },
+    { key: "result", label: "Uitslag", placeholder: "Bijvoorbeeld negatief / vrij / drager" },
+    { key: "laboratory", label: "Laboratorium / instantie", placeholder: "Naam laboratorium of instantie" },
+  ],
+  deworming: [
+    { key: "product", label: "Middel", placeholder: "Naam ontwormingsmiddel" },
+    { key: "dose", label: "Dosering", placeholder: "Bijvoorbeeld 1 ml of volgens gewicht" },
+    { key: "administered_by", label: "Toegediend door", placeholder: "Bijvoorbeeld fokker of dierenarts" },
+    { key: "next_due_date", label: "Volgende ontworming", type: "date" },
+  ],
+  medication: [
+    { key: "medication", label: "Medicijn", placeholder: "Naam geneesmiddel" },
+    { key: "dose", label: "Dosering", placeholder: "Bijvoorbeeld 0,5 ml" },
+    { key: "frequency", label: "Frequentie", placeholder: "Bijvoorbeeld 2× per dag" },
+    { key: "duration", label: "Duur / periode", placeholder: "Bijvoorbeeld 5 dagen" },
+  ],
+  vet_visit: [
+    { key: "veterinarian", label: "Dierenarts", placeholder: "Naam dierenarts" },
+    { key: "clinic", label: "Praktijk / kliniek", placeholder: "Naam praktijk" },
+    { key: "reason", label: "Reden bezoek", placeholder: "Bijvoorbeeld nestcontrole" },
+    { key: "diagnosis", label: "Bevinding / diagnose", type: "textarea", wide: true, placeholder: "Belangrijkste bevindingen" },
+    { key: "treatment", label: "Behandeling / advies", type: "textarea", wide: true, placeholder: "Behandeling, advies of vervolg" },
+  ],
+  milestone: [
+    { key: "milestone", label: "Mijlpaal", placeholder: "Bijvoorbeeld ogen open" },
+    { key: "category", label: "Categorie", placeholder: "Bijvoorbeeld ontwikkeling of socialisatie" },
+  ],
+};
+
+const KNOWN_DATA_KEYS = new Set(
+  Object.values(TYPE_FIELDS).flat().map((field) => field.key)
+);
+
+function humanizeKey(value) {
+  const text = String(value || "").replaceAll("_", " ");
+  return text ? text.charAt(0).toUpperCase() + text.slice(1) : "";
+}
+
+function displayDataValue(value) {
+  if (value === null || value === undefined || value === "") return "";
+  if (typeof value === "boolean") return value ? "Ja" : "Nee";
+  if (typeof value === "object") {
+    try {
+      return JSON.stringify(value);
+    } catch (_err) {
+      return String(value);
+    }
+  }
+  return String(value);
+}
+
+function formatDateOnly(value) {
+  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return displayDataValue(value);
+  return `${match[3]}-${match[2]}-${match[1]}`;
+}
+
 function humanizeType(value) {
   const text = String(value || "other");
   if (TYPE_META[text]) return TYPE_META[text].label;
@@ -300,7 +366,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
       occurred_at: toLocalDateTimeInput(record.occurred_at),
       title: record.title || "",
       note: record.note || "",
-      data: record.data || {},
+      data: { ...(record.data || {}) },
     };
     this._status = "";
     this._render();
@@ -317,6 +383,89 @@ class PuppyTrackerDossierCard extends HTMLElement {
     }
   }
 
+  _captureEditorState(recordTypeOverride = null) {
+    if (!this._editor) return;
+    const typeInput = this.shadowRoot?.getElementById("record-type");
+    const occurredInput = this.shadowRoot?.getElementById("record-occurred");
+    const titleInput = this.shadowRoot?.getElementById("record-title");
+    const noteInput = this.shadowRoot?.getElementById("record-note");
+    const currentType = recordTypeOverride || typeInput?.value || this._editor.record_type || "note";
+
+    this._editor.record_type = currentType;
+    this._editor.occurred_at = occurredInput?.value ?? this._editor.occurred_at;
+    this._editor.title = titleInput?.value ?? this._editor.title;
+    this._editor.note = noteInput?.value ?? this._editor.note;
+
+    const data = { ...(this._editor.data || {}) };
+    for (const field of TYPE_FIELDS[currentType] || []) {
+      const input = this.shadowRoot?.getElementById(`record-data-${field.key}`);
+      if (input) data[field.key] = input.value;
+    }
+    this._editor.data = data;
+  }
+
+  _collectEditorData(recordType) {
+    const data = { ...(this._editor?.data || {}) };
+
+    // Known typed fields belong to the currently selected record type. Remove
+    // stale typed values when a record is intentionally changed to another
+    // type, while leaving future/unknown payload keys untouched.
+    for (const key of KNOWN_DATA_KEYS) delete data[key];
+
+    for (const field of TYPE_FIELDS[recordType] || []) {
+      const input = this.shadowRoot?.getElementById(`record-data-${field.key}`);
+      const value = input?.value?.trim() || "";
+      if (value) data[field.key] = value;
+    }
+    return data;
+  }
+
+  _renderTypeFields(recordType, data = {}) {
+    const fields = TYPE_FIELDS[recordType] || [];
+    if (!fields.length) return "";
+
+    const controls = fields.map((field) => {
+      const value = data?.[field.key] ?? "";
+      const id = `record-data-${field.key}`;
+      const classes = field.wide ? "typed-field wide" : "typed-field";
+      const placeholder = field.placeholder ? ` placeholder="${escapeHtml(field.placeholder)}"` : "";
+      const control = field.type === "textarea"
+        ? `<textarea id="${id}" rows="3"${placeholder}>${escapeHtml(value)}</textarea>`
+        : `<input id="${id}" type="${field.type || "text"}" value="${escapeHtml(value)}"${placeholder}>`;
+      return `<label class="${classes}">${escapeHtml(field.label)} <span class="optional">optioneel</span>${control}</label>`;
+    }).join("");
+
+    return `
+      <div class="typed-section">
+        <div class="typed-title">Aanvullende gegevens · ${escapeHtml(humanizeType(recordType))}</div>
+        <div class="typed-grid">${controls}</div>
+      </div>`;
+  }
+
+  _renderRecordData(record) {
+    const data = record?.data;
+    if (!data || typeof data !== "object" || Array.isArray(data)) return "";
+
+    const schema = TYPE_FIELDS[record.type] || [];
+    const rows = [];
+    const renderedKeys = new Set();
+
+    for (const field of schema) {
+      const raw = data[field.key];
+      if (raw === null || raw === undefined || raw === "") continue;
+      renderedKeys.add(field.key);
+      const value = field.type === "date" ? formatDateOnly(raw) : displayDataValue(raw);
+      rows.push(`<div class="record-data-row"><span>${escapeHtml(field.label)}</span><strong>${escapeHtml(value)}</strong></div>`);
+    }
+
+    for (const [key, raw] of Object.entries(data)) {
+      if (renderedKeys.has(key) || raw === null || raw === undefined || raw === "") continue;
+      rows.push(`<div class="record-data-row"><span>${escapeHtml(humanizeKey(key))}</span><strong>${escapeHtml(displayDataValue(raw))}</strong></div>`);
+    }
+
+    return rows.length ? `<div class="record-data">${rows.join("")}</div>` : "";
+  }
+
   async _saveRecord() {
     if (!this._editor || !this._canManage || this._saving) return;
     const typeInput = this.shadowRoot?.getElementById("record-type");
@@ -330,12 +479,13 @@ class PuppyTrackerDossierCard extends HTMLElement {
       return;
     }
 
+    const recordType = typeInput?.value || "note";
     const payload = {
-      record_type: typeInput?.value || "note",
+      record_type: recordType,
       occurred_at: occurredAt,
       title: titleInput?.value?.trim() || null,
       note: noteInput?.value?.trim() || null,
-      data: this._editor.data || {},
+      data: this._collectEditorData(recordType),
     };
 
     this._saving = true;
@@ -501,6 +651,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
         <label>Notitie <span class="optional">optioneel</span>
           <textarea id="record-note" rows="4" placeholder="Details of bijzonderheden…">${escapeHtml(this._editor.note)}</textarea>
         </label>
+        ${this._renderTypeFields(this._editor.record_type, this._editor.data)}
         <div class="form-actions">
           <button class="secondary" id="record-cancel" ${this._saving ? "disabled" : ""}>Annuleren</button>
           <button class="primary" id="record-save" ${this._saving ? "disabled" : ""}>${editing ? "Wijzigingen opslaan" : "Toevoegen"}</button>
@@ -520,6 +671,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
             <div class="record-heading"><strong>${escapeHtml(title)}</strong><span class="type-badge">${escapeHtml(typeLabel)}</span>${deleted ? `<span class="deleted-badge">Verwijderd</span>` : ""}</div>
             <time>${escapeHtml(formatDateTime(record.occurred_at))}</time>
           </div>
+          ${this._renderRecordData(record)}
           ${record.note ? `<div class="record-note">${escapeHtml(record.note)}</div>` : ""}
           ${this._canManage ? `<div class="record-actions">
             ${deleted
@@ -553,11 +705,11 @@ class PuppyTrackerDossierCard extends HTMLElement {
           .toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:12px 0}.owner{display:flex;align-items:center;gap:8px;min-width:0}.owner label{font-size:12px;color:var(--secondary-text-color);white-space:nowrap}.owner select{min-width:170px}.tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
           button{font:inherit;cursor:pointer;border-radius:10px;min-height:38px;padding:0 12px;border:1px solid var(--divider-color);background:transparent;color:var(--primary-text-color);display:inline-flex;align-items:center;justify-content:center;gap:6px}button:disabled{opacity:.55;cursor:default}.primary{background:var(--primary-color);border-color:var(--primary-color);color:var(--text-primary-color,#fff);font-weight:600}.secondary{background:var(--secondary-background-color)}.icon-button{width:38px;padding:0;border-radius:50%}.text-button{min-height:30px;padding:3px 7px;border:0;font-size:12px;color:var(--primary-color)}.text-button.danger{color:var(--error-color)}
           .panel{border:1px solid var(--divider-color);border-radius:14px;padding:13px;margin:12px 0;background:color-mix(in srgb,var(--card-background-color) 96%,var(--primary-color) 4%)}.panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:9px}.panel-title{font-weight:650;font-size:15px}.hint{font-size:11px;color:var(--secondary-text-color);margin-top:2px}.profile-text{white-space:pre-wrap;line-height:1.45;font-size:14px}.empty{padding:24px 12px;text-align:center;color:var(--secondary-text-color);font-size:13px}.empty.compact{padding:4px 0;text-align:left}
-          .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}label{display:block;font-size:12px;color:var(--secondary-text-color);margin-bottom:10px}label input,label select,label textarea{margin-top:5px;color:var(--primary-text-color)}.optional{font-weight:400;opacity:.75}.form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
+          .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}label{display:block;font-size:12px;color:var(--secondary-text-color);margin-bottom:10px}label input,label select,label textarea{margin-top:5px;color:var(--primary-text-color)}.optional{font-weight:400;opacity:.75}.form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}.typed-section{margin:2px 0 12px;padding-top:10px;border-top:1px solid var(--divider-color)}.typed-title{font-size:12px;font-weight:650;color:var(--secondary-text-color);margin-bottom:8px}.typed-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}.typed-field.wide{grid-column:1/-1}
           .timeline-head{display:flex;justify-content:space-between;align-items:end;gap:10px;margin:16px 0 8px}.timeline-title{font-size:16px;font-weight:650}.timeline-sub{font-size:11px;color:var(--secondary-text-color);margin-top:2px}.toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--secondary-text-color);cursor:pointer}.toggle input{width:16px;min-height:16px;margin:0;padding:0}
-          .timeline{display:flex;flex-direction:column}.record{position:relative;display:grid;grid-template-columns:38px minmax(0,1fr);gap:10px;padding:12px 0}.record:not(:last-child){border-bottom:1px solid var(--divider-color)}.record.deleted{opacity:.62}.record-icon{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--secondary-background-color);color:var(--primary-color)}.record-icon ha-icon{--mdc-icon-size:20px}.record-body{min-width:0}.record-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.record-heading{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}.record-heading strong{font-size:14px}.record time{font-size:11px;color:var(--secondary-text-color);white-space:nowrap}.type-badge,.deleted-badge{font-size:10px;padding:2px 6px;border-radius:999px;background:var(--secondary-background-color);color:var(--secondary-text-color)}.deleted-badge{color:var(--error-color)}.record-note{margin-top:6px;white-space:pre-wrap;line-height:1.42;font-size:13px}.record-actions{display:flex;gap:2px;margin-top:6px;flex-wrap:wrap}
+          .timeline{display:flex;flex-direction:column}.record{position:relative;display:grid;grid-template-columns:38px minmax(0,1fr);gap:10px;padding:12px 0}.record:not(:last-child){border-bottom:1px solid var(--divider-color)}.record.deleted{opacity:.62}.record-icon{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--secondary-background-color);color:var(--primary-color)}.record-icon ha-icon{--mdc-icon-size:20px}.record-body{min-width:0}.record-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.record-heading{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}.record-heading strong{font-size:14px}.record time{font-size:11px;color:var(--secondary-text-color);white-space:nowrap}.type-badge,.deleted-badge{font-size:10px;padding:2px 6px;border-radius:999px;background:var(--secondary-background-color);color:var(--secondary-text-color)}.deleted-badge{color:var(--error-color)}.record-data{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 14px;margin-top:7px;padding:8px 10px;border-radius:10px;background:var(--secondary-background-color)}.record-data-row{min-width:0;display:flex;flex-direction:column;gap:1px}.record-data-row span{font-size:10px;color:var(--secondary-text-color)}.record-data-row strong{font-size:12px;font-weight:550;overflow-wrap:anywhere}.record-note{margin-top:6px;white-space:pre-wrap;line-height:1.42;font-size:13px}.record-actions{display:flex;gap:2px;margin-top:6px;flex-wrap:wrap}
           .message{font-size:12px;margin:8px 0;padding:8px 10px;border-radius:10px;background:var(--secondary-background-color)}.error{color:var(--error-color);background:color-mix(in srgb,var(--error-color) 10%,transparent)}.status{color:var(--secondary-text-color)}
-          @container dossier-card (max-width:620px){.top{flex-direction:column}.selectors{width:100%;justify-content:stretch}.selectors select{max-width:none;flex:1}.toolbar{align-items:flex-end}.owner{flex:1;flex-direction:column;align-items:stretch;gap:3px}.owner select{min-width:0}.tools{flex:0 0 auto}.form-grid{grid-template-columns:1fr}.record-top{flex-direction:column;gap:3px}.record time{white-space:normal}}
+          @container dossier-card (max-width:620px){.top{flex-direction:column}.selectors{width:100%;justify-content:stretch}.selectors select{max-width:none;flex:1}.toolbar{align-items:flex-end}.owner{flex:1;flex-direction:column;align-items:stretch;gap:3px}.owner select{min-width:0}.tools{flex:0 0 auto}.form-grid,.typed-grid{grid-template-columns:1fr}.typed-field.wide{grid-column:auto}.record-data{grid-template-columns:1fr}.record-top{flex-direction:column;gap:3px}.record time{white-space:normal}}
           @container dossier-card (max-width:430px){ha-card{padding:13px}.toolbar{flex-direction:column;align-items:stretch}.tools{justify-content:space-between}.tools button.primary{flex:1}.timeline-head{align-items:flex-start;flex-direction:column}.record{grid-template-columns:32px minmax(0,1fr)}.record-icon{width:30px;height:30px}.record-icon ha-icon{--mdc-icon-size:18px}}
         </style>
         <div class="top">
@@ -591,6 +743,11 @@ class PuppyTrackerDossierCard extends HTMLElement {
         this._refreshDeferred = false;
         await this._queueRefresh(true);
       }
+    });
+    this.shadowRoot.getElementById("record-type")?.addEventListener("change", (event) => {
+      this._captureEditorState(this._editor?.record_type || "note");
+      if (this._editor) this._editor.record_type = event.target.value || "note";
+      this._render();
     });
     this.shadowRoot.getElementById("record-save")?.addEventListener("click", () => this._saveRecord());
     this.shadowRoot.getElementById("profile-edit")?.addEventListener("click", () => this._startProfileEdit());
