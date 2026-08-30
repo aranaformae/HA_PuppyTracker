@@ -1,4 +1,4 @@
-"""Canonical weight, growth, and monitoring metrics for Puppy Weight Tracker."""
+"""Canonical weight, growth, and monitoring metrics for Puppy Tracker."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from .const import (
     MIN_GROWTH_SAMPLE_HOURS,
 )
 from .measurements import measurement_datetime
-from .storage import PuppyWeightStorage
+from .storage import PuppyTrackerStorage
 from .time_utils import parse_timestamp
 
 
@@ -34,7 +34,7 @@ def finite_number(value: Any) -> float | None:
 
 
 def active_measurements(
-    storage: PuppyWeightStorage,
+    storage: PuppyTrackerStorage,
     litter_id: str,
     puppy_id: str,
 ) -> list[dict[str, Any]]:
@@ -49,7 +49,7 @@ def active_measurements(
 
 
 def measurement_series(
-    storage: PuppyWeightStorage,
+    storage: PuppyTrackerStorage,
     litter_id: str,
     puppy_id: str,
 ) -> list[tuple[datetime, dict[str, Any]]]:
@@ -67,7 +67,7 @@ def measurement_series(
 
 
 def birth_datetime(
-    storage: PuppyWeightStorage,
+    storage: PuppyTrackerStorage,
     litter_id: str,
     puppy_id: str,
 ) -> datetime | None:
@@ -79,7 +79,7 @@ def birth_datetime(
 
 
 def current_weight(
-    storage: PuppyWeightStorage,
+    storage: PuppyTrackerStorage,
     litter_id: str,
     puppy_id: str,
 ) -> float | None:
@@ -91,7 +91,7 @@ def current_weight(
 
 
 def previous_weight(
-    storage: PuppyWeightStorage,
+    storage: PuppyTrackerStorage,
     litter_id: str,
     puppy_id: str,
 ) -> float | None:
@@ -103,7 +103,7 @@ def previous_weight(
 
 
 def weight_change(
-    storage: PuppyWeightStorage,
+    storage: PuppyTrackerStorage,
     litter_id: str,
     puppy_id: str,
 ) -> float | None:
@@ -121,7 +121,7 @@ def weight_change(
 
 
 def growth_since_birth_percent(
-    storage: PuppyWeightStorage,
+    storage: PuppyTrackerStorage,
     litter_id: str,
     puppy_id: str,
 ) -> float | None:
@@ -142,7 +142,7 @@ def growth_since_birth_percent(
 
 
 def daily_growth_data(
-    storage: PuppyWeightStorage,
+    storage: PuppyTrackerStorage,
     litter_id: str,
     puppy_id: str,
 ) -> dict[str, Any] | None:
@@ -193,7 +193,7 @@ def daily_growth_data(
 
 
 def last_weighed(
-    storage: PuppyWeightStorage,
+    storage: PuppyTrackerStorage,
     litter_id: str,
     puppy_id: str,
 ) -> datetime | None:
@@ -203,7 +203,7 @@ def last_weighed(
 
 
 def calculate_puppy_status(
-    storage: PuppyWeightStorage,
+    storage: PuppyTrackerStorage,
     litter_id: str,
     puppy_id: str,
 ) -> dict[str, Any]:
@@ -337,7 +337,7 @@ def calculate_puppy_status(
 
 
 def calculate_puppy_metrics(
-    storage: PuppyWeightStorage,
+    storage: PuppyTrackerStorage,
     litter_id: str,
     puppy_id: str,
 ) -> dict[str, Any]:

@@ -1,14 +1,14 @@
 {
-  "title": "Puppy Weight Tracker",
+  "title": "Puppy Tracker",
   "config": {
     "step": {
       "user": {
-        "title": "Set up Puppy Weight Tracker",
-        "description": "Set up Puppy Weight Tracker to register and monitor puppy weights."
+        "title": "Set up Puppy Tracker",
+        "description": "Set up Puppy Tracker to register and monitor puppy weights."
       }
     },
     "abort": {
-      "already_configured": "Puppy Weight Tracker is already configured."
+      "already_configured": "Puppy Tracker is already configured."
     }
   },
   "options": {

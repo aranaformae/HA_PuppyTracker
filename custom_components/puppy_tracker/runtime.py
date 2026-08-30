@@ -1,4 +1,4 @@
-"""Typed runtime state for Puppy Weight Tracker."""
+"""Typed runtime state for Puppy Tracker."""
 
 from __future__ import annotations
 
@@ -6,17 +6,17 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from .session import SESSION_ACTIVE, new_session_state
-from .storage import PuppyWeightStorage
+from .storage import PuppyTrackerStorage
 
 if TYPE_CHECKING:
     from .notifications import PuppyNotificationManager
 
 
 @dataclass(slots=True)
-class PuppyWeightTrackerRuntimeData:
+class PuppyTrackerRuntimeData:
     """Runtime-only state owned by one config entry."""
 
-    storage: PuppyWeightStorage
+    storage: PuppyTrackerStorage
     selected_litter_id: str | None = None
     selected_puppy_id: str | None = None
     weight_input: float = 0.0
@@ -25,7 +25,7 @@ class PuppyWeightTrackerRuntimeData:
 
 
 def reconcile_dashboard_selection(
-    runtime: PuppyWeightTrackerRuntimeData,
+    runtime: PuppyTrackerRuntimeData,
 ) -> bool:
     """Keep dashboard litter and puppy selections valid.
 

@@ -1,4 +1,4 @@
-"""Device registry helpers for Puppy Weight Tracker."""
+"""Device registry helpers for Puppy Tracker."""
 
 from __future__ import annotations
 
@@ -56,7 +56,7 @@ def async_sync_devices(
                 "name",
                 "Puppy litter",
             ),
-            manufacturer="Puppy Weight Tracker",
+            manufacturer="Puppy Tracker",
             model="Litter",
         )
 
@@ -79,7 +79,7 @@ def async_sync_devices(
                     "Puppy",
                 ),
 
-                manufacturer="Puppy Weight Tracker",
+                manufacturer="Puppy Tracker",
                 model="Puppy",
 
                 # Puppy belongs to this litter.

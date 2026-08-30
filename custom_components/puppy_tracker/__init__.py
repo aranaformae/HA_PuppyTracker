@@ -1,4 +1,4 @@
-"""Puppy Weight Tracker integration."""
+"""Puppy Tracker integration."""
 
 from __future__ import annotations
 
@@ -24,14 +24,14 @@ from .devices import async_sync_devices
 from .frontend import async_setup_frontend, async_unload_frontend
 from .notifications import PuppyNotificationManager
 from .runtime import (
-    PuppyWeightTrackerRuntimeData,
+    PuppyTrackerRuntimeData,
     reconcile_dashboard_selection,
 )
 from .session import (
     get_session,
     mark_weight_recorded,
 )
-from .storage import PuppyWeightStorage
+from .storage import PuppyTrackerStorage
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -152,9 +152,9 @@ async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
 ) -> bool:
-    """Set up Puppy Weight Tracker."""
+    """Set up Puppy Tracker."""
 
-    storage = PuppyWeightStorage(
+    storage = PuppyTrackerStorage(
         hass
     )
 
@@ -163,17 +163,17 @@ async def async_setup_entry(
     integrity_report = storage.get_integrity_report()
     if integrity_report.get("unresolved_critical", 0):
         _LOGGER.warning(
-            "Puppy Weight Tracker storage integrity check found %s unresolved critical issue(s); "
+            "Puppy Tracker storage integrity check found %s unresolved critical issue(s); "
             "download integration diagnostics for details",
             integrity_report.get("unresolved_critical", 0),
         )
     elif integrity_report.get("repairs_applied", 0):
         _LOGGER.info(
-            "Puppy Weight Tracker safely repaired %s storage integrity issue(s) during startup",
+            "Puppy Tracker safely repaired %s storage integrity issue(s) during startup",
             integrity_report.get("repairs_applied", 0),
         )
 
-    runtime = PuppyWeightTrackerRuntimeData(
+    runtime = PuppyTrackerRuntimeData(
         storage=storage,
     )
     reconcile_dashboard_selection(runtime)
@@ -425,7 +425,7 @@ async def async_unload_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
 ) -> bool:
-    """Unload Puppy Weight Tracker."""
+    """Unload Puppy Tracker."""
 
     unload_ok = (
         await hass.config_entries.async_unload_platforms(
@@ -438,7 +438,7 @@ async def async_unload_entry(
         return False
 
     runtime = entry.runtime_data
-    if isinstance(runtime, PuppyWeightTrackerRuntimeData):
+    if isinstance(runtime, PuppyTrackerRuntimeData):
         notification_manager = runtime.notification_manager
         if notification_manager is not None:
             await notification_manager.async_stop()

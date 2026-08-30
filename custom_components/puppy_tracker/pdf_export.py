@@ -1,4 +1,4 @@
-"""Dependency-free PDF report generation for Puppy Weight Tracker."""
+"""Dependency-free PDF report generation for Puppy Tracker."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from homeassistant.util import dt as dt_util
 
 from .measurements import puppy_measurements
 from .metrics import calculate_puppy_metrics
-from .storage import PuppyWeightStorage
+from .storage import PuppyTrackerStorage
 from .time_utils import format_local_timestamp, timestamp_sort_key
 
 PAGE_WIDTH = 595.28
@@ -321,7 +321,7 @@ class _PdfReport:
 
 
 def build_pdf_export(
-    storage: PuppyWeightStorage,
+    storage: PuppyTrackerStorage,
     litter_id: str,
     *,
     puppy_id: str | None = None,
@@ -343,9 +343,9 @@ def build_pdf_export(
         raise ValueError("Unknown puppy")
 
     report = _PdfReport()
-    title = f"Puppy Weight Tracker - {litter.get('name') or 'Nest'}"
+    title = f"Puppy Tracker - {litter.get('name') or 'Nest'}"
     if puppy_id is not None and puppies:
-        title = f"Puppy Weight Tracker - {puppies[0][1].get('name') or 'Puppy'}"
+        title = f"Puppy Tracker - {puppies[0][1].get('name') or 'Puppy'}"
     report.heading(title, level=1)
     local_now = dt_util.as_local(dt_util.now()).strftime("%d-%m-%Y %H:%M")
     period = "Volledige historie" if not range_hours else f"Laatste {range_hours / 24:g} dagen" if range_hours >= 24 else f"Laatste {range_hours:g} uur"
@@ -448,7 +448,7 @@ def build_pdf_export(
     report.line(MARGIN, report.y, PAGE_WIDTH - MARGIN, report.y, gray=0.8)
     report.y += 8
     report.paragraph(
-        "Gegenereerd door Puppy Weight Tracker. Monitoringwaarden zijn bedoeld als hulpmiddel bij het volgen van groei en vervangen geen veterinaire beoordeling.",
+        "Gegenereerd door Puppy Tracker. Monitoringwaarden zijn bedoeld als hulpmiddel bij het volgen van groei en vervangen geen veterinaire beoordeling.",
         size=7.5,
         gray=0.45,
     )
@@ -456,5 +456,5 @@ def build_pdf_export(
     pdf_bytes = report.build()
     stamp = dt_util.now().strftime("%Y%m%d-%H%M%S")
     subject = puppies[0][1].get("name") if puppy_id is not None and puppies else litter.get("name")
-    filename = f"puppy-weight-tracker-{_safe_filename(subject)}-{stamp}.pdf"
+    filename = f"puppy-tracker-{_safe_filename(subject)}-{stamp}.pdf"
     return filename, "application/pdf", base64.b64encode(pdf_bytes).decode("ascii")

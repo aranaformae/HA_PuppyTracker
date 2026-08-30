@@ -1,4 +1,4 @@
-"""Config flow and options flow for Puppy Weight Tracker."""
+"""Config flow and options flow for Puppy Tracker."""
 
 from __future__ import annotations
 
@@ -40,8 +40,8 @@ from .devices import (
     async_sync_devices,
 )
 from .measurements import measurement_status
-from .runtime import PuppyWeightTrackerRuntimeData
-from .storage import PuppyWeightStorage
+from .runtime import PuppyTrackerRuntimeData
+from .storage import PuppyTrackerStorage
 from .time_utils import (
     current_selector_datetime,
     format_local_timestamp,
@@ -52,11 +52,11 @@ from .time_utils import (
 _LOGGER = logging.getLogger(__name__)
 
 
-class PuppyWeightTrackerConfigFlow(
+class PuppyTrackerConfigFlow(
     config_entries.ConfigFlow,
     domain=DOMAIN,
 ):
-    """Handle Puppy Weight Tracker setup."""
+    """Handle Puppy Tracker setup."""
 
     VERSION = 1
 
@@ -68,7 +68,7 @@ class PuppyWeightTrackerConfigFlow(
 
         if user_input is not None:
             return self.async_create_entry(
-                title="Puppy Weight Tracker",
+                title="Puppy Tracker",
                 data={},
             )
 
@@ -80,24 +80,24 @@ class PuppyWeightTrackerConfigFlow(
     @callback
     def async_get_options_flow(
         config_entry: ConfigEntry,
-    ) -> PuppyWeightTrackerOptionsFlow:
+    ) -> PuppyTrackerOptionsFlow:
         """Return options flow."""
-        return PuppyWeightTrackerOptionsFlow()
+        return PuppyTrackerOptionsFlow()
 
 
-class PuppyWeightTrackerOptionsFlow(
+class PuppyTrackerOptionsFlow(
     OptionsFlow
 ):
-    """Handle Puppy Weight Tracker management."""
+    """Handle Puppy Tracker management."""
 
     def _get_storage(
         self,
-    ) -> PuppyWeightStorage:
+    ) -> PuppyTrackerStorage:
         """Return integration storage."""
 
         runtime = self.config_entry.runtime_data
-        if not isinstance(runtime, PuppyWeightTrackerRuntimeData):
-            raise RuntimeError("Puppy Weight Tracker is not loaded")
+        if not isinstance(runtime, PuppyTrackerRuntimeData):
+            raise RuntimeError("Puppy Tracker is not loaded")
         return runtime.storage
 
     async def async_step_init(

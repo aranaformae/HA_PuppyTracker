@@ -1,4 +1,4 @@
-"""Shared pytest fixtures for Puppy Weight Tracker."""
+"""Shared pytest fixtures for Puppy Tracker."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from custom_components.puppy_tracker.storage import PuppyWeightStorage, _empty_data
+from custom_components.puppy_tracker.storage import PuppyTrackerStorage, _empty_data
 
 
 @pytest.fixture(autouse=True)
@@ -17,9 +17,9 @@ def _enable_custom_integrations(enable_custom_integrations):
 
 
 @pytest.fixture
-def storage(hass) -> PuppyWeightStorage:
-    """Return an in-memory Puppy Weight Tracker storage instance."""
-    instance = PuppyWeightStorage(hass)
+def storage(hass) -> PuppyTrackerStorage:
+    """Return an in-memory Puppy Tracker storage instance."""
+    instance = PuppyTrackerStorage(hass)
     instance._data = _empty_data()
     instance.async_save = AsyncMock()
     return instance

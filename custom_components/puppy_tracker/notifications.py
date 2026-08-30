@@ -1,4 +1,4 @@
-"""Monitoring notifications for Puppy Weight Tracker."""
+"""Monitoring notifications for Puppy Tracker."""
 
 from __future__ import annotations
 
@@ -26,9 +26,9 @@ from .const import (
     SIGNAL_UPDATE,
 )
 from .metrics import calculate_puppy_status
-from .runtime import PuppyWeightTrackerRuntimeData
+from .runtime import PuppyTrackerRuntimeData
 from .session import SESSION_COMPLETED, get_session
-from .storage import PuppyWeightStorage
+from .storage import PuppyTrackerStorage
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -42,8 +42,8 @@ class PuppyNotificationManager:
         self,
         hass: HomeAssistant,
         entry: ConfigEntry,
-        storage: PuppyWeightStorage,
-        runtime: PuppyWeightTrackerRuntimeData,
+        storage: PuppyTrackerStorage,
+        runtime: PuppyTrackerRuntimeData,
     ) -> None:
         self.hass = hass
         self.entry = entry
@@ -223,7 +223,7 @@ class PuppyNotificationManager:
 
         if changed_to_attention:
             message = self._attention_message(puppy, status)
-            title = f"Puppy Weight Tracker · {puppy.get('name', 'Puppy')}"
+            title = f"Puppy Tracker · {puppy.get('name', 'Puppy')}"
             async_create_persistent_notification(
                 self.hass,
                 message,
@@ -243,7 +243,7 @@ class PuppyNotificationManager:
         ):
             if notify_recovery:
                 message = self._recovery_message(puppy, status)
-                title = f"Puppy Weight Tracker · {puppy.get('name', 'Puppy')}"
+                title = f"Puppy Tracker · {puppy.get('name', 'Puppy')}"
                 async_create_persistent_notification(
                     self.hass,
                     message,
@@ -292,7 +292,7 @@ class PuppyNotificationManager:
             f"De weegsessie voor **{litter.get('name', 'het nest')}** "
             f"is voltooid. **{weighed}/{total}** pups zijn gewogen."
         )
-        title = "Puppy Weight Tracker · Weegsessie voltooid"
+        title = "Puppy Tracker · Weegsessie voltooid"
         async_create_persistent_notification(
             self.hass,
             message,
@@ -338,7 +338,7 @@ class PuppyNotificationManager:
             )
         except Exception:  # Notifications must never break weighing.
             _LOGGER.exception(
-                "Unable to send Puppy Weight Tracker notification to %s",
+                "Unable to send Puppy Tracker notification to %s",
                 ", ".join(targets),
             )
 

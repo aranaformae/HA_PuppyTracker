@@ -1,4 +1,4 @@
-"""Shared measurement helpers for Puppy Weight Tracker."""
+"""Shared measurement helpers for Puppy Tracker."""
 
 from __future__ import annotations
 

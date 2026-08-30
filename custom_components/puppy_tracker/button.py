@@ -1,4 +1,4 @@
-"""Button entities for Puppy Weight Tracker."""
+"""Button entities for Puppy Tracker."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ from .const import (
     SIGNAL_DASHBOARD_UPDATE,
     SIGNAL_UPDATE,
 )
-from .runtime import PuppyWeightTrackerRuntimeData
+from .runtime import PuppyTrackerRuntimeData
 from .session import (
     SESSION_ACTIVE,
     get_session,
@@ -83,12 +83,12 @@ class PuppyWeighingButtonBase(
     @property
     def data(
         self,
-    ) -> PuppyWeightTrackerRuntimeData:
+    ) -> PuppyTrackerRuntimeData:
         """Return runtime data."""
 
         runtime = self._entry.runtime_data
-        if not isinstance(runtime, PuppyWeightTrackerRuntimeData):
-            raise RuntimeError("Puppy Weight Tracker runtime is unavailable")
+        if not isinstance(runtime, PuppyTrackerRuntimeData):
+            raise RuntimeError("Puppy Tracker runtime is unavailable")
         return runtime
 
     @property
@@ -114,7 +114,7 @@ class PuppyWeighingButtonBase(
             },
             name="Puppy weegstation",
             manufacturer=(
-                "Puppy Weight Tracker"
+                "Puppy Tracker"
             ),
             model="Weegstation",
         )

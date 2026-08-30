@@ -1,4 +1,4 @@
-"""Constants for Puppy Weight Tracker."""
+"""Constants for Puppy Tracker."""
 
 DOMAIN = "puppy_tracker"
 VERSION = "0.9.7"

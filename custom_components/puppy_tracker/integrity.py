@@ -1,4 +1,4 @@
-"""Data integrity checks for Puppy Weight Tracker."""
+"""Data integrity checks for Puppy Tracker."""
 
 from __future__ import annotations
 

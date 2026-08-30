@@ -1,4 +1,4 @@
-"""Persistent storage for Puppy Weight Tracker."""
+"""Persistent storage for Puppy Tracker."""
 
 from __future__ import annotations
 
@@ -59,8 +59,8 @@ def _empty_data() -> dict[str, Any]:
     }
 
 
-class PuppyWeightStorage:
-    """Handle persistent Puppy Weight Tracker data."""
+class PuppyTrackerStorage:
+    """Handle persistent Puppy Tracker data."""
 
     def __init__(self, hass: HomeAssistant) -> None:
         """Initialize storage."""

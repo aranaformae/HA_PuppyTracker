@@ -1,4 +1,4 @@
-"""Time helpers for Puppy Weight Tracker."""
+"""Time helpers for Puppy Tracker."""
 
 from __future__ import annotations
 
@@ -76,7 +76,7 @@ def selector_datetime_value(value: str | None) -> str | None:
     """Format a timestamp for Home Assistant's datetime selector.
 
     The frontend datetime selector expects a local, timezone-less value in the
-    form ``YYYY-MM-DD HH:MM:SS``. Stored Puppy Weight Tracker timestamps are
+    form ``YYYY-MM-DD HH:MM:SS``. Stored Puppy Tracker timestamps are
     timezone-aware UTC ISO strings, so passing them directly causes the
     selector to split the value incorrectly.
     """

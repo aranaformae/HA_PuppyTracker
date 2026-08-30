@@ -1,4 +1,4 @@
-"""Sensor platform for Puppy Weight Tracker."""
+"""Sensor platform for Puppy Tracker."""
 
 from __future__ import annotations
 
@@ -40,14 +40,14 @@ from .metrics import (
     previous_weight,
     weight_change,
 )
-from .runtime import PuppyWeightTrackerRuntimeData
+from .runtime import PuppyTrackerRuntimeData
 from .session import (
     SESSION_ACTIVE,
     SESSION_COMPLETED,
     get_session,
     remaining_puppy_ids,
 )
-from .storage import PuppyWeightStorage
+from .storage import PuppyTrackerStorage
 
 from .time_utils import parse_timestamp
 
@@ -62,11 +62,11 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Set up Puppy Weight Tracker sensors."""
+    """Set up Puppy Tracker sensors."""
 
     runtime = entry.runtime_data
-    if not isinstance(runtime, PuppyWeightTrackerRuntimeData):
-        raise RuntimeError("Puppy Weight Tracker runtime is unavailable")
+    if not isinstance(runtime, PuppyTrackerRuntimeData):
+        raise RuntimeError("Puppy Tracker runtime is unavailable")
     storage = runtime.storage
 
     known_puppies: set[str] = set()
@@ -301,18 +301,18 @@ class WeighingStationSensor(
     @property
     def runtime(
         self,
-    ) -> PuppyWeightTrackerRuntimeData:
+    ) -> PuppyTrackerRuntimeData:
         """Return integration runtime."""
 
         runtime = self._entry.runtime_data
-        if not isinstance(runtime, PuppyWeightTrackerRuntimeData):
-            raise RuntimeError("Puppy Weight Tracker runtime is unavailable")
+        if not isinstance(runtime, PuppyTrackerRuntimeData):
+            raise RuntimeError("Puppy Tracker runtime is unavailable")
         return runtime
 
     @property
     def storage(
         self,
-    ) -> PuppyWeightStorage:
+    ) -> PuppyTrackerStorage:
         """Return storage."""
 
         return self.runtime.storage
@@ -342,7 +342,7 @@ class WeighingStationSensor(
             },
             name="Puppy weegstation",
             manufacturer=(
-                "Puppy Weight Tracker"
+                "Puppy Tracker"
             ),
             model="Weegstation",
         )
@@ -710,7 +710,7 @@ class PuppyBaseSensor(
 
     def __init__(
         self,
-        storage: PuppyWeightStorage,
+        storage: PuppyTrackerStorage,
         litter_id: str,
         puppy_id: str,
         sensor_key: str,
@@ -790,7 +790,7 @@ class PuppyBaseSensor(
                 "Puppy",
             ),
             manufacturer=(
-                "Puppy Weight Tracker"
+                "Puppy Tracker"
             ),
             model="Puppy",
         )
@@ -1480,16 +1480,16 @@ class LitterBaseSensor(SensorEntity):
         self._attr_unique_id = f"{litter_id}_{sensor_key}"
 
     @property
-    def runtime(self) -> PuppyWeightTrackerRuntimeData:
+    def runtime(self) -> PuppyTrackerRuntimeData:
         """Return integration runtime."""
 
         runtime = self._entry.runtime_data
-        if not isinstance(runtime, PuppyWeightTrackerRuntimeData):
-            raise RuntimeError("Puppy Weight Tracker runtime is unavailable")
+        if not isinstance(runtime, PuppyTrackerRuntimeData):
+            raise RuntimeError("Puppy Tracker runtime is unavailable")
         return runtime
 
     @property
-    def storage(self) -> PuppyWeightStorage:
+    def storage(self) -> PuppyTrackerStorage:
         """Return persistent storage."""
 
         return self.runtime.storage
@@ -1514,7 +1514,7 @@ class LitterBaseSensor(SensorEntity):
         return DeviceInfo(
             identifiers={(DOMAIN, f"litter_{self._litter_id}")},
             name=litter.get("name", "Nest"),
-            manufacturer="Puppy Weight Tracker",
+            manufacturer="Puppy Tracker",
             model="Nest",
         )
 

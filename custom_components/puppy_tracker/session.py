@@ -1,4 +1,4 @@
-"""Weighing session helpers for Puppy Weight Tracker."""
+"""Weighing session helpers for Puppy Tracker."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 from homeassistant.util import dt as dt_util
 
 if TYPE_CHECKING:
-    from .runtime import PuppyWeightTrackerRuntimeData
+    from .runtime import PuppyTrackerRuntimeData
 
 
 SESSION_IDLE = "idle"
@@ -34,7 +34,7 @@ def new_session_state() -> dict[str, Any]:
 
 
 def get_session(
-    runtime: PuppyWeightTrackerRuntimeData,
+    runtime: PuppyTrackerRuntimeData,
 ) -> dict[str, Any]:
     """Return weighing session, creating it if necessary."""
 
@@ -52,7 +52,7 @@ def get_session(
 
 
 def start_weighing_session(
-    runtime: PuppyWeightTrackerRuntimeData,
+    runtime: PuppyTrackerRuntimeData,
     litter_id: str,
     puppy_ids: list[str],
 ) -> None:
@@ -90,7 +90,7 @@ def start_weighing_session(
 
 
 def reset_weighing_session(
-    runtime: PuppyWeightTrackerRuntimeData,
+    runtime: PuppyTrackerRuntimeData,
 ) -> None:
     """Reset current weighing session."""
 
@@ -126,7 +126,7 @@ def remaining_puppy_ids(
 
 
 def mark_weight_recorded(
-    runtime: PuppyWeightTrackerRuntimeData,
+    runtime: PuppyTrackerRuntimeData,
     *,
     litter_id: str,
     puppy_id: str,

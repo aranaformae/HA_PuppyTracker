@@ -1,4 +1,4 @@
-"""Diagnostics support for Puppy Weight Tracker."""
+"""Diagnostics support for Puppy Tracker."""
 
 from __future__ import annotations
 
@@ -10,17 +10,17 @@ from homeassistant.core import HomeAssistant
 from .const import STORAGE_VERSION, VERSION
 from .frontend import FRONTEND_VERSION
 from .measurements import measurement_status
-from .runtime import PuppyWeightTrackerRuntimeData
-from .storage import PuppyWeightStorage
+from .runtime import PuppyTrackerRuntimeData
+from .storage import PuppyTrackerStorage
 
 
 def _runtime_storage(
     hass: HomeAssistant,
     entry: ConfigEntry,
-) -> PuppyWeightStorage | None:
+) -> PuppyTrackerStorage | None:
     """Return storage for the config entry."""
     runtime = entry.runtime_data
-    if not isinstance(runtime, PuppyWeightTrackerRuntimeData):
+    if not isinstance(runtime, PuppyTrackerRuntimeData):
         return None
     return runtime.storage
 

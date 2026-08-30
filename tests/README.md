@@ -1,10 +1,10 @@
-# Puppy Weight Tracker tests
+# Puppy Tracker tests
 
-This directory contains the regression test suite for the **Puppy Weight Tracker** Home Assistant custom integration.
+This directory contains the regression test suite for the **Puppy Tracker** Home Assistant custom integration.
 
 The suite is intended to protect the parts of the integration where a regression could silently change stored puppy data, monitoring results, correction history, exports, or timezone handling.
 
-> The tests use an in-memory Puppy Weight Tracker storage instance. They do **not** read from or write to the `.storage/puppy_tracker` data of a real Home Assistant installation.
+> The tests use an in-memory Puppy Tracker storage instance. They do **not** read from or write to the `.storage/puppy_tracker` data of a real Home Assistant installation.
 
 ## What is tested
 
@@ -154,7 +154,7 @@ Shared fixtures live in `conftest.py`.
 
 ### `storage`
 
-Creates a `PuppyWeightStorage` instance with fresh in-memory data. `async_save()` is mocked, so tests do not write a Home Assistant storage file.
+Creates a `PuppyTrackerStorage` instance with fresh in-memory data. `async_save()` is mocked, so tests do not write a Home Assistant storage file.
 
 ### `make_measurement`
 
@@ -272,7 +272,7 @@ Patch `homeassistant.util.dt.now()` in the module under test. Existing metrics a
 
 ---
 
-The goal of this suite is not maximum line coverage. Its priority is protecting **data integrity, correction history, monitoring calculations, timezone behavior, and exports** as Puppy Weight Tracker approaches 1.0.
+The goal of this suite is not maximum line coverage. Its priority is protecting **data integrity, correction history, monitoring calculations, timezone behavior, and exports** as Puppy Tracker approaches 1.0.
 
 ### `test_runtime_selection.py`
 

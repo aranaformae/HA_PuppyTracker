@@ -1,4 +1,4 @@
-"""Binary sensor platform for Puppy Weight Tracker."""
+"""Binary sensor platform for Puppy Tracker."""
 
 from __future__ import annotations
 
@@ -28,8 +28,8 @@ from .const import (
     SIGNAL_UPDATE,
 )
 from .metrics import calculate_puppy_status
-from .runtime import PuppyWeightTrackerRuntimeData
-from .storage import PuppyWeightStorage
+from .runtime import PuppyTrackerRuntimeData
+from .storage import PuppyTrackerStorage
 
 REFRESH_INTERVAL = timedelta(minutes=10)
 
@@ -39,11 +39,11 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Set up Puppy Weight Tracker binary sensors."""
+    """Set up Puppy Tracker binary sensors."""
 
     runtime = entry.runtime_data
-    if not isinstance(runtime, PuppyWeightTrackerRuntimeData):
-        raise RuntimeError("Puppy Weight Tracker runtime is unavailable")
+    if not isinstance(runtime, PuppyTrackerRuntimeData):
+        raise RuntimeError("Puppy Tracker runtime is unavailable")
     storage = runtime.storage
 
     known_litters: set[str] = set()
@@ -99,7 +99,7 @@ class PuppyAttentionBinarySensor(BinarySensorEntity):
 
     def __init__(
         self,
-        storage: PuppyWeightStorage,
+        storage: PuppyTrackerStorage,
         litter_id: str,
         puppy_id: str,
     ) -> None:
@@ -122,7 +122,7 @@ class PuppyAttentionBinarySensor(BinarySensorEntity):
         return DeviceInfo(
             identifiers={(DOMAIN, f"puppy_{self._puppy_id}")},
             name=puppy.get("name", "Puppy"),
-            manufacturer="Puppy Weight Tracker",
+            manufacturer="Puppy Tracker",
             model="Puppy",
         )
 
@@ -189,7 +189,7 @@ class LitterAttentionBinarySensor(BinarySensorEntity):
 
     def __init__(
         self,
-        storage: PuppyWeightStorage,
+        storage: PuppyTrackerStorage,
         litter_id: str,
     ) -> None:
         self.storage = storage
@@ -210,7 +210,7 @@ class LitterAttentionBinarySensor(BinarySensorEntity):
         return DeviceInfo(
             identifiers={(DOMAIN, f"litter_{self._litter_id}")},
             name=litter.get("name", "Nest"),
-            manufacturer="Puppy Weight Tracker",
+            manufacturer="Puppy Tracker",
             model="Litter/Nest",
         )
 

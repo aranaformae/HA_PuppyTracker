@@ -1,4 +1,4 @@
-"""Number entities for Puppy Weight Tracker."""
+"""Number entities for Puppy Tracker."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ from .const import (
     DOMAIN,
     SIGNAL_DASHBOARD_UPDATE,
 )
-from .runtime import PuppyWeightTrackerRuntimeData
+from .runtime import PuppyTrackerRuntimeData
 
 
 async def async_setup_entry(
@@ -77,12 +77,12 @@ class PuppyWeightInput(
     @property
     def data(
         self,
-    ) -> PuppyWeightTrackerRuntimeData:
+    ) -> PuppyTrackerRuntimeData:
         """Return integration runtime data."""
 
         runtime = self._entry.runtime_data
-        if not isinstance(runtime, PuppyWeightTrackerRuntimeData):
-            raise RuntimeError("Puppy Weight Tracker runtime is unavailable")
+        if not isinstance(runtime, PuppyTrackerRuntimeData):
+            raise RuntimeError("Puppy Tracker runtime is unavailable")
         return runtime
 
     @property
@@ -144,7 +144,7 @@ class PuppyWeightInput(
             },
             name="Puppy weegstation",
             manufacturer=(
-                "Puppy Weight Tracker"
+                "Puppy Tracker"
             ),
             model="Weegstation",
         )

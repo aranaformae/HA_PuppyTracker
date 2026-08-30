@@ -1,4 +1,4 @@
-"""Select entities for Puppy Weight Tracker."""
+"""Select entities for Puppy Tracker."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ from .const import (
     SIGNAL_DASHBOARD_UPDATE,
 )
 from .runtime import (
-    PuppyWeightTrackerRuntimeData,
+    PuppyTrackerRuntimeData,
     reconcile_dashboard_selection,
 )
 from .session import (
@@ -72,12 +72,12 @@ class PuppyDashboardSelectBase(
     @property
     def data(
         self,
-    ) -> PuppyWeightTrackerRuntimeData:
+    ) -> PuppyTrackerRuntimeData:
         """Return integration runtime data."""
 
         runtime = self._entry.runtime_data
-        if not isinstance(runtime, PuppyWeightTrackerRuntimeData):
-            raise RuntimeError("Puppy Weight Tracker runtime is unavailable")
+        if not isinstance(runtime, PuppyTrackerRuntimeData):
+            raise RuntimeError("Puppy Tracker runtime is unavailable")
         return runtime
 
     @property
@@ -103,7 +103,7 @@ class PuppyDashboardSelectBase(
             },
             name="Puppy weegstation",
             manufacturer=(
-                "Puppy Weight Tracker"
+                "Puppy Tracker"
             ),
             model="Weegstation",
         )

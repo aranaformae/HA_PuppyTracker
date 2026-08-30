@@ -1,4 +1,4 @@
-"""WebSocket data, measurement management, and export API for Puppy Weight Tracker."""
+"""WebSocket data, measurement management, and export API for Puppy Tracker."""
 
 from __future__ import annotations
 
@@ -20,32 +20,32 @@ from .const import DOMAIN, SIGNAL_DASHBOARD_UPDATE, SIGNAL_UPDATE
 from .measurements import measurement_status, puppy_measurements
 from .metrics import calculate_puppy_metrics
 from .pdf_export import build_pdf_export
-from .runtime import PuppyWeightTrackerRuntimeData
+from .runtime import PuppyTrackerRuntimeData
 from .session import get_session, remaining_puppy_ids
-from .storage import PuppyWeightStorage
+from .storage import PuppyTrackerStorage
 from .time_utils import timestamp_sort_key
 
 DATA_API_REGISTERED = f"{DOMAIN}_websocket_api_registered"
 API_VERSION = 5
 
 
-def _runtime_data(hass: HomeAssistant) -> PuppyWeightTrackerRuntimeData | None:
+def _runtime_data(hass: HomeAssistant) -> PuppyTrackerRuntimeData | None:
     """Return runtime data for the loaded integration entry."""
     for entry in hass.config_entries.async_entries(DOMAIN):
         runtime = entry.runtime_data
-        if isinstance(runtime, PuppyWeightTrackerRuntimeData):
+        if isinstance(runtime, PuppyTrackerRuntimeData):
             return runtime
     return None
 
 
-def _runtime_storage(hass: HomeAssistant) -> PuppyWeightStorage | None:
+def _runtime_storage(hass: HomeAssistant) -> PuppyTrackerStorage | None:
     """Return the storage instance for the configured integration entry."""
     runtime = _runtime_data(hass)
     return runtime.storage if runtime is not None else None
 
 
 def _puppy_summary(
-    storage: PuppyWeightStorage,
+    storage: PuppyTrackerStorage,
     litter_id: str,
     puppy_id: str,
     puppy: dict[str, Any],
@@ -77,7 +77,7 @@ def _puppy_summary(
 
 
 def _litter_summary(
-    storage: PuppyWeightStorage,
+    storage: PuppyTrackerStorage,
     litter_id: str,
     litter: dict[str, Any],
     puppy_summaries: dict[str, dict[str, Any]],
@@ -166,13 +166,13 @@ def _litter_summary(
 
 
 def _litter_payload(
-    storage: PuppyWeightStorage,
+    storage: PuppyTrackerStorage,
     litter_id: str,
     *,
     can_manage_measurements: bool = False,
     session: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Build graph data from Puppy Weight Tracker's own persistent storage."""
+    """Build graph data from Puppy Tracker's own persistent storage."""
     litter = storage.get_litter(litter_id)
     if litter is None:
         raise ValueError("Unknown litter")
@@ -230,7 +230,7 @@ def _litter_payload(
 
 
 def _puppy_measurements_payload(
-    storage: PuppyWeightStorage,
+    storage: PuppyTrackerStorage,
     litter_id: str,
     puppy_id: str,
 ) -> dict[str, Any]:
@@ -290,7 +290,7 @@ def _safe_filename(value: str | None) -> str:
 
 
 def _csv_export(
-    storage: PuppyWeightStorage,
+    storage: PuppyTrackerStorage,
     litter_id: str,
     *,
     puppy_id: str | None = None,
@@ -369,11 +369,11 @@ def _csv_export(
         )
 
     stamp = dt_util.now().strftime("%Y%m%d-%H%M%S")
-    filename = f"puppy-weight-tracker-{_safe_filename(litter.get('name'))}-{stamp}.csv"
+    filename = f"puppy-tracker-{_safe_filename(litter.get('name'))}-{stamp}.csv"
     return filename, "text/csv;charset=utf-8", output.getvalue()
 
 
-def _json_export(storage: PuppyWeightStorage, litter_id: str) -> tuple[str, str, str]:
+def _json_export(storage: PuppyTrackerStorage, litter_id: str) -> tuple[str, str, str]:
     """Export a complete litter including correction/deletion history and audit data."""
     litter = storage.get_litter(litter_id)
     if litter is None:
@@ -396,7 +396,7 @@ def _json_export(storage: PuppyWeightStorage, litter_id: str) -> tuple[str, str,
     }
 
     stamp = dt_util.now().strftime("%Y%m%d-%H%M%S")
-    filename = f"puppy-weight-tracker-{_safe_filename(litter.get('name'))}-{stamp}.json"
+    filename = f"puppy-tracker-{_safe_filename(litter.get('name'))}-{stamp}.json"
     content = json.dumps(document, ensure_ascii=False, indent=2, sort_keys=False)
     return filename, "application/json;charset=utf-8", content
 
@@ -405,11 +405,11 @@ def _storage_or_error(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
-) -> PuppyWeightStorage | None:
+) -> PuppyTrackerStorage | None:
     """Return storage or send a consistent websocket error."""
     storage = _runtime_storage(hass)
     if storage is None:
-        connection.send_error(msg["id"], "not_loaded", "Puppy Weight Tracker is not loaded")
+        connection.send_error(msg["id"], "not_loaded", "Puppy Tracker is not loaded")
     return storage
 
 
@@ -804,7 +804,7 @@ def websocket_subscribe_updates(
 
 @callback
 def async_setup_api(hass: HomeAssistant) -> None:
-    """Register Puppy Weight Tracker websocket commands once."""
+    """Register Puppy Tracker websocket commands once."""
     if hass.data.get(DATA_API_REGISTERED):
         return
 

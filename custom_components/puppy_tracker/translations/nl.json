@@ -1,14 +1,14 @@
 {
-  "title": "Puppy Weight Tracker",
+  "title": "Puppy Tracker",
   "config": {
     "step": {
       "user": {
-        "title": "Puppy Weight Tracker instellen",
-        "description": "Stel Puppy Weight Tracker in om puppygewichten te registreren en te volgen."
+        "title": "Puppy Tracker instellen",
+        "description": "Stel Puppy Tracker in om puppygewichten te registreren en te volgen."
       }
     },
     "abort": {
-      "already_configured": "Puppy Weight Tracker is al ingesteld."
+      "already_configured": "Puppy Tracker is al ingesteld."
     }
   },
   "options": {
