@@ -8,9 +8,9 @@ import {
   statusIcon,
   statusTone,
   subscribeUpdates,
-} from "./puppy-weight-card-common.js";
+} from "./puppy-tracker-card-common.js";
 
-class PuppyWeightAttentionCard extends HTMLElement {
+class PuppyTrackerAttentionCard extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
@@ -123,7 +123,7 @@ class PuppyWeightAttentionCard extends HTMLElement {
       } while (this._refreshAgain);
       this._error = "";
     } catch (err) {
-      this._error = err?.message || "Nieuwe Puppy Weight Tracker-data kon niet worden geladen.";
+      this._error = err?.message || "Nieuwe Puppy Tracker-data kon niet worden geladen.";
     } finally {
       this._refreshing = false;
       this._render();
@@ -187,10 +187,10 @@ class PuppyWeightAttentionCard extends HTMLElement {
   }
 }
 
-if (!customElements.get("puppy-weight-attention-card")) {
-  customElements.define("puppy-weight-attention-card", PuppyWeightAttentionCard);
+if (!customElements.get("puppy-tracker-attention-card")) {
+  customElements.define("puppy-tracker-attention-card", PuppyTrackerAttentionCard);
 }
 window.customCards = window.customCards || [];
-if (!window.customCards.some((card) => card.type === "puppy-weight-attention-card")) {
-  window.customCards.push({ type: "puppy-weight-attention-card", name: "Puppy Weight Attention", description: "Toont alleen pups die aandacht vragen." });
+if (!window.customCards.some((card) => card.type === "puppy-tracker-attention-card")) {
+  window.customCards.push({ type: "puppy-tracker-attention-card", name: "Puppy Tracker Attention", description: "Toont alleen pups die aandacht vragen." });
 }

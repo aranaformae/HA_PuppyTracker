@@ -13,9 +13,9 @@ import {
   statusIcon,
   statusTone,
   subscribeUpdates,
-} from "./puppy-weight-card-common.js";
+} from "./puppy-tracker-card-common.js";
 
-class PuppyWeightLitterCard extends HTMLElement {
+class PuppyTrackerLitterCard extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
@@ -141,7 +141,7 @@ class PuppyWeightLitterCard extends HTMLElement {
       } while (this._refreshAgain);
       this._error = "";
     } catch (err) {
-      this._error = err?.message || "Nieuwe Puppy Weight Tracker-data kon niet worden geladen.";
+      this._error = err?.message || "Nieuwe Puppy Tracker-data kon niet worden geladen.";
     } finally {
       this._refreshing = false;
       this._render();
@@ -257,10 +257,10 @@ class PuppyWeightLitterCard extends HTMLElement {
   }
 }
 
-if (!customElements.get("puppy-weight-litter-card")) {
-  customElements.define("puppy-weight-litter-card", PuppyWeightLitterCard);
+if (!customElements.get("puppy-tracker-litter-card")) {
+  customElements.define("puppy-tracker-litter-card", PuppyTrackerLitterCard);
 }
 window.customCards = window.customCards || [];
-if (!window.customCards.some((card) => card.type === "puppy-weight-litter-card")) {
-  window.customCards.push({ type: "puppy-weight-litter-card", name: "Puppy Weight Litter", description: "Sorteerbaar nestoverzicht met actuele groei en status." });
+if (!window.customCards.some((card) => card.type === "puppy-tracker-litter-card")) {
+  window.customCards.push({ type: "puppy-tracker-litter-card", name: "Puppy Tracker Litter", description: "Sorteerbaar nestoverzicht met actuele groei en status." });
 }

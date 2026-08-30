@@ -1,5 +1,5 @@
-// Puppy Weight Tracker Card v1.3.1
-class PuppyWeightTrackerCard extends HTMLElement {
+// Puppy Tracker Card v1.3.1
+class PuppyTrackerCard extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
@@ -177,9 +177,9 @@ class PuppyWeightTrackerCard extends HTMLElement {
       this._registryLoaded = true;
       this._localMessage = "";
     } catch (err) {
-      console.error("Puppy Weight Tracker card: registry discovery failed", err);
+      console.error("Puppy Tracker card: registry discovery failed", err);
       this._localMessage =
-        "De kaart kon de Puppy Weight Tracker-entities niet automatisch vinden.";
+        "De kaart kon de Puppy Tracker-entities niet automatisch vinden.";
       this._localMessageType = "error";
     } finally {
       this._registryLoading = false;
@@ -549,7 +549,7 @@ class PuppyWeightTrackerCard extends HTMLElement {
     if (!entityId) {
       this._setError(
         new Error(
-          `De entity voor ${label} is niet gevonden. Herlaad de Puppy Weight Tracker-integratie en vernieuw daarna het dashboard.`
+          `De entity voor ${label} is niet gevonden. Herlaad de Puppy Tracker-integratie en vernieuw daarna het dashboard.`
         )
       );
       return;
@@ -639,7 +639,7 @@ class PuppyWeightTrackerCard extends HTMLElement {
 
     if (this._registryLoading) {
       this.shadowRoot.innerHTML = this._shell(
-        `<div class="loading">Puppy Weight Tracker zoeken…</div>`
+        `<div class="loading">Puppy Tracker zoeken…</div>`
       );
       return;
     }
@@ -791,7 +791,7 @@ class PuppyWeightTrackerCard extends HTMLElement {
     this.shadowRoot.innerHTML = this._shell(`
       <div class="header">
         <div>
-          <div class="eyebrow">Puppy Weight Tracker</div>
+          <div class="eyebrow">Puppy Tracker</div>
           <h2>${this._escape(this._config.title || "Puppy weegstation")}</h2>
         </div>
         <span class="session-badge ${isActive ? "active" : isComplete ? "complete" : "idle"}">
@@ -1461,16 +1461,16 @@ class PuppyWeightTrackerCard extends HTMLElement {
   }
 }
 
-if (!customElements.get("puppy-weight-tracker-card")) {
-  customElements.define("puppy-weight-tracker-card", PuppyWeightTrackerCard);
+if (!customElements.get("puppy-tracker-card")) {
+  customElements.define("puppy-tracker-card", PuppyTrackerCard);
 }
 
 window.customCards = window.customCards || [];
 
-if (!window.customCards.some((card) => card.type === "puppy-weight-tracker-card")) {
+if (!window.customCards.some((card) => card.type === "puppy-tracker-card")) {
   window.customCards.push({
-    type: "puppy-weight-tracker-card",
-    name: "Puppy Weight Tracker",
+    type: "puppy-tracker-card",
+    name: "Puppy Tracker",
     description: "Weegsessies en groeimonitoring voor puppy's.",
     preview: true,
   });

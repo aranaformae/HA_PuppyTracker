@@ -1,4 +1,4 @@
-"""Frontend support for Puppy Weight Tracker."""
+"""Frontend support for Puppy Tracker."""
 
 from __future__ import annotations
 
@@ -18,12 +18,12 @@ FRONTEND_URL = f"/{DOMAIN}/frontend"
 FRONTEND_VERSION = VERSION
 
 CARD_FILES = (
-    "puppy-weight-tracker-card.js",
-    "puppy-weight-overview-card.js",
-    "puppy-weight-summary-card.js",
-    "puppy-weight-attention-card.js",
-    "puppy-weight-litter-card.js",
-    "puppy-weight-report-card.js",
+    "puppy-tracker-card.js",
+    "puppy-tracker-overview-card.js",
+    "puppy-tracker-summary-card.js",
+    "puppy-tracker-attention-card.js",
+    "puppy-tracker-litter-card.js",
+    "puppy-tracker-report-card.js",
 )
 
 # Static HTTP routes cannot currently be cleanly unregistered. Keep this flag
@@ -38,7 +38,7 @@ def _frontend_url(filename: str) -> str:
 
 
 async def async_setup_frontend(hass: HomeAssistant) -> None:
-    """Serve and automatically load the Puppy Weight Tracker cards."""
+    """Serve and automatically load the Puppy Tracker cards."""
     if not hass.data.get(DATA_STATIC_PATH_REGISTERED):
         await hass.http.async_register_static_paths(
             [
@@ -58,13 +58,13 @@ async def async_setup_frontend(hass: HomeAssistant) -> None:
         )
 
     _LOGGER.debug(
-        "Registered Puppy Weight Tracker frontend cards: %s",
+        "Registered Puppy Tracker frontend cards: %s",
         ", ".join(CARD_FILES),
     )
 
 
 def async_unload_frontend(hass: HomeAssistant) -> None:
-    """Stop automatically loading the Puppy Weight Tracker cards."""
+    """Stop automatically loading the Puppy Tracker cards."""
     for filename in CARD_FILES:
         remove_extra_js_url(
             hass,

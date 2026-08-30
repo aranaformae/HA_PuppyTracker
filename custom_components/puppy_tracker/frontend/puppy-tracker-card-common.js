@@ -36,7 +36,7 @@ export function downloadExportFile(result) {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = result.filename || "puppy-weight-tracker-export";
+  anchor.download = result.filename || "puppy-tracker-export";
   anchor.rel = "noopener";
   anchor.style.display = "none";
   document.body.appendChild(anchor);

@@ -8,9 +8,9 @@ import {
   rangeToHours,
   selectDefaultLitter,
   subscribeUpdates,
-} from "./puppy-weight-card-common.js";
+} from "./puppy-tracker-card-common.js";
 
-class PuppyWeightReportCard extends HTMLElement {
+class PuppyTrackerReportCard extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
@@ -136,7 +136,7 @@ class PuppyWeightReportCard extends HTMLElement {
       } while (this._refreshAgain);
       this._error = "";
     } catch (err) {
-      this._error = err?.message || "Nieuwe Puppy Weight Tracker-data kon niet worden geladen.";
+      this._error = err?.message || "Nieuwe Puppy Tracker-data kon niet worden geladen.";
     } finally {
       this._refreshing = false;
       this._render();
@@ -223,10 +223,10 @@ class PuppyWeightReportCard extends HTMLElement {
   }
 }
 
-if (!customElements.get("puppy-weight-report-card")) {
-  customElements.define("puppy-weight-report-card", PuppyWeightReportCard);
+if (!customElements.get("puppy-tracker-report-card")) {
+  customElements.define("puppy-tracker-report-card", PuppyTrackerReportCard);
 }
 window.customCards = window.customCards || [];
-if (!window.customCards.some((card) => card.type === "puppy-weight-report-card")) {
-  window.customCards.push({ type: "puppy-weight-report-card", name: "Puppy Weight Report", description: "PDF-rapporten en export voor Puppy Weight Tracker." });
+if (!window.customCards.some((card) => card.type === "puppy-tracker-report-card")) {
+  window.customCards.push({ type: "puppy-tracker-report-card", name: "Puppy Tracker Report", description: "PDF-rapporten en export voor Puppy Tracker." });
 }

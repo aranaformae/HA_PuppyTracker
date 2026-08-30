@@ -7,9 +7,9 @@ import {
   formatWeight,
   selectDefaultLitter,
   subscribeUpdates,
-} from "./puppy-weight-card-common.js";
+} from "./puppy-tracker-card-common.js";
 
-class PuppyWeightSummaryCard extends HTMLElement {
+class PuppyTrackerSummaryCard extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
@@ -91,7 +91,7 @@ class PuppyWeightSummaryCard extends HTMLElement {
       await this._loadData();
       await this._subscribe();
     } catch (err) {
-      this._error = err?.message || "Puppy Weight Tracker-data kon niet worden geladen.";
+      this._error = err?.message || "Puppy Tracker-data kon niet worden geladen.";
     } finally {
       this._loading = false;
       this._render();
@@ -130,7 +130,7 @@ class PuppyWeightSummaryCard extends HTMLElement {
       } while (this._refreshAgain);
       this._error = "";
     } catch (err) {
-      this._error = err?.message || "Nieuwe Puppy Weight Tracker-data kon niet worden geladen.";
+      this._error = err?.message || "Nieuwe Puppy Tracker-data kon niet worden geladen.";
     } finally {
       this._refreshing = false;
       this._render();
@@ -212,14 +212,14 @@ class PuppyWeightSummaryCard extends HTMLElement {
   }
 }
 
-if (!customElements.get("puppy-weight-summary-card")) {
-  customElements.define("puppy-weight-summary-card", PuppyWeightSummaryCard);
+if (!customElements.get("puppy-tracker-summary-card")) {
+  customElements.define("puppy-tracker-summary-card", PuppyTrackerSummaryCard);
 }
 window.customCards = window.customCards || [];
-if (!window.customCards.some((card) => card.type === "puppy-weight-summary-card")) {
+if (!window.customCards.some((card) => card.type === "puppy-tracker-summary-card")) {
   window.customCards.push({
-    type: "puppy-weight-summary-card",
-    name: "Puppy Weight Summary",
-    description: "Compact nestoverzicht voor Puppy Weight Tracker.",
+    type: "puppy-tracker-summary-card",
+    name: "Puppy Tracker Summary",
+    description: "Compact nestoverzicht voor Puppy Tracker.",
   });
 }

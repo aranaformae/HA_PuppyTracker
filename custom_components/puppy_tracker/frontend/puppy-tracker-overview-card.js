@@ -1,5 +1,5 @@
-// Puppy Weight Overview Card v1.3.2
-class PuppyWeightOverviewCard extends HTMLElement {
+// Puppy Tracker Overview Card v1.3.2
+class PuppyTrackerOverviewCard extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
@@ -256,9 +256,9 @@ class PuppyWeightOverviewCard extends HTMLElement {
       await this._subscribeToData();
       await this._loadHistory(true);
     } catch (err) {
-      console.error("Puppy Weight Overview card: discovery failed", err);
+      console.error("Puppy Tracker Overview card: discovery failed", err);
       this._historyError =
-        err?.message || "Puppy Weight Tracker kon niet automatisch worden gevonden.";
+        err?.message || "Puppy Tracker kon niet automatisch worden gevonden.";
     } finally {
       this._registryLoading = false;
       this._scheduleRender();
@@ -555,7 +555,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
         { type: "puppy_tracker/subscribe" }
       );
     } catch (err) {
-      console.warn("Puppy Weight Overview card: update subscription failed", err);
+      console.warn("Puppy Tracker Overview card: update subscription failed", err);
     } finally {
       this._dataSubscriptionPending = false;
     }
@@ -590,7 +590,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
       this._history = result && typeof result === "object" ? result : {};
       this._historyKey = key;
     } catch (err) {
-      console.error("Puppy Weight Overview card: measurement data failed", err);
+      console.error("Puppy Tracker Overview card: measurement data failed", err);
       this._historyError =
         err?.message ||
         "De opgeslagen meetgegevens konden niet worden geladen.";
@@ -645,7 +645,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
       this._measurementData = result && typeof result === "object" ? result : null;
       this._measurementKey = key;
     } catch (err) {
-      console.error("Puppy Weight Overview card: measurement history failed", err);
+      console.error("Puppy Tracker Overview card: measurement history failed", err);
       this._measurementError =
         err?.message || "De meetgeschiedenis kon niet worden geladen.";
       this._measurementData = null;
@@ -754,7 +754,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
       }.`;
       await this._loadHistory(true);
     } catch (err) {
-      console.error("Puppy Weight Overview card: correction failed", err);
+      console.error("Puppy Tracker Overview card: correction failed", err);
       this._measurementActionStatus = err?.message || "Correctie opslaan mislukt.";
     }
 
@@ -790,7 +790,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
       this._measurementActionStatus = "Meting verwijderd. Bij een correctie is de direct vorige versie weer actief.";
       await this._loadHistory(true);
     } catch (err) {
-      console.error("Puppy Weight Overview card: delete failed", err);
+      console.error("Puppy Tracker Overview card: delete failed", err);
       this._measurementActionStatus = err?.message || "Meting verwijderen mislukt.";
     }
 
@@ -825,7 +825,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
         : "Meting hersteld en weer actief.";
       await this._loadHistory(true);
     } catch (err) {
-      console.error("Puppy Weight Overview card: restore failed", err);
+      console.error("Puppy Tracker Overview card: restore failed", err);
       this._measurementActionStatus = err?.message || "Meting herstellen mislukt.";
     }
 
@@ -1508,7 +1508,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
             option,
           });
         } catch (err) {
-          console.warn("Puppy Weight Overview card: station litter sync failed", err);
+          console.warn("Puppy Tracker Overview card: station litter sync failed", err);
         }
       }
     }
@@ -1538,7 +1538,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = result.filename || `puppy-weight-tracker.${format}`;
+      link.download = result.filename || `puppy-tracker.${format}`;
       link.rel = "noopener";
       document.body.appendChild(link);
       link.click();
@@ -1547,7 +1547,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
 
       this._exportStatus = `${format.toUpperCase()} export klaar`;
     } catch (err) {
-      console.error(`Puppy Weight Overview card: ${format} export failed`, err);
+      console.error(`Puppy Tracker Overview card: ${format} export failed`, err);
       this._exportStatus = err?.message || `${format.toUpperCase()} export mislukt`;
     }
 
@@ -1581,7 +1581,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
 
     if (this._registryLoading) {
       this.shadowRoot.innerHTML = this._shell(
-        `<div class="loading">Puppy Weight Tracker zoeken…</div>`
+        `<div class="loading">Puppy Tracker zoeken…</div>`
       );
       return;
     }
@@ -1592,7 +1592,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
       this.shadowRoot.innerHTML = this._shell(`
         <div class="empty">
           <strong>Geen nesten gevonden</strong>
-          <span>Controleer of Puppy Weight Tracker geladen is.</span>
+          <span>Controleer of Puppy Tracker geladen is.</span>
           <button id="rediscover" class="secondary">Opnieuw zoeken</button>
         </div>
       `);
@@ -1705,7 +1705,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
     const integrityWarning = integrity && Number(integrity.unresolved_critical || 0) > 0
       ? `<div class="integrity-warning"><strong>Data-integriteit vraagt aandacht</strong><span>${this._escape(
           String(integrity.unresolved_critical || 0)
-        )} kritisch probleem/problemen konden niet automatisch worden gerepareerd. Open Puppy Weight Tracker → Configureren → Data-integriteit controleren en download eventueel diagnostiek.</span></div>`
+        )} kritisch probleem/problemen konden niet automatisch worden gerepareerd. Open Puppy Tracker → Configureren → Data-integriteit controleren en download eventueel diagnostiek.</span></div>`
       : "";
 
     const tooltipHtml = this._tooltip
@@ -1721,7 +1721,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
     this.shadowRoot.innerHTML = this._shell(`
       <div class="header">
         <div>
-          <div class="eyebrow">Puppy Weight Tracker</div>
+          <div class="eyebrow">Puppy Tracker</div>
           <h2>${this._escape(this._config.title)}</h2>
         </div>
         <div class="header-actions">
@@ -2753,17 +2753,17 @@ class PuppyWeightOverviewCard extends HTMLElement {
   }
 }
 
-if (!customElements.get("puppy-weight-overview-card")) {
-  customElements.define("puppy-weight-overview-card", PuppyWeightOverviewCard);
+if (!customElements.get("puppy-tracker-overview-card")) {
+  customElements.define("puppy-tracker-overview-card", PuppyTrackerOverviewCard);
 }
 
 window.customCards = window.customCards || [];
 
-if (!window.customCards.some((card) => card.type === "puppy-weight-overview-card")) {
+if (!window.customCards.some((card) => card.type === "puppy-tracker-overview-card")) {
   window.customCards.push({
-    type: "puppy-weight-overview-card",
-    name: "Puppy Weight Overview",
-    description: "Dynamisch overzicht en groeigrafieken voor Puppy Weight Tracker.",
+    type: "puppy-tracker-overview-card",
+    name: "Puppy Tracker Overview",
+    description: "Dynamisch overzicht en groeigrafieken voor Puppy Tracker.",
     preview: true,
   });
 }
