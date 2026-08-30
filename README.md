@@ -2,7 +2,7 @@
 
 Puppy Tracker is a custom Home Assistant integration for managing litters and individual puppies. It started as a weight tracker, but the project is being redesigned as a broader puppy dossier: weight remains a first-class module, while the storage architecture is being prepared for notes, vaccinations, tests, treatments, milestones, veterinary visits and other puppy or litter events.
 
-> **Development status:** pre-1.0. The `0.10.x` development line introduces the new `puppy_tracker` integration domain and the dossier foundation. Breaking changes are still possible before 1.0.
+> **Development status:** pre-1.0. Version `0.11.0` introduces the first usable dossier workflow on the stable `puppy_tracker` integration domain. Breaking changes are still possible before 1.0.
 
 ## Highlights
 
@@ -21,12 +21,14 @@ Puppy Tracker is a custom Home Assistant integration for managing litters and in
 - CSV, JSON and direct PDF export.
 - Data-integrity checks and Home Assistant diagnostics.
 - Built-in Lovelace cards automatically served by the integration.
-- Generic dossier-record storage foundation for future puppy-health and development features.
-- Regression test suite for measurements, metrics, corrections, integrity, exports, runtime selection and dossier records.
+- Generic dossier-record storage and WebSocket API for puppy and litter dossier items.
+- Type-specific dossier forms for notes, vaccinations, tests, deworming, medication, vet visits, milestones and other records.
+- Derived upcoming dossier actions from vaccination and deworming follow-up dates.
+- Regression test suite for measurements, metrics, corrections, integrity, exports, runtime selection, dossier records and upcoming actions.
 
 ## Integration identity
 
-The `0.10.x` development line uses the new general-purpose identity:
+The `0.11.x` development line uses the general-purpose Puppy Tracker identity:
 
 ```text
 Name:        Puppy Tracker
@@ -70,7 +72,18 @@ Dossier records are separate timestamped entries. The storage foundation support
 - `milestone`
 - future snake_case record types
 
-The dossier storage/API foundation is present in the `0.10.x` development line, but dedicated dashboard forms for every record type are not yet implemented.
+The `0.11.x` line includes storage, WebSocket APIs and a dashboard dossier card with type-specific forms for the initial record types. Unknown future snake_case record types are preserved and displayed generically.
+
+### Upcoming dossier actions
+
+Puppy Tracker derives upcoming actions from active dossier records instead of storing a separate task list. The first supported follow-up fields are:
+
+```text
+vaccination.data.next_due_date
+deworming.data.next_due_date
+```
+
+Date-only follow-ups are treated as Home Assistant local calendar dates. Derived statuses are `overdue`, `due_today` and `upcoming`.
 
 ### Weight measurements
 
@@ -141,6 +154,10 @@ type: custom:puppy-tracker-litter-card
 type: custom:puppy-tracker-report-card
 ```
 
+```yaml
+type: custom:puppy-tracker-dossier-card
+```
+
 ### Example dashboard
 
 ```yaml
@@ -170,6 +187,11 @@ cards:
   - type: custom:puppy-tracker-report-card
     title: Rapport & export
     default_range: all
+
+  - type: custom:puppy-tracker-dossier-card
+    title: Puppydossier
+    show_litter_selector: true
+    show_profile_note: true
 ```
 
 ## Weighing workflow
@@ -247,7 +269,7 @@ puppy_tracker.add_puppy
 puppy_tracker.record_weight
 ```
 
-The `add_puppy` service includes `profile_note`. Generic dossier records are currently a storage/API foundation and will receive dedicated UI/service workflows in later development.
+The `add_puppy` service includes `profile_note`. Dossier records are managed through the Puppy Tracker WebSocket API and the built-in dossier dashboard card.
 
 ## Repository structure
 
@@ -269,7 +291,8 @@ custom_components/puppy_tracker/
 │   ├── puppy-tracker-summary-card.js
 │   ├── puppy-tracker-attention-card.js
 │   ├── puppy-tracker-litter-card.js
-│   └── puppy-tracker-report-card.js
+│   ├── puppy-tracker-report-card.js
+│   └── puppy-tracker-dossier-card.js
 ├── integrity.py
 ├── manifest.json
 ├── measurements.py
@@ -286,6 +309,7 @@ custom_components/puppy_tracker/
 ├── storage.py
 ├── strings.json
 ├── time_utils.py
+├── upcoming.py
 └── translations/
 ```
 
@@ -318,7 +342,7 @@ On Windows PowerShell, activate with:
 .venv\Scripts\Activate.ps1
 ```
 
-The test suite protects timezone ordering, metrics, correction chains, integrity repairs, exports, runtime selection and dossier-record behaviour.
+The test suite protects timezone ordering, metrics, correction chains, integrity repairs, exports, runtime selection, dossier-record behaviour and derived upcoming actions.
 
 Manual release testing should additionally cover HACS installation, integration setup, all Lovelace cards, phone/tablet interaction, direct PDF download and Home Assistant restart persistence.
 
@@ -326,13 +350,12 @@ Manual release testing should additionally cover HACS installation, integration 
 
 The architecture is intentionally moving beyond weight-only tracking. Planned areas include:
 
-- general dossier/timeline UI;
 - quick notes from the dashboard;
-- vaccination logging;
-- tests and test results;
-- deworming and medication logging;
-- veterinary visits;
-- milestones and development observations;
+- richer care views for vaccinations, deworming and medication;
+- health summaries and upcoming-care dashboards;
+- dossier notifications for due and overdue actions;
+- timeline filtering by record type;
+- expanded test results, veterinary visits and milestone workflows;
 - attachments/documents where useful;
 - richer puppy dossier reports for new owners;
 - further frontend simplification and automated end-to-end testing;

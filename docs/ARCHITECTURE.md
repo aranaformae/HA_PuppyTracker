@@ -233,9 +233,10 @@ custom:puppy-tracker-summary-card
 custom:puppy-tracker-attention-card
 custom:puppy-tracker-litter-card
 custom:puppy-tracker-report-card
+custom:puppy-tracker-dossier-card
 ```
 
-Future dossier/timeline cards should use the same API and record model rather than inventing card-local storage conventions.
+The dossier card uses the same API and record model rather than inventing card-local storage conventions.
 
 ## Export philosophy
 
@@ -259,6 +260,7 @@ Critical areas include:
 - monitoring metrics;
 - integrity repairs;
 - dossier record ownership and CRUD;
+- upcoming action derivation;
 - export selection;
 - runtime selection.
 
@@ -276,7 +278,7 @@ Possible payload fields:
 vaccine/product
 batch/lot
 veterinarian
-next_due_at
+next_due_date
 ```
 
 ### Tests
@@ -300,7 +302,7 @@ product
 amount
 dose/unit
 route
-next_due_at
+next_due_date
 ```
 
 ### Veterinary visits
