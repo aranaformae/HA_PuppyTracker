@@ -8,7 +8,7 @@ The suite is intended to protect the parts of the integration where a regression
 
 ## What is tested
 
-The current suite covers five main areas.
+The current suite covers seven main areas.
 
 | Test file | Coverage |
 | --- | --- |
@@ -17,6 +17,8 @@ The current suite covers five main areas.
 | `test_storage_corrections.py` | Non-destructive correction chains, delete/restore behavior and birth-weight synchronization |
 | `test_integrity.py` | Safe integrity repairs, duplicate IDs, dangling references and ambiguous correction branches |
 | `test_exports.py` | CSV filtering, complete JSON history and direct PDF generation |
+| `test_records.py` | Profile-note migration, dossier record CRUD, owner scopes, sorting and integrity checks |
+| `test_runtime_selection.py` | Typed runtime selection, explicit defaults and archived-selection fallback behavior |
 
 These are regression tests for the integration's Python backend. They are **not** browser or end-to-end tests for the Lovelace cards, Safari/iPadOS, HACS installation, or the Home Assistant Companion App.
 
@@ -98,6 +100,12 @@ Only exports:
 
 ```bash
 pytest tests/test_exports.py
+```
+
+Only dossier records:
+
+```bash
+pytest tests/test_records.py
 ```
 
 ## Run one specific test
@@ -274,9 +282,6 @@ Patch `homeassistant.util.dt.now()` in the module under test. Existing metrics a
 
 The goal of this suite is not maximum line coverage. Its priority is protecting **data integrity, correction history, monitoring calculations, timezone behavior, and exports** as Puppy Tracker approaches 1.0.
 
-### `test_runtime_selection.py`
-
-Regression tests for the typed runtime selection helper. These tests ensure that the helper imported by integration setup exists, initializes the first active litter/puppy explicitly, and replaces archived selections without side effects in entity properties.
 
 ### Measurement timestamp precision regression
 
@@ -285,3 +290,18 @@ regression suite includes measurements that differ only by seconds/fractional se
 as well as measurements with the exact same measurement timestamp. This protects the
 `current`/`previous` weight ordering from datetime-local controls that display a lower
 precision than the timestamp stored by Home Assistant.
+
+
+## Dossier record architecture
+
+Puppy Tracker keeps three kinds of information deliberately separate:
+
+- `profile_note`: one editable summary on the puppy profile;
+- `records`: chronological dossier entries such as notes, vaccinations, tests, treatments and milestones;
+- `measurements`: the specialized weight history with its own correction-chain semantics.
+
+Dossier regression tests verify both litter-scoped and puppy-scoped records. Every record owns its own UUID and stores `occurred_at` separately from `created_at`, so entering an event later does not change when it actually happened.
+
+Record deletion is soft-delete. Tests therefore require delete/restore to preserve the same record identity and content. Ownership metadata may be repaired automatically when the intended owner is unambiguous, but duplicate IDs and invalid record types must remain unresolved integrity findings instead of being guessed.
+
+New dossier modules should prefer a lowercase snake_case `type` and type-specific fields inside the record's `data` mapping. Add a regression test whenever a new record type gains business rules beyond the generic envelope.

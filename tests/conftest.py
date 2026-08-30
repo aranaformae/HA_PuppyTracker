@@ -82,11 +82,12 @@ def install_litter(storage, make_measurement):
             "birth_time": "2026-08-28T10:00:00+00:00",
             "birth_weight": 400.0,
             "birth_measurement_id": None,
-            "notes": None,
+            "profile_note": None,
             "active": True,
             "created_at": "2026-08-28T10:00:00+00:00",
             "updated_at": "2026-08-28T10:00:00+00:00",
             "measurements": measurements,
+            "records": [],
         }
         if puppy_overrides:
             puppy.update(deepcopy(puppy_overrides))
@@ -101,6 +102,7 @@ def install_litter(storage, make_measurement):
             "created_at": "2026-08-28T10:00:00+00:00",
             "updated_at": "2026-08-28T10:00:00+00:00",
             "last_completed_session": None,
+            "records": [],
             "puppies": {puppy_id: puppy},
         }
         if litter_overrides:
