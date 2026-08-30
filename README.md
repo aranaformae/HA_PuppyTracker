@@ -1,414 +1,258 @@
-# 🐾 Puppy Weight Tracker
-
-[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Custom%20Integration-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
-[![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5?logo=homeassistantcommunitystore&logoColor=white)](https://hacs.xyz/)
-[![GitHub release](https://img.shields.io/github/v/release/aranaformae/HA_PuppyTracker?display_name=tag)](https://github.com/aranaformae/HA_PuppyTracker/releases)
-[![GitHub issues](https://img.shields.io/github/issues/aranaformae/HA_PuppyTracker)](https://github.com/aranaformae/HA_PuppyTracker/issues)
-
-**Puppy Weight Tracker** is a custom Home Assistant integration for tracking puppy weights, growth, weighing sessions and litter health from one place.
-
-It stores its own measurement history, creates Home Assistant devices and entities for litters and puppies, includes purpose-built dashboard cards, supports monitoring and notifications, and provides CSV/JSON export and print-friendly reports.
-
-> **Current development line: 0.9.x**  
-> The integration is approaching its first stable `1.0.0` release. Until then, configuration, entities and frontend behaviour may still change.
-
----
-
-## ✨ Highlights
-
-- 🐶 Manage multiple litters and puppies
-- ⚖️ Record and manage puppy weights
-- 🔁 Guided weighing sessions with automatic next-puppy selection
-- 📈 Track current weight, previous weight, change and growth
-- 🕒 Time-aware puppy age and last-weighed information
-- 🚨 Monitoring for low growth, weight loss and overdue weighings
-- 🔔 Optional Home Assistant and mobile notifications
-- 🧾 Full measurement history with corrections, soft-delete and restore
-- 🛡️ Storage integrity checks and Home Assistant diagnostics
-- 📊 Built-in dashboard cards and growth graphs
-- 📦 CSV and JSON export
-- 🖨️ Print-friendly puppy and litter reports
-- 🏠 Native Home Assistant devices, entities and configuration flow
-- ⬇️ Install and update through HACS
-
----
-
-## 🧠 How data is stored
-
-Puppy Weight Tracker keeps its own persistent dataset in Home Assistant storage instead of relying only on Recorder history.
-
-This means:
-
-- measurements remain available even when Home Assistant Recorder purges old history;
-- corrected measurements retain their previous versions;
-- deleted measurements are soft-deleted and can be restored;
-- graphs can use the integration's own measurement history;
-- JSON export can preserve the complete technical history of a litter.
-
-The integration also keeps an audit trail for important data changes.
-
----
-
-## 🐕 Litter and puppy management
-
-Everything is managed through the Home Assistant UI:
-
-**Settings → Devices & services → Puppy Weight Tracker → Configure**
-
-Available management options include:
-
-- create a litter;
-- edit, archive or remove a litter;
-- add puppies;
-- edit puppy details;
-- archive or remove puppies;
-- manage measurements;
-- configure monitoring thresholds;
-- run a storage integrity check.
-
-Puppies can store information such as:
-
-- name;
-- collar / identification colour;
-- sex;
-- birth date and time;
-- birth weight;
-- notes.
-
-The birth time defaults to the current Home Assistant local date and time when adding a new puppy.
-
----
-
-## ⚖️ Weighing sessions
-
-The integration includes a guided weighing workflow.
-
-A session:
-
-1. starts with the active puppies in the selected litter;
-2. tracks which puppies have already been weighed;
-3. records the entered weight;
-4. automatically moves to the next unweighed puppy;
-5. completes once every puppy in the session has been weighed.
-
-Safeguards are included to reduce accidental duplicate measurements.
-
-The weighing station exposes Home Assistant entities for the selected litter, selected puppy, weight input, session status, progress, next puppy and session controls.
-
----
-
-## 📈 Growth and status monitoring
-
-Puppy Weight Tracker calculates useful information for each puppy, including:
-
-- current weight;
-- birth weight;
-- previous weight;
-- difference from the previous measurement;
-- total growth since birth;
-- normalized growth over 24 hours;
-- normalized growth percentage over 24 hours;
-- puppy age;
-- last weighing time;
-- monitoring status.
-
-Monitoring thresholds are configurable from the integration options.
-
-Current monitoring can detect situations such as:
-
-- no measurement available;
-- maximum time between weighings exceeded;
-- weight loss;
-- growth below the configured minimum;
-- excessive loss during the first 24 hours.
-
-These values are intended as **monitoring aids**, not veterinary diagnoses.
-
----
-
-## 🔔 Notifications
-
-Optional notifications can be enabled for puppies that need attention.
-
-The notification logic is state-aware and avoids repeatedly sending the same alert while the same condition remains active.
-
-Optional notifications include:
-
-- puppy needs attention;
-- puppy returns to a normal status;
-- weighing session completed.
-
-Persistent Home Assistant notifications are supported, with optional delivery to selected `notify` entities.
-
----
-
-## 🧾 Measurement history and corrections
-
-Measurements are never simply overwritten when corrected.
-
-A correction creates a new version while the previous value is retained as historical data.
-
-From the dashboard or integration options you can:
-
-- inspect active measurements;
-- view previous correction versions;
-- correct weight and timestamp;
-- provide a correction reason;
-- soft-delete a measurement;
-- restore a deleted measurement.
-
-Measurement timestamps are normalized internally and sorted timezone-safely.
-
----
-
-## 🛡️ Data integrity and diagnostics
-
-The integration includes storage integrity checks for measurement history.
-
-Checks include, among other things:
-
-- missing correction references;
-- duplicate measurement IDs;
-- correction-chain cycles;
-- ambiguous correction branches;
-- multiple active versions in one correction chain;
-- invalid timestamps;
-- birth-weight consistency.
-
-Safe, unambiguous issues may be repaired automatically. The integration deliberately does **not** choose between ambiguous measurement branches.
-
-A manual integrity check is available from the integration configuration.
-
-Home Assistant diagnostics are also supported for troubleshooting. Diagnostics contain structural information and integrity results rather than a full dump of private puppy history.
-
----
-
-# 🎛️ Dashboard cards
-
-Puppy Weight Tracker includes its own Lovelace cards. They are served by the integration and loaded automatically; manual Lovelace resource registration is not normally required.
-
-## Puppy weighing station
-
-```yaml
-type: custom:puppy-weight-tracker-card
-title: Puppy weegstation
+# Puppy Tracker for Home Assistant
+
+Puppy Tracker is a custom Home Assistant integration for managing litters and individual puppies. It started as a weight tracker, but the project is being redesigned as a broader puppy dossier: weight remains a first-class module, while the storage architecture is being prepared for notes, vaccinations, tests, treatments, milestones, veterinary visits and other puppy or litter events.
+
+> **Development status:** pre-1.0. The `0.10.x` development line introduces the new `puppy_tracker` integration domain and the dossier foundation. Breaking changes are still possible before 1.0.
+
+## Highlights
+
+- Manage multiple litters and puppies from the Home Assistant UI.
+- Stable UUID-based litter and puppy identity.
+- Birth date/time, sex, collar colour, birth weight and profile note.
+- Persistent data in Home Assistant `.storage`.
+- Non-destructive measurement corrections with history.
+- Soft-delete and restore for measurements.
+- Timezone-safe ordering with second-level timestamp precision.
+- Current, previous and 24-hour growth metrics.
+- Configurable puppy monitoring and attention states.
+- Weighing sessions optimised for phone and tablet use.
+- Persistent notifications with recovery handling.
+- Storage-backed charts; no Recorder dependency for Puppy Tracker history.
+- CSV, JSON and direct PDF export.
+- Data-integrity checks and Home Assistant diagnostics.
+- Built-in Lovelace cards automatically served by the integration.
+- Generic dossier-record storage foundation for future puppy-health and development features.
+- Regression test suite for measurements, metrics, corrections, integrity, exports, runtime selection and dossier records.
+
+## Integration identity
+
+The `0.10.x` development line uses the new general-purpose identity:
+
+```text
+Name:        Puppy Tracker
+Domain:      puppy_tracker
+Component:   custom_components/puppy_tracker/
+Storage key: puppy_tracker
+WebSocket:   puppy_tracker/*
 ```
 
-Designed for the day-to-day weighing workflow:
+The old prerelease `puppy_weight_tracker` domain is intentionally not kept as a compatibility alias. If you tested an older prerelease, remove that custom integration and install Puppy Tracker cleanly.
 
-- litter selection;
-- puppy selection;
-- weight input;
-- start/reset weighing session;
-- save measurement;
-- session progress;
-- next puppy;
-- recently weighed puppy;
-- compact puppy status list.
+## Data model
 
----
+Puppy Tracker separates relatively static profile information, chronological dossier events and high-frequency weight measurements.
 
-## Growth overview
-
-```yaml
-type: custom:puppy-weight-overview-card
-title: Puppy groeioverzicht
-default_range: 7d
-default_metric: weight
+```text
+Litter
+├── litter profile
+├── records[]                 chronological litter dossier
+└── puppies[]
+    └── Puppy
+        ├── profile_note      one persistent summary
+        ├── records[]         chronological puppy dossier
+        └── measurements[]    specialised weight history
 ```
 
-Provides:
+### Profile note
 
-- multi-puppy growth graphs;
-- weight, 24-hour growth and total-growth views;
-- ranges from 24 hours through the complete stored history;
-- selected-puppy details;
-- measurement management;
-- CSV export;
-- JSON backup.
+`profile_note` is one editable, persistent summary for a puppy. It is intended for information such as appearance, temperament or other lasting context.
 
-Graphs use Puppy Weight Tracker's own stored measurements rather than depending only on Home Assistant Recorder history.
+### Dossier records
 
----
+Dossier records are separate timestamped entries. The storage foundation supports litter- and puppy-scoped records and is designed for future types such as:
 
-## Compact litter summary
+- `note`
+- `vaccination`
+- `test`
+- `deworming`
+- `medication`
+- `vet_visit`
+- `milestone`
+- future snake_case record types
 
-```yaml
-type: custom:puppy-weight-summary-card
-title: Puppy Tracker
-show_litter_selector: true
+The dossier storage/API foundation is present in the `0.10.x` development line, but dedicated dashboard forms for every record type are not yet implemented.
+
+### Weight measurements
+
+Weight measurements remain separate from generic dossier records because they require specialised behaviour: correction chains, charts, current/previous calculations, 24-hour growth metrics and frequent time-series access.
+
+## Installation
+
+### HACS
+
+When available through HACS:
+
+1. Open **HACS → Integrations**.
+2. Add the Puppy Tracker repository as a custom repository if needed.
+3. Install **Puppy Tracker**.
+4. Restart Home Assistant.
+5. Go to **Settings → Devices & services → Add integration**.
+6. Search for **Puppy Tracker**.
+
+Repository:
+
+```text
+https://github.com/aranaformae/HA_PuppyTracker
 ```
 
-A compact dashboard card showing information such as:
+### Manual
 
-- number of puppies;
-- puppies needing attention;
-- puppies due for weighing;
-- average current weight;
-- last completed weighing session.
+Copy the complete folder:
 
-Optionally use `navigate_path` to make it a shortcut to a dedicated puppy dashboard.
-
----
-
-## Attention card
-
-```yaml
-type: custom:puppy-weight-attention-card
-title: Aandacht
-show_litter_selector: true
+```text
+custom_components/puppy_tracker/
 ```
 
-Shows only puppies whose current monitoring status needs attention.
+into:
 
-When there are no current problems, the card displays a compact all-clear state.
-
----
-
-## Litter overview
-
-```yaml
-type: custom:puppy-weight-litter-card
-title: Nestoverzicht
-active_only: true
-default_sort: name
+```text
+/config/custom_components/puppy_tracker/
 ```
 
-Provides a sortable litter overview with:
+Restart Home Assistant and add **Puppy Tracker** through **Settings → Devices & services**.
 
-- puppy name and collar colour;
-- current weight;
-- last change;
-- 24-hour growth;
-- total growth;
-- time since last weighing;
-- monitoring status.
+## Dashboard cards
 
-The layout adapts to narrow Home Assistant Sections columns and switches to a compact per-puppy layout when needed.
+The integration automatically registers its frontend modules. No manual Lovelace resource entry should be required.
 
----
-
-## Report & export
+Current card types:
 
 ```yaml
-type: custom:puppy-weight-report-card
-title: Rapport & export
-default_range: all
+type: custom:puppy-tracker-card
 ```
 
-Supports:
+```yaml
+type: custom:puppy-tracker-overview-card
+```
 
-- puppy or full-litter reports;
-- selectable reporting period;
-- CSV export;
-- complete JSON litter backup;
-- print-friendly reports.
+```yaml
+type: custom:puppy-tracker-summary-card
+```
 
-> **0.9.3 note:** print/PDF output uses the browser's print workflow. Some embedded iPadOS / WebView environments may not open the native print dialog reliably. CSV and JSON export are not affected.
+```yaml
+type: custom:puppy-tracker-attention-card
+```
 
----
+```yaml
+type: custom:puppy-tracker-litter-card
+```
 
-## Example dashboard
+```yaml
+type: custom:puppy-tracker-report-card
+```
+
+### Example dashboard
 
 ```yaml
 type: vertical-stack
 cards:
-  - type: custom:puppy-weight-summary-card
-    title: Puppy Tracker
+  - type: custom:puppy-tracker-summary-card
+    title: Nestoverzicht
     show_litter_selector: true
 
-  - type: custom:puppy-weight-attention-card
+  - type: custom:puppy-tracker-attention-card
     title: Aandacht
     show_litter_selector: true
 
-  - type: custom:puppy-weight-litter-card
-    title: Nestoverzicht
+  - type: custom:puppy-tracker-litter-card
+    title: Pups
     active_only: true
     default_sort: name
 
-  - type: custom:puppy-weight-tracker-card
-    title: Puppy weegstation
+  - type: custom:puppy-tracker-card
+    title: Weegstation
 
-  - type: custom:puppy-weight-overview-card
+  - type: custom:puppy-tracker-overview-card
     title: Groei
     default_range: 7d
     default_metric: weight
 
-  - type: custom:puppy-weight-report-card
+  - type: custom:puppy-tracker-report-card
     title: Rapport & export
     default_range: all
 ```
 
----
+## Weighing workflow
 
-## 📤 Export formats
+The weighing station provides litter and puppy selection, a weight input and session controls. A session snapshots the active puppies and tracks progress as puppies are weighed.
+
+Duplicate protection helps prevent accidental double entries. Completed sessions are retained as summary information.
+
+## Measurement history and corrections
+
+Corrections are non-destructive.
+
+```text
+A: 400 g
+   ↓ correct
+B: 420 g
+```
+
+`A` remains stored as historical data and points to `B`. Deleting `B` makes the previous valid version active again. Restoring a deleted correction never intentionally creates an ambiguous branch.
+
+Measurement ordering uses timezone-aware timestamps with seconds. Editing only a weight preserves the original timestamp instead of rounding it to the minute.
+
+## Monitoring
+
+Puppy Tracker can flag conditions including:
+
+- no measurement yet;
+- overdue weighing;
+- excessive loss during the first 24 hours;
+- weight loss after the first day;
+- low normalised daily growth during the configured monitoring period.
+
+Monitoring thresholds are configurable. These indicators are monitoring aids, not veterinary diagnoses.
+
+## Notifications
+
+The integration can create Home Assistant persistent notifications and optionally send notifications through a configured notify target. Alert state is deduplicated and can generate a recovery notification when a puppy returns to an OK state.
+
+## Exports
 
 ### CSV
 
-CSV export is intended for spreadsheet use and contains the effective, active measurement history for the chosen scope.
-
-Depending on the card, export can be filtered by puppy and period.
+CSV is intended for spreadsheet analysis and contains effective active measurements. It can be filtered by puppy and period.
 
 ### JSON
 
-JSON export is intended as a complete technical litter backup and can include:
+JSON is the technical backup format. It retains full litter data including historical measurement versions, soft-deleted items, dossier records and audit information.
 
-- litter information;
-- puppies;
-- active measurements;
-- previous correction versions;
-- soft-deleted measurements;
-- correction relationships;
-- session information;
-- audit history.
+### PDF
 
-JSON is intentionally more complete than CSV.
+PDF reports are generated directly by the Home Assistant backend and downloaded as real PDF files. This avoids browser print-dialog limitations in the Home Assistant iOS/iPadOS WebView.
 
----
+## Data integrity and diagnostics
 
-# 📦 Installation
+Puppy Tracker performs conservative storage validation. Automatic repairs are made only when the intended result is unambiguous.
 
-## HACS — recommended
+Examples of checked conditions include:
 
-1. Open **HACS** in Home Assistant.
-2. Open the menu in the top-right corner.
-3. Choose **Custom repositories**.
-4. Add:
+- duplicate measurement or record IDs;
+- dangling correction references;
+- correction cycles and ambiguous branches;
+- invalid timestamps or weights;
+- birth-weight/profile consistency;
+- invalid dossier record ownership, scope or delete state.
+
+A manual integrity check is available from the integration options. Home Assistant diagnostics are privacy-conscious and summarise structure/status rather than exposing free-form user content unnecessarily.
+
+## Services
+
+The integration currently exposes Home Assistant services for core litter/pup/weight operations, including:
 
 ```text
-https://github.com/aranaformae/HA_PuppyTracker
+puppy_tracker.create_litter
+puppy_tracker.add_puppy
+puppy_tracker.record_weight
 ```
 
-5. Select **Integration** as the category.
-6. Install **Puppy Weight Tracker**.
-7. Restart Home Assistant.
-8. Go to **Settings → Devices & services**.
-9. Add **Puppy Weight Tracker** if it has not already been configured.
+The `add_puppy` service includes `profile_note`. Generic dossier records are currently a storage/API foundation and will receive dedicated UI/service workflows in later development.
 
-Repository:
-
-https://github.com/aranaformae/HA_PuppyTracker
-
----
-
-## Manual installation
-
-Copy:
+## Repository structure
 
 ```text
-custom_components/puppy_weight_tracker
-```
-
-to:
-
-```text
-/config/custom_components/puppy_weight_tracker
-```
-
-The result should resemble:
-
-```text
-/config/custom_components/puppy_weight_tracker/
+custom_components/puppy_tracker/
 ├── __init__.py
 ├── api.py
 ├── binary_sensor.py
@@ -418,10 +262,23 @@ The result should resemble:
 ├── devices.py
 ├── diagnostics.py
 ├── frontend.py
+├── frontend/
+│   ├── puppy-tracker-card-common.js
+│   ├── puppy-tracker-card.js
+│   ├── puppy-tracker-overview-card.js
+│   ├── puppy-tracker-summary-card.js
+│   ├── puppy-tracker-attention-card.js
+│   ├── puppy-tracker-litter-card.js
+│   └── puppy-tracker-report-card.js
 ├── integrity.py
 ├── manifest.json
+├── measurements.py
+├── metrics.py
 ├── notifications.py
 ├── number.py
+├── pdf_export.py
+├── records.py
+├── runtime.py
 ├── select.py
 ├── sensor.py
 ├── services.yaml
@@ -429,125 +286,74 @@ The result should resemble:
 ├── storage.py
 ├── strings.json
 ├── time_utils.py
-├── translations/
-│   ├── en.json
-│   └── nl.json
-├── brand/
-│   ├── icon.png
-│   └── icon@2x.png
-└── frontend/
-    ├── puppy-weight-tracker-card.js
-    ├── puppy-weight-overview-card.js
-    ├── puppy-weight-summary-card.js
-    ├── puppy-weight-attention-card.js
-    ├── puppy-weight-litter-card.js
-    └── puppy-weight-report-card.js
+└── translations/
 ```
 
-Restart Home Assistant after changing Python integration files.
-
----
-
-## 🔄 Updating
-
-When installed through HACS:
-
-1. install the available Puppy Weight Tracker update in HACS;
-2. restart Home Assistant when requested;
-3. reload the dashboard if frontend changes were included.
-
-The included frontend modules use versioned URLs to reduce stale browser caching after updates.
-
----
-
-## 🧪 Troubleshooting
-
-Useful places to check:
-
-**Settings → System → Logs**
-
-Search for:
+Development files:
 
 ```text
-puppy_weight_tracker
+requirements_test.txt
+pytest.ini
+tests/
+└── README.md
 ```
 
-If measurement history behaves unexpectedly, run:
+See [`tests/README.md`](tests/README.md) for the regression test suite and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the architectural direction.
 
-**Settings → Devices & services → Puppy Weight Tracker → Configure → Data integrity check**
+## Testing
 
-For issue reports, Home Assistant's **Download diagnostics** function can provide useful debugging information.
+Create a virtual environment and install the test requirements:
 
-When reporting an issue, include:
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements_test.txt
+pytest
+```
 
-- Home Assistant version;
-- Puppy Weight Tracker version;
-- relevant log messages;
-- steps to reproduce;
-- whether the problem occurs in a browser, the Home Assistant app, or both.
+On Windows PowerShell, activate with:
 
-Please remove passwords, tokens, API keys and other private information before sharing logs.
+```powershell
+.venv\Scripts\Activate.ps1
+```
 
----
+The test suite protects timezone ordering, metrics, correction chains, integrity repairs, exports, runtime selection and dossier-record behaviour.
 
-## 🐛 Issues and feature requests
+Manual release testing should additionally cover HACS installation, integration setup, all Lovelace cards, phone/tablet interaction, direct PDF download and Home Assistant restart persistence.
 
-Found a bug or have an idea?
+## Roadmap
 
-[Open an issue on GitHub](https://github.com/aranaformae/HA_PuppyTracker/issues)
+The architecture is intentionally moving beyond weight-only tracking. Planned areas include:
 
-Pull requests are also welcome.
+- general dossier/timeline UI;
+- quick notes from the dashboard;
+- vaccination logging;
+- tests and test results;
+- deworming and medication logging;
+- veterinary visits;
+- milestones and development observations;
+- attachments/documents where useful;
+- richer puppy dossier reports for new owners;
+- further frontend simplification and automated end-to-end testing;
+- 1.0 stable milestone after the prerelease architecture settles.
 
----
+## Development philosophy
 
-## 🗺️ Roadmap to 1.0
+Puppy Tracker follows a few core rules:
 
-The current `0.9.x` line is focused on stabilization and final polish before the first stable release.
+1. Do not silently discard historical puppy data.
+2. Preserve timestamps and identity precisely.
+3. Prefer explicit, typed domain logic over frontend heuristics.
+4. Repair stored data automatically only when the intended result is certain.
+5. Keep weight-specific time-series logic separate from the generic puppy dossier.
+6. Add regression tests whenever a real bug is fixed.
+7. Keep the architecture extensible enough that new puppy-care modules do not require redesigning the core storage model.
 
-Planned areas include:
+## License and support
 
-- report/export reliability across platforms;
-- final dashboard UX refinements;
-- backup/import and restore workflows;
-- migration testing from older releases;
-- documentation and HACS polish;
-- final entity/API compatibility review;
-- additional automated validation and tests.
+Use the GitHub issue tracker for bugs and feature requests:
 
-The goal is to publish a stable **1.0.0** once the data model, weighing workflow, monitoring, dashboards and upgrade path have proven reliable.
-
----
-
-## ⚠️ Development status
-
-Puppy Weight Tracker is still pre-1.0 software.
-
-Although measurement integrity and migration handling are designed conservatively, development releases may still introduce changes to:
-
-- entities;
-- services and WebSocket APIs;
-- storage schema;
-- dashboard cards;
-- configuration options.
-
-Keeping a recent Home Assistant backup is recommended while using pre-1.0 versions.
-
----
-
-## 🤝 Contributing
-
-Contributions, bug reports and suggestions are welcome.
-
-For code changes:
-
-1. fork the repository;
-2. create a feature branch;
-3. make and test your changes;
-4. commit the changes;
-5. open a Pull Request.
-
-Before publishing a release, validating with HACS Action and Home Assistant hassfest is recommended.
-
----
-
-Made for Home Assistant 🏠 and growing puppies 🐾
+```text
+https://github.com/aranaformae/HA_PuppyTracker/issues
+```
