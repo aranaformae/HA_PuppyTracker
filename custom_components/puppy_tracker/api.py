@@ -17,6 +17,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect, async_dis
 from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN, SIGNAL_DASHBOARD_UPDATE, SIGNAL_UPDATE
+from .dossier_actions import dossier_action_summary
 from .measurements import measurement_status, puppy_measurements
 from .metrics import calculate_puppy_metrics
 from .pdf_export import build_pdf_export
@@ -26,7 +27,7 @@ from .storage import PuppyTrackerStorage
 from .time_utils import timestamp_sort_key
 
 DATA_API_REGISTERED = f"{DOMAIN}_websocket_api_registered"
-API_VERSION = 7
+API_VERSION = 8
 
 
 def _runtime_data(hass: HomeAssistant) -> PuppyTrackerRuntimeData | None:
@@ -54,9 +55,9 @@ def _puppy_summary(
     del puppy  # Metrics are read canonically from storage.
 
     try:
-        return calculate_puppy_metrics(storage, litter_id, puppy_id)
+        summary = calculate_puppy_metrics(storage, litter_id, puppy_id)
     except Exception:  # Keep frontend data available if one metric is malformed.
-        return {
+        summary = {
             "current_weight": None,
             "previous_weight": None,
             "change_grams": None,
@@ -74,6 +75,28 @@ def _puppy_summary(
             "first_day_weight_change_percent": None,
             "growth_check_active": False,
         }
+
+    try:
+        action_summary = dossier_action_summary(
+            storage.get_records(litter_id, puppy_id, newest_first=True),
+            today=dt_util.now().date(),
+        )
+    except Exception:
+        action_summary = {
+            "open_count": 0,
+            "overdue_count": 0,
+            "due_today_count": 0,
+            "upcoming_count": 0,
+            "attention_count": 0,
+            "due_soon_count": 0,
+            "next_action": None,
+            "actions": [],
+        }
+
+    summary["dossier_actions"] = action_summary
+    summary["dossier_needs_attention"] = bool(action_summary["attention_count"])
+    summary["dossier_due_soon"] = bool(action_summary["due_soon_count"])
+    return summary
 
 
 def _litter_summary(
@@ -147,11 +170,29 @@ def _litter_summary(
             "last_weight": session.get("last_weight"),
         }
 
+    litter_actions = dossier_action_summary(
+        storage.get_records(litter_id, newest_first=True),
+        today=dt_util.now().date(),
+    )
+    puppy_action_summaries = [
+        puppy_summaries[puppy_id].get("dossier_actions") or {}
+        for puppy_id, _puppy in active
+    ]
+    dossier_attention_count = litter_actions.get("attention_count", 0) + sum(
+        int(item.get("attention_count", 0)) for item in puppy_action_summaries
+    )
+    dossier_due_soon_count = litter_actions.get("due_soon_count", 0) + sum(
+        int(item.get("due_soon_count", 0)) for item in puppy_action_summaries
+    )
+
     return {
         "active_puppies": len(active),
         "weighted_puppies": len(weighted),
         "attention_count": len(attention),
         "weigh_due_count": len(weigh_due),
+        "dossier_attention_count": dossier_attention_count,
+        "dossier_due_soon_count": dossier_due_soon_count,
+        "dossier_actions": litter_actions,
         "average_weight": average_weight,
         "average_growth_24h_percent": (
             round(sum(growth_values) / len(growth_values), 2)
@@ -470,6 +511,10 @@ def _records_payload(
         "include_deleted": include_deleted,
         "litter": {"id": litter_id, "name": litter.get("name")},
         "owner": owner,
+        "actions": dossier_action_summary(
+            storage.get_records(litter_id, puppy_id, newest_first=True),
+            today=dt_util.now().date(),
+        ),
         "records": storage.get_records(
             litter_id,
             puppy_id,

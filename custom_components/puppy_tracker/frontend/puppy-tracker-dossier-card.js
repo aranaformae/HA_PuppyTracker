@@ -94,6 +94,24 @@ function formatDateOnly(value) {
   return `${match[3]}-${match[2]}-${match[1]}`;
 }
 
+function dossierActionStatus(action) {
+  const days = Number(action?.days_until);
+  if (action?.status === "overdue") {
+    const amount = Math.abs(days);
+    return amount === 1 ? "1 dag te laat" : `${amount} dagen te laat`;
+  }
+  if (action?.status === "due_today") return "Vandaag";
+  if (action?.status === "upcoming") return days === 1 ? "Morgen" : `Over ${days} dagen`;
+  if (Number.isFinite(days)) return days === 1 ? "Morgen" : `Over ${days} dagen`;
+  return "Gepland";
+}
+
+function dossierActionTone(action) {
+  if (action?.status === "overdue") return "danger";
+  if (["due_today", "upcoming"].includes(action?.status)) return "warning";
+  return "neutral";
+}
+
 function humanizeType(value) {
   const text = String(value || "other");
   if (TYPE_META[text]) return TYPE_META[text].label;
@@ -629,6 +647,30 @@ class PuppyTrackerDossierCard extends HTMLElement {
       </section>`;
   }
 
+  _renderUpcomingActions() {
+    const actions = this._recordData?.actions?.actions || [];
+    if (!actions.length) return "";
+
+    return `
+      <section class="panel followup-panel">
+        <div class="panel-head">
+          <div><div class="panel-title">Volgende acties</div><div class="hint">Afgeleid uit de nieuwste vaccinatie- en ontwormingsregistraties</div></div>
+          <span class="followup-count">${actions.length}</span>
+        </div>
+        <div class="followup-list">
+          ${actions.map((action) => `
+            <div class="followup-row ${dossierActionTone(action)}">
+              <div class="followup-icon"><ha-icon icon="${escapeHtml(action.icon || "mdi:calendar-clock")}"></ha-icon></div>
+              <div class="followup-main">
+                <strong>${escapeHtml(action.label || "Vervolgactie")}</strong>
+                ${action.source_title ? `<span>${escapeHtml(action.source_title)}</span>` : ""}
+              </div>
+              <div class="followup-date"><strong>${escapeHtml(formatDateOnly(action.due_date))}</strong><span>${escapeHtml(dossierActionStatus(action))}</span></div>
+            </div>`).join("")}
+        </div>
+      </section>`;
+  }
+
   _renderEditor() {
     if (!this._editor) return "";
     const editing = this._editor.mode === "edit";
@@ -705,11 +747,12 @@ class PuppyTrackerDossierCard extends HTMLElement {
           .toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:12px 0}.owner{display:flex;align-items:center;gap:8px;min-width:0}.owner label{font-size:12px;color:var(--secondary-text-color);white-space:nowrap}.owner select{min-width:170px}.tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
           button{font:inherit;cursor:pointer;border-radius:10px;min-height:38px;padding:0 12px;border:1px solid var(--divider-color);background:transparent;color:var(--primary-text-color);display:inline-flex;align-items:center;justify-content:center;gap:6px}button:disabled{opacity:.55;cursor:default}.primary{background:var(--primary-color);border-color:var(--primary-color);color:var(--text-primary-color,#fff);font-weight:600}.secondary{background:var(--secondary-background-color)}.icon-button{width:38px;padding:0;border-radius:50%}.text-button{min-height:30px;padding:3px 7px;border:0;font-size:12px;color:var(--primary-color)}.text-button.danger{color:var(--error-color)}
           .panel{border:1px solid var(--divider-color);border-radius:14px;padding:13px;margin:12px 0;background:color-mix(in srgb,var(--card-background-color) 96%,var(--primary-color) 4%)}.panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:9px}.panel-title{font-weight:650;font-size:15px}.hint{font-size:11px;color:var(--secondary-text-color);margin-top:2px}.profile-text{white-space:pre-wrap;line-height:1.45;font-size:14px}.empty{padding:24px 12px;text-align:center;color:var(--secondary-text-color);font-size:13px}.empty.compact{padding:4px 0;text-align:left}
+          .followup-count{min-width:28px;height:28px;padding:0 8px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:var(--secondary-background-color);font-size:12px;font-weight:650}.followup-list{display:grid;gap:7px}.followup-row{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:9px;align-items:center;padding:8px 9px;border:1px solid var(--divider-color);border-radius:11px}.followup-icon{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--secondary-background-color);color:var(--primary-color)}.followup-icon ha-icon{--mdc-icon-size:18px}.followup-main{display:flex;flex-direction:column;gap:2px;min-width:0}.followup-main strong{font-size:13px}.followup-main span{font-size:11px;color:var(--secondary-text-color);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.followup-date{display:flex;flex-direction:column;align-items:flex-end;gap:1px;white-space:nowrap}.followup-date strong{font-size:12px}.followup-date span{font-size:10px;color:var(--secondary-text-color)}.followup-row.danger{border-color:color-mix(in srgb,var(--error-color) 38%,var(--divider-color));background:color-mix(in srgb,var(--error-color) 7%,transparent)}.followup-row.danger .followup-date span{color:var(--error-color);font-weight:650}.followup-row.warning{border-color:color-mix(in srgb,var(--warning-color,var(--primary-color)) 32%,var(--divider-color))}.followup-row.warning .followup-date span{color:var(--warning-color,var(--primary-color));font-weight:650}
           .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}label{display:block;font-size:12px;color:var(--secondary-text-color);margin-bottom:10px}label input,label select,label textarea{margin-top:5px;color:var(--primary-text-color)}.optional{font-weight:400;opacity:.75}.form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}.typed-section{margin:2px 0 12px;padding-top:10px;border-top:1px solid var(--divider-color)}.typed-title{font-size:12px;font-weight:650;color:var(--secondary-text-color);margin-bottom:8px}.typed-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}.typed-field.wide{grid-column:1/-1}
           .timeline-head{display:flex;justify-content:space-between;align-items:end;gap:10px;margin:16px 0 8px}.timeline-title{font-size:16px;font-weight:650}.timeline-sub{font-size:11px;color:var(--secondary-text-color);margin-top:2px}.toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--secondary-text-color);cursor:pointer}.toggle input{width:16px;min-height:16px;margin:0;padding:0}
           .timeline{display:flex;flex-direction:column}.record{position:relative;display:grid;grid-template-columns:38px minmax(0,1fr);gap:10px;padding:12px 0}.record:not(:last-child){border-bottom:1px solid var(--divider-color)}.record.deleted{opacity:.62}.record-icon{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--secondary-background-color);color:var(--primary-color)}.record-icon ha-icon{--mdc-icon-size:20px}.record-body{min-width:0}.record-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.record-heading{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}.record-heading strong{font-size:14px}.record time{font-size:11px;color:var(--secondary-text-color);white-space:nowrap}.type-badge,.deleted-badge{font-size:10px;padding:2px 6px;border-radius:999px;background:var(--secondary-background-color);color:var(--secondary-text-color)}.deleted-badge{color:var(--error-color)}.record-data{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 14px;margin-top:7px;padding:8px 10px;border-radius:10px;background:var(--secondary-background-color)}.record-data-row{min-width:0;display:flex;flex-direction:column;gap:1px}.record-data-row span{font-size:10px;color:var(--secondary-text-color)}.record-data-row strong{font-size:12px;font-weight:550;overflow-wrap:anywhere}.record-note{margin-top:6px;white-space:pre-wrap;line-height:1.42;font-size:13px}.record-actions{display:flex;gap:2px;margin-top:6px;flex-wrap:wrap}
           .message{font-size:12px;margin:8px 0;padding:8px 10px;border-radius:10px;background:var(--secondary-background-color)}.error{color:var(--error-color);background:color-mix(in srgb,var(--error-color) 10%,transparent)}.status{color:var(--secondary-text-color)}
-          @container dossier-card (max-width:620px){.top{flex-direction:column}.selectors{width:100%;justify-content:stretch}.selectors select{max-width:none;flex:1}.toolbar{align-items:flex-end}.owner{flex:1;flex-direction:column;align-items:stretch;gap:3px}.owner select{min-width:0}.tools{flex:0 0 auto}.form-grid,.typed-grid{grid-template-columns:1fr}.typed-field.wide{grid-column:auto}.record-data{grid-template-columns:1fr}.record-top{flex-direction:column;gap:3px}.record time{white-space:normal}}
+          @container dossier-card (max-width:620px){.top{flex-direction:column}.selectors{width:100%;justify-content:stretch}.selectors select{max-width:none;flex:1}.toolbar{align-items:flex-end}.owner{flex:1;flex-direction:column;align-items:stretch;gap:3px}.owner select{min-width:0}.tools{flex:0 0 auto}.form-grid,.typed-grid{grid-template-columns:1fr}.typed-field.wide{grid-column:auto}.record-data{grid-template-columns:1fr}.record-top{flex-direction:column;gap:3px}.record time{white-space:normal}.followup-row{grid-template-columns:32px minmax(0,1fr)}.followup-date{grid-column:2;align-items:flex-start;flex-direction:row;gap:6px}}
           @container dossier-card (max-width:430px){ha-card{padding:13px}.toolbar{flex-direction:column;align-items:stretch}.tools{justify-content:space-between}.tools button.primary{flex:1}.timeline-head{align-items:flex-start;flex-direction:column}.record{grid-template-columns:32px minmax(0,1fr)}.record-icon{width:30px;height:30px}.record-icon ha-icon{--mdc-icon-size:18px}}
         </style>
         <div class="top">
@@ -725,6 +768,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
         ${this._error ? `<div class="message error">${escapeHtml(this._error)}</div>` : ""}
         ${this._status ? `<div class="message status">${escapeHtml(this._status)}</div>` : ""}
         ${this._renderProfileNote()}
+        ${this._renderUpcomingActions()}
         ${this._renderEditor()}
         <div class="timeline-head">
           <div><div class="timeline-title">Tijdlijn</div><div class="timeline-sub">${escapeHtml(ownerName)} · ${records.filter((item) => !item.deleted).length} actieve ${records.filter((item) => !item.deleted).length === 1 ? "vermelding" : "vermeldingen"}</div></div>
