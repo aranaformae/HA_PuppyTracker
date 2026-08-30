@@ -23,7 +23,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          MANIFEST="custom_components/puppy_weight_tracker/manifest.json"
+          MANIFEST="custom_components/puppy_tracker/manifest.json"
 
           if [ ! -f "$MANIFEST" ]; then
             echo "❌ manifest.json not found:"
@@ -39,8 +39,63 @@ jobs:
           fi
 
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-
           echo "✅ Manifest version found: $VERSION"
+
+      - name: Validate Puppy Tracker metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          MANIFEST="custom_components/puppy_tracker/manifest.json"
+          CONST_FILE="custom_components/puppy_tracker/const.py"
+          HACS_FILE="hacs.json"
+          EXPECTED_DOMAIN="puppy_tracker"
+          EXPECTED_NAME="Puppy Tracker"
+          VERSION="${{ steps.manifest.outputs.version }}"
+
+          DOMAIN=$(jq -er '.domain' "$MANIFEST")
+          NAME=$(jq -er '.name' "$MANIFEST")
+
+          if [ "$DOMAIN" != "$EXPECTED_DOMAIN" ]; then
+            echo "❌ Manifest domain mismatch: $DOMAIN (expected $EXPECTED_DOMAIN)"
+            exit 1
+          fi
+
+          if [ "$NAME" != "$EXPECTED_NAME" ]; then
+            echo "❌ Manifest name mismatch: $NAME (expected $EXPECTED_NAME)"
+            exit 1
+          fi
+
+          if [ ! -f "$HACS_FILE" ]; then
+            echo "❌ hacs.json not found"
+            exit 1
+          fi
+
+          HACS_NAME=$(jq -er '.name' "$HACS_FILE")
+          if [ "$HACS_NAME" != "$EXPECTED_NAME" ]; then
+            echo "❌ HACS name mismatch: $HACS_NAME (expected $EXPECTED_NAME)"
+            exit 1
+          fi
+
+          if [ ! -f "$CONST_FILE" ]; then
+            echo "❌ const.py not found: $CONST_FILE"
+            exit 1
+          fi
+
+          CONST_VERSION=$(sed -n 's/^VERSION = "\([^"]*\)"$/\1/p' "$CONST_FILE")
+          if [ -z "$CONST_VERSION" ]; then
+            echo "❌ Could not read VERSION from const.py"
+            exit 1
+          fi
+
+          if [ "$CONST_VERSION" != "$VERSION" ]; then
+            echo "❌ Version mismatch between manifest.json and const.py"
+            echo "Manifest: $VERSION"
+            echo "const.py: $CONST_VERSION"
+            exit 1
+          fi
+
+          echo "✅ Puppy Tracker metadata is consistent."
 
       - name: Validate tag
         shell: bash
@@ -50,10 +105,7 @@ jobs:
           TAG="${GITHUB_REF_NAME}"
           VERSION="${{ steps.manifest.outputs.version }}"
 
-          # Accept:
-          # 0.9.5
-          # v0.9.5
-          # V0.9.5
+          # Accept the manifest version with no prefix, v, or V.
           NORMALIZED_TAG="${TAG#[vV]}"
 
           echo "Git tag:          $TAG"
@@ -68,7 +120,7 @@ jobs:
             echo "Manifest:   $VERSION"
             echo ""
             echo "The Git tag must match the version in:"
-            echo "custom_components/puppy_weight_tracker/manifest.json"
+            echo "custom_components/puppy_tracker/manifest.json"
             echo ""
             echo "Accepted examples for version $VERSION:"
             echo "  $VERSION"
