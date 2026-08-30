@@ -21,7 +21,10 @@ from .const import (
     DOMAIN,
     SIGNAL_DASHBOARD_UPDATE,
 )
-from .runtime import PuppyWeightTrackerRuntimeData
+from .runtime import (
+    PuppyWeightTrackerRuntimeData,
+    reconcile_dashboard_selection,
+)
 from .session import (
     SESSION_ACTIVE,
     get_session,
@@ -110,6 +113,10 @@ class PuppyDashboardSelectBase(
     ) -> None:
         """Subscribe to dashboard updates."""
 
+        reconcile_dashboard_selection(
+            self.data
+        )
+
         self.async_on_remove(
             async_dispatcher_connect(
                 self.hass,
@@ -122,8 +129,11 @@ class PuppyDashboardSelectBase(
     def _handle_update(
         self,
     ) -> None:
-        """Refresh selector."""
+        """Reconcile selections and refresh selector state."""
 
+        reconcile_dashboard_selection(
+            self.data
+        )
         self.async_write_ha_state()
 
 
@@ -227,20 +237,7 @@ class PuppyLitterSelect(
             if litter_id == selected_id:
                 return label
 
-        if not option_map:
-            return None
-
-        first_label = next(
-            iter(
-                option_map
-            )
-        )
-
-        self.data.selected_litter_id = option_map[
-            first_label
-        ]
-
-        return first_label
+        return None
 
     async def async_select_option(
         self,
@@ -325,9 +322,7 @@ class PuppySelect(
             {},
         )
 
-        session = get_session(
-            self.data
-        )
+        session = self.data.weighing_session
 
         if (
             session.get("status")
@@ -471,20 +466,7 @@ class PuppySelect(
             if option_id == puppy_id:
                 return label
 
-        if not option_map:
-            return None
-
-        first_label = next(
-            iter(
-                option_map
-            )
-        )
-
-        self.data.selected_puppy_id = option_map[
-            first_label
-        ]
-
-        return first_label
+        return None
 
     async def async_select_option(
         self,
