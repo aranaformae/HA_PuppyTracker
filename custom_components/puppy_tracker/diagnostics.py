@@ -34,16 +34,30 @@ def _storage_counts(data: dict[str, Any]) -> dict[str, int]:
     active_measurements = 0
     deleted_measurements = 0
     superseded_measurements = 0
+    dossier_records = 0
+    deleted_records = 0
 
     for litter in litters.values():
         if not isinstance(litter, dict):
             continue
+        for record in litter.get("records", []):
+            if not isinstance(record, dict):
+                continue
+            dossier_records += 1
+            if record.get("deleted", False):
+                deleted_records += 1
         for puppy in litter.get("puppies", {}).values():
             if not isinstance(puppy, dict):
                 continue
             puppy_count += 1
             if puppy.get("active", True):
                 active_puppy_count += 1
+            for record in puppy.get("records", []):
+                if not isinstance(record, dict):
+                    continue
+                dossier_records += 1
+                if record.get("deleted", False):
+                    deleted_records += 1
             for measurement in puppy.get("measurements", []):
                 if not isinstance(measurement, dict):
                     continue
@@ -64,6 +78,9 @@ def _storage_counts(data: dict[str, Any]) -> dict[str, int]:
         "active_measurements": active_measurements,
         "deleted_measurements": deleted_measurements,
         "superseded_measurements": superseded_measurements,
+        "dossier_records": dossier_records,
+        "active_dossier_records": dossier_records - deleted_records,
+        "deleted_dossier_records": deleted_records,
         "audit_entries": len(data.get("audit_log", [])),
     }
 

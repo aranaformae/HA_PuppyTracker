@@ -82,7 +82,7 @@
           "sex": "Geslacht",
           "birth_weight": "Geboortegewicht",
           "birth_time": "Geboortedatum en tijd",
-          "notes": "Notities"
+          "profile_note": "Profielnotitie"
         },
         "data_description": {
           "litter_id": "Kies het nest waar de pup bij hoort",
@@ -91,7 +91,7 @@
           "sex": "Geslacht van de pup",
           "birth_weight": "Gewicht direct na geboorte in gram",
           "birth_time": "Exacte geboortedatum en tijd indien bekend",
-          "notes": "Eventuele bijzonderheden over de pup"
+          "profile_note": "Blijvende samenvatting van de pup. Nieuwe chronologische notities worden straks los in het puppydossier opgeslagen."
         }
       },
       "manage_puppy": {
@@ -110,8 +110,8 @@
           "sex": "Geslacht",
           "birth_weight": "Geboortegewicht",
           "birth_time": "Geboortedatum en tijd",
-          "notes": "Notities",
-          "action": "Actie"
+          "action": "Actie",
+          "profile_note": "Profielnotitie"
         },
         "data_description": {
           "name": "Naam of herkenningsnaam van de puppy",
@@ -119,8 +119,8 @@
           "sex": "Geslacht van de pup",
           "birth_weight": "Geboortegewicht in gram",
           "birth_time": "Exacte geboortedatum en tijd",
-          "notes": "Eventuele bijzonderheden",
-          "action": "Kies wat je met deze puppy wilt doen"
+          "action": "Kies wat je met deze puppy wilt doen",
+          "profile_note": "Blijvende samenvatting van de pup. Nieuwe chronologische notities worden straks los in het puppydossier opgeslagen."
         }
       },
       "confirm_delete_puppy": {

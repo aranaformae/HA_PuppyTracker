@@ -89,9 +89,9 @@ add_puppy:
       selector:
         datetime:
 
-    notes:
-      name: Notities
-      description: Optionele notities over de pup.
+    profile_note:
+      name: Profielnotitie
+      description: Blijvende samenvatting of bijzonderheden over de pup.
       required: false
       selector:
         text:

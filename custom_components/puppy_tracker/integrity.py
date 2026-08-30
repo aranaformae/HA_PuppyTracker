@@ -6,6 +6,8 @@ from collections import Counter, defaultdict, deque
 from datetime import datetime
 from typing import Any
 
+from .records import RECORD_SCOPE_LITTER, RECORD_SCOPE_PUPPY, validate_record_type
+
 
 def _is_valid_iso_timestamp(value: Any) -> bool:
     """Return whether a value is a timezone-aware ISO timestamp."""
@@ -46,6 +48,7 @@ def inspect_and_repair_data(
     checked_litters = 0
     checked_puppies = 0
     checked_measurements = 0
+    checked_records = 0
 
     def issue(
         code: str,
@@ -55,8 +58,9 @@ def inspect_and_repair_data(
         litter_id: str | None = None,
         puppy_id: str | None = None,
         measurement_id: str | None = None,
+        record_id: str | None = None,
     ) -> None:
-        key = (code, severity, litter_id, puppy_id, measurement_id)
+        key = (code, severity, litter_id, puppy_id, measurement_id, record_id)
         if not repaired and key in unresolved_keys:
             return
 
@@ -74,14 +78,166 @@ def inspect_and_repair_data(
                     "litter_id": litter_id,
                     "puppy_id": puppy_id,
                     "measurement_id": measurement_id,
+                    "record_id": record_id,
                 }
             )
+
+    def check_records(
+        records: Any,
+        *,
+        litter_id: str,
+        puppy_id: str | None,
+    ) -> None:
+        """Validate one owner-scoped dossier record container."""
+        nonlocal changed, checked_records
+
+        if not isinstance(records, list):
+            issue(
+                "invalid_records_container",
+                severity="critical",
+                litter_id=litter_id,
+                puppy_id=puppy_id,
+            )
+            return
+
+        valid = [item for item in records if isinstance(item, dict)]
+        checked_records += len(valid)
+        if len(valid) != len(records):
+            issue(
+                "invalid_dossier_record",
+                severity="critical",
+                litter_id=litter_id,
+                puppy_id=puppy_id,
+            )
+
+        ids = [item.get("id") for item in valid if item.get("id")]
+        duplicates = {rid for rid, count in Counter(ids).items() if count > 1}
+        for duplicate_id in sorted(duplicates):
+            issue(
+                "duplicate_record_id",
+                severity="critical",
+                litter_id=litter_id,
+                puppy_id=puppy_id,
+                record_id=str(duplicate_id),
+            )
+
+        expected_scope = RECORD_SCOPE_PUPPY if puppy_id is not None else RECORD_SCOPE_LITTER
+        for record in valid:
+            record_id_value = record.get("id")
+            rid = str(record_id_value) if record_id_value else None
+            if not record_id_value:
+                issue(
+                    "missing_record_id",
+                    severity="critical",
+                    litter_id=litter_id,
+                    puppy_id=puppy_id,
+                )
+
+            try:
+                validate_record_type(str(record.get("type") or ""))
+            except ValueError:
+                issue(
+                    "invalid_record_type",
+                    severity="critical",
+                    litter_id=litter_id,
+                    puppy_id=puppy_id,
+                    record_id=rid,
+                )
+
+            ownership = {
+                "scope": expected_scope,
+                "litter_id": litter_id,
+                "puppy_id": puppy_id,
+            }
+            for field, expected in ownership.items():
+                if record.get(field) == expected:
+                    continue
+                code = f"record_{field}_mismatch"
+                if repair:
+                    record[field] = expected
+                    changed = True
+                    issue(
+                        code,
+                        repaired=True,
+                        litter_id=litter_id,
+                        puppy_id=puppy_id,
+                        record_id=rid,
+                    )
+                else:
+                    issue(
+                        code,
+                        severity="critical",
+                        litter_id=litter_id,
+                        puppy_id=puppy_id,
+                        record_id=rid,
+                    )
+
+            for field in ("occurred_at", "created_at", "updated_at"):
+                if not _is_valid_iso_timestamp(record.get(field)):
+                    issue(
+                        f"invalid_record_{field}",
+                        severity="critical",
+                        litter_id=litter_id,
+                        puppy_id=puppy_id,
+                        record_id=rid,
+                    )
+
+            deleted = record.get("deleted")
+            if not isinstance(deleted, bool):
+                issue(
+                    "invalid_record_deleted_flag",
+                    severity="critical",
+                    litter_id=litter_id,
+                    puppy_id=puppy_id,
+                    record_id=rid,
+                )
+            elif deleted and not _is_valid_iso_timestamp(record.get("deleted_at")):
+                issue(
+                    "invalid_record_deleted_at",
+                    severity="warning",
+                    litter_id=litter_id,
+                    puppy_id=puppy_id,
+                    record_id=rid,
+                )
+            elif not deleted and record.get("deleted_at") is not None:
+                if repair:
+                    record["deleted_at"] = None
+                    changed = True
+                    issue(
+                        "active_record_has_deleted_at",
+                        repaired=True,
+                        litter_id=litter_id,
+                        puppy_id=puppy_id,
+                        record_id=rid,
+                    )
+                else:
+                    issue(
+                        "active_record_has_deleted_at",
+                        severity="warning",
+                        litter_id=litter_id,
+                        puppy_id=puppy_id,
+                        record_id=rid,
+                    )
+
+            if not isinstance(record.get("data"), dict):
+                issue(
+                    "invalid_record_data",
+                    severity="critical",
+                    litter_id=litter_id,
+                    puppy_id=puppy_id,
+                    record_id=rid,
+                )
 
     for litter_id, litter in data.get("litters", {}).items():
         if not isinstance(litter, dict):
             issue("invalid_litter_record", severity="critical", litter_id=str(litter_id))
             continue
         checked_litters += 1
+        check_records(
+            litter.get("records", []),
+            litter_id=str(litter_id),
+            puppy_id=None,
+        )
 
         puppies = litter.get("puppies", {})
         if not isinstance(puppies, dict):
@@ -98,6 +254,11 @@ def inspect_and_repair_data(
                 )
                 continue
             checked_puppies += 1
+            check_records(
+                puppy.get("records", []),
+                litter_id=str(litter_id),
+                puppy_id=str(puppy_id),
+            )
 
             measurements = puppy.get("measurements", [])
             if not isinstance(measurements, list):
@@ -556,6 +717,7 @@ def inspect_and_repair_data(
             "litters": checked_litters,
             "puppies": checked_puppies,
             "measurement_versions": checked_measurements,
+            "records": checked_records,
         },
         "issue_counts": dict(sorted(issue_counts.items())),
         "repair_counts": dict(sorted(repair_counts.items())),

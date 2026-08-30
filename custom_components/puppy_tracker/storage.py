@@ -12,6 +12,12 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 from .integrity import inspect_and_repair_data
 from .measurements import is_active_measurement, sorted_measurements
+from .records import (
+    create_record,
+    normalize_record,
+    sorted_records,
+    validate_record_type,
+)
 from .time_utils import normalize_timestamp
 
 from .const import (
@@ -50,7 +56,7 @@ def _empty_data() -> dict[str, Any]:
     now = _now_iso()
 
     return {
-        "schema_version": 6,
+        "schema_version": 7,
         "created_at": now,
         "updated_at": now,
         "settings": _default_settings(),
@@ -81,7 +87,12 @@ class PuppyTrackerStorage:
             "unresolved_count": 0,
             "unresolved_critical": 0,
             "unresolved_warnings": 0,
-            "checked": {"litters": 0, "puppies": 0, "measurement_versions": 0},
+            "checked": {
+                "litters": 0,
+                "puppies": 0,
+                "measurement_versions": 0,
+                "records": 0,
+            },
             "issue_counts": {},
             "repair_counts": {},
             "unresolved": [],
@@ -137,6 +148,9 @@ class PuppyTrackerStorage:
         if self._migrate_litter_summaries():
             changed = True
 
+        if self._migrate_records():
+            changed = True
+
         if self._migrate_metadata_timestamps():
             changed = True
 
@@ -157,8 +171,8 @@ class PuppyTrackerStorage:
                 },
             )
 
-        if self._data.get("schema_version", 1) < 6:
-            self._data["schema_version"] = 6
+        if self._data.get("schema_version", 1) < 7:
+            self._data["schema_version"] = 7
             changed = True
 
         if changed:
@@ -178,6 +192,58 @@ class PuppyTrackerStorage:
             if "last_completed_session" not in litter:
                 litter["last_completed_session"] = None
                 changed = True
+
+        return changed
+
+    def _migrate_records(self) -> bool:
+        """Prepare litter and puppy dossier containers and profile notes."""
+        changed = False
+        now = _now_iso()
+
+        for litter_id, litter in self._data.get("litters", {}).items():
+            if "records" not in litter:
+                litter["records"] = []
+                changed = True
+            litter_records = litter.get("records")
+            if not isinstance(litter_records, list):
+                # Leave invalid containers untouched for the integrity checker.
+                litter_records = []
+            else:
+                for record in litter_records:
+                    if isinstance(record, dict) and normalize_record(
+                        record,
+                        litter_id=str(litter_id),
+                        puppy_id=None,
+                        now=now,
+                    ):
+                        changed = True
+
+            for puppy_id, puppy in litter.get("puppies", {}).items():
+                # ``notes`` was the original free-form puppy profile field.
+                # From schema 7 onward it has an explicit meaning as a profile
+                # summary; chronological notes belong in ``records``.
+                if "profile_note" not in puppy:
+                    puppy["profile_note"] = puppy.get("notes")
+                    changed = True
+                if "notes" in puppy:
+                    del puppy["notes"]
+                    changed = True
+
+                if "records" not in puppy:
+                    puppy["records"] = []
+                    changed = True
+                puppy_records = puppy.get("records")
+                if not isinstance(puppy_records, list):
+                    continue
+
+                for record in puppy_records:
+                    if isinstance(record, dict) and normalize_record(
+                        record,
+                        litter_id=str(litter_id),
+                        puppy_id=str(puppy_id),
+                        now=now,
+                    ):
+                        changed = True
 
         return changed
 
@@ -787,6 +853,7 @@ class PuppyTrackerStorage:
                 "created_at": now,
                 "updated_at": now,
                 "puppies": {},
+                "records": [],
                 "last_completed_session": None,
             }
 
@@ -915,6 +982,10 @@ class PuppyTrackerStorage:
                     {},
                 ).values()
             )
+            record_count = len(litter.get("records", [])) + sum(
+                len(puppy.get("records", []))
+                for puppy in litter.get("puppies", {}).values()
+            )
 
             self._add_audit_entry(
                 action="delete_litter",
@@ -923,6 +994,7 @@ class PuppyTrackerStorage:
                     "name": litter.get("name"),
                     "puppy_count": puppy_count,
                     "measurement_count": measurement_count,
+                    "record_count": record_count,
                 },
             )
 
@@ -942,7 +1014,7 @@ class PuppyTrackerStorage:
         birth_time: str | None = None,
         collar_color: str | None = None,
         sex: str | None = None,
-        notes: str | None = None,
+        profile_note: str | None = None,
     ) -> str:
         """Add a puppy to a litter."""
 
@@ -971,11 +1043,12 @@ class PuppyTrackerStorage:
                 ),
                 "birth_time": normalized_birth_time,
                 "birth_measurement_id": None,
-                "notes": notes,
+                "profile_note": profile_note,
                 "active": True,
                 "created_at": now,
                 "updated_at": now,
                 "measurements": [],
+                "records": [],
             }
 
             litter["puppies"][
@@ -1042,7 +1115,7 @@ class PuppyTrackerStorage:
         sex: str | None,
         birth_weight: float | None,
         birth_time: str | None,
-        notes: str | None,
+        profile_note: str | None,
     ) -> None:
         """Update puppy details and keep the birth measurement synchronized."""
 
@@ -1055,7 +1128,7 @@ class PuppyTrackerStorage:
                 "sex": puppy.get("sex"),
                 "birth_weight": puppy.get("birth_weight"),
                 "birth_time": puppy.get("birth_time"),
-                "notes": puppy.get("notes"),
+                "profile_note": puppy.get("profile_note"),
                 "active": puppy.get("active", True),
             }
 
@@ -1072,7 +1145,7 @@ class PuppyTrackerStorage:
             puppy["sex"] = sex
             puppy["birth_weight"] = new_birth_weight
             puppy["birth_time"] = normalized_birth_time
-            puppy["notes"] = notes
+            puppy["profile_note"] = profile_note
             puppy["updated_at"] = now
 
             birth_measurement = self._find_birth_measurement(puppy)
@@ -1174,7 +1247,7 @@ class PuppyTrackerStorage:
                         "sex": sex,
                         "birth_weight": new_birth_weight,
                         "birth_time": normalized_birth_time,
-                        "notes": notes,
+                        "profile_note": profile_note,
                         "active": puppy.get("active", True),
                     },
                 },
@@ -1242,6 +1315,7 @@ class PuppyTrackerStorage:
                             [],
                         )
                     ),
+                    "record_count": len(puppy.get("records", [])),
                 },
             )
 
@@ -1698,6 +1772,193 @@ class PuppyTrackerStorage:
             copy_items=True,
         )
 
+    def get_records(
+        self,
+        litter_id: str,
+        puppy_id: str | None = None,
+        *,
+        include_deleted: bool = False,
+        newest_first: bool = False,
+    ) -> list[dict[str, Any]]:
+        """Return dossier records for one litter or puppy."""
+        if puppy_id is None:
+            owner = self.get_litter(litter_id)
+        else:
+            owner = self.get_puppy(litter_id, puppy_id)
+
+        if owner is None:
+            return []
+
+        records = owner.get("records", [])
+        if not isinstance(records, list):
+            return []
+
+        return sorted_records(
+            records,
+            include_deleted=include_deleted,
+            newest_first=newest_first,
+            copy_items=True,
+        )
+
+    def get_record(
+        self,
+        litter_id: str,
+        record_id: str,
+        puppy_id: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Return one dossier record by id."""
+        if puppy_id is None:
+            owner = self.get_litter(litter_id)
+        else:
+            owner = self.get_puppy(litter_id, puppy_id)
+        if owner is None:
+            return None
+
+        for record in owner.get("records", []):
+            if isinstance(record, dict) and record.get("id") == record_id:
+                return deepcopy(record)
+        return None
+
+    async def async_add_record(
+        self,
+        litter_id: str,
+        *,
+        record_type: str,
+        puppy_id: str | None = None,
+        occurred_at: str | None = None,
+        title: str | None = None,
+        note: str | None = None,
+        data: dict[str, Any] | None = None,
+    ) -> str:
+        """Add a generic dossier record to a litter or puppy."""
+        async with self._lock:
+            litter = self._require_litter(litter_id)
+            owner = litter if puppy_id is None else self._require_puppy(litter_id, puppy_id)
+            now = _now_iso()
+            record = create_record(
+                litter_id=litter_id,
+                puppy_id=puppy_id,
+                record_type=validate_record_type(record_type),
+                occurred_at=occurred_at,
+                title=title,
+                note=note,
+                data=data,
+                now=now,
+            )
+            owner.setdefault("records", []).append(record)
+            owner["updated_at"] = now
+            litter["updated_at"] = now
+
+            self._add_audit_entry(
+                action="add_record",
+                litter_id=litter_id,
+                puppy_id=puppy_id,
+                record_id=record["id"],
+                details={
+                    "type": record["type"],
+                    "occurred_at": record["occurred_at"],
+                },
+            )
+            await self.async_save()
+            return str(record["id"])
+
+    async def async_update_record(
+        self,
+        litter_id: str,
+        record_id: str,
+        *,
+        record_type: str,
+        puppy_id: str | None = None,
+        occurred_at: str | None = None,
+        title: str | None = None,
+        note: str | None = None,
+        data: dict[str, Any] | None = None,
+    ) -> None:
+        """Update a dossier record while preserving its identity and history metadata."""
+        async with self._lock:
+            litter = self._require_litter(litter_id)
+            owner = litter if puppy_id is None else self._require_puppy(litter_id, puppy_id)
+            record = self._require_record(owner, record_id)
+            before = deepcopy(record)
+            now = _now_iso()
+
+            record["type"] = validate_record_type(record_type)
+            if occurred_at is not None:
+                record["occurred_at"] = normalize_timestamp(occurred_at, now) or now
+            record["title"] = title.strip() if isinstance(title, str) and title.strip() else None
+            record["note"] = note.strip() if isinstance(note, str) and note.strip() else None
+            record["data"] = deepcopy(data) if isinstance(data, dict) else {}
+            record["updated_at"] = now
+            owner["updated_at"] = now
+            litter["updated_at"] = now
+
+            self._add_audit_entry(
+                action="update_record",
+                litter_id=litter_id,
+                puppy_id=puppy_id,
+                record_id=record_id,
+                details={"before": before, "after": deepcopy(record)},
+            )
+            await self.async_save()
+
+    async def async_delete_record(
+        self,
+        litter_id: str,
+        record_id: str,
+        puppy_id: str | None = None,
+    ) -> None:
+        """Soft-delete a dossier record."""
+        async with self._lock:
+            litter = self._require_litter(litter_id)
+            owner = litter if puppy_id is None else self._require_puppy(litter_id, puppy_id)
+            record = self._require_record(owner, record_id)
+            if record.get("deleted", False):
+                return
+
+            now = _now_iso()
+            record["deleted"] = True
+            record["deleted_at"] = now
+            record["updated_at"] = now
+            owner["updated_at"] = now
+            litter["updated_at"] = now
+            self._add_audit_entry(
+                action="delete_record",
+                litter_id=litter_id,
+                puppy_id=puppy_id,
+                record_id=record_id,
+                details={"type": record.get("type")},
+            )
+            await self.async_save()
+
+    async def async_restore_record(
+        self,
+        litter_id: str,
+        record_id: str,
+        puppy_id: str | None = None,
+    ) -> None:
+        """Restore a soft-deleted dossier record."""
+        async with self._lock:
+            litter = self._require_litter(litter_id)
+            owner = litter if puppy_id is None else self._require_puppy(litter_id, puppy_id)
+            record = self._require_record(owner, record_id)
+            if not record.get("deleted", False):
+                return
+
+            now = _now_iso()
+            record["deleted"] = False
+            record["deleted_at"] = None
+            record["updated_at"] = now
+            owner["updated_at"] = now
+            litter["updated_at"] = now
+            self._add_audit_entry(
+                action="restore_record",
+                litter_id=litter_id,
+                puppy_id=puppy_id,
+                record_id=record_id,
+                details={"type": record.get("type")},
+            )
+            await self.async_save()
+
     def _require_litter(
         self,
         litter_id: str,
@@ -1764,12 +2025,24 @@ class PuppyTrackerStorage:
             f"Unknown measurement: {measurement_id}"
         )
 
+    @staticmethod
+    def _require_record(
+        owner: dict[str, Any],
+        record_id: str,
+    ) -> dict[str, Any]:
+        """Return dossier record or raise."""
+        for record in owner.get("records", []):
+            if isinstance(record, dict) and record.get("id") == record_id:
+                return record
+        raise ValueError(f"Unknown record: {record_id}")
+
     def _add_audit_entry(
         self,
         action: str,
         litter_id: str | None = None,
         puppy_id: str | None = None,
         measurement_id: str | None = None,
+        record_id: str | None = None,
         details: dict[str, Any] | None = None,
     ) -> None:
         """Add audit log entry."""
@@ -1784,6 +2057,7 @@ class PuppyTrackerStorage:
                 "litter_id": litter_id,
                 "puppy_id": puppy_id,
                 "measurement_id": measurement_id,
+                "record_id": record_id,
                 "details": details or {},
             }
         )

@@ -82,7 +82,7 @@
           "sex": "Sex",
           "birth_weight": "Birth weight",
           "birth_time": "Birth date and time",
-          "notes": "Notes"
+          "profile_note": "Profile note"
         },
         "data_description": {
           "litter_id": "Select the litter this puppy belongs to",
@@ -91,7 +91,7 @@
           "sex": "Sex of the puppy",
           "birth_weight": "Weight immediately after birth in grams",
           "birth_time": "Exact date and time of birth if known",
-          "notes": "Optional notes about the puppy"
+          "profile_note": "Long-lived profile summary. New chronological notes will be stored separately in the puppy dossier."
         }
       },
       "manage_puppy": {
@@ -110,8 +110,8 @@
           "sex": "Sex",
           "birth_weight": "Birth weight",
           "birth_time": "Birth date and time",
-          "notes": "Notes",
-          "action": "Action"
+          "action": "Action",
+          "profile_note": "Profile note"
         },
         "data_description": {
           "name": "Name or identification name of the puppy",
@@ -119,8 +119,8 @@
           "sex": "Sex of the puppy",
           "birth_weight": "Birth weight in grams",
           "birth_time": "Exact date and time of birth",
-          "notes": "Optional notes",
-          "action": "Choose what you want to do with this puppy"
+          "action": "Choose what you want to do with this puppy",
+          "profile_note": "Long-lived profile summary. New chronological notes will be stored separately in the puppy dossier."
         }
       },
       "confirm_delete_puppy": {

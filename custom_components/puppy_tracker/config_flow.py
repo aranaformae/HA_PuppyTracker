@@ -565,8 +565,8 @@ class PuppyTrackerOptionsFlow(
                     birth_time=user_input.get(
                         "birth_time"
                     ),
-                    notes=user_input.get(
-                        "notes"
+                    profile_note=user_input.get(
+                        "profile_note"
                     ),
                 )
 
@@ -679,7 +679,7 @@ class PuppyTrackerOptionsFlow(
                     ): selector.DateTimeSelector(),
 
                     vol.Optional(
-                        "notes"
+                        "profile_note"
                     ): selector.TextSelector(
                         selector.TextSelectorConfig(
                             multiline=True
@@ -805,8 +805,8 @@ class PuppyTrackerOptionsFlow(
                         birth_time=user_input.get(
                             "birth_time"
                         ),
-                        notes=user_input.get(
-                            "notes"
+                        profile_note=user_input.get(
+                            "profile_note"
                         ),
                     )
 
@@ -994,9 +994,9 @@ class PuppyTrackerOptionsFlow(
 
         fields[
             vol.Optional(
-                "notes",
+                "profile_note",
                 default=puppy.get(
-                    "notes",
+                    "profile_note",
                     "",
                 )
                 or "",

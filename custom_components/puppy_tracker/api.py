@@ -26,7 +26,7 @@ from .storage import PuppyTrackerStorage
 from .time_utils import timestamp_sort_key
 
 DATA_API_REGISTERED = f"{DOMAIN}_websocket_api_registered"
-API_VERSION = 5
+API_VERSION = 6
 
 
 def _runtime_data(hass: HomeAssistant) -> PuppyTrackerRuntimeData | None:
@@ -190,11 +190,13 @@ def _litter_payload(
                 "sex": puppy.get("sex"),
                 "birth_weight": puppy.get("birth_weight"),
                 "birth_time": puppy.get("birth_time"),
+                "profile_note": puppy.get("profile_note"),
                 "active": puppy.get("active", True),
                 "created_at": puppy.get("created_at"),
                 "updated_at": puppy.get("updated_at"),
                 "summary": summary,
                 "measurements": puppy_measurements(puppy, active_only=True, copy_items=True),
+                "records": storage.get_records(litter_id, puppy_id, newest_first=True),
             }
         )
 
@@ -223,6 +225,7 @@ def _litter_payload(
             "created_at": litter.get("created_at"),
             "updated_at": litter.get("updated_at"),
             "last_completed_session": deepcopy(litter.get("last_completed_session")),
+            "records": storage.get_records(litter_id, newest_first=True),
             "summary": litter_summary,
         },
         "puppies": puppies,
@@ -271,6 +274,7 @@ def _puppy_measurements_payload(
             "birth_weight": puppy.get("birth_weight"),
             "birth_time": puppy.get("birth_time"),
             "birth_measurement_id": puppy.get("birth_measurement_id"),
+            "profile_note": puppy.get("profile_note"),
         },
         "counts": {
             "total_versions": len(measurements),
@@ -387,7 +391,7 @@ def _json_export(storage: PuppyTrackerStorage, litter_id: str) -> tuple[str, str
     ]
 
     document = {
-        "export_version": 1,
+        "export_version": 2,
         "exported_at": dt_util.now().isoformat(),
         "integration": DOMAIN,
         "schema_version": all_data.get("schema_version"),
