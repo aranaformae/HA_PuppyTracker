@@ -11,7 +11,7 @@ import {
 } from "./puppy-tracker-card-common.js";
 
 function actionStatusText(action) {
-  const days = Number(action?.days_until);
+  const days = Number(action?.days_until_due ?? action?.days_until);
   if (action?.status === "overdue") {
     const amount = Math.abs(days);
     return amount === 1 ? "1 dag te laat" : `${amount} dagen te laat`;
@@ -23,7 +23,8 @@ function actionStatusText(action) {
 
 function actionTone(action) {
   if (action?.status === "overdue") return "danger";
-  return "warning";
+  if (action?.status === "due_today") return "warning";
+  return "neutral";
 }
 
 function formatDueDate(value) {
@@ -190,7 +191,7 @@ class PuppyTrackerAttentionCard extends HTMLElement {
           collar_color: puppy.collar_color,
           tone: actionTone(action),
           icon: `<ha-icon icon="${escapeHtml(action.icon || "mdi:calendar-alert")}"></ha-icon>`,
-          reason: `${action.label || "Vervolgactie"} · ${formatDueDate(action.due_date)}`,
+          reason: `${action.title || action.label || "Vervolgactie"} · ${formatDueDate(action.due_date || action.due_at)}`,
           status: actionStatusText(action),
         });
       }
@@ -205,7 +206,7 @@ class PuppyTrackerAttentionCard extends HTMLElement {
         collar_color: null,
         tone: actionTone(action),
         icon: `<ha-icon icon="${escapeHtml(action.icon || "mdi:calendar-alert")}"></ha-icon>`,
-        reason: `${action.label || "Vervolgactie"} · ${formatDueDate(action.due_date)}`,
+        reason: `${action.title || action.label || "Vervolgactie"} · ${formatDueDate(action.due_date || action.due_at)}`,
         status: actionStatusText(action),
       });
     }

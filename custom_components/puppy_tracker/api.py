@@ -17,7 +17,6 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect, async_dis
 from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN, SIGNAL_DASHBOARD_UPDATE, SIGNAL_UPDATE
-from .dossier_actions import dossier_action_summary
 from .measurements import measurement_status, puppy_measurements
 from .metrics import calculate_puppy_metrics
 from .pdf_export import build_pdf_export
@@ -25,9 +24,10 @@ from .runtime import PuppyTrackerRuntimeData
 from .session import get_session, remaining_puppy_ids
 from .storage import PuppyTrackerStorage
 from .time_utils import timestamp_sort_key
+from .upcoming import DAYS_AHEAD_DEFAULT, upcoming_actions, upcoming_summary
 
 DATA_API_REGISTERED = f"{DOMAIN}_websocket_api_registered"
-API_VERSION = 8
+API_VERSION = 9
 
 
 def _runtime_data(hass: HomeAssistant) -> PuppyTrackerRuntimeData | None:
@@ -43,6 +43,77 @@ def _runtime_storage(hass: HomeAssistant) -> PuppyTrackerStorage | None:
     """Return the storage instance for the configured integration entry."""
     runtime = _runtime_data(hass)
     return runtime.storage if runtime is not None else None
+
+
+def _records_for_upcoming(
+    storage: PuppyTrackerStorage,
+    litter_id: str,
+    puppy_id: str | None = None,
+) -> list[dict[str, Any]]:
+    """Return active dossier records that can produce upcoming actions."""
+    litter = storage.get_litter(litter_id)
+    if litter is None:
+        raise ValueError("Unknown litter")
+
+    if puppy_id is not None:
+        puppy = storage.get_puppy(litter_id, puppy_id)
+        if puppy is None:
+            raise ValueError("Unknown puppy")
+        records = storage.get_records(litter_id, puppy_id, newest_first=False)
+        for record in records:
+            record["puppy_name"] = puppy.get("name")
+        return records
+
+    records = storage.get_records(litter_id, newest_first=False)
+    for current_puppy_id, puppy in litter.get("puppies", {}).items():
+        if not isinstance(puppy, dict):
+            continue
+        for record in storage.get_records(
+            litter_id,
+            str(current_puppy_id),
+            newest_first=False,
+        ):
+            record["puppy_name"] = puppy.get("name")
+            records.append(record)
+    return records
+
+
+def _upcoming_payload(
+    storage: PuppyTrackerStorage,
+    litter_id: str,
+    puppy_id: str | None = None,
+    *,
+    include_overdue: bool = True,
+    days_ahead: int = DAYS_AHEAD_DEFAULT,
+) -> dict[str, Any]:
+    """Build a filtered upcoming action payload."""
+    litter = storage.get_litter(litter_id)
+    if litter is None:
+        raise ValueError("Unknown litter")
+    if puppy_id is not None and storage.get_puppy(litter_id, puppy_id) is None:
+        raise ValueError("Unknown puppy")
+
+    actions = upcoming_actions(
+        _records_for_upcoming(storage, litter_id, puppy_id),
+        today=dt_util.now().date(),
+        days_ahead=days_ahead,
+        include_overdue=include_overdue,
+    )
+    summary = upcoming_summary(actions)
+    return {
+        "api_version": API_VERSION,
+        "generated_at": dt_util.now().isoformat(),
+        "storage_updated_at": storage.get_data().get("updated_at"),
+        "litter": {"id": litter_id, "name": litter.get("name")},
+        "puppy_id": puppy_id,
+        "include_overdue": include_overdue,
+        "days_ahead": days_ahead,
+        "summary": summary,
+        "upcoming_count": summary["upcoming_count"],
+        "overdue_count": summary["overdue_count"],
+        "due_today_count": summary["due_today_count"],
+        "actions": actions,
+    }
 
 
 def _puppy_summary(
@@ -77,10 +148,11 @@ def _puppy_summary(
         }
 
     try:
-        action_summary = dossier_action_summary(
-            storage.get_records(litter_id, puppy_id, newest_first=True),
+        actions = upcoming_actions(
+            _records_for_upcoming(storage, litter_id, puppy_id),
             today=dt_util.now().date(),
         )
+        action_summary = upcoming_summary(actions)
     except Exception:
         action_summary = {
             "open_count": 0,
@@ -91,6 +163,7 @@ def _puppy_summary(
             "due_soon_count": 0,
             "next_action": None,
             "actions": [],
+            "total_count": 0,
         }
 
     summary["dossier_actions"] = action_summary
@@ -170,9 +243,11 @@ def _litter_summary(
             "last_weight": session.get("last_weight"),
         }
 
-    litter_actions = dossier_action_summary(
-        storage.get_records(litter_id, newest_first=True),
-        today=dt_util.now().date(),
+    litter_actions = upcoming_summary(
+        upcoming_actions(
+            _records_for_upcoming(storage, litter_id),
+            today=dt_util.now().date(),
+        )
     )
     puppy_action_summaries = [
         puppy_summaries[puppy_id].get("dossier_actions") or {}
@@ -193,6 +268,9 @@ def _litter_summary(
         "dossier_attention_count": dossier_attention_count,
         "dossier_due_soon_count": dossier_due_soon_count,
         "dossier_actions": litter_actions,
+        "upcoming_count": litter_actions["upcoming_count"],
+        "overdue_count": litter_actions["overdue_count"],
+        "due_today_count": litter_actions["due_today_count"],
         "average_weight": average_weight,
         "average_growth_24h_percent": (
             round(sum(growth_values) / len(growth_values), 2)
@@ -511,9 +589,11 @@ def _records_payload(
         "include_deleted": include_deleted,
         "litter": {"id": litter_id, "name": litter.get("name")},
         "owner": owner,
-        "actions": dossier_action_summary(
-            storage.get_records(litter_id, puppy_id, newest_first=True),
-            today=dt_util.now().date(),
+        "actions": upcoming_summary(
+            upcoming_actions(
+                _records_for_upcoming(storage, litter_id, puppy_id),
+                today=dt_util.now().date(),
+            )
         ),
         "records": storage.get_records(
             litter_id,
@@ -828,6 +908,44 @@ def websocket_get_records(
             msg.get("puppy_id"),
             include_deleted=include_deleted,
             can_manage_records=can_manage,
+        )
+    except ValueError as err:
+        connection.send_error(msg["id"], "not_found", str(err))
+        return
+
+    connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/upcoming",
+        vol.Required("litter_id"): str,
+        vol.Optional("puppy_id"): str,
+        vol.Optional("include_overdue", default=True): bool,
+        vol.Optional("days_ahead", default=DAYS_AHEAD_DEFAULT): vol.All(
+            vol.Coerce(int),
+            vol.Range(min=0, max=3660),
+        ),
+    }
+)
+@callback
+def websocket_get_upcoming(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Return derived upcoming dossier actions for a litter or puppy."""
+    storage = _storage_or_error(hass, connection, msg)
+    if storage is None:
+        return
+
+    try:
+        result = _upcoming_payload(
+            storage,
+            msg["litter_id"],
+            msg.get("puppy_id"),
+            include_overdue=bool(msg.get("include_overdue", True)),
+            days_ahead=int(msg.get("days_ahead", DAYS_AHEAD_DEFAULT)),
         )
     except ValueError as err:
         connection.send_error(msg["id"], "not_found", str(err))
@@ -1170,6 +1288,7 @@ def async_setup_api(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, websocket_delete_measurement)
     websocket_api.async_register_command(hass, websocket_restore_measurement)
     websocket_api.async_register_command(hass, websocket_get_records)
+    websocket_api.async_register_command(hass, websocket_get_upcoming)
     websocket_api.async_register_command(hass, websocket_update_profile_note)
     websocket_api.async_register_command(hass, websocket_add_record)
     websocket_api.async_register_command(hass, websocket_update_record)

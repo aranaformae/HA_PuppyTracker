@@ -225,6 +225,21 @@ export async function fetchRecords(hass, litterId, puppyId = null, includeDelete
   return hass.callWS(message);
 }
 
+export async function fetchUpcoming(hass, litterId, options = {}) {
+  const message = {
+    type: `${DOMAIN}/upcoming`,
+    litter_id: litterId,
+  };
+  if (options.puppy_id) message.puppy_id = options.puppy_id;
+  if (options.include_overdue !== undefined) {
+    message.include_overdue = Boolean(options.include_overdue);
+  }
+  if (Number.isFinite(Number(options.days_ahead))) {
+    message.days_ahead = Number(options.days_ahead);
+  }
+  return hass.callWS(message);
+}
+
 export async function updateProfileNote(hass, litterId, puppyId, profileNote) {
   return hass.callWS({
     type: `${DOMAIN}/profile_note/update`,

@@ -129,6 +129,25 @@ The storage layer permits future validated snake_case record types so new module
 
 Type-specific validation belongs above the generic persistence layer. For example, a vaccination module can later require vaccine/product fields without making those fields mandatory for a generic note.
 
+## Upcoming dossier actions
+
+Upcoming dossier actions are derived from active dossier records. They are not
+stored as a second persistent task model. The `upcoming.py` backend helper reads
+known follow-up fields such as `vaccination.data.next_due_date` and
+`deworming.data.next_due_date`, treats those values as local calendar dates, and
+returns transient actions for dashboard cards and WebSocket payloads.
+
+The first supported statuses are:
+
+```text
+overdue
+due_today
+upcoming
+```
+
+New record types can join this mechanism by adding a type configuration that
+points to the relevant field inside `record["data"]`.
+
 ## Scope
 
 Records can belong to either:

@@ -18,7 +18,7 @@ The current suite covers eight main areas.
 | `test_integrity.py` | Safe integrity repairs, duplicate IDs, dangling references and ambiguous correction branches |
 | `test_exports.py` | CSV filtering, complete JSON history and direct PDF generation |
 | `test_records.py` | Profile-note migration, dossier record CRUD, owner scopes, sorting and integrity checks |
-| `test_dossier_actions.py` | Derived vaccination/deworming follow-ups, due-state classification and superseding schedules |
+| `test_upcoming.py` | Derived vaccination/deworming follow-ups, due-state classification, filtering and sorting |
 | `test_runtime_selection.py` | Typed runtime selection, explicit defaults and archived-selection fallback behavior |
 
 These are regression tests for the integration's Python backend. They are **not** browser or end-to-end tests for the Lovelace cards, Safari/iPadOS, HACS installation, or the Home Assistant Companion App.
@@ -109,10 +109,10 @@ Only dossier records:
 pytest tests/test_records.py
 ```
 
-Only derived dossier follow-up actions:
+Only derived upcoming dossier actions:
 
 ```bash
-pytest tests/test_dossier_actions.py
+pytest tests/test_upcoming.py
 ```
 
 ## Run one specific test
