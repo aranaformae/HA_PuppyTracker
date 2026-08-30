@@ -24,6 +24,7 @@ from .const import (
     SIGNAL_DASHBOARD_UPDATE,
     SIGNAL_UPDATE,
 )
+from .runtime import PuppyWeightTrackerRuntimeData
 from .session import (
     SESSION_ACTIVE,
     get_session,
@@ -81,14 +82,13 @@ class PuppyWeighingButtonBase(
     @property
     def data(
         self,
-    ) -> dict[str, Any]:
+    ) -> PuppyWeightTrackerRuntimeData:
         """Return runtime data."""
 
-        return self._hass.data[
-            DOMAIN
-        ][
-            self._entry.entry_id
-        ]
+        runtime = self._entry.runtime_data
+        if not isinstance(runtime, PuppyWeightTrackerRuntimeData):
+            raise RuntimeError("Puppy Weight Tracker runtime is unavailable")
+        return runtime
 
     @property
     def storage(
@@ -96,9 +96,7 @@ class PuppyWeighingButtonBase(
     ):
         """Return persistent storage."""
 
-        return self.data[
-            "storage"
-        ]
+        return self.data.storage
 
     @property
     def device_info(
@@ -165,9 +163,7 @@ class PuppyStartSessionButton(
                 "Er zijn geen actieve nesten."
             )
 
-        litter_id = self.data.get(
-            "selected_litter_id"
-        )
+        litter_id = self.data.selected_litter_id
 
         if litter_id not in active_litters:
             litter_id = next(
@@ -432,20 +428,11 @@ class PuppySaveWeightButton(
     ) -> None:
         """Save entered weight."""
 
-        litter_id = self.data.get(
-            "selected_litter_id"
-        )
+        litter_id = self.data.selected_litter_id
 
-        puppy_id = self.data.get(
-            "selected_puppy_id"
-        )
+        puppy_id = self.data.selected_puppy_id
 
-        weight = float(
-            self.data.get(
-                "weight_input",
-                0.0,
-            )
-        )
+        weight = float(self.data.weight_input)
 
         if not litter_id:
             raise HomeAssistantError(
@@ -530,9 +517,7 @@ class PuppySaveWeightButton(
 
         # Clear input to prevent accidentally reusing
         # the previous puppy's weight.
-        self.data[
-            "weight_input"
-        ] = 0.0
+        self.data.weight_input = 0.0
 
         async_dispatcher_send(
             self.hass,

@@ -7,8 +7,9 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN, STORAGE_VERSION, VERSION
+from .const import STORAGE_VERSION, VERSION
 from .frontend import FRONTEND_VERSION
+from .runtime import PuppyWeightTrackerRuntimeData
 from .storage import PuppyWeightStorage
 
 
@@ -17,11 +18,10 @@ def _runtime_storage(
     entry: ConfigEntry,
 ) -> PuppyWeightStorage | None:
     """Return storage for the config entry."""
-    runtime = hass.data.get(DOMAIN, {}).get(entry.entry_id)
-    if not isinstance(runtime, dict):
+    runtime = entry.runtime_data
+    if not isinstance(runtime, PuppyWeightTrackerRuntimeData):
         return None
-    storage = runtime.get("storage")
-    return storage if isinstance(storage, PuppyWeightStorage) else None
+    return runtime.storage
 
 
 def _storage_counts(data: dict[str, Any]) -> dict[str, int]:

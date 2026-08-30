@@ -22,10 +22,10 @@ from .const import (
 from .devices import async_sync_devices
 from .frontend import async_setup_frontend, async_unload_frontend
 from .notifications import PuppyNotificationManager
+from .runtime import PuppyWeightTrackerRuntimeData
 from .session import (
     get_session,
     mark_weight_recorded,
-    new_session_state,
 )
 from .storage import PuppyWeightStorage
 
@@ -163,28 +163,10 @@ async def async_setup_entry(
             integrity_report.get("repairs_applied", 0),
         )
 
-    hass.data.setdefault(
-        DOMAIN,
-        {},
+    runtime = PuppyWeightTrackerRuntimeData(
+        storage=storage,
     )
-
-    hass.data[
-        DOMAIN
-    ][
-        entry.entry_id
-    ] = {
-        "storage": storage,
-        "selected_litter_id": None,
-        "selected_puppy_id": None,
-        "weight_input": 0.0,
-        "weighing_session": new_session_state(),
-    }
-
-    runtime = hass.data[
-        DOMAIN
-    ][
-        entry.entry_id
-    ]
+    entry.runtime_data = runtime
 
     async_setup_api(hass)
     await async_setup_frontend(hass)
@@ -206,7 +188,7 @@ async def async_setup_entry(
         storage,
         runtime,
     )
-    runtime["notification_manager"] = notification_manager
+    runtime.notification_manager = notification_manager
     await notification_manager.async_start()
 
     async def handle_create_litter(
@@ -447,10 +429,11 @@ async def async_unload_entry(
     if not unload_ok:
         return False
 
-    runtime = hass.data.get(DOMAIN, {}).get(entry.entry_id, {})
-    notification_manager = runtime.get("notification_manager")
-    if notification_manager is not None:
-        await notification_manager.async_stop()
+    runtime = entry.runtime_data
+    if isinstance(runtime, PuppyWeightTrackerRuntimeData):
+        notification_manager = runtime.notification_manager
+        if notification_manager is not None:
+            await notification_manager.async_stop()
 
     async_unload_frontend(hass)
 
@@ -468,19 +451,5 @@ async def async_unload_entry(
                 service,
             )
 
-    if DOMAIN in hass.data:
-        hass.data[
-            DOMAIN
-        ].pop(
-            entry.entry_id,
-            None,
-        )
-
-        if not hass.data[
-            DOMAIN
-        ]:
-            hass.data.pop(
-                DOMAIN
-            )
-
+    entry.runtime_data = None
     return True

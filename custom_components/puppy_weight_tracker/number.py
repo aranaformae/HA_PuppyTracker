@@ -24,6 +24,7 @@ from .const import (
     DOMAIN,
     SIGNAL_DASHBOARD_UPDATE,
 )
+from .runtime import PuppyWeightTrackerRuntimeData
 
 
 async def async_setup_entry(
@@ -76,14 +77,13 @@ class PuppyWeightInput(
     @property
     def data(
         self,
-    ) -> dict[str, Any]:
+    ) -> PuppyWeightTrackerRuntimeData:
         """Return integration runtime data."""
 
-        return self._hass.data[
-            DOMAIN
-        ][
-            self._entry.entry_id
-        ]
+        runtime = self._entry.runtime_data
+        if not isinstance(runtime, PuppyWeightTrackerRuntimeData):
+            raise RuntimeError("Puppy Weight Tracker runtime is unavailable")
+        return runtime
 
     @property
     def native_value(
@@ -91,12 +91,7 @@ class PuppyWeightInput(
     ) -> float:
         """Return entered weight."""
 
-        return float(
-            self.data.get(
-                "weight_input",
-                0.0,
-            )
-        )
+        return float(self.data.weight_input)
 
     async def async_set_native_value(
         self,
@@ -104,11 +99,7 @@ class PuppyWeightInput(
     ) -> None:
         """Set draft weight."""
 
-        self.data[
-            "weight_input"
-        ] = float(
-            value
-        )
+        self.data.weight_input = float(value)
 
         self.async_write_ha_state()
 

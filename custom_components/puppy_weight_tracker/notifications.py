@@ -26,6 +26,7 @@ from .const import (
     SIGNAL_UPDATE,
 )
 from .metrics import calculate_puppy_status
+from .runtime import PuppyWeightTrackerRuntimeData
 from .session import SESSION_COMPLETED, get_session
 from .storage import PuppyWeightStorage
 
@@ -42,7 +43,7 @@ class PuppyNotificationManager:
         hass: HomeAssistant,
         entry: ConfigEntry,
         storage: PuppyWeightStorage,
-        runtime: dict[str, Any],
+        runtime: PuppyWeightTrackerRuntimeData,
     ) -> None:
         self.hass = hass
         self.entry = entry

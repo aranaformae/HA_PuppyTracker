@@ -39,6 +39,7 @@ from .devices import (
     async_remove_puppy_device,
     async_sync_devices,
 )
+from .runtime import PuppyWeightTrackerRuntimeData
 from .storage import PuppyWeightStorage
 from .time_utils import current_selector_datetime, selector_datetime_value
 
@@ -93,13 +94,10 @@ class PuppyWeightTrackerOptionsFlow(
     ) -> PuppyWeightStorage:
         """Return integration storage."""
 
-        return self.hass.data[
-            DOMAIN
-        ][
-            self.config_entry.entry_id
-        ][
-            "storage"
-        ]
+        runtime = self.config_entry.runtime_data
+        if not isinstance(runtime, PuppyWeightTrackerRuntimeData):
+            raise RuntimeError("Puppy Weight Tracker is not loaded")
+        return runtime.storage
 
     async def async_step_init(
         self,

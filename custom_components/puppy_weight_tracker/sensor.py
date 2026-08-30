@@ -40,6 +40,7 @@ from .metrics import (
     previous_weight,
     weight_change,
 )
+from .runtime import PuppyWeightTrackerRuntimeData
 from .session import (
     SESSION_ACTIVE,
     SESSION_COMPLETED,
@@ -61,13 +62,10 @@ async def async_setup_entry(
 ) -> None:
     """Set up Puppy Weight Tracker sensors."""
 
-    storage: PuppyWeightStorage = hass.data[
-        DOMAIN
-    ][
-        entry.entry_id
-    ][
-        "storage"
-    ]
+    runtime = entry.runtime_data
+    if not isinstance(runtime, PuppyWeightTrackerRuntimeData):
+        raise RuntimeError("Puppy Weight Tracker runtime is unavailable")
+    storage = runtime.storage
 
     known_puppies: set[str] = set()
     known_litters: set[str] = set()
@@ -301,14 +299,13 @@ class WeighingStationSensor(
     @property
     def runtime(
         self,
-    ) -> dict[str, Any]:
+    ) -> PuppyWeightTrackerRuntimeData:
         """Return integration runtime."""
 
-        return self._hass.data[
-            DOMAIN
-        ][
-            self._entry.entry_id
-        ]
+        runtime = self._entry.runtime_data
+        if not isinstance(runtime, PuppyWeightTrackerRuntimeData):
+            raise RuntimeError("Puppy Weight Tracker runtime is unavailable")
+        return runtime
 
     @property
     def storage(
@@ -316,9 +313,7 @@ class WeighingStationSensor(
     ) -> PuppyWeightStorage:
         """Return storage."""
 
-        return self.runtime[
-            "storage"
-        ]
+        return self.runtime.storage
 
     @property
     def session(
@@ -385,9 +380,7 @@ class WeighingStationSensor(
         )
 
         if not litter_id:
-            litter_id = self.runtime.get(
-                "selected_litter_id"
-            )
+            litter_id = self.runtime.selected_litter_id
 
         if not litter_id:
             return None
@@ -1497,16 +1490,19 @@ class LitterBaseSensor(SensorEntity):
         self._attr_unique_id = f"{litter_id}_{sensor_key}"
 
     @property
-    def runtime(self) -> dict[str, Any]:
+    def runtime(self) -> PuppyWeightTrackerRuntimeData:
         """Return integration runtime."""
 
-        return self._hass.data[DOMAIN][self._entry.entry_id]
+        runtime = self._entry.runtime_data
+        if not isinstance(runtime, PuppyWeightTrackerRuntimeData):
+            raise RuntimeError("Puppy Weight Tracker runtime is unavailable")
+        return runtime
 
     @property
     def storage(self) -> PuppyWeightStorage:
         """Return persistent storage."""
 
-        return self.runtime["storage"]
+        return self.runtime.storage
 
     @property
     def litter(self) -> dict[str, Any] | None:

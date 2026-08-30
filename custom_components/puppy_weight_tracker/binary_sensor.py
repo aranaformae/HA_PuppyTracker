@@ -28,6 +28,7 @@ from .const import (
     SIGNAL_UPDATE,
 )
 from .metrics import calculate_puppy_status
+from .runtime import PuppyWeightTrackerRuntimeData
 from .storage import PuppyWeightStorage
 
 REFRESH_INTERVAL = timedelta(minutes=10)
@@ -40,7 +41,10 @@ async def async_setup_entry(
 ) -> None:
     """Set up Puppy Weight Tracker binary sensors."""
 
-    storage: PuppyWeightStorage = hass.data[DOMAIN][entry.entry_id]["storage"]
+    runtime = entry.runtime_data
+    if not isinstance(runtime, PuppyWeightTrackerRuntimeData):
+        raise RuntimeError("Puppy Weight Tracker runtime is unavailable")
+    storage = runtime.storage
 
     known_litters: set[str] = set()
     known_puppies: set[str] = set()

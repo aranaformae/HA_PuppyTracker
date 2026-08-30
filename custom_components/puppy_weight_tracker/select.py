@@ -21,6 +21,7 @@ from .const import (
     DOMAIN,
     SIGNAL_DASHBOARD_UPDATE,
 )
+from .runtime import PuppyWeightTrackerRuntimeData
 from .session import (
     SESSION_ACTIVE,
     get_session,
@@ -68,14 +69,13 @@ class PuppyDashboardSelectBase(
     @property
     def data(
         self,
-    ) -> dict[str, Any]:
+    ) -> PuppyWeightTrackerRuntimeData:
         """Return integration runtime data."""
 
-        return self._hass.data[
-            DOMAIN
-        ][
-            self._entry.entry_id
-        ]
+        runtime = self._entry.runtime_data
+        if not isinstance(runtime, PuppyWeightTrackerRuntimeData):
+            raise RuntimeError("Puppy Weight Tracker runtime is unavailable")
+        return runtime
 
     @property
     def storage(
@@ -83,9 +83,7 @@ class PuppyDashboardSelectBase(
     ):
         """Return storage."""
 
-        return self.data[
-            "storage"
-        ]
+        return self.data.storage
 
     @property
     def device_info(
@@ -217,9 +215,7 @@ class PuppyLitterSelect(
     ) -> str | None:
         """Return selected litter."""
 
-        selected_id = self.data.get(
-            "selected_litter_id"
-        )
+        selected_id = self.data.selected_litter_id
 
         option_map = (
             self._option_map()
@@ -240,9 +236,7 @@ class PuppyLitterSelect(
             )
         )
 
-        self.data[
-            "selected_litter_id"
-        ] = option_map[
+        self.data.selected_litter_id = option_map[
             first_label
         ]
 
@@ -285,13 +279,8 @@ class PuppyLitterSelect(
                 "Rond de sessie af of reset deze eerst."
             )
 
-        self.data[
-            "selected_litter_id"
-        ] = litter_id
-
-        self.data[
-            "selected_puppy_id"
-        ] = None
+        self.data.selected_litter_id = litter_id
+        self.data.selected_puppy_id = None
 
         session[
             "duplicate_pending"
@@ -319,9 +308,7 @@ class PuppySelect(
     ) -> dict[str, dict[str, Any]]:
         """Return puppies available for selection."""
 
-        litter_id = self.data.get(
-            "selected_litter_id"
-        )
+        litter_id = self.data.selected_litter_id
 
         if not litter_id:
             return {}
@@ -472,9 +459,7 @@ class PuppySelect(
     ) -> str | None:
         """Return selected puppy."""
 
-        puppy_id = self.data.get(
-            "selected_puppy_id"
-        )
+        puppy_id = self.data.selected_puppy_id
 
         option_map = (
             self._option_map()
@@ -495,9 +480,7 @@ class PuppySelect(
             )
         )
 
-        self.data[
-            "selected_puppy_id"
-        ] = option_map[
+        self.data.selected_puppy_id = option_map[
             first_label
         ]
 
@@ -522,9 +505,7 @@ class PuppySelect(
                 "Deze puppy is niet beschikbaar."
             )
 
-        self.data[
-            "selected_puppy_id"
-        ] = puppy_id
+        self.data.selected_puppy_id = puppy_id
 
         session = get_session(
             self.data

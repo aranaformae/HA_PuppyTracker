@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.util import dt as dt_util
+
+if TYPE_CHECKING:
+    from .runtime import PuppyWeightTrackerRuntimeData
 
 
 SESSION_IDLE = "idle"
@@ -31,13 +34,11 @@ def new_session_state() -> dict[str, Any]:
 
 
 def get_session(
-    runtime: dict[str, Any],
+    runtime: PuppyWeightTrackerRuntimeData,
 ) -> dict[str, Any]:
     """Return weighing session, creating it if necessary."""
 
-    session = runtime.get(
-        "weighing_session"
-    )
+    session = runtime.weighing_session
 
     if not isinstance(
         session,
@@ -45,15 +46,13 @@ def get_session(
     ):
         session = new_session_state()
 
-        runtime[
-            "weighing_session"
-        ] = session
+        runtime.weighing_session = session
 
     return session
 
 
 def start_weighing_session(
-    runtime: dict[str, Any],
+    runtime: PuppyWeightTrackerRuntimeData,
     litter_id: str,
     puppy_ids: list[str],
 ) -> None:
@@ -61,9 +60,7 @@ def start_weighing_session(
 
     now = dt_util.now().isoformat()
 
-    runtime[
-        "weighing_session"
-    ] = {
+    runtime.weighing_session = {
         "status": SESSION_ACTIVE,
         "litter_id": litter_id,
         "puppy_ids": list(
@@ -81,39 +78,27 @@ def start_weighing_session(
         "duplicate_pending": None,
     }
 
-    runtime[
-        "selected_litter_id"
-    ] = litter_id
+    runtime.selected_litter_id = litter_id
 
-    runtime[
-        "selected_puppy_id"
-    ] = (
+    runtime.selected_puppy_id = (
         puppy_ids[0]
         if puppy_ids
         else None
     )
 
-    runtime[
-        "weight_input"
-    ] = 0.0
+    runtime.weight_input = 0.0
 
 
 def reset_weighing_session(
-    runtime: dict[str, Any],
+    runtime: PuppyWeightTrackerRuntimeData,
 ) -> None:
     """Reset current weighing session."""
 
-    runtime[
-        "weighing_session"
-    ] = new_session_state()
+    runtime.weighing_session = new_session_state()
 
-    runtime[
-        "selected_puppy_id"
-    ] = None
+    runtime.selected_puppy_id = None
 
-    runtime[
-        "weight_input"
-    ] = 0.0
+    runtime.weight_input = 0.0
 
 
 def remaining_puppy_ids(
@@ -141,7 +126,7 @@ def remaining_puppy_ids(
 
 
 def mark_weight_recorded(
-    runtime: dict[str, Any],
+    runtime: PuppyWeightTrackerRuntimeData,
     *,
     litter_id: str,
     puppy_id: str,
@@ -218,9 +203,7 @@ def mark_weight_recorded(
     )
 
     if remaining:
-        runtime[
-            "selected_puppy_id"
-        ] = remaining[0]
+        runtime.selected_puppy_id = remaining[0]
 
         return False
 

@@ -19,6 +19,7 @@ from homeassistant.util import dt as dt_util
 from .const import DOMAIN, SIGNAL_DASHBOARD_UPDATE, SIGNAL_UPDATE
 from .metrics import calculate_puppy_metrics
 from .pdf_export import build_pdf_export
+from .runtime import PuppyWeightTrackerRuntimeData
 from .session import get_session, remaining_puppy_ids
 from .storage import PuppyWeightStorage
 from .time_utils import timestamp_sort_key
@@ -27,28 +28,19 @@ DATA_API_REGISTERED = f"{DOMAIN}_websocket_api_registered"
 API_VERSION = 5
 
 
-def _runtime_data(hass: HomeAssistant) -> dict[str, Any] | None:
-    """Return the runtime data for the configured integration entry."""
-    domain_data = hass.data.get(DOMAIN)
-    if not isinstance(domain_data, dict):
-        return None
-
-    for runtime in domain_data.values():
-        if not isinstance(runtime, dict):
-            continue
-        if isinstance(runtime.get("storage"), PuppyWeightStorage):
+def _runtime_data(hass: HomeAssistant) -> PuppyWeightTrackerRuntimeData | None:
+    """Return runtime data for the loaded integration entry."""
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        runtime = entry.runtime_data
+        if isinstance(runtime, PuppyWeightTrackerRuntimeData):
             return runtime
-
     return None
 
 
 def _runtime_storage(hass: HomeAssistant) -> PuppyWeightStorage | None:
     """Return the storage instance for the configured integration entry."""
     runtime = _runtime_data(hass)
-    if runtime is None:
-        return None
-    storage = runtime.get("storage")
-    return storage if isinstance(storage, PuppyWeightStorage) else None
+    return runtime.storage if runtime is not None else None
 
 
 def _active_measurements(puppy: dict[str, Any]) -> list[dict[str, Any]]:
