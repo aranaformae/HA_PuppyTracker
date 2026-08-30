@@ -111,7 +111,7 @@ ADD_PUPPY_SCHEMA = vol.Schema(
         ): cv.string,
 
         vol.Optional(
-            "notes"
+            "profile_note"
         ): cv.string,
     }
 )
@@ -269,8 +269,8 @@ async def async_setup_entry(
             sex=call.data.get(
                 "sex"
             ),
-            notes=call.data.get(
-                "notes"
+            profile_note=call.data.get(
+                "profile_note"
             ),
         )
 

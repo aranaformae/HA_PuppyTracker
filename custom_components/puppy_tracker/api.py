@@ -26,7 +26,7 @@ from .storage import PuppyTrackerStorage
 from .time_utils import timestamp_sort_key
 
 DATA_API_REGISTERED = f"{DOMAIN}_websocket_api_registered"
-API_VERSION = 6
+API_VERSION = 7
 
 
 def _runtime_data(hass: HomeAssistant) -> PuppyTrackerRuntimeData | None:
@@ -214,6 +214,7 @@ def _litter_payload(
         "generated_at": dt_util.now().isoformat(),
         "storage_updated_at": storage.get_data().get("updated_at"),
         "can_manage_measurements": can_manage_measurements,
+        "can_manage_records": can_manage_measurements,
         "integrity": storage.get_integrity_report(),
         "litter": {
             "id": litter_id,
@@ -423,6 +424,61 @@ def _signal_measurement_change(hass: HomeAssistant, puppy_id: str) -> None:
     async_dispatcher_send(hass, SIGNAL_DASHBOARD_UPDATE)
 
 
+def _signal_dossier_change(hass: HomeAssistant, puppy_id: str | None = None) -> None:
+    """Refresh cards and the affected puppy after a dossier mutation."""
+    if puppy_id is not None:
+        async_dispatcher_send(hass, SIGNAL_UPDATE, puppy_id)
+    async_dispatcher_send(hass, SIGNAL_DASHBOARD_UPDATE)
+
+
+def _records_payload(
+    storage: PuppyTrackerStorage,
+    litter_id: str,
+    puppy_id: str | None,
+    *,
+    include_deleted: bool,
+    can_manage_records: bool,
+) -> dict[str, Any]:
+    """Build a dossier record payload for one litter or puppy owner."""
+    litter = storage.get_litter(litter_id)
+    if litter is None:
+        raise ValueError("Unknown litter")
+
+    if puppy_id is None:
+        owner = {
+            "scope": "litter",
+            "id": litter_id,
+            "name": litter.get("name"),
+            "profile_note": None,
+        }
+    else:
+        puppy = storage.get_puppy(litter_id, puppy_id)
+        if puppy is None:
+            raise ValueError("Unknown puppy")
+        owner = {
+            "scope": "puppy",
+            "id": puppy_id,
+            "name": puppy.get("name"),
+            "profile_note": puppy.get("profile_note"),
+        }
+
+    return {
+        "api_version": API_VERSION,
+        "generated_at": dt_util.now().isoformat(),
+        "storage_updated_at": storage.get_data().get("updated_at"),
+        "can_manage_records": can_manage_records,
+        "include_deleted": include_deleted,
+        "litter": {"id": litter_id, "name": litter.get("name")},
+        "owner": owner,
+        "records": storage.get_records(
+            litter_id,
+            puppy_id,
+            include_deleted=include_deleted,
+            newest_first=True,
+        ),
+    }
+
+
 @websocket_api.websocket_command(
     {vol.Required("type"): f"{DOMAIN}/litters"}
 )
@@ -477,6 +533,9 @@ def websocket_get_litters(
             "api_version": API_VERSION,
             "generated_at": dt_util.now().isoformat(),
             "can_manage_measurements": bool(
+                connection.user and connection.user.is_admin
+            ),
+            "can_manage_records": bool(
                 connection.user and connection.user.is_admin
             ),
             "litters": items,
@@ -696,6 +755,253 @@ async def websocket_restore_measurement(
     )
 
 
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/records",
+        vol.Required("litter_id"): str,
+        vol.Optional("puppy_id"): str,
+        vol.Optional("include_deleted", default=False): bool,
+    }
+)
+@callback
+def websocket_get_records(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Return dossier records for a litter or puppy."""
+    storage = _storage_or_error(hass, connection, msg)
+    if storage is None:
+        return
+
+    can_manage = bool(connection.user and connection.user.is_admin)
+    include_deleted = bool(msg.get("include_deleted", False)) and can_manage
+    try:
+        result = _records_payload(
+            storage,
+            msg["litter_id"],
+            msg.get("puppy_id"),
+            include_deleted=include_deleted,
+            can_manage_records=can_manage,
+        )
+    except ValueError as err:
+        connection.send_error(msg["id"], "not_found", str(err))
+        return
+
+    connection.send_result(msg["id"], result)
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/profile_note/update",
+        vol.Required("litter_id"): str,
+        vol.Required("puppy_id"): str,
+        vol.Optional("profile_note"): vol.Any(str, None),
+    }
+)
+@websocket_api.async_response
+async def websocket_update_profile_note(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Update the persistent profile note for one puppy."""
+    storage = _storage_or_error(hass, connection, msg)
+    if storage is None:
+        return
+
+    try:
+        await storage.async_update_profile_note(
+            msg["litter_id"],
+            msg["puppy_id"],
+            msg.get("profile_note"),
+        )
+    except ValueError as err:
+        connection.send_error(msg["id"], "invalid_puppy", str(err))
+        return
+
+    _signal_dossier_change(hass, msg["puppy_id"])
+    connection.send_result(
+        msg["id"],
+        {
+            "ok": True,
+            "profile_note": storage.get_puppy(
+                msg["litter_id"], msg["puppy_id"]
+            ).get("profile_note"),
+        },
+    )
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/record/add",
+        vol.Required("litter_id"): str,
+        vol.Optional("puppy_id"): str,
+        vol.Required("record_type"): str,
+        vol.Optional("occurred_at"): str,
+        vol.Optional("title"): vol.Any(str, None),
+        vol.Optional("note"): vol.Any(str, None),
+        vol.Optional("data", default={}): dict,
+    }
+)
+@websocket_api.async_response
+async def websocket_add_record(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Create one generic dossier record."""
+    storage = _storage_or_error(hass, connection, msg)
+    if storage is None:
+        return
+
+    puppy_id = msg.get("puppy_id")
+    try:
+        record_id = await storage.async_add_record(
+            msg["litter_id"],
+            puppy_id=puppy_id,
+            record_type=msg["record_type"],
+            occurred_at=msg.get("occurred_at"),
+            title=msg.get("title"),
+            note=msg.get("note"),
+            data=msg.get("data") or {},
+        )
+    except ValueError as err:
+        connection.send_error(msg["id"], "invalid_record", str(err))
+        return
+
+    _signal_dossier_change(hass, puppy_id)
+    connection.send_result(
+        msg["id"],
+        {
+            "ok": True,
+            "record_id": record_id,
+            "record": storage.get_record(msg["litter_id"], record_id, puppy_id),
+        },
+    )
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/record/update",
+        vol.Required("litter_id"): str,
+        vol.Optional("puppy_id"): str,
+        vol.Required("record_id"): str,
+        vol.Required("record_type"): str,
+        vol.Optional("occurred_at"): str,
+        vol.Optional("title"): vol.Any(str, None),
+        vol.Optional("note"): vol.Any(str, None),
+        vol.Optional("data", default={}): dict,
+    }
+)
+@websocket_api.async_response
+async def websocket_update_record(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Update one dossier record in place."""
+    storage = _storage_or_error(hass, connection, msg)
+    if storage is None:
+        return
+
+    puppy_id = msg.get("puppy_id")
+    try:
+        await storage.async_update_record(
+            msg["litter_id"],
+            msg["record_id"],
+            puppy_id=puppy_id,
+            record_type=msg["record_type"],
+            occurred_at=msg.get("occurred_at"),
+            title=msg.get("title"),
+            note=msg.get("note"),
+            data=msg.get("data") or {},
+        )
+    except ValueError as err:
+        connection.send_error(msg["id"], "invalid_record", str(err))
+        return
+
+    _signal_dossier_change(hass, puppy_id)
+    connection.send_result(
+        msg["id"],
+        {
+            "ok": True,
+            "record": storage.get_record(
+                msg["litter_id"], msg["record_id"], puppy_id
+            ),
+        },
+    )
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/record/delete",
+        vol.Required("litter_id"): str,
+        vol.Optional("puppy_id"): str,
+        vol.Required("record_id"): str,
+    }
+)
+@websocket_api.async_response
+async def websocket_delete_record(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Soft-delete one dossier record."""
+    storage = _storage_or_error(hass, connection, msg)
+    if storage is None:
+        return
+
+    puppy_id = msg.get("puppy_id")
+    try:
+        await storage.async_delete_record(
+            msg["litter_id"], msg["record_id"], puppy_id
+        )
+    except ValueError as err:
+        connection.send_error(msg["id"], "invalid_record", str(err))
+        return
+
+    _signal_dossier_change(hass, puppy_id)
+    connection.send_result(msg["id"], {"ok": True})
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/record/restore",
+        vol.Required("litter_id"): str,
+        vol.Optional("puppy_id"): str,
+        vol.Required("record_id"): str,
+    }
+)
+@websocket_api.async_response
+async def websocket_restore_record(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Restore one soft-deleted dossier record."""
+    storage = _storage_or_error(hass, connection, msg)
+    if storage is None:
+        return
+
+    puppy_id = msg.get("puppy_id")
+    try:
+        await storage.async_restore_record(
+            msg["litter_id"], msg["record_id"], puppy_id
+        )
+    except ValueError as err:
+        connection.send_error(msg["id"], "invalid_record", str(err))
+        return
+
+    _signal_dossier_change(hass, puppy_id)
+    connection.send_result(msg["id"], {"ok": True})
+
+
 @websocket_api.require_admin
 @websocket_api.websocket_command(
     {
@@ -818,6 +1124,12 @@ def async_setup_api(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, websocket_correct_measurement)
     websocket_api.async_register_command(hass, websocket_delete_measurement)
     websocket_api.async_register_command(hass, websocket_restore_measurement)
+    websocket_api.async_register_command(hass, websocket_get_records)
+    websocket_api.async_register_command(hass, websocket_update_profile_note)
+    websocket_api.async_register_command(hass, websocket_add_record)
+    websocket_api.async_register_command(hass, websocket_update_record)
+    websocket_api.async_register_command(hass, websocket_delete_record)
+    websocket_api.async_register_command(hass, websocket_restore_record)
     websocket_api.async_register_command(hass, websocket_integrity_check)
     websocket_api.async_register_command(hass, websocket_export_data)
     websocket_api.async_register_command(hass, websocket_subscribe_updates)

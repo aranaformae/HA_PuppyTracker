@@ -1772,6 +1772,36 @@ class PuppyTrackerStorage:
             copy_items=True,
         )
 
+    async def async_update_profile_note(
+        self,
+        litter_id: str,
+        puppy_id: str,
+        profile_note: str | None,
+    ) -> None:
+        """Update only the persistent profile note for one puppy."""
+        async with self._lock:
+            litter = self._require_litter(litter_id)
+            puppy = self._require_puppy(litter_id, puppy_id)
+            before = puppy.get("profile_note")
+            now = _now_iso()
+            normalized_note = (
+                profile_note.strip()
+                if isinstance(profile_note, str) and profile_note.strip()
+                else None
+            )
+
+            puppy["profile_note"] = normalized_note
+            puppy["updated_at"] = now
+            litter["updated_at"] = now
+
+            self._add_audit_entry(
+                action="update_profile_note",
+                litter_id=litter_id,
+                puppy_id=puppy_id,
+                details={"before": before, "after": normalized_note},
+            )
+            await self.async_save()
+
     def get_records(
         self,
         litter_id: str,
