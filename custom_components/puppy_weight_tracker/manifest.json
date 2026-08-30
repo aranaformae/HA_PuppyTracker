@@ -8,6 +8,7 @@
     "@aranaformae"
   ],
   "config_flow": true,
+  "single_config_entry": true,
   "integration_type": "hub",
   "dependencies": [
     "frontend",

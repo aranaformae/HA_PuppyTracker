@@ -89,6 +89,7 @@ def async_sync_devices(
 
 def async_remove_puppy_device(
     hass: HomeAssistant,
+    entry: ConfigEntry,
     puppy_id: str,
 ) -> None:
     """Remove puppy device and all its entities."""
@@ -96,12 +97,11 @@ def async_remove_puppy_device(
     device_registry = dr.async_get(hass)
     entity_registry = er.async_get(hass)
 
-    device = device_registry.async_get_device(
-        identifiers={
-            _puppy_identifier(
-                puppy_id
-            )
-        }
+    device = device_registry.async_get_device_by_identifier(
+        _puppy_identifier(
+            puppy_id
+        ),
+        entry.entry_id,
     )
 
     if device is None:
@@ -125,6 +125,7 @@ def async_remove_puppy_device(
 
 def async_remove_litter_device(
     hass: HomeAssistant,
+    entry: ConfigEntry,
     litter_id: str,
     puppy_ids: list[str],
 ) -> None:
@@ -133,17 +134,17 @@ def async_remove_litter_device(
     for puppy_id in puppy_ids:
         async_remove_puppy_device(
             hass,
+            entry,
             puppy_id,
         )
 
     device_registry = dr.async_get(hass)
 
-    device = device_registry.async_get_device(
-        identifiers={
-            _litter_identifier(
-                litter_id
-            )
-        }
+    device = device_registry.async_get_device_by_identifier(
+        _litter_identifier(
+            litter_id
+        ),
+        entry.entry_id,
     )
 
     if device is not None:

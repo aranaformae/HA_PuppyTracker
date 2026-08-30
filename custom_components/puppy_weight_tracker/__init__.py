@@ -7,6 +7,7 @@ import logging
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.dispatcher import async_dispatcher_send
@@ -22,7 +23,10 @@ from .const import (
 from .devices import async_sync_devices
 from .frontend import async_setup_frontend, async_unload_frontend
 from .notifications import PuppyNotificationManager
-from .runtime import PuppyWeightTrackerRuntimeData
+from .runtime import (
+    PuppyWeightTrackerRuntimeData,
+    reconcile_dashboard_selection,
+)
 from .session import (
     get_session,
     mark_weight_recorded,
@@ -33,18 +37,24 @@ from .storage import PuppyWeightStorage
 _LOGGER = logging.getLogger(__name__)
 
 
-PLATFORMS = [
-    "sensor",
-    "binary_sensor",
-    "select",
-    "number",
-    "button",
-]
+PLATFORMS: tuple[Platform, ...] = (
+    Platform.SENSOR,
+    Platform.BINARY_SENSOR,
+    Platform.SELECT,
+    Platform.NUMBER,
+    Platform.BUTTON,
+)
 
 
 SERVICE_CREATE_LITTER = "create_litter"
 SERVICE_ADD_PUPPY = "add_puppy"
 SERVICE_RECORD_WEIGHT = "record_weight"
+
+SERVICES = (
+    SERVICE_CREATE_LITTER,
+    SERVICE_ADD_PUPPY,
+    SERVICE_RECORD_WEIGHT,
+)
 
 
 CREATE_LITTER_SCHEMA = vol.Schema(
@@ -166,6 +176,7 @@ async def async_setup_entry(
     runtime = PuppyWeightTrackerRuntimeData(
         storage=storage,
     )
+    reconcile_dashboard_selection(runtime)
     entry.runtime_data = runtime
 
     async_setup_api(hass)
@@ -377,37 +388,34 @@ async def async_setup_entry(
             measurement_id,
         )
 
-    if not hass.services.has_service(
-        DOMAIN,
-        SERVICE_CREATE_LITTER,
-    ):
-        hass.services.async_register(
-            DOMAIN,
+    for service, handler, schema in (
+        (
             SERVICE_CREATE_LITTER,
             handle_create_litter,
-            schema=CREATE_LITTER_SCHEMA,
-        )
-
-    if not hass.services.has_service(
-        DOMAIN,
-        SERVICE_ADD_PUPPY,
-    ):
-        hass.services.async_register(
-            DOMAIN,
+            CREATE_LITTER_SCHEMA,
+        ),
+        (
             SERVICE_ADD_PUPPY,
             handle_add_puppy,
-            schema=ADD_PUPPY_SCHEMA,
-        )
-
-    if not hass.services.has_service(
-        DOMAIN,
-        SERVICE_RECORD_WEIGHT,
-    ):
-        hass.services.async_register(
-            DOMAIN,
+            ADD_PUPPY_SCHEMA,
+        ),
+        (
             SERVICE_RECORD_WEIGHT,
             handle_record_weight,
-            schema=RECORD_WEIGHT_SCHEMA,
+            RECORD_WEIGHT_SCHEMA,
+        ),
+    ):
+        if hass.services.has_service(
+            DOMAIN,
+            service,
+        ):
+            continue
+
+        hass.services.async_register(
+            DOMAIN,
+            service,
+            handler,
+            schema=schema,
         )
 
     return True
@@ -437,11 +445,7 @@ async def async_unload_entry(
 
     async_unload_frontend(hass)
 
-    for service in (
-        SERVICE_CREATE_LITTER,
-        SERVICE_ADD_PUPPY,
-        SERVICE_RECORD_WEIGHT,
-    ):
+    for service in SERVICES:
         if hass.services.has_service(
             DOMAIN,
             service,

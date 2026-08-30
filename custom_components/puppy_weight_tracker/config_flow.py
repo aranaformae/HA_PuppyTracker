@@ -65,11 +65,6 @@ class PuppyWeightTrackerConfigFlow(
     ) -> ConfigFlowResult:
         """Handle initial setup."""
 
-        if self._async_current_entries():
-            return self.async_abort(
-                reason="already_configured"
-            )
-
         if user_input is not None:
             return self.async_create_entry(
                 title="Puppy Weight Tracker",
@@ -483,6 +478,7 @@ class PuppyWeightTrackerOptionsFlow(
 
                 async_remove_litter_device(
                     self.hass,
+                    self.config_entry,
                     self._selected_litter_id,
                     puppy_ids,
                 )
@@ -1078,6 +1074,7 @@ class PuppyWeightTrackerOptionsFlow(
 
                 async_remove_puppy_device(
                     self.hass,
+                    self.config_entry,
                     self._selected_puppy_id,
                 )
 
