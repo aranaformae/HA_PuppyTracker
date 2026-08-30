@@ -15,13 +15,23 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Read manifest version
         id: manifest
         shell: bash
         run: |
-          VERSION=$(jq -r '.version' custom_components/puppy_weight_tracker/manifest.json)
+          set -euo pipefail
+
+          MANIFEST="custom_components/puppy_weight_tracker/manifest.json"
+
+          if [ ! -f "$MANIFEST" ]; then
+            echo "❌ manifest.json not found:"
+            echo "$MANIFEST"
+            exit 1
+          fi
+
+          VERSION=$(jq -er '.version' "$MANIFEST")
 
           if [ -z "$VERSION" ] || [ "$VERSION" = "null" ]; then
             echo "❌ No version found in manifest.json"
@@ -29,27 +39,45 @@ jobs:
           fi
 
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Manifest version: $VERSION"
+
+          echo "✅ Manifest version found: $VERSION"
 
       - name: Validate tag
         shell: bash
         run: |
+          set -euo pipefail
+
           TAG="${GITHUB_REF_NAME}"
           VERSION="${{ steps.manifest.outputs.version }}"
 
+          # Accept:
+          # 0.9.5
+          # v0.9.5
+          # V0.9.5
+          NORMALIZED_TAG="${TAG#[vV]}"
+
           echo "Git tag:          $TAG"
+          echo "Normalized tag:   $NORMALIZED_TAG"
           echo "Manifest version: $VERSION"
 
-          if [ "$TAG" != "$VERSION" ]; then
+          if [ "$NORMALIZED_TAG" != "$VERSION" ]; then
             echo ""
             echo "❌ Version mismatch!"
-            echo "Tag:      $TAG"
-            echo "Manifest: $VERSION"
+            echo "Tag:        $TAG"
+            echo "Normalized: $NORMALIZED_TAG"
+            echo "Manifest:   $VERSION"
             echo ""
-            echo "Update manifest.json or use the correct tag."
+            echo "The Git tag must match the version in:"
+            echo "custom_components/puppy_weight_tracker/manifest.json"
+            echo ""
+            echo "Accepted examples for version $VERSION:"
+            echo "  $VERSION"
+            echo "  v$VERSION"
+            echo "  V$VERSION"
             exit 1
           fi
 
+          echo ""
           echo "✅ Tag matches manifest version."
 
       - name: Create GitHub Release
