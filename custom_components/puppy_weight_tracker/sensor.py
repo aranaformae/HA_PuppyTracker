@@ -49,6 +49,8 @@ from .session import (
 )
 from .storage import PuppyWeightStorage
 
+from .time_utils import parse_timestamp
+
 
 TIME_REFRESH_INTERVAL = timedelta(
     minutes=30
@@ -802,19 +804,7 @@ class PuppyBaseSensor(
         if puppy is None:
             return None
 
-        timestamp = puppy.get("birth_time")
-        if not timestamp:
-            return None
-
-        try:
-            result = datetime.fromisoformat(timestamp)
-        except (TypeError, ValueError):
-            return None
-
-        if result.tzinfo is None:
-            result = result.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)
-
-        return result
+        return parse_timestamp(puppy.get("birth_time"))
 
     def _daily_growth_data(
         self,
@@ -1913,7 +1903,7 @@ class LitterLastCompletedSessionSensor(LitterBaseSensor):
         session = litter.get("last_completed_session")
         if not isinstance(session, dict):
             return None
-        return PuppyBaseSensor._parse_timestamp(session.get("completed_at"))
+        return parse_timestamp(session.get("completed_at"))
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:

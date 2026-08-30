@@ -9,6 +9,7 @@ from homeassistant.core import HomeAssistant
 
 from .const import STORAGE_VERSION, VERSION
 from .frontend import FRONTEND_VERSION
+from .measurements import measurement_status
 from .runtime import PuppyWeightTrackerRuntimeData
 from .storage import PuppyWeightStorage
 
@@ -47,9 +48,10 @@ def _storage_counts(data: dict[str, Any]) -> dict[str, int]:
                 if not isinstance(measurement, dict):
                     continue
                 measurement_versions += 1
-                if measurement.get("deleted", False):
+                status = measurement_status(measurement)
+                if status == "deleted":
                     deleted_measurements += 1
-                elif measurement.get("superseded_by") is not None:
+                elif status == "superseded":
                     superseded_measurements += 1
                 else:
                     active_measurements += 1

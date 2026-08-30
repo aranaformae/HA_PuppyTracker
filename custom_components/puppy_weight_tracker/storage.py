@@ -11,7 +11,8 @@ from uuid import uuid4
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 from .integrity import inspect_and_repair_data
-from .time_utils import normalize_timestamp, timestamp_sort_key
+from .measurements import is_active_measurement, sorted_measurements
+from .time_utils import normalize_timestamp
 
 from .const import (
     DEFAULT_GROWTH_MONITORING_DAYS,
@@ -518,19 +519,12 @@ class PuppyWeightStorage:
         if not candidates:
             return None
 
-        active = [
-            item
-            for item in candidates
-            if not item.get("deleted", False) and item.get("superseded_by") is None
-        ]
+        active = sorted_measurements(
+            candidates,
+            active_only=True,
+            newest_first=True,
+        )
         if active:
-            active.sort(
-                key=lambda item: (
-                    timestamp_sort_key(item.get("timestamp")),
-                    item.get("created_at") or "",
-                ),
-                reverse=True,
-            )
             return active[0]
 
         chosen = candidates[0]
@@ -544,7 +538,7 @@ class PuppyWeightStorage:
     ) -> dict[str, Any] | None:
         """Find an existing measurement that exactly matches birth profile data."""
         for measurement in puppy.get("measurements", []):
-            if measurement.get("deleted", False) or measurement.get("superseded_by") is not None:
+            if not is_active_measurement(measurement):
                 continue
             try:
                 same_weight = float(measurement.get("weight")) == float(birth_weight)
@@ -1677,21 +1671,13 @@ class PuppyWeightStorage:
     ) -> list[dict[str, Any]]:
         """Return measurements sorted from newest to oldest."""
         puppy = self._require_puppy(litter_id, puppy_id)
-        measurements = list(puppy.get("measurements", []))
-        if not include_inactive:
-            measurements = [
-                item
-                for item in measurements
-                if not item.get("deleted", False) and item.get("superseded_by") is None
-            ]
-        measurements.sort(
-            key=lambda item: (
-                timestamp_sort_key(item.get("timestamp")),
-                item.get("created_at") or "",
-            ),
-            reverse=True,
+        measurements = sorted_measurements(
+            puppy.get("measurements", []),
+            active_only=not include_inactive,
+            newest_first=True,
+            copy_items=True,
         )
-        return deepcopy(measurements)
+        return measurements
 
     def get_active_measurements(
         self,
@@ -1700,19 +1686,11 @@ class PuppyWeightStorage:
     ) -> list[dict[str, Any]]:
         """Return currently valid measurements."""
         puppy = self._require_puppy(litter_id, puppy_id)
-        measurements = [
-            measurement
-            for measurement in puppy.get("measurements", [])
-            if not measurement.get("deleted", False)
-            and measurement.get("superseded_by") is None
-        ]
-        measurements.sort(
-            key=lambda item: (
-                timestamp_sort_key(item.get("timestamp")),
-                timestamp_sort_key(item.get("created_at")),
-            )
+        return sorted_measurements(
+            puppy.get("measurements", []),
+            active_only=True,
+            copy_items=True,
         )
-        return deepcopy(measurements)
 
     def _require_litter(
         self,

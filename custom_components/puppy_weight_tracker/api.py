@@ -17,6 +17,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect, async_dis
 from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN, SIGNAL_DASHBOARD_UPDATE, SIGNAL_UPDATE
+from .measurements import measurement_status, puppy_measurements
 from .metrics import calculate_puppy_metrics
 from .pdf_export import build_pdf_export
 from .runtime import PuppyWeightTrackerRuntimeData
@@ -41,45 +42,6 @@ def _runtime_storage(hass: HomeAssistant) -> PuppyWeightStorage | None:
     """Return the storage instance for the configured integration entry."""
     runtime = _runtime_data(hass)
     return runtime.storage if runtime is not None else None
-
-
-def _active_measurements(puppy: dict[str, Any]) -> list[dict[str, Any]]:
-    """Return effective measurements sorted chronologically."""
-    measurements = [
-        deepcopy(measurement)
-        for measurement in puppy.get("measurements", [])
-        if not measurement.get("deleted", False)
-        and measurement.get("superseded_by") is None
-    ]
-    measurements.sort(
-        key=lambda item: (
-            timestamp_sort_key(item.get("timestamp")),
-            item.get("created_at") or "",
-        )
-    )
-    return measurements
-
-
-def _all_measurements(puppy: dict[str, Any]) -> list[dict[str, Any]]:
-    """Return all measurement versions, newest first, including deleted data."""
-    measurements = [deepcopy(item) for item in puppy.get("measurements", [])]
-    measurements.sort(
-        key=lambda item: (
-            timestamp_sort_key(item.get("timestamp")),
-            item.get("created_at") or "",
-        ),
-        reverse=True,
-    )
-    return measurements
-
-
-def _measurement_status(measurement: dict[str, Any]) -> str:
-    """Return a compact status for a stored measurement version."""
-    if measurement.get("deleted", False):
-        return "deleted"
-    if measurement.get("superseded_by") is not None:
-        return "superseded"
-    return "active"
 
 
 def _puppy_summary(
@@ -232,7 +194,7 @@ def _litter_payload(
                 "created_at": puppy.get("created_at"),
                 "updated_at": puppy.get("updated_at"),
                 "summary": summary,
-                "measurements": _active_measurements(puppy),
+                "measurements": puppy_measurements(puppy, active_only=True, copy_items=True),
             }
         )
 
@@ -281,9 +243,9 @@ def _puppy_measurements_payload(
     if puppy is None:
         raise ValueError("Unknown puppy")
 
-    measurements = _all_measurements(puppy)
+    measurements = puppy_measurements(puppy, newest_first=True, copy_items=True)
     for measurement in measurements:
-        measurement["status"] = _measurement_status(measurement)
+        measurement["status"] = measurement_status(measurement)
         measurement["is_birth_measurement"] = (
             measurement.get("id") == puppy.get("birth_measurement_id")
             or measurement.get("kind") == "birth"
@@ -371,7 +333,7 @@ def _csv_export(
     for current_puppy_id, puppy in litter.get("puppies", {}).items():
         if puppy_id is not None and current_puppy_id != puppy_id:
             continue
-        for measurement in _active_measurements(puppy):
+        for measurement in puppy_measurements(puppy, active_only=True, copy_items=True):
             if cutoff is not None and timestamp_sort_key(measurement.get("timestamp")) < cutoff:
                 continue
             rows.append((current_puppy_id, puppy, measurement))

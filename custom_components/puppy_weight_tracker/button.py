@@ -32,6 +32,7 @@ from .session import (
     reset_weighing_session,
     start_weighing_session,
 )
+from .time_utils import parse_timestamp, timestamp_sort_key
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -229,31 +230,6 @@ class PuppySaveWeightButton(
         "puppy_weight_tracker_save_weight"
     )
 
-    @staticmethod
-    def _parse_datetime(
-        value: str | None,
-    ) -> datetime | None:
-        """Parse stored ISO timestamp."""
-
-        if not value:
-            return None
-
-        try:
-            result = datetime.fromisoformat(
-                value
-            )
-        except ValueError:
-            return None
-
-        if result.tzinfo is None:
-            result = result.replace(
-                tzinfo=(
-                    dt_util.DEFAULT_TIME_ZONE
-                )
-            )
-
-        return result
-
     def _has_recent_dashboard_measurement(
         self,
         litter_id: str,
@@ -276,12 +252,7 @@ class PuppySaveWeightButton(
 
         latest = max(
             measurements,
-            key=lambda item: (
-                item.get(
-                    "created_at",
-                    "",
-                )
-            ),
+            key=lambda item: timestamp_sort_key(item.get("created_at")),
         )
 
         if (
@@ -291,7 +262,7 @@ class PuppySaveWeightButton(
             return False
 
         created_at = (
-            self._parse_datetime(
+            parse_timestamp(
                 latest.get(
                     "created_at"
                 )
@@ -334,7 +305,7 @@ class PuppySaveWeightButton(
             return False
 
         expires_at = (
-            self._parse_datetime(
+            parse_timestamp(
                 pending.get(
                     "expires_at"
                 )

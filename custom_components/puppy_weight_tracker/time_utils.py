@@ -50,6 +50,28 @@ def timestamp_sort_key(value: str | None) -> float:
         return float("-inf")
     return parsed.timestamp()
 
+
+def local_datetime(value: str | None) -> datetime | None:
+    """Return a stored timestamp converted to Home Assistant local time."""
+    parsed = parse_timestamp(value)
+    if parsed is None:
+        return None
+    return dt_util.as_local(parsed)
+
+
+def format_local_timestamp(
+    value: str | None,
+    fmt: str = "%d-%m-%Y %H:%M",
+    *,
+    fallback: str = "—",
+) -> str:
+    """Format a stored timestamp in Home Assistant local time."""
+    parsed = local_datetime(value)
+    if parsed is None:
+        return fallback
+    return parsed.strftime(fmt)
+
+
 def selector_datetime_value(value: str | None) -> str | None:
     """Format a timestamp for Home Assistant's datetime selector.
 
@@ -58,11 +80,11 @@ def selector_datetime_value(value: str | None) -> str | None:
     timezone-aware UTC ISO strings, so passing them directly causes the
     selector to split the value incorrectly.
     """
-    parsed = parse_timestamp(value)
+    parsed = local_datetime(value)
     if parsed is None:
         return None
 
-    return dt_util.as_local(parsed).strftime("%Y-%m-%d %H:%M:%S")
+    return parsed.strftime("%Y-%m-%d %H:%M:%S")
 
 
 def current_selector_datetime() -> str:

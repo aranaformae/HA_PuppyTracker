@@ -11,9 +11,10 @@ from typing import Any
 
 from homeassistant.util import dt as dt_util
 
+from .measurements import puppy_measurements
 from .metrics import calculate_puppy_metrics
 from .storage import PuppyWeightStorage
-from .time_utils import timestamp_sort_key
+from .time_utils import format_local_timestamp, timestamp_sort_key
 
 PAGE_WIDTH = 595.28
 PAGE_HEIGHT = 841.89
@@ -27,39 +28,25 @@ def _safe_filename(value: str | None) -> str:
     return text.strip("-") or "nest"
 
 
-def _active_measurements(puppy: dict[str, Any], range_hours: float | None = None) -> list[dict[str, Any]]:
-    cutoff = None
-    if range_hours is not None and range_hours > 0:
-        cutoff = dt_util.now().timestamp() - float(range_hours) * 3600
-    rows = [
+def _active_measurements(
+    puppy: dict[str, Any],
+    range_hours: float | None = None,
+) -> list[dict[str, Any]]:
+    """Return effective measurements in canonical chronological order."""
+    rows = puppy_measurements(puppy, active_only=True)
+    if range_hours is None or range_hours <= 0:
+        return rows
+
+    cutoff = dt_util.now().timestamp() - float(range_hours) * 3600
+    return [
         measurement
-        for measurement in puppy.get("measurements", [])
-        if not measurement.get("deleted", False)
-        and measurement.get("superseded_by") is None
-        and (cutoff is None or timestamp_sort_key(measurement.get("timestamp")) >= cutoff)
+        for measurement in rows
+        if timestamp_sort_key(measurement.get("timestamp")) >= cutoff
     ]
-    return sorted(
-        rows,
-        key=lambda item: (
-            timestamp_sort_key(item.get("timestamp")),
-            item.get("created_at") or "",
-        ),
-    )
 
 
 def _format_local_datetime(value: str | None) -> str:
-    if not value:
-        return "—"
-    try:
-        parsed = dt_util.parse_datetime(value)
-        if parsed is None:
-            return "—"
-        if parsed.tzinfo is None:
-            parsed = parsed.replace(tzinfo=dt_util.UTC)
-        local = dt_util.as_local(parsed)
-        return local.strftime("%d-%m-%Y %H:%M")
-    except (TypeError, ValueError):
-        return "—"
+    return format_local_timestamp(value)
 
 
 def _format_weight(value: Any) -> str:

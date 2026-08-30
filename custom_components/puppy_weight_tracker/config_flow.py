@@ -39,9 +39,14 @@ from .devices import (
     async_remove_puppy_device,
     async_sync_devices,
 )
+from .measurements import measurement_status
 from .runtime import PuppyWeightTrackerRuntimeData
 from .storage import PuppyWeightStorage
-from .time_utils import current_selector_datetime, selector_datetime_value
+from .time_utils import (
+    current_selector_datetime,
+    format_local_timestamp,
+    selector_datetime_value,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -1155,12 +1160,10 @@ class PuppyWeightTrackerOptionsFlow(
     def _measurement_option_label(measurement: dict[str, Any]) -> str:
         """Create a compact human-readable measurement label."""
         timestamp = measurement.get("timestamp") or ""
-        display_time = timestamp
-        parsed = dt_util.parse_datetime(timestamp) if timestamp else None
-        if parsed is not None:
-            if parsed.tzinfo is None:
-                parsed = parsed.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)
-            display_time = dt_util.as_local(parsed).strftime("%d-%m-%Y %H:%M")
+        display_time = format_local_timestamp(
+            timestamp,
+            fallback=timestamp,
+        )
 
         weight = measurement.get("weight")
         try:
@@ -1171,9 +1174,10 @@ class PuppyWeightTrackerOptionsFlow(
         note = measurement.get("note")
         note_text = f" · {note}" if note else ""
 
-        if measurement.get("deleted", False):
+        status_code = measurement_status(measurement)
+        if status_code == "deleted":
             status = " · 🗑"
-        elif measurement.get("superseded_by") is not None:
+        elif status_code == "superseded":
             status = " · ↪"
         else:
             status = ""

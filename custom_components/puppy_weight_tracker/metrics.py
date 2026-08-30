@@ -15,8 +15,9 @@ from .const import (
     FIRST_DAY_MAX_WEIGHT_LOSS_PERCENT,
     MIN_GROWTH_SAMPLE_HOURS,
 )
+from .measurements import measurement_datetime
 from .storage import PuppyWeightStorage
-from .time_utils import timestamp_sort_key
+from .time_utils import parse_timestamp
 
 
 def finite_number(value: Any) -> float | None:
@@ -42,30 +43,9 @@ def active_measurements(
         return []
 
     try:
-        measurements = storage.get_active_measurements(litter_id, puppy_id)
+        return storage.get_active_measurements(litter_id, puppy_id)
     except ValueError:
         return []
-
-    return sorted(
-        measurements,
-        key=lambda measurement: timestamp_sort_key(measurement.get("timestamp")),
-    )
-
-
-def _parse_metric_timestamp(timestamp: str | None) -> datetime | None:
-    """Parse a measurement timestamp while preserving its represented instant."""
-    if not timestamp:
-        return None
-
-    try:
-        result = datetime.fromisoformat(timestamp)
-    except (TypeError, ValueError):
-        return None
-
-    if result.tzinfo is None:
-        result = result.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)
-
-    return result
 
 
 def measurement_series(
@@ -77,7 +57,7 @@ def measurement_series(
     result: list[tuple[datetime, dict[str, Any]]] = []
 
     for measurement in active_measurements(storage, litter_id, puppy_id):
-        measured_at = _parse_metric_timestamp(measurement.get("timestamp"))
+        measured_at = measurement_datetime(measurement)
         if measured_at is None:
             continue
         result.append((measured_at, measurement))
@@ -95,7 +75,7 @@ def birth_datetime(
     puppy = storage.get_puppy(litter_id, puppy_id)
     if puppy is None:
         return None
-    return _parse_metric_timestamp(puppy.get("birth_time"))
+    return parse_timestamp(puppy.get("birth_time"))
 
 
 def current_weight(
