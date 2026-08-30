@@ -694,13 +694,6 @@ class PuppyWeightOverviewCard extends HTMLElement {
     return Number.isFinite(date.getTime()) ? date.toISOString() : null;
   }
 
-  _measurementById(measurementId) {
-    const items = Array.isArray(this._measurementData?.measurements)
-      ? this._measurementData.measurements
-      : [];
-    return items.find((item) => item?.id === measurementId) || null;
-  }
-
   async _saveMeasurementEdit(measurementId) {
     const litterId = this._selectedLitterStorageId();
     const puppyId = this._selectedPuppyId;

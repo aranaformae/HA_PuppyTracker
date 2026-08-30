@@ -45,9 +45,6 @@ export function downloadExportFile(result) {
   window.setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
-// Backwards-compatible alias for older cards.
-export const downloadTextFile = downloadExportFile;
-
 export function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
