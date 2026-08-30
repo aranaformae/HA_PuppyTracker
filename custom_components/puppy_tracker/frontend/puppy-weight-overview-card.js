@@ -270,7 +270,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
       (item) =>
         Array.isArray(item) &&
         item.length >= 2 &&
-        item[0] === "puppy_weight_tracker" &&
+        item[0] === "puppy_tracker" &&
         item[1] === identifier
     );
   }
@@ -280,7 +280,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
       (item) =>
         Array.isArray(item) &&
         item.length >= 2 &&
-        item[0] === "puppy_weight_tracker" &&
+        item[0] === "puppy_tracker" &&
         String(item[1]).startsWith(prefix)
     );
 
@@ -326,11 +326,11 @@ class PuppyWeightOverviewCard extends HTMLElement {
       device,
       litter: this._entityForDevice(
         device.id,
-        "puppy_weight_tracker_litter_select"
+        "puppy_tracker_litter_select"
       ),
       puppy: this._entityForDevice(
         device.id,
-        "puppy_weight_tracker_puppy_select"
+        "puppy_tracker_puppy_select"
       ),
     };
   }
@@ -552,7 +552,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
           this._scheduleHistoryReload();
           this._scheduleMeasurementReload();
         },
-        { type: "puppy_weight_tracker/subscribe" }
+        { type: "puppy_tracker/subscribe" }
       );
     } catch (err) {
       console.warn("Puppy Weight Overview card: update subscription failed", err);
@@ -583,7 +583,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
 
     try {
       const result = await this._hass.callWS({
-        type: "puppy_weight_tracker/data",
+        type: "puppy_tracker/data",
         litter_id: litterId,
       });
 
@@ -638,7 +638,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
 
     try {
       const result = await this._hass.callWS({
-        type: "puppy_weight_tracker/measurements",
+        type: "puppy_tracker/measurements",
         litter_id: litterId,
         puppy_id: puppyId,
       });
@@ -730,7 +730,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
 
     try {
       const request = {
-        type: "puppy_weight_tracker/measurement/correct",
+        type: "puppy_tracker/measurement/correct",
         litter_id: litterId,
         puppy_id: puppyId,
         measurement_id: measurementId,
@@ -773,7 +773,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
 
     try {
       const result = await this._hass.callWS({
-        type: "puppy_weight_tracker/measurement/delete",
+        type: "puppy_tracker/measurement/delete",
         litter_id: litterId,
         puppy_id: puppyId,
         measurement_id: measurementId,
@@ -808,7 +808,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
 
     try {
       const result = await this._hass.callWS({
-        type: "puppy_weight_tracker/measurement/restore",
+        type: "puppy_tracker/measurement/restore",
         litter_id: litterId,
         puppy_id: puppyId,
         measurement_id: measurementId,
@@ -1526,7 +1526,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
 
     try {
       const result = await this._hass.callWS({
-        type: "puppy_weight_tracker/export",
+        type: "puppy_tracker/export",
         litter_id: litterId,
         format,
       });

@@ -192,7 +192,7 @@ class PuppyWeightTrackerCard extends HTMLElement {
       (item) =>
         Array.isArray(item) &&
         item.length >= 2 &&
-        item[0] === "puppy_weight_tracker" &&
+        item[0] === "puppy_tracker" &&
         item[1] === identifier
     );
   }
@@ -202,7 +202,7 @@ class PuppyWeightTrackerCard extends HTMLElement {
       (item) =>
         Array.isArray(item) &&
         item.length >= 2 &&
-        item[0] === "puppy_weight_tracker" &&
+        item[0] === "puppy_tracker" &&
         String(item[1]).startsWith(prefix)
     );
 
@@ -227,18 +227,18 @@ class PuppyWeightTrackerCard extends HTMLElement {
     // predates the current unique-id naming. This also makes the card more
     // tolerant of upgrades and user-renamed entity IDs.
     const fallbacks = {
-      puppy_weight_tracker_litter_select: ["select", ["nest"]],
-      puppy_weight_tracker_puppy_select: ["select", ["puppy"]],
-      puppy_weight_tracker_weight_input: ["number", ["gewicht", "invoer"]],
-      puppy_weight_tracker_start_session: ["button", ["weegsessie", "start"]],
-      puppy_weight_tracker_save_weight: ["button", ["gewicht", "opslaan"]],
-      puppy_weight_tracker_reset_session: ["button", ["weegsessie", "reset"]],
-      puppy_weight_tracker_session_status: ["sensor", ["sessie"]],
-      puppy_weight_tracker_session_progress: ["sensor", ["voortgang"]],
-      puppy_weight_tracker_session_remaining: ["sensor", ["nog", "wegen"]],
-      puppy_weight_tracker_session_next_puppy: ["sensor", ["volgende", "pup"]],
-      puppy_weight_tracker_session_last_puppy: ["sensor", ["laatst", "gewogen"]],
-      puppy_weight_tracker_session_message: ["sensor", ["melding"]],
+      puppy_tracker_litter_select: ["select", ["nest"]],
+      puppy_tracker_puppy_select: ["select", ["puppy"]],
+      puppy_tracker_weight_input: ["number", ["gewicht", "invoer"]],
+      puppy_tracker_start_session: ["button", ["weegsessie", "start"]],
+      puppy_tracker_save_weight: ["button", ["gewicht", "opslaan"]],
+      puppy_tracker_reset_session: ["button", ["weegsessie", "reset"]],
+      puppy_tracker_session_status: ["sensor", ["sessie"]],
+      puppy_tracker_session_progress: ["sensor", ["voortgang"]],
+      puppy_tracker_session_remaining: ["sensor", ["nog", "wegen"]],
+      puppy_tracker_session_next_puppy: ["sensor", ["volgende", "pup"]],
+      puppy_tracker_session_last_puppy: ["sensor", ["laatst", "gewogen"]],
+      puppy_tracker_session_message: ["sensor", ["melding"]],
     };
 
     const fallback = fallbacks[uniqueId];
@@ -287,7 +287,7 @@ class PuppyWeightTrackerCard extends HTMLElement {
         friendly.includes("weegstation") ||
         friendly.includes("puppy") ||
         id.includes("puppy_weegstation") ||
-        id.includes("puppy_weight_tracker")
+        id.includes("puppy_tracker")
       );
     });
 
@@ -317,51 +317,51 @@ class PuppyWeightTrackerCard extends HTMLElement {
     const ids = {
       litter: this._entityForDevice(
         device.id,
-        "puppy_weight_tracker_litter_select"
+        "puppy_tracker_litter_select"
       ),
       puppy: this._entityForDevice(
         device.id,
-        "puppy_weight_tracker_puppy_select"
+        "puppy_tracker_puppy_select"
       ),
       weight: this._entityForDevice(
         device.id,
-        "puppy_weight_tracker_weight_input"
+        "puppy_tracker_weight_input"
       ),
       start: this._entityForDevice(
         device.id,
-        "puppy_weight_tracker_start_session"
+        "puppy_tracker_start_session"
       ),
       save: this._entityForDevice(
         device.id,
-        "puppy_weight_tracker_save_weight"
+        "puppy_tracker_save_weight"
       ),
       reset: this._entityForDevice(
         device.id,
-        "puppy_weight_tracker_reset_session"
+        "puppy_tracker_reset_session"
       ),
       session: this._entityForDevice(
         device.id,
-        "puppy_weight_tracker_session_status"
+        "puppy_tracker_session_status"
       ),
       progress: this._entityForDevice(
         device.id,
-        "puppy_weight_tracker_session_progress"
+        "puppy_tracker_session_progress"
       ),
       remaining: this._entityForDevice(
         device.id,
-        "puppy_weight_tracker_session_remaining"
+        "puppy_tracker_session_remaining"
       ),
       next: this._entityForDevice(
         device.id,
-        "puppy_weight_tracker_session_next_puppy"
+        "puppy_tracker_session_next_puppy"
       ),
       last: this._entityForDevice(
         device.id,
-        "puppy_weight_tracker_session_last_puppy"
+        "puppy_tracker_session_last_puppy"
       ),
       message: this._entityForDevice(
         device.id,
-        "puppy_weight_tracker_session_message"
+        "puppy_tracker_session_message"
       ),
     };
 

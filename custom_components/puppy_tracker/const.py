@@ -1,9 +1,9 @@
 """Constants for Puppy Weight Tracker."""
 
-DOMAIN = "puppy_weight_tracker"
+DOMAIN = "puppy_tracker"
 VERSION = "0.9.7"
 
-STORAGE_KEY = "puppy_weight_tracker"
+STORAGE_KEY = "puppy_tracker"
 STORAGE_VERSION = 1
 
 # Monitoring defaults.

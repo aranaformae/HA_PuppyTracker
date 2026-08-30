@@ -4,7 +4,7 @@ This directory contains the regression test suite for the **Puppy Weight Tracker
 
 The suite is intended to protect the parts of the integration where a regression could silently change stored puppy data, monitoring results, correction history, exports, or timezone handling.
 
-> The tests use an in-memory Puppy Weight Tracker storage instance. They do **not** read from or write to the `.storage/puppy_weight_tracker` data of a real Home Assistant installation.
+> The tests use an in-memory Puppy Weight Tracker storage instance. They do **not** read from or write to the `.storage/puppy_tracker` data of a real Home Assistant installation.
 
 ## What is tested
 
@@ -256,7 +256,7 @@ python -m pip install -r requirements_test.txt
 
 ### Custom integration cannot be imported
 
-Run pytest from the repository root so `custom_components/puppy_weight_tracker` is available at the expected path.
+Run pytest from the repository root so `custom_components/puppy_tracker` is available at the expected path.
 
 ### Async fixture or event-loop errors
 

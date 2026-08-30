@@ -53,7 +53,7 @@ class PuppyWeightInput(
     _attr_name = "Gewicht invoeren"
     _attr_icon = "mdi:scale"
     _attr_unique_id = (
-        "puppy_weight_tracker_weight_input"
+        "puppy_tracker_weight_input"
     )
 
     _attr_native_min_value = 0

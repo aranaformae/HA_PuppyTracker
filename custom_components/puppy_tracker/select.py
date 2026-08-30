@@ -145,7 +145,7 @@ class PuppyLitterSelect(
     _attr_name = "Nest"
     _attr_icon = "mdi:dog-side"
     _attr_unique_id = (
-        "puppy_weight_tracker_litter_select"
+        "puppy_tracker_litter_select"
     )
 
     def _available_litters(
@@ -297,7 +297,7 @@ class PuppySelect(
     _attr_name = "Puppy"
     _attr_icon = "mdi:dog"
     _attr_unique_id = (
-        "puppy_weight_tracker_puppy_select"
+        "puppy_tracker_puppy_select"
     )
 
     def _available_puppies(

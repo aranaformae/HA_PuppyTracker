@@ -8,7 +8,7 @@ import io
 import json
 from datetime import datetime, timezone
 
-from custom_components.puppy_weight_tracker import api, pdf_export
+from custom_components.puppy_tracker import api, pdf_export
 
 
 NOW = datetime(2026, 8, 30, 12, 0, tzinfo=timezone.utc)

@@ -424,7 +424,7 @@ class WeighingSessionStatusSensor(
     _attr_name = "Sessie"
     _attr_icon = "mdi:clipboard-check-outline"
     _attr_unique_id = (
-        "puppy_weight_tracker_session_status"
+        "puppy_tracker_session_status"
     )
 
     @property
@@ -481,7 +481,7 @@ class WeighingSessionProgressSensor(
     _attr_name = "Voortgang"
     _attr_icon = "mdi:progress-check"
     _attr_unique_id = (
-        "puppy_weight_tracker_session_progress"
+        "puppy_tracker_session_progress"
     )
 
     @property
@@ -552,7 +552,7 @@ class WeighingSessionRemainingSensor(
     _attr_name = "Nog te wegen"
     _attr_icon = "mdi:format-list-checks"
     _attr_unique_id = (
-        "puppy_weight_tracker_session_remaining"
+        "puppy_tracker_session_remaining"
     )
 
     @property
@@ -605,7 +605,7 @@ class WeighingSessionNextPuppySensor(
     _attr_name = "Volgende pup"
     _attr_icon = "mdi:arrow-right-circle-outline"
     _attr_unique_id = (
-        "puppy_weight_tracker_session_next_puppy"
+        "puppy_tracker_session_next_puppy"
     )
 
     @property
@@ -637,7 +637,7 @@ class WeighingSessionLastPuppySensor(
     _attr_name = "Laatst gewogen pup"
     _attr_icon = "mdi:dog"
     _attr_unique_id = (
-        "puppy_weight_tracker_session_last_puppy"
+        "puppy_tracker_session_last_puppy"
     )
 
     @property
@@ -684,7 +684,7 @@ class WeighingSessionMessageSensor(
     _attr_name = "Melding"
     _attr_icon = "mdi:message-text-outline"
     _attr_unique_id = (
-        "puppy_weight_tracker_session_message"
+        "puppy_tracker_session_message"
     )
 
     @property

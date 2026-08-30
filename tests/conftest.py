@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from custom_components.puppy_weight_tracker.storage import PuppyWeightStorage, _empty_data
+from custom_components.puppy_tracker.storage import PuppyWeightStorage, _empty_data
 
 
 @pytest.fixture(autouse=True)

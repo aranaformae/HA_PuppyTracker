@@ -128,7 +128,7 @@ class PuppyStartSessionButton(
     _attr_name = "Weegsessie starten"
     _attr_icon = "mdi:play-circle"
     _attr_unique_id = (
-        "puppy_weight_tracker_start_session"
+        "puppy_tracker_start_session"
     )
 
     async def async_press(
@@ -227,7 +227,7 @@ class PuppySaveWeightButton(
     _attr_name = "Gewicht opslaan"
     _attr_icon = "mdi:content-save"
     _attr_unique_id = (
-        "puppy_weight_tracker_save_weight"
+        "puppy_tracker_save_weight"
     )
 
     def _has_recent_dashboard_measurement(
@@ -518,7 +518,7 @@ class PuppyResetSessionButton(
     _attr_name = "Weegsessie resetten"
     _attr_icon = "mdi:restart"
     _attr_unique_id = (
-        "puppy_weight_tracker_reset_session"
+        "puppy_tracker_reset_session"
     )
 
     async def async_press(

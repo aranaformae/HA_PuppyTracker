@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 
-from custom_components.puppy_weight_tracker.integrity import inspect_and_repair_data
+from custom_components.puppy_tracker.integrity import inspect_and_repair_data
 
 
 def _data(measurements: list[dict], *, puppy_overrides: dict | None = None) -> dict:

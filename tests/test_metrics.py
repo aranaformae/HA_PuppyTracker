@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from custom_components.puppy_weight_tracker import metrics
+from custom_components.puppy_tracker import metrics
 
 
 NOW = datetime(2026, 8, 30, 12, 0, tzinfo=timezone.utc)

@@ -121,7 +121,7 @@ async def test_weight_only_correction_preserves_original_seconds(
     make_measurement,
 ) -> None:
     """Changing only weight must not round the measurement time to a minute."""
-    from custom_components.puppy_weight_tracker.metrics import (
+    from custom_components.puppy_tracker.metrics import (
         current_weight,
         previous_weight,
         weight_change,
@@ -167,7 +167,7 @@ async def test_weight_only_correction_keeps_order_for_equal_measurement_times(
     make_measurement,
 ) -> None:
     """Created-at remains the deterministic order when measurement times match."""
-    from custom_components.puppy_weight_tracker.metrics import (
+    from custom_components.puppy_tracker.metrics import (
         current_weight,
         previous_weight,
     )

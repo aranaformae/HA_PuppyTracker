@@ -1,4 +1,4 @@
-export const DOMAIN = "puppy_weight_tracker";
+export const DOMAIN = "puppy_tracker";
 
 export async function fetchLitters(hass) {
   return hass.callWS({ type: `${DOMAIN}/litters` });

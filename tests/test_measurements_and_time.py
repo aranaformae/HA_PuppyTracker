@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from custom_components.puppy_weight_tracker.measurements import (
+from custom_components.puppy_tracker.measurements import (
     is_active_measurement,
     measurement_status,
     sorted_measurements,
 )
-from custom_components.puppy_weight_tracker.time_utils import (
+from custom_components.puppy_tracker.time_utils import (
     normalize_timestamp,
     parse_timestamp,
     timestamp_sort_key,
