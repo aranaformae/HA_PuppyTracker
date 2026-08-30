@@ -686,7 +686,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
     const pad = (number) => String(number).padStart(2, "0");
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
       date.getHours()
-    )}:${pad(date.getMinutes())}`;
+    )}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
   }
 
   _dateTimeLocalToIso(value) {
@@ -701,7 +701,16 @@ class PuppyWeightOverviewCard extends HTMLElement {
     const timeInput = this.shadowRoot?.querySelector("#measurement-edit-time");
     const reasonInput = this.shadowRoot?.querySelector("#measurement-edit-reason");
     const weight = Number(weightInput?.value);
-    const timestamp = this._dateTimeLocalToIso(timeInput?.value);
+    const editedLocalTimestamp = String(timeInput?.value || "");
+    const originalMeasurement = Array.isArray(this._measurementData?.measurements)
+      ? this._measurementData.measurements.find((item) => item?.id === measurementId)
+      : null;
+    const originalLocalTimestamp = this._dateTimeLocalValue(originalMeasurement?.timestamp);
+    const editedTimestamp = this._dateTimeLocalToIso(editedLocalTimestamp);
+    const originalDisplayedTimestamp = this._dateTimeLocalToIso(originalLocalTimestamp);
+    const timestampChanged =
+      !originalMeasurement || editedTimestamp !== originalDisplayedTimestamp;
+    const timestamp = timestampChanged ? editedTimestamp : null;
 
     if (!litterId || !puppyId || !measurementId) return;
     if (!Number.isFinite(weight) || weight <= 0) {
@@ -709,7 +718,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
       this._scheduleRender(true);
       return;
     }
-    if (!timestamp) {
+    if (timestampChanged && !timestamp) {
       this._measurementActionStatus = "Voer een geldige datum en tijd in.";
       this._scheduleRender(true);
       return;
@@ -720,15 +729,19 @@ class PuppyWeightOverviewCard extends HTMLElement {
     this._scheduleRender(true);
 
     try {
-      const result = await this._hass.callWS({
+      const request = {
         type: "puppy_weight_tracker/measurement/correct",
         litter_id: litterId,
         puppy_id: puppyId,
         measurement_id: measurementId,
         weight,
-        timestamp,
         reason: String(reasonInput?.value || "Dashboardcorrectie").trim() || "Dashboardcorrectie",
-      });
+      };
+      // If the user only changes the weight, omit timestamp entirely so the
+      // backend can preserve the original instant including seconds/fractions.
+      if (timestampChanged) request.timestamp = timestamp;
+
+      const result = await this._hass.callWS(request);
       if (result?.measurement_data) {
         this._measurementData = result.measurement_data;
         this._measurementKey = this._measurementCacheKey();
@@ -931,7 +944,7 @@ class PuppyWeightOverviewCard extends HTMLElement {
             <label><span>Gewicht</span><div class="inline-unit"><input id="measurement-edit-weight" type="number" inputmode="decimal" min="1" max="10000" step="1" value="${this._escape(
               measurement.weight ?? ""
             )}"><b>g</b></div></label>
-            <label><span>Datum en tijd</span><input id="measurement-edit-time" type="datetime-local" value="${this._escape(
+            <label><span>Datum en tijd</span><input id="measurement-edit-time" type="datetime-local" step="1" value="${this._escape(
               this._dateTimeLocalValue(measurement.timestamp)
             )}"></label>
             <label class="reason-field"><span>Reden</span><input id="measurement-edit-reason" type="text" value="${this._escape(

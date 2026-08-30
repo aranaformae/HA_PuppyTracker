@@ -112,3 +112,89 @@ async def test_birth_correction_keeps_profile_in_sync(
     assert puppy["birth_weight"] == 405
     assert puppy["birth_time"] == "2026-08-28T10:05:00+00:00"
     assert storage.get_measurement(litter_id, puppy_id, replacement_id)["kind"] == "birth"
+
+
+@pytest.mark.asyncio
+async def test_weight_only_correction_preserves_original_seconds(
+    storage,
+    install_litter,
+    make_measurement,
+) -> None:
+    """Changing only weight must not round the measurement time to a minute."""
+    from custom_components.puppy_weight_tracker.metrics import (
+        current_weight,
+        previous_weight,
+        weight_change,
+    )
+
+    previous = make_measurement(
+        "previous",
+        400,
+        "2026-08-28T10:00:20+00:00",
+        created_at="2026-08-28T10:00:21+00:00",
+    )
+    current = make_measurement(
+        "current",
+        420,
+        "2026-08-28T10:00:47.654321+00:00",
+        created_at="2026-08-28T10:00:48+00:00",
+    )
+    litter_id, puppy_id = install_litter(measurements=[previous, current])
+
+    replacement_id = await storage.async_correct_measurement(
+        litter_id,
+        puppy_id,
+        "current",
+        new_weight=425,
+        new_timestamp=None,
+        reason="gewicht corrigeren",
+    )
+
+    replacement = storage.get_measurement(litter_id, puppy_id, replacement_id)
+    assert replacement["timestamp"] == "2026-08-28T10:00:47.654321+00:00"
+    assert [
+        item["id"] for item in storage.get_active_measurements(litter_id, puppy_id)
+    ] == ["previous", replacement_id]
+    assert previous_weight(storage, litter_id, puppy_id) == 400
+    assert current_weight(storage, litter_id, puppy_id) == 425
+    assert weight_change(storage, litter_id, puppy_id) == 25
+
+
+@pytest.mark.asyncio
+async def test_weight_only_correction_keeps_order_for_equal_measurement_times(
+    storage,
+    install_litter,
+    make_measurement,
+) -> None:
+    """Created-at remains the deterministic order when measurement times match."""
+    from custom_components.puppy_weight_tracker.metrics import (
+        current_weight,
+        previous_weight,
+    )
+
+    first = make_measurement(
+        "first",
+        400,
+        "2026-08-28T10:00:00+00:00",
+        created_at="2026-08-28T10:00:01+00:00",
+    )
+    second = make_measurement(
+        "second",
+        420,
+        "2026-08-28T10:00:00+00:00",
+        created_at="2026-08-28T10:00:02+00:00",
+    )
+    litter_id, puppy_id = install_litter(measurements=[first, second])
+
+    replacement_id = await storage.async_correct_measurement(
+        litter_id,
+        puppy_id,
+        "second",
+        new_weight=425,
+        new_timestamp=None,
+    )
+
+    active = storage.get_active_measurements(litter_id, puppy_id)
+    assert [item["id"] for item in active] == ["first", replacement_id]
+    assert previous_weight(storage, litter_id, puppy_id) == 400
+    assert current_weight(storage, litter_id, puppy_id) == 425

@@ -85,3 +85,21 @@ def test_normalize_timestamp_preserves_instant() -> None:
 def test_invalid_timestamp_sorts_before_valid_values() -> None:
     assert timestamp_sort_key("not-a-date") == float("-inf")
     assert timestamp_sort_key("2026-08-28T10:00:00+00:00") > float("-inf")
+
+
+def test_measurement_order_includes_seconds_and_fractional_seconds(make_measurement) -> None:
+    earlier = make_measurement(
+        "earlier",
+        400,
+        "2026-08-28T10:00:20.100000+00:00",
+    )
+    later = make_measurement(
+        "later",
+        420,
+        "2026-08-28T10:00:20.900000+00:00",
+    )
+
+    assert [item["id"] for item in sorted_measurements([later, earlier])] == [
+        "earlier",
+        "later",
+    ]

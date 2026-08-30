@@ -549,7 +549,7 @@ def websocket_get_measurements(
         vol.Required("puppy_id"): str,
         vol.Required("measurement_id"): str,
         vol.Required("weight"): vol.All(vol.Coerce(float), vol.Range(min=1, max=10000)),
-        vol.Required("timestamp"): str,
+        vol.Optional("timestamp"): str,
         vol.Optional("reason"): vol.Any(str, None),
     }
 )
@@ -570,7 +570,7 @@ async def websocket_correct_measurement(
             msg["puppy_id"],
             msg["measurement_id"],
             new_weight=float(msg["weight"]),
-            new_timestamp=msg["timestamp"],
+            new_timestamp=msg.get("timestamp"),
             reason=(msg.get("reason") or None),
         )
     except ValueError as err:

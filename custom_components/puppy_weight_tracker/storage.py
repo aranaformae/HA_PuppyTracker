@@ -1379,22 +1379,28 @@ class PuppyWeightStorage:
         measurement_id: str,
         *,
         new_weight: float,
-        new_timestamp: str,
+        new_timestamp: str | None,
         reason: str | None = None,
     ) -> str:
         """Correct weight and/or timestamp without destroying the original."""
         if new_weight <= 0:
             raise ValueError("Weight must be greater than zero")
-        if not new_timestamp:
-            raise ValueError("Timestamp is required")
-
-        normalized_new_timestamp = normalize_timestamp(new_timestamp)
-        if not normalized_new_timestamp:
+        if new_timestamp is not None and not new_timestamp:
             raise ValueError("Timestamp is invalid")
 
         async with self._lock:
             puppy = self._require_puppy(litter_id, puppy_id)
             original = self._require_measurement(puppy, measurement_id)
+
+            # A missing timestamp explicitly means "keep the measurement time".
+            # This prevents weight-only corrections from losing seconds or
+            # fractional seconds when a datetime-local editor has lower precision.
+            timestamp_source = (
+                original.get("timestamp") if new_timestamp is None else new_timestamp
+            )
+            normalized_new_timestamp = normalize_timestamp(timestamp_source)
+            if not normalized_new_timestamp:
+                raise ValueError("Timestamp is invalid")
 
             if original.get("deleted"):
                 raise ValueError("Cannot correct a deleted measurement")

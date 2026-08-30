@@ -273,3 +273,15 @@ Patch `homeassistant.util.dt.now()` in the module under test. Existing metrics a
 ---
 
 The goal of this suite is not maximum line coverage. Its priority is protecting **data integrity, correction history, monitoring calculations, timezone behavior, and exports** as Puppy Weight Tracker approaches 1.0.
+
+### `test_runtime_selection.py`
+
+Regression tests for the typed runtime selection helper. These tests ensure that the helper imported by integration setup exists, initializes the first active litter/puppy explicitly, and replaces archived selections without side effects in entity properties.
+
+### Measurement timestamp precision regression
+
+Weight-only corrections must preserve the original measurement instant exactly. The
+regression suite includes measurements that differ only by seconds/fractional seconds,
+as well as measurements with the exact same measurement timestamp. This protects the
+`current`/`previous` weight ordering from datetime-local controls that display a lower
+precision than the timestamp stored by Home Assistant.

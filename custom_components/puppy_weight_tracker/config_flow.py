@@ -45,6 +45,7 @@ from .storage import PuppyWeightStorage
 from .time_utils import (
     current_selector_datetime,
     format_local_timestamp,
+    normalize_timestamp,
     selector_datetime_value,
 )
 
@@ -1275,10 +1276,27 @@ class PuppyWeightTrackerOptionsFlow(
             try:
                 if action == "save":
                     new_weight = float(user_input["weight"])
-                    new_timestamp = user_input["timestamp"]
+                    entered_timestamp = user_input["timestamp"]
+                    normalized_entered_timestamp = normalize_timestamp(entered_timestamp)
+                    original_selector_timestamp = selector_datetime_value(
+                        measurement.get("timestamp")
+                    )
+                    normalized_original_display_timestamp = normalize_timestamp(
+                        original_selector_timestamp
+                    )
+                    if normalized_entered_timestamp is None:
+                        raise ValueError("Timestamp is invalid")
+
+                    # Compare against the precision actually shown by the selector.
+                    # If only the weight changes, preserve the exact stored instant,
+                    # including any fractional seconds that the UI does not expose.
+                    timestamp_changed = (
+                        normalized_entered_timestamp
+                        != normalized_original_display_timestamp
+                    )
                     changed = (
                         new_weight != float(measurement["weight"])
-                        or new_timestamp != measurement.get("timestamp")
+                        or timestamp_changed
                     )
                     if changed:
                         await storage.async_correct_measurement(
@@ -1286,7 +1304,9 @@ class PuppyWeightTrackerOptionsFlow(
                             self._selected_puppy_id,
                             self._selected_measurement_id,
                             new_weight=new_weight,
-                            new_timestamp=new_timestamp,
+                            new_timestamp=(
+                                normalized_entered_timestamp if timestamp_changed else None
+                            ),
                             reason=reason,
                         )
 
