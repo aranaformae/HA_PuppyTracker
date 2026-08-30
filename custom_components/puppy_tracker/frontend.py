@@ -24,6 +24,7 @@ CARD_FILES = (
     "puppy-tracker-attention-card.js",
     "puppy-tracker-litter-card.js",
     "puppy-tracker-report-card.js",
+    "puppy-tracker-dossier-card.js",
 )
 
 # Static HTTP routes cannot currently be cleanly unregistered. Keep this flag

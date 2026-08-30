@@ -214,3 +214,71 @@ export function sexLabel(value) {
   if (["female", "teef", "f"].includes(text)) return "Teef";
   return value || "—";
 }
+
+export async function fetchRecords(hass, litterId, puppyId = null, includeDeleted = false) {
+  const message = {
+    type: `${DOMAIN}/records`,
+    litter_id: litterId,
+    include_deleted: Boolean(includeDeleted),
+  };
+  if (puppyId) message.puppy_id = puppyId;
+  return hass.callWS(message);
+}
+
+export async function updateProfileNote(hass, litterId, puppyId, profileNote) {
+  return hass.callWS({
+    type: `${DOMAIN}/profile_note/update`,
+    litter_id: litterId,
+    puppy_id: puppyId,
+    profile_note: profileNote || null,
+  });
+}
+
+export async function addDossierRecord(hass, litterId, puppyId, record) {
+  const message = {
+    type: `${DOMAIN}/record/add`,
+    litter_id: litterId,
+    record_type: record.record_type,
+    data: record.data || {},
+  };
+  if (puppyId) message.puppy_id = puppyId;
+  if (record.occurred_at) message.occurred_at = record.occurred_at;
+  if (record.title) message.title = record.title;
+  if (record.note) message.note = record.note;
+  return hass.callWS(message);
+}
+
+export async function updateDossierRecord(hass, litterId, puppyId, recordId, record) {
+  const message = {
+    type: `${DOMAIN}/record/update`,
+    litter_id: litterId,
+    record_id: recordId,
+    record_type: record.record_type,
+    data: record.data || {},
+  };
+  if (puppyId) message.puppy_id = puppyId;
+  if (record.occurred_at) message.occurred_at = record.occurred_at;
+  message.title = record.title || null;
+  message.note = record.note || null;
+  return hass.callWS(message);
+}
+
+export async function deleteDossierRecord(hass, litterId, puppyId, recordId) {
+  const message = {
+    type: `${DOMAIN}/record/delete`,
+    litter_id: litterId,
+    record_id: recordId,
+  };
+  if (puppyId) message.puppy_id = puppyId;
+  return hass.callWS(message);
+}
+
+export async function restoreDossierRecord(hass, litterId, puppyId, recordId) {
+  const message = {
+    type: `${DOMAIN}/record/restore`,
+    litter_id: litterId,
+    record_id: recordId,
+  };
+  if (puppyId) message.puppy_id = puppyId;
+  return hass.callWS(message);
+}
