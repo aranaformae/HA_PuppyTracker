@@ -24,6 +24,7 @@ function compactDossier(card) {
   if (!root) return;
 
   ensureStyle(root, "puppy-tracker-dossier-compact-style", `
+    .timeline[hidden],.record-actions[hidden]{display:none!important}
     .timeline-card-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
     .timeline-card-actions .manage-items-button{min-height:36px;padding:0 12px;border:1px solid var(--divider-color);border-radius:10px;background:var(--secondary-background-color);color:var(--primary-text-color);font-weight:600}
     .timeline-card-actions .manage-items-button.active{background:var(--primary-color);border-color:var(--primary-color);color:var(--text-primary-color,#fff)}
@@ -98,6 +99,7 @@ function compactTimeline(card) {
   if (!timeline || !cardElement) return;
 
   ensureStyle(root, "puppy-tracker-timeline-compact-style", `
+    .timeline[hidden]{display:none!important}
     .timeline-scroll{max-height:520px;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
     .timeline-toggle-footer{padding:0 20px 18px}
     .timeline-toggle-footer button{width:100%;min-height:48px;border:0;border-radius:12px;background:var(--primary-color);color:var(--text-primary-color,#fff);font:inherit;font-weight:650;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer}
