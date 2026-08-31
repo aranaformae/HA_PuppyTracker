@@ -55,6 +55,9 @@ CARD_FILES = (
     # Mother support depends on the temperature layer for quick-log/timeline
     # temperature handling, so load it immediately after temperature support.
     "puppy-tracker-mother-surfaces.js",
+    # Adds a read-only aggregate "All" owner to Timeline and Dossier after the
+    # mother patches are active, without weakening authoritative owner scopes.
+    "puppy-tracker-all-scope.js",
     # Loaded after all affected cards so it can patch their rendered layout and
     # add compact show/hide and edit controls without duplicating card logic.
     "puppy-tracker-ui-compact.js",
