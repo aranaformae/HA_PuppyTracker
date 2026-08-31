@@ -40,6 +40,30 @@ def test_monitoring_settings_no_longer_expose_notification_controls() -> None:
     assert 'vol.Optional(\n                        "notify_entities"' not in schema
 
 
+def test_monitoring_settings_preserve_recurring_notification_toggle() -> None:
+    source = _read("custom_components/puppy_tracker/notification_settings_flow.py")
+    method = source.split("async def async_step_settings", 1)[1].split(
+        "async def async_step_notifications", 1
+    )[0]
+
+    update_call = method.split("await storage.async_update_settings(", 1)[1].split(
+        ")\n                async_dispatcher_send", 1
+    )[0]
+    assert "recurring_reminder_notifications_enabled=" in update_call
+    assert 'settings.get(\n                            "recurring_reminder_notifications_enabled"' in update_call
+    assert "DEFAULT_RECURRING_REMINDER_NOTIFICATIONS_ENABLED" in update_call
+
+
+def test_notification_flow_has_no_private_storage_mutation() -> None:
+    source = _read("custom_components/puppy_tracker/notification_settings_flow.py")
+
+    assert "_async_store_recurring_notification_setting" not in source
+    assert "storage._data" not in source
+    assert "storage._lock" not in source
+    assert "storage._add_audit_entry" not in source
+    assert "deepcopy" not in source
+
+
 def test_test_notification_does_not_touch_reminder_state() -> None:
     source = _read("custom_components/puppy_tracker/notification_settings_flow.py")
 
