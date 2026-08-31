@@ -34,6 +34,9 @@ CARD_FILES = (
     # Adds due generic reminders to the existing attention list.
     "puppy-tracker-recurring-attention.js",
     "puppy-tracker-recurring-reminder-card.js",
+    # Manage litter-specific age-based care schedules separately from generic
+    # recurring reminders; occurrences remain derived from puppy birth times.
+    "puppy-tracker-care-program-card.js",
     # Resolve the persistent reusable mother id via the mother-scope API instead
     # of assuming it exists in the regular litter payload.
     "puppy-tracker-recurring-mother-owner.js",
