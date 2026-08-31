@@ -64,7 +64,7 @@ const QUICK_LOG_TRANSLATIONS = {
     noLitter: "Geen nest beschikbaar",
     invalidDateTime: "Vul een geldige datum en tijd in.",
     detailsRequired: "Vul eerst een korte omschrijving in.",
-    saved: "Gelikt voor {owner}.",
+    saved: "Gelogd voor {owner}.",
     saveFailed: "Quick Log kon niet worden opgeslagen.",
     refreshFailed: "Quick Log-data kon niet worden vernieuwd.",
     cardDescription: "Snel dossiernotities voor nesten en pups vastleggen.",
