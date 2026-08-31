@@ -189,7 +189,6 @@ function enhanceDetail(card, puppy) {
   const s = puppy?.summary || {};
   const measurements = activeMeasurements(puppy);
   const weights = measurements.map((item) => finite(item.weight)).filter((item) => item !== null);
-  const avg = averageGrowth(puppy);
   const birthWeight = finite(puppy?.birth_weight);
   const currentWeight = finite(s.current_weight);
   const totalGrowthGrams = birthWeight !== null && currentWeight !== null ? currentWeight - birthWeight : null;
@@ -206,7 +205,6 @@ function enhanceDetail(card, puppy) {
   section.style.borderTop = "1px solid var(--divider-color)";
 
   section.append(
-    statCell("Gem. groei / dag", `${grams(avg.gramsPerDay)} · ${percent(avg.percentPerDay)}`),
     statCell("24u groei", `${grams(s.growth_24h_grams)} · ${percent(s.growth_24h_percent)}`),
     statCell("Laagste gewicht", weights.length ? `${Math.min(...weights).toLocaleString("nl-NL")} g` : "—"),
     statCell("Hoogste gewicht", weights.length ? `${Math.max(...weights).toLocaleString("nl-NL")} g` : "—"),
