@@ -11,22 +11,65 @@ function buttonLabel(card, nl, en) {
   return language.startsWith("en") ? en : nl;
 }
 
+function ensureStyle(root, id, css) {
+  if (!root || root.getElementById(id)) return;
+  const style = document.createElement("style");
+  style.id = id;
+  style.textContent = css;
+  root.append(style);
+}
+
 function compactDossier(card) {
   const root = card?.shadowRoot;
   if (!root) return;
+
+  ensureStyle(root, "puppy-tracker-dossier-compact-style", `
+    .timeline-card-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+    .timeline-card-actions .manage-items-button{min-height:36px;padding:0 12px;border:1px solid var(--divider-color);border-radius:10px;background:var(--secondary-background-color);color:var(--primary-text-color);font-weight:600}
+    .timeline-card-actions .manage-items-button.active{background:var(--primary-color);border-color:var(--primary-color);color:var(--text-primary-color,#fff)}
+  `);
 
   const timeline = root.querySelector(".timeline");
   const head = root.querySelector(".timeline-head");
   if (timeline && head) {
     if (typeof card.__timelineItemsVisible !== "boolean") card.__timelineItemsVisible = false;
+    if (typeof card.__dossierManageMode !== "boolean") card.__dossierManageMode = false;
     timeline.hidden = !card.__timelineItemsVisible;
+
+    let actionWrap = root.querySelector(".timeline-card-actions");
+    if (!actionWrap) {
+      actionWrap = document.createElement("div");
+      actionWrap.className = "timeline-card-actions";
+      head.append(actionWrap);
+    }
+
+    let manageToggle = root.getElementById("toggle-dossier-manage");
+    if (!manageToggle && card._canManage) {
+      manageToggle = document.createElement("button");
+      manageToggle.id = "toggle-dossier-manage";
+      manageToggle.type = "button";
+      manageToggle.className = "manage-items-button";
+      actionWrap.append(manageToggle);
+    }
+    if (manageToggle) {
+      manageToggle.textContent = card.__dossierManageMode
+        ? buttonLabel(card, "Bewerken klaar", "Done editing")
+        : buttonLabel(card, "Items aanpassen", "Edit items");
+      manageToggle.classList.toggle("active", card.__dossierManageMode);
+      manageToggle.setAttribute("aria-pressed", card.__dossierManageMode ? "true" : "false");
+      manageToggle.onclick = () => {
+        card.__dossierManageMode = !card.__dossierManageMode;
+        if (card.__dossierManageMode) card.__timelineItemsVisible = true;
+        compactDossier(card);
+      };
+    }
 
     let toggle = root.getElementById("toggle-timeline-items");
     if (!toggle) {
       toggle = document.createElement("button");
       toggle.id = "toggle-timeline-items";
       toggle.className = "text-button timeline-visibility-toggle";
-      head.append(toggle);
+      actionWrap.append(toggle);
     }
     const count = timeline.querySelectorAll(".record").length;
     toggle.textContent = card.__timelineItemsVisible
@@ -42,30 +85,8 @@ function compactDossier(card) {
   root.querySelectorAll(".record").forEach((record) => {
     const actions = record.querySelector(".record-actions");
     if (!actions) return;
-
-    actions.hidden = !record.classList.contains("manage-open");
-    let toggle = record.querySelector(".record-manage-toggle");
-    if (!toggle) {
-      toggle = document.createElement("button");
-      toggle.type = "button";
-      toggle.className = "text-button record-manage-toggle";
-      toggle.innerHTML = '<ha-icon icon="mdi:pencil-outline"></ha-icon>';
-      const top = record.querySelector(".record-top");
-      if (top) top.append(toggle);
-      else record.querySelector(".record-body")?.prepend(toggle);
-    }
-
-    const open = record.classList.contains("manage-open");
-    toggle.title = open
-      ? buttonLabel(card, "Bewerken sluiten", "Close editing")
-      : buttonLabel(card, "Dossieritem bewerken", "Edit dossier item");
-    toggle.setAttribute("aria-label", toggle.title);
-    toggle.setAttribute("aria-expanded", open ? "true" : "false");
-    toggle.onclick = (event) => {
-      event.stopPropagation();
-      record.classList.toggle("manage-open");
-      compactDossier(card);
-    };
+    actions.hidden = !card.__dossierManageMode;
+    record.querySelector(".record-manage-toggle")?.remove();
   });
 }
 
@@ -73,32 +94,40 @@ function compactTimeline(card) {
   const root = card?.shadowRoot;
   if (!root) return;
   const timeline = root.querySelector(".timeline");
-  const header = root.querySelector(".card-header");
-  if (!timeline || !header) return;
+  const cardElement = root.querySelector("ha-card");
+  if (!timeline || !cardElement) return;
+
+  ensureStyle(root, "puppy-tracker-timeline-compact-style", `
+    .timeline-scroll{max-height:520px;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+    .timeline-toggle-footer{padding:0 20px 18px}
+    .timeline-toggle-footer button{width:100%;min-height:48px;border:0;border-radius:12px;background:var(--primary-color);color:var(--text-primary-color,#fff);font:inherit;font-weight:650;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer}
+    .timeline-toggle-footer button.secondary{background:var(--secondary-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color)}
+  `);
 
   if (typeof card.__timelineItemsVisible !== "boolean") card.__timelineItemsVisible = false;
   timeline.hidden = !card.__timelineItemsVisible;
+  timeline.classList.toggle("timeline-scroll", card.__timelineItemsVisible);
+
+  let footer = root.querySelector(".timeline-toggle-footer");
+  if (!footer) {
+    footer = document.createElement("div");
+    footer.className = "timeline-toggle-footer";
+    cardElement.append(footer);
+  }
 
   let toggle = root.getElementById("toggle-timeline-items");
   if (!toggle) {
     toggle = document.createElement("button");
     toggle.id = "toggle-timeline-items";
     toggle.type = "button";
-    toggle.style.minHeight = "34px";
-    toggle.style.padding = "5px 10px";
-    toggle.style.border = "1px solid var(--divider-color)";
-    toggle.style.borderRadius = "9px";
-    toggle.style.background = "transparent";
-    toggle.style.color = "var(--primary-text-color)";
-    toggle.style.cursor = "pointer";
-    const count = header.querySelector(".count");
-    if (count) count.after(toggle);
-    else header.append(toggle);
+    footer.append(toggle);
   }
 
-  toggle.textContent = card.__timelineItemsVisible
-    ? buttonLabel(card, "Verberg items", "Hide items")
-    : buttonLabel(card, "Toon items", "Show items");
+  const count = timeline.querySelectorAll(".timeline-item").length;
+  toggle.classList.toggle("secondary", card.__timelineItemsVisible);
+  toggle.innerHTML = card.__timelineItemsVisible
+    ? `<ha-icon icon="mdi:chevron-up"></ha-icon><span>${buttonLabel(card, "Verberg tijdlijnitems", "Hide timeline items")}</span>`
+    : `<ha-icon icon="mdi:chevron-down"></ha-icon><span>${buttonLabel(card, `Toon tijdlijnitems (${count})`, `Show timeline items (${count})`)}</span>`;
   toggle.setAttribute("aria-expanded", card.__timelineItemsVisible ? "true" : "false");
   toggle.onclick = () => {
     card.__timelineItemsVisible = !card.__timelineItemsVisible;
