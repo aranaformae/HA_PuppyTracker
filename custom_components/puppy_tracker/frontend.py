@@ -38,6 +38,9 @@ CARD_FILES = (
     "puppy-tracker-quick-log-card.js",
     "puppy-tracker-bulk-dossier-card.js",
     "puppy-tracker-timeline-card.js",
+    # Loaded after all affected cards so it can patch their rendered layout and
+    # add compact show/hide and edit controls without duplicating card logic.
+    "puppy-tracker-ui-compact.js",
     # Loaded last: translates the older cards that still contain Dutch UI
     # literals while Attention and Dossier use localize() directly.
     "puppy-tracker-localization-bridge.js",
