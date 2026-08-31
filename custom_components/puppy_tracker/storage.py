@@ -28,6 +28,7 @@ from .const import (
     DEFAULT_NOTIFY_RECOVERY,
     DEFAULT_NOTIFY_SESSION_COMPLETE,
     DEFAULT_NOTIFY_ENTITIES,
+    DEFAULT_RECURRING_REMINDER_NOTIFICATIONS_ENABLED,
     STORAGE_KEY,
     STORAGE_VERSION,
 )
@@ -45,6 +46,7 @@ def _default_settings() -> dict[str, Any]:
         "max_hours_between_weighings": DEFAULT_MAX_HOURS_BETWEEN_WEIGHINGS,
         "growth_monitoring_days": DEFAULT_GROWTH_MONITORING_DAYS,
         "notifications_enabled": DEFAULT_NOTIFICATIONS_ENABLED,
+        "recurring_reminder_notifications_enabled": DEFAULT_RECURRING_REMINDER_NOTIFICATIONS_ENABLED,
         "notify_recovery": DEFAULT_NOTIFY_RECOVERY,
         "notify_session_complete": DEFAULT_NOTIFY_SESSION_COMPLETE,
         "notify_entities": list(DEFAULT_NOTIFY_ENTITIES),
@@ -343,18 +345,9 @@ class PuppyTrackerStorage:
                         puppy["birth_time"] = normalized_birth_time
                         changed = True
 
-                # Versions 0.4.0-0.6.0 could leave the predecessor of a
-                # deleted correction marked as superseded. Repair those chains
-                # before birth-profile synchronization so the previous version
-                # of the same measurement becomes active again.
                 if self._repair_deleted_correction_chains(puppy):
                     changed = True
 
-                # Also recover from a dangling superseded_by reference. This
-                # can happen when an older buggy frontend/backend combination
-                # marked a version as superseded but the replacement record was
-                # never persisted. In that case the predecessor is the only
-                # recoverable version and must become active again.
                 if self._repair_dangling_correction_chains(puppy):
                     changed = True
 
@@ -362,9 +355,6 @@ class PuppyTrackerStorage:
                 birth_time = puppy.get("birth_time")
                 birth_measurement = self._find_birth_measurement(puppy)
 
-                # The puppy profile was the editable source in older versions.
-                # Keep that latest user intent, but preserve the old measurement
-                # by creating a correction instead of overwriting it.
                 if birth_weight is None:
                     if birth_measurement is not None and not birth_measurement.get("deleted", False):
                         birth_measurement["deleted"] = True
@@ -506,14 +496,7 @@ class PuppyTrackerStorage:
         cls,
         puppy: dict[str, Any],
     ) -> bool:
-        """Reactivate predecessors of deleted terminal corrections.
-
-        A correction forms a chain A -> B -> C. Deleting the current terminal
-        correction C must make B effective again. Older releases left
-        B.superseded_by pointing at deleted C, which caused the whole corrected
-        measurement to disappear and an earlier chronological weighing to become
-        current instead.
-        """
+        """Reactivate predecessors of deleted terminal corrections."""
         changed = False
         for measurement in puppy.get("measurements", []):
             if not measurement.get("deleted", False):
@@ -765,21 +748,16 @@ class PuppyTrackerStorage:
         max_hours_between_weighings: float,
         growth_monitoring_days: int,
         notifications_enabled: bool,
+        recurring_reminder_notifications_enabled: bool,
         notify_recovery: bool,
         notify_session_complete: bool,
         notify_entities: list[str] | None = None,
     ) -> None:
-        """Update monitoring settings."""
+        """Update monitoring and notification settings."""
 
-        min_growth = float(
-            min_daily_growth_percent
-        )
-        max_hours = float(
-            max_hours_between_weighings
-        )
-        monitoring_days = int(
-            growth_monitoring_days
-        )
+        min_growth = float(min_daily_growth_percent)
+        max_hours = float(max_hours_between_weighings)
+        monitoring_days = int(growth_monitoring_days)
 
         if not 0 <= min_growth <= 20:
             raise ValueError(
@@ -797,18 +775,16 @@ class PuppyTrackerStorage:
             )
 
         async with self._lock:
-            before = deepcopy(
-                self._data.get(
-                    "settings",
-                    {},
-                )
-            )
+            before = deepcopy(self._data.get("settings", {}))
 
             settings = {
                 "min_daily_growth_percent": min_growth,
                 "max_hours_between_weighings": max_hours,
                 "growth_monitoring_days": monitoring_days,
                 "notifications_enabled": bool(notifications_enabled),
+                "recurring_reminder_notifications_enabled": bool(
+                    recurring_reminder_notifications_enabled
+                ),
                 "notify_recovery": bool(notify_recovery),
                 "notify_session_complete": bool(notify_session_complete),
                 "notify_entities": [
@@ -881,13 +857,9 @@ class PuppyTrackerStorage:
         mother: str | None,
         father: str | None,
     ) -> None:
-        """Update litter details."""
-
+        """Update litter details and keep the birth measurement synchronized."""
         async with self._lock:
-            litter = self._require_litter(
-                litter_id
-            )
-
+            litter = self._require_litter(litter_id)
             before = {
                 "name": litter.get("name"),
                 "birth_date": litter.get("birth_date"),
@@ -895,15 +867,12 @@ class PuppyTrackerStorage:
                 "father": litter.get("father"),
                 "active": litter.get("active", True),
             }
-
             now = _now_iso()
-
             litter["name"] = name
             litter["birth_date"] = birth_date
             litter["mother"] = mother
             litter["father"] = father
             litter["updated_at"] = now
-
             self._add_audit_entry(
                 action="update_litter",
                 litter_id=litter_id,
@@ -914,79 +883,36 @@ class PuppyTrackerStorage:
                         "birth_date": birth_date,
                         "mother": mother,
                         "father": father,
-                        "active": litter.get(
-                            "active",
-                            True,
-                        ),
+                        "active": litter.get("active", True),
                     },
                 },
             )
-
             await self.async_save()
 
-    async def async_set_litter_active(
-        self,
-        litter_id: str,
-        active: bool,
-    ) -> None:
-        """Archive or restore a litter."""
-
+    async def async_set_litter_active(self, litter_id: str, active: bool) -> None:
         async with self._lock:
-            litter = self._require_litter(
-                litter_id
-            )
-
+            litter = self._require_litter(litter_id)
             litter["active"] = bool(active)
             litter["updated_at"] = _now_iso()
-
             self._add_audit_entry(
-                action=(
-                    "restore_litter"
-                    if active
-                    else "archive_litter"
-                ),
+                action="restore_litter" if active else "archive_litter",
                 litter_id=litter_id,
             )
-
             await self.async_save()
 
-    async def async_delete_litter(
-        self,
-        litter_id: str,
-    ) -> dict[str, Any]:
-        """Permanently delete a litter."""
-
+    async def async_delete_litter(self, litter_id: str) -> dict[str, Any]:
         async with self._lock:
-            litter = self._require_litter(
-                litter_id
-            )
-
+            litter = self._require_litter(litter_id)
             removed = deepcopy(litter)
-
-            puppy_count = len(
-                litter.get(
-                    "puppies",
-                    {},
-                )
-            )
-
+            puppy_count = len(litter.get("puppies", {}))
             measurement_count = sum(
-                len(
-                    puppy.get(
-                        "measurements",
-                        [],
-                    )
-                )
-                for puppy in litter.get(
-                    "puppies",
-                    {},
-                ).values()
+                len(puppy.get("measurements", []))
+                for puppy in litter.get("puppies", {}).values()
             )
             record_count = len(litter.get("records", [])) + sum(
                 len(puppy.get("records", []))
                 for puppy in litter.get("puppies", {}).values()
             )
-
             self._add_audit_entry(
                 action="delete_litter",
                 litter_id=litter_id,
@@ -997,13 +923,8 @@ class PuppyTrackerStorage:
                     "record_count": record_count,
                 },
             )
-
-            del self._data["litters"][
-                litter_id
-            ]
-
+            del self._data["litters"][litter_id]
             await self.async_save()
-
             return removed
 
     async def async_add_puppy(
@@ -1016,31 +937,17 @@ class PuppyTrackerStorage:
         sex: str | None = None,
         profile_note: str | None = None,
     ) -> str:
-        """Add a puppy to a litter."""
-
         async with self._lock:
-            litter = self._require_litter(
-                litter_id
-            )
-
+            litter = self._require_litter(litter_id)
             puppy_id = str(uuid4())
             now = _now_iso()
-            normalized_birth_time = (
-                normalize_timestamp(birth_time, now)
-                if birth_time
-                else None
-            )
-
+            normalized_birth_time = normalize_timestamp(birth_time, now) if birth_time else None
             puppy = {
                 "id": puppy_id,
                 "name": name,
                 "collar_color": collar_color,
                 "sex": sex,
-                "birth_weight": (
-                    float(birth_weight)
-                    if birth_weight is not None
-                    else None
-                ),
+                "birth_weight": float(birth_weight) if birth_weight is not None else None,
                 "birth_time": normalized_birth_time,
                 "birth_measurement_id": None,
                 "profile_note": profile_note,
@@ -1050,13 +957,8 @@ class PuppyTrackerStorage:
                 "measurements": [],
                 "records": [],
             }
-
-            litter["puppies"][
-                puppy_id
-            ] = puppy
-
+            litter["puppies"][puppy_id] = puppy
             litter["updated_at"] = now
-
             self._add_audit_entry(
                 action="add_puppy",
                 litter_id=litter_id,
@@ -1069,25 +971,13 @@ class PuppyTrackerStorage:
                     "sex": sex,
                 },
             )
-
             if birth_weight is not None:
-                measurement_id = str(
-                    uuid4()
-                )
-
-                puppy[
-                    "measurements"
-                ].append(
+                measurement_id = str(uuid4())
+                puppy["measurements"].append(
                     {
                         "id": measurement_id,
-                        "weight": float(
-                            birth_weight
-                        ),
-                        "timestamp": (
-                            normalized_birth_time
-                            or normalize_timestamp(now, now)
-                            or now
-                        ),
+                        "weight": float(birth_weight),
+                        "timestamp": normalized_birth_time or normalize_timestamp(now, now) or now,
                         "created_at": now,
                         "updated_at": now,
                         "deleted": False,
@@ -1100,9 +990,7 @@ class PuppyTrackerStorage:
                     }
                 )
                 puppy["birth_measurement_id"] = measurement_id
-
             await self.async_save()
-
             return puppy_id
 
     async def async_update_puppy(
@@ -1117,11 +1005,8 @@ class PuppyTrackerStorage:
         birth_time: str | None,
         profile_note: str | None,
     ) -> None:
-        """Update puppy details and keep the birth measurement synchronized."""
-
         async with self._lock:
             puppy = self._require_puppy(litter_id, puppy_id)
-
             before = {
                 "name": puppy.get("name"),
                 "collar_color": puppy.get("collar_color"),
@@ -1131,15 +1016,9 @@ class PuppyTrackerStorage:
                 "profile_note": puppy.get("profile_note"),
                 "active": puppy.get("active", True),
             }
-
             now = _now_iso()
             new_birth_weight = float(birth_weight) if birth_weight is not None else None
-            normalized_birth_time = (
-                normalize_timestamp(birth_time, now)
-                if birth_time
-                else None
-            )
-
+            normalized_birth_time = normalize_timestamp(birth_time, now) if birth_time else None
             puppy["name"] = name
             puppy["collar_color"] = collar_color
             puppy["sex"] = sex
@@ -1147,9 +1026,7 @@ class PuppyTrackerStorage:
             puppy["birth_time"] = normalized_birth_time
             puppy["profile_note"] = profile_note
             puppy["updated_at"] = now
-
             birth_measurement = self._find_birth_measurement(puppy)
-
             if new_birth_weight is None:
                 if birth_measurement is not None and not birth_measurement.get("deleted", False):
                     birth_measurement["deleted"] = True
@@ -1171,7 +1048,6 @@ class PuppyTrackerStorage:
                 desired_timestamp = normalized_birth_time or (
                     birth_measurement.get("timestamp") if birth_measurement is not None else now
                 )
-
                 if birth_measurement is None or birth_measurement.get("deleted", False):
                     measurement_id = str(uuid4())
                     new_measurement = {
@@ -1195,10 +1071,7 @@ class PuppyTrackerStorage:
                         litter_id=litter_id,
                         puppy_id=puppy_id,
                         measurement_id=measurement_id,
-                        details={
-                            "weight": new_birth_weight,
-                            "timestamp": desired_timestamp,
-                        },
+                        details={"weight": new_birth_weight, "timestamp": desired_timestamp},
                     )
                 elif (
                     float(birth_measurement.get("weight", 0)) != new_birth_weight
@@ -1232,9 +1105,7 @@ class PuppyTrackerStorage:
                     birth_measurement["kind"] = "birth"
                     birth_measurement["note"] = "Geboortegewicht"
                     puppy["birth_measurement_id"] = birth_measurement.get("id")
-
             self._data["litters"][litter_id]["updated_at"] = now
-
             self._add_audit_entry(
                 action="update_puppy",
                 litter_id=litter_id,
@@ -1252,107 +1123,51 @@ class PuppyTrackerStorage:
                     },
                 },
             )
-
             await self.async_save()
 
-    async def async_set_puppy_active(
-        self,
-        litter_id: str,
-        puppy_id: str,
-        active: bool,
-    ) -> None:
-        """Archive or restore a puppy."""
-
+    async def async_set_puppy_active(self, litter_id: str, puppy_id: str, active: bool) -> None:
         async with self._lock:
-            puppy = self._require_puppy(
-                litter_id,
-                puppy_id,
-            )
-
+            puppy = self._require_puppy(litter_id, puppy_id)
             puppy["active"] = bool(active)
             puppy["updated_at"] = _now_iso()
-
             self._add_audit_entry(
-                action=(
-                    "restore_puppy"
-                    if active
-                    else "archive_puppy"
-                ),
+                action="restore_puppy" if active else "archive_puppy",
                 litter_id=litter_id,
                 puppy_id=puppy_id,
             )
-
             await self.async_save()
 
-    async def async_delete_puppy(
-        self,
-        litter_id: str,
-        puppy_id: str,
-    ) -> dict[str, Any]:
-        """Permanently delete a puppy."""
-
+    async def async_delete_puppy(self, litter_id: str, puppy_id: str) -> dict[str, Any]:
         async with self._lock:
-            litter = self._require_litter(
-                litter_id
-            )
-
-            puppy = self._require_puppy(
-                litter_id,
-                puppy_id,
-            )
-
+            litter = self._require_litter(litter_id)
+            puppy = self._require_puppy(litter_id, puppy_id)
             removed = deepcopy(puppy)
-
             self._add_audit_entry(
                 action="delete_puppy",
                 litter_id=litter_id,
                 puppy_id=puppy_id,
                 details={
                     "name": puppy.get("name"),
-                    "measurement_count": len(
-                        puppy.get(
-                            "measurements",
-                            [],
-                        )
-                    ),
+                    "measurement_count": len(puppy.get("measurements", [])),
                     "record_count": len(puppy.get("records", [])),
                 },
             )
-
-            del litter["puppies"][
-                puppy_id
-            ]
-
+            del litter["puppies"][puppy_id]
             litter["updated_at"] = _now_iso()
-
             await self.async_save()
-
             return removed
 
-    async def async_record_completed_weighing_session(
-        self,
-        litter_id: str,
-        session: dict[str, Any],
-    ) -> None:
-        """Persist metadata for a fully completed weighing session."""
-
+    async def async_record_completed_weighing_session(self, litter_id: str, session: dict[str, Any]) -> None:
         completed_at = session.get("completed_at")
         if not completed_at:
             return
-
         async with self._lock:
             litter = self._require_litter(litter_id)
-
             existing = litter.get("last_completed_session")
-            if (
-                isinstance(existing, dict)
-                and existing.get("completed_at") == completed_at
-            ):
+            if isinstance(existing, dict) and existing.get("completed_at") == completed_at:
                 return
-
             puppy_ids = list(session.get("puppy_ids", []))
             weighed_ids = list(session.get("weighed_puppy_ids", []))
-
             summary = {
                 "started_at": session.get("started_at"),
                 "completed_at": completed_at,
@@ -1361,16 +1176,13 @@ class PuppyTrackerStorage:
                 "total_puppies": len(puppy_ids),
                 "weighed_puppies": len(weighed_ids),
             }
-
             litter["last_completed_session"] = summary
             litter["updated_at"] = _now_iso()
-
             self._add_audit_entry(
                 action="complete_weighing_session",
                 litter_id=litter_id,
                 details=deepcopy(summary),
             )
-
             await self.async_save()
 
     async def async_record_weight(
@@ -1381,26 +1193,13 @@ class PuppyTrackerStorage:
         timestamp: str | None = None,
         note: str | None = None,
     ) -> str:
-        """Record a new puppy weight."""
-
         if weight <= 0:
-            raise ValueError(
-                "Weight must be greater than zero"
-            )
-
+            raise ValueError("Weight must be greater than zero")
         async with self._lock:
-            puppy = self._require_puppy(
-                litter_id,
-                puppy_id,
-            )
-
-            measurement_id = str(
-                uuid4()
-            )
-
+            puppy = self._require_puppy(litter_id, puppy_id)
+            measurement_id = str(uuid4())
             now = _now_iso()
             normalized_timestamp = normalize_timestamp(timestamp or now, now) or now
-
             measurement = {
                 "id": measurement_id,
                 "weight": float(weight),
@@ -1415,35 +1214,17 @@ class PuppyTrackerStorage:
                 "correction_reason": None,
                 "source_measurement_id": None,
             }
-
-            puppy[
-                "measurements"
-            ].append(
-                measurement
-            )
-
+            puppy["measurements"].append(measurement)
             puppy["updated_at"] = now
-
-            self._data["litters"][
-                litter_id
-            ]["updated_at"] = now
-
+            self._data["litters"][litter_id]["updated_at"] = now
             self._add_audit_entry(
                 action="record_weight",
                 litter_id=litter_id,
                 puppy_id=puppy_id,
                 measurement_id=measurement_id,
-                details={
-                    "weight": float(weight),
-                    "timestamp": measurement[
-                        "timestamp"
-                    ],
-                    "note": note,
-                },
+                details={"weight": float(weight), "timestamp": measurement["timestamp"], "note": note},
             )
-
             await self.async_save()
-
             return measurement_id
 
     async def async_correct_measurement(
@@ -1456,31 +1237,19 @@ class PuppyTrackerStorage:
         new_timestamp: str | None,
         reason: str | None = None,
     ) -> str:
-        """Correct weight and/or timestamp without destroying the original."""
         if new_weight <= 0:
             raise ValueError("Weight must be greater than zero")
-        if new_timestamp is not None and not new_timestamp:
-            raise ValueError("Timestamp is invalid")
-
         async with self._lock:
             puppy = self._require_puppy(litter_id, puppy_id)
             original = self._require_measurement(puppy, measurement_id)
-
-            # A missing timestamp explicitly means "keep the measurement time".
-            # This prevents weight-only corrections from losing seconds or
-            # fractional seconds when a datetime-local editor has lower precision.
-            timestamp_source = (
-                original.get("timestamp") if new_timestamp is None else new_timestamp
-            )
+            timestamp_source = original.get("timestamp") if new_timestamp is None else new_timestamp
             normalized_new_timestamp = normalize_timestamp(timestamp_source)
             if not normalized_new_timestamp:
                 raise ValueError("Timestamp is invalid")
-
             if original.get("deleted"):
                 raise ValueError("Cannot correct a deleted measurement")
             if original.get("superseded_by") is not None:
                 raise ValueError("Cannot correct a superseded measurement")
-
             now = _now_iso()
             replacement = self._create_replacement_measurement(
                 puppy,
@@ -1490,16 +1259,13 @@ class PuppyTrackerStorage:
                 reason=reason or "Correctie",
                 now=now,
             )
-
             if original.get("kind") == "birth":
                 replacement["kind"] = "birth"
                 replacement["note"] = "Geboortegewicht"
                 puppy["birth_measurement_id"] = replacement["id"]
                 puppy["birth_weight"] = float(new_weight)
                 puppy["birth_time"] = normalized_new_timestamp
-
             self._data["litters"][litter_id]["updated_at"] = now
-
             self._add_audit_entry(
                 action="correct_measurement",
                 litter_id=litter_id,
@@ -1515,7 +1281,6 @@ class PuppyTrackerStorage:
                     "kind": original.get("kind"),
                 },
             )
-
             await self.async_save()
             return replacement["id"]
 
@@ -1527,7 +1292,6 @@ class PuppyTrackerStorage:
         new_weight: float,
         reason: str | None = None,
     ) -> str:
-        """Backward-compatible helper for weight-only correction."""
         puppy = self._require_puppy(litter_id, puppy_id)
         original = self._require_measurement(puppy, measurement_id)
         return await self.async_correct_measurement(
@@ -1546,40 +1310,25 @@ class PuppyTrackerStorage:
         measurement_id: str,
         reason: str | None = None,
     ) -> None:
-        """Soft-delete a current measurement and reactivate its predecessor."""
         async with self._lock:
             puppy = self._require_puppy(litter_id, puppy_id)
             measurement = self._require_measurement(puppy, measurement_id)
-
             if measurement.get("deleted", False):
                 raise ValueError("Measurement is already deleted")
             if measurement.get("superseded_by") is not None:
                 raise ValueError("Cannot delete a superseded measurement")
-
             now = _now_iso()
-            source = self._measurement_by_id(
-                puppy,
-                measurement.get("source_measurement_id"),
-            )
+            source = self._measurement_by_id(puppy, measurement.get("source_measurement_id"))
             reactivated_measurement_id: str | None = None
-
-            # If this is a correction, deleting it behaves like an undo:
-            # reactivate the immediately preceding version of the same
-            # measurement instead of falling back to an unrelated older weighing.
-            if (
-                source is not None
-                and source.get("superseded_by") == measurement_id
-            ):
+            if source is not None and source.get("superseded_by") == measurement_id:
                 source["superseded_by"] = None
                 source["updated_at"] = now
                 reactivated_measurement_id = source.get("id")
-
             measurement["deleted"] = True
             measurement["deleted_at"] = now
             measurement["updated_at"] = now
             puppy["updated_at"] = now
             self._data["litters"][litter_id]["updated_at"] = now
-
             if measurement.get("kind") == "birth":
                 if (
                     source is not None
@@ -1593,7 +1342,6 @@ class PuppyTrackerStorage:
                 else:
                     puppy["birth_weight"] = None
                     puppy["birth_measurement_id"] = None
-
             self._add_audit_entry(
                 action="delete_weight",
                 litter_id=litter_id,
@@ -1607,7 +1355,6 @@ class PuppyTrackerStorage:
                     "reactivated_measurement_id": reactivated_measurement_id,
                 },
             )
-
             await self.async_save()
 
     async def async_restore_weight(
@@ -1617,52 +1364,27 @@ class PuppyTrackerStorage:
         measurement_id: str,
         reason: str | None = None,
     ) -> str:
-        """Restore a soft-deleted measurement without creating a broken branch.
-
-        When the deleted record is still the terminal correction in its chain,
-        it can simply be reactivated. If that chain has received another
-        correction in the meantime, restoring the deleted value creates a new
-        terminal correction containing the restored weight/timestamp. This
-        keeps every historical version and guarantees one unambiguous active
-        version per correction chain.
-        """
         async with self._lock:
             puppy = self._require_puppy(litter_id, puppy_id)
             measurement = self._require_measurement(puppy, measurement_id)
-
             if not measurement.get("deleted", False):
                 raise ValueError("Measurement is not deleted")
-
             now = _now_iso()
-            source = self._measurement_by_id(
-                puppy,
-                measurement.get("source_measurement_id"),
-            )
+            source = self._measurement_by_id(puppy, measurement.get("source_measurement_id"))
             restored_id = measurement_id
             restored_as_new_version = False
-
             if source is None:
-                # A normal (non-correction) measurement can be restored in place
-                # as long as it is not an old superseded version.
                 if measurement.get("superseded_by") is not None:
-                    raise ValueError(
-                        "Cannot restore this historical version because a newer version exists"
-                    )
+                    raise ValueError("Cannot restore this historical version because a newer version exists")
                 measurement["deleted"] = False
                 measurement["deleted_at"] = None
                 measurement["updated_at"] = now
                 restored = measurement
             else:
                 if source.get("deleted", False):
-                    raise ValueError(
-                        "Cannot restore this correction because its previous version is deleted"
-                    )
-
+                    raise ValueError("Cannot restore this correction because its previous version is deleted")
                 current_successor = source.get("superseded_by")
-
                 if current_successor in (None, measurement_id):
-                    # Normal undo/redo path: reconnect the exact historical
-                    # correction to its predecessor.
                     source["superseded_by"] = measurement_id
                     source["updated_at"] = now
                     measurement["deleted"] = False
@@ -1670,19 +1392,11 @@ class PuppyTrackerStorage:
                     measurement["updated_at"] = now
                     restored = measurement
                 else:
-                    # The chain changed after this version was deleted. Do not
-                    # branch the chain. Clone the deleted value as a new terminal
-                    # correction after the current active tip instead.
                     tip = self._follow_replacement_chain(puppy, source)
                     if tip.get("deleted", False):
-                        raise ValueError(
-                            "Cannot restore this correction because the current correction chain is deleted"
-                        )
+                        raise ValueError("Cannot restore this correction because the current correction chain is deleted")
                     if tip.get("superseded_by") is not None:
-                        raise ValueError(
-                            "Cannot restore this correction because the current correction chain is inconsistent"
-                        )
-
+                        raise ValueError("Cannot restore this correction because the current correction chain is inconsistent")
                     restored = self._create_replacement_measurement(
                         puppy,
                         tip,
@@ -1695,15 +1409,12 @@ class PuppyTrackerStorage:
                     restored["note"] = measurement.get("note")
                     restored_id = restored["id"]
                     restored_as_new_version = True
-
             puppy["updated_at"] = now
             self._data["litters"][litter_id]["updated_at"] = now
-
             if restored.get("kind") == "birth":
                 puppy["birth_weight"] = float(restored["weight"])
                 puppy["birth_time"] = restored.get("timestamp")
                 puppy["birth_measurement_id"] = restored.get("id")
-
             self._add_audit_entry(
                 action="restore_weight",
                 litter_id=litter_id,
@@ -1716,24 +1427,13 @@ class PuppyTrackerStorage:
                     "kind": measurement.get("kind"),
                     "restored_measurement_id": restored_id,
                     "restored_as_new_version": restored_as_new_version,
-                    "supersedes_measurement_id": (
-                        restored.get("source_measurement_id")
-                        if restored_as_new_version
-                        else (source.get("id") if source is not None else None)
-                    ),
+                    "supersedes_measurement_id": restored.get("source_measurement_id") if restored_as_new_version else (source.get("id") if source is not None else None),
                 },
             )
-
             await self.async_save()
             return restored_id
 
-    def get_measurement(
-        self,
-        litter_id: str,
-        puppy_id: str,
-        measurement_id: str,
-    ) -> dict[str, Any] | None:
-        """Return one measurement."""
+    def get_measurement(self, litter_id: str, puppy_id: str, measurement_id: str) -> dict[str, Any] | None:
         puppy = self.get_puppy(litter_id, puppy_id)
         if puppy is None:
             return None
@@ -1749,22 +1449,15 @@ class PuppyTrackerStorage:
         *,
         include_inactive: bool = True,
     ) -> list[dict[str, Any]]:
-        """Return measurements sorted from newest to oldest."""
         puppy = self._require_puppy(litter_id, puppy_id)
-        measurements = sorted_measurements(
+        return sorted_measurements(
             puppy.get("measurements", []),
             active_only=not include_inactive,
             newest_first=True,
             copy_items=True,
         )
-        return measurements
 
-    def get_active_measurements(
-        self,
-        litter_id: str,
-        puppy_id: str,
-    ) -> list[dict[str, Any]]:
-        """Return currently valid measurements."""
+    def get_active_measurements(self, litter_id: str, puppy_id: str) -> list[dict[str, Any]]:
         puppy = self._require_puppy(litter_id, puppy_id)
         return sorted_measurements(
             puppy.get("measurements", []),
@@ -1778,22 +1471,15 @@ class PuppyTrackerStorage:
         puppy_id: str,
         profile_note: str | None,
     ) -> None:
-        """Update only the persistent profile note for one puppy."""
         async with self._lock:
             litter = self._require_litter(litter_id)
             puppy = self._require_puppy(litter_id, puppy_id)
             before = puppy.get("profile_note")
             now = _now_iso()
-            normalized_note = (
-                profile_note.strip()
-                if isinstance(profile_note, str) and profile_note.strip()
-                else None
-            )
-
+            normalized_note = profile_note.strip() if isinstance(profile_note, str) and profile_note.strip() else None
             puppy["profile_note"] = normalized_note
             puppy["updated_at"] = now
             litter["updated_at"] = now
-
             self._add_audit_entry(
                 action="update_profile_note",
                 litter_id=litter_id,
@@ -1810,19 +1496,12 @@ class PuppyTrackerStorage:
         include_deleted: bool = False,
         newest_first: bool = False,
     ) -> list[dict[str, Any]]:
-        """Return dossier records for one litter or puppy."""
-        if puppy_id is None:
-            owner = self.get_litter(litter_id)
-        else:
-            owner = self.get_puppy(litter_id, puppy_id)
-
+        owner = self.get_litter(litter_id) if puppy_id is None else self.get_puppy(litter_id, puppy_id)
         if owner is None:
             return []
-
         records = owner.get("records", [])
         if not isinstance(records, list):
             return []
-
         return sorted_records(
             records,
             include_deleted=include_deleted,
@@ -1830,20 +1509,10 @@ class PuppyTrackerStorage:
             copy_items=True,
         )
 
-    def get_record(
-        self,
-        litter_id: str,
-        record_id: str,
-        puppy_id: str | None = None,
-    ) -> dict[str, Any] | None:
-        """Return one dossier record by id."""
-        if puppy_id is None:
-            owner = self.get_litter(litter_id)
-        else:
-            owner = self.get_puppy(litter_id, puppy_id)
+    def get_record(self, litter_id: str, record_id: str, puppy_id: str | None = None) -> dict[str, Any] | None:
+        owner = self.get_litter(litter_id) if puppy_id is None else self.get_puppy(litter_id, puppy_id)
         if owner is None:
             return None
-
         for record in owner.get("records", []):
             if isinstance(record, dict) and record.get("id") == record_id:
                 return deepcopy(record)
@@ -1860,7 +1529,6 @@ class PuppyTrackerStorage:
         note: str | None = None,
         data: dict[str, Any] | None = None,
     ) -> str:
-        """Add a generic dossier record to a litter or puppy."""
         async with self._lock:
             litter = self._require_litter(litter_id)
             owner = litter if puppy_id is None else self._require_puppy(litter_id, puppy_id)
@@ -1878,16 +1546,12 @@ class PuppyTrackerStorage:
             owner.setdefault("records", []).append(record)
             owner["updated_at"] = now
             litter["updated_at"] = now
-
             self._add_audit_entry(
                 action="add_record",
                 litter_id=litter_id,
                 puppy_id=puppy_id,
                 record_id=record["id"],
-                details={
-                    "type": record["type"],
-                    "occurred_at": record["occurred_at"],
-                },
+                details={"type": record["type"], "occurred_at": record["occurred_at"]},
             )
             await self.async_save()
             return str(record["id"])
@@ -1904,14 +1568,12 @@ class PuppyTrackerStorage:
         note: str | None = None,
         data: dict[str, Any] | None = None,
     ) -> None:
-        """Update a dossier record while preserving its identity and history metadata."""
         async with self._lock:
             litter = self._require_litter(litter_id)
             owner = litter if puppy_id is None else self._require_puppy(litter_id, puppy_id)
             record = self._require_record(owner, record_id)
             before = deepcopy(record)
             now = _now_iso()
-
             record["type"] = validate_record_type(record_type)
             if occurred_at is not None:
                 record["occurred_at"] = normalize_timestamp(occurred_at, now) or now
@@ -1921,7 +1583,6 @@ class PuppyTrackerStorage:
             record["updated_at"] = now
             owner["updated_at"] = now
             litter["updated_at"] = now
-
             self._add_audit_entry(
                 action="update_record",
                 litter_id=litter_id,
@@ -1937,14 +1598,12 @@ class PuppyTrackerStorage:
         record_id: str,
         puppy_id: str | None = None,
     ) -> None:
-        """Soft-delete a dossier record."""
         async with self._lock:
             litter = self._require_litter(litter_id)
             owner = litter if puppy_id is None else self._require_puppy(litter_id, puppy_id)
             record = self._require_record(owner, record_id)
             if record.get("deleted", False):
                 return
-
             now = _now_iso()
             record["deleted"] = True
             record["deleted_at"] = now
@@ -1966,14 +1625,12 @@ class PuppyTrackerStorage:
         record_id: str,
         puppy_id: str | None = None,
     ) -> None:
-        """Restore a soft-deleted dossier record."""
         async with self._lock:
             litter = self._require_litter(litter_id)
             owner = litter if puppy_id is None else self._require_puppy(litter_id, puppy_id)
             record = self._require_record(owner, record_id)
             if not record.get("deleted", False):
                 return
-
             now = _now_iso()
             record["deleted"] = False
             record["deleted_at"] = None
@@ -1989,78 +1646,28 @@ class PuppyTrackerStorage:
             )
             await self.async_save()
 
-    def _require_litter(
-        self,
-        litter_id: str,
-    ) -> dict[str, Any]:
-        """Return litter or raise."""
-
-        litter = self._data.get(
-            "litters",
-            {},
-        ).get(
-            litter_id
-        )
-
+    def _require_litter(self, litter_id: str) -> dict[str, Any]:
+        litter = self._data.get("litters", {}).get(litter_id)
         if litter is None:
-            raise ValueError(
-                f"Unknown litter: {litter_id}"
-            )
-
+            raise ValueError(f"Unknown litter: {litter_id}")
         return litter
 
-    def _require_puppy(
-        self,
-        litter_id: str,
-        puppy_id: str,
-    ) -> dict[str, Any]:
-        """Return puppy or raise."""
-
-        litter = self._require_litter(
-            litter_id
-        )
-
-        puppy = litter.get(
-            "puppies",
-            {},
-        ).get(
-            puppy_id
-        )
-
+    def _require_puppy(self, litter_id: str, puppy_id: str) -> dict[str, Any]:
+        litter = self._require_litter(litter_id)
+        puppy = litter.get("puppies", {}).get(puppy_id)
         if puppy is None:
-            raise ValueError(
-                f"Unknown puppy: {puppy_id}"
-            )
-
+            raise ValueError(f"Unknown puppy: {puppy_id}")
         return puppy
 
     @staticmethod
-    def _require_measurement(
-        puppy: dict[str, Any],
-        measurement_id: str,
-    ) -> dict[str, Any]:
-        """Return measurement or raise."""
-
-        for measurement in puppy.get(
-            "measurements",
-            [],
-        ):
-            if (
-                measurement.get("id")
-                == measurement_id
-            ):
+    def _require_measurement(puppy: dict[str, Any], measurement_id: str) -> dict[str, Any]:
+        for measurement in puppy.get("measurements", []):
+            if measurement.get("id") == measurement_id:
                 return measurement
-
-        raise ValueError(
-            f"Unknown measurement: {measurement_id}"
-        )
+        raise ValueError(f"Unknown measurement: {measurement_id}")
 
     @staticmethod
-    def _require_record(
-        owner: dict[str, Any],
-        record_id: str,
-    ) -> dict[str, Any]:
-        """Return dossier record or raise."""
+    def _require_record(owner: dict[str, Any], record_id: str) -> dict[str, Any]:
         for record in owner.get("records", []):
             if isinstance(record, dict) and record.get("id") == record_id:
                 return record
@@ -2075,11 +1682,7 @@ class PuppyTrackerStorage:
         record_id: str | None = None,
         details: dict[str, Any] | None = None,
     ) -> None:
-        """Add audit log entry."""
-
-        self._data[
-            "audit_log"
-        ].append(
+        self._data["audit_log"].append(
             {
                 "id": str(uuid4()),
                 "timestamp": _now_iso(),
