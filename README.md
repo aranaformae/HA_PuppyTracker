@@ -2,7 +2,7 @@
 
 Puppy Tracker is a custom Home Assistant integration for managing litters and individual puppies. Weight tracking remains a first-class module, but Puppy Tracker has grown into a broader puppy dossier with chronological care records, reminders, timeline views and safe backup/restore.
 
-> **Development status:** pre-1.0. The current development release is **0.14.1** on the stable `puppy_tracker` integration domain. Breaking changes are still possible before 1.0.
+> **Development status:** pre-1.0. The current development release is **0.14.2** on the stable `puppy_tracker` integration domain. Breaking changes are still possible before 1.0.
 
 ## Highlights
 
@@ -25,7 +25,8 @@ Puppy Tracker is a custom Home Assistant integration for managing litters and in
 - Combined Timeline with weights and dossier history in one filterable view.
 - CSV, JSON and direct PDF export.
 - Full, litter and individual-puppy JSON backup/export from integration configuration.
-- Validated JSON import/restore with dry-run preview, UUID remapping and atomic writes.
+- Full backups include portable care-reminder preferences while excluding delivery/deduplication state.
+- Validated JSON import/restore with dry-run preview, UUID remapping and atomic storage writes.
 - Data-integrity checks and privacy-conscious Home Assistant diagnostics.
 - Built-in Lovelace cards automatically served and registered by the integration.
 - Browser regression tests across desktop Chromium and iPhone/iPad WebKit profiles.
@@ -141,9 +142,11 @@ Data management provides authoritative JSON export/import without relying on a d
 
 Available exports:
 
-- **Complete Puppy Tracker backup** — all litters, puppies, settings, measurement versions, dossier records and audit history.
+- **Complete Puppy Tracker backup** — all litters, puppies, monitoring/notification settings, measurement versions, dossier records, audit history and portable care-reminder preferences.
 - **One complete litter** — one litter with all puppies and associated history.
 - **One individual puppy** — profile, birth measurement reference, complete measurement/correction history, dossier records, relevant audit history and source-litter metadata.
+
+A full backup stores the care-reminder lead time plus vaccination/deworming enable/disable preferences. Reminder delivery/deduplication state is intentionally excluded and rebuilt after restore.
 
 Export links are short-lived signed Home Assistant download URLs and expire after 10 minutes. Backup files are not left behind in `/www`.
 
@@ -159,7 +162,7 @@ Import/restore always follows a safety flow:
 
 Partial imports receive new litter, puppy, measurement and dossier identifiers. Internal references such as correction chains and birth-measurement links are remapped together, so an imported puppy cannot silently overwrite existing history.
 
-A single puppy can be imported into an **existing litter** or into a **new litter** created from the source-litter metadata. Full disaster-recovery restore can intentionally replace the complete Puppy Tracker database while preserving source identifiers.
+A single puppy can be imported into an **existing litter** or into a **new litter** created from the source-litter metadata. Full disaster-recovery restore can intentionally replace the complete Puppy Tracker database while preserving source identifiers and restoring the portable care-reminder preferences.
 
 See [`docs/backup-restore.md`](docs/backup-restore.md) for the full backup, restore and puppy-transfer procedure.
 
@@ -331,7 +334,7 @@ CSV is intended for spreadsheet analysis and contains effective active measureme
 
 ### JSON
 
-JSON is the authoritative technical backup/transfer format. Current backup export version is **3**. The restore workflow can also accept the previous version 2 litter JSON format when its schema can be validated safely.
+JSON is the authoritative technical backup/transfer format. The current backup export version is **4**, and import intentionally accepts **v4 only** while Puppy Tracker is still pre-1.0. Earlier experimental v2/v3 backups are rejected rather than migrated.
 
 Use **Data management** in the integration configuration for full, litter and single-puppy backup/restore workflows.
 
