@@ -6,6 +6,8 @@ import {
   fetchLitters,
   fetchRecords,
   formatDateTime,
+  languageForHass,
+  localize,
   restoreDossierRecord,
   selectDefaultLitter,
   subscribeUpdates,
@@ -14,55 +16,55 @@ import {
 } from "./puppy-tracker-card-common.js";
 
 const RECORD_TYPES = [
-  ["note", "Notitie", "mdi:note-text-outline"],
-  ["vaccination", "Vaccinatie", "mdi:needle"],
-  ["test", "Test / uitslag", "mdi:test-tube"],
-  ["deworming", "Ontworming", "mdi:shield-bug-outline"],
-  ["medication", "Medicatie", "mdi:pill"],
-  ["vet_visit", "Dierenartsbezoek", "mdi:stethoscope"],
-  ["milestone", "Mijlpaal", "mdi:flag-checkered"],
-  ["other", "Overig", "mdi:dots-horizontal-circle-outline"],
+  ["note", "note", "mdi:note-text-outline"],
+  ["vaccination", "vaccination", "mdi:needle"],
+  ["test", "test", "mdi:test-tube"],
+  ["deworming", "deworming", "mdi:shield-bug-outline"],
+  ["medication", "medication", "mdi:pill"],
+  ["vet_visit", "vetVisit", "mdi:stethoscope"],
+  ["milestone", "milestone", "mdi:flag-checkered"],
+  ["other", "other", "mdi:dots-horizontal-circle-outline"],
 ];
 
 const TYPE_META = Object.fromEntries(
-  RECORD_TYPES.map(([value, label, icon]) => [value, { label, icon }])
+  RECORD_TYPES.map(([value, labelKey, icon]) => [value, { labelKey, icon }])
 );
 
 
 const TYPE_FIELDS = {
   vaccination: [
-    { key: "vaccine", label: "Vaccin", placeholder: "Bijvoorbeeld Nobivac Puppy DP" },
-    { key: "batch_number", label: "Batch-/lotnummer", placeholder: "Bijvoorbeeld ABC123" },
-    { key: "veterinarian", label: "Dierenarts", placeholder: "Naam dierenarts" },
-    { key: "next_due_date", label: "Volgende vaccinatie", type: "date" },
+    { key: "vaccine", labelKey: "vaccine", placeholderKey: "vaccinePlaceholder" },
+    { key: "batch_number", labelKey: "batchNumber", placeholderKey: "batchNumberPlaceholder" },
+    { key: "veterinarian", labelKey: "veterinarian", placeholderKey: "veterinarianPlaceholder" },
+    { key: "next_due_date", labelKey: "vaccinationNextDue", type: "date" },
   ],
   test: [
-    { key: "test_name", label: "Test / onderzoek", placeholder: "Bijvoorbeeld Giardia sneltest" },
-    { key: "result", label: "Uitslag", placeholder: "Bijvoorbeeld negatief / vrij / drager" },
-    { key: "laboratory", label: "Laboratorium / instantie", placeholder: "Naam laboratorium of instantie" },
+    { key: "test_name", labelKey: "testName", placeholderKey: "testNamePlaceholder" },
+    { key: "result", labelKey: "testResult", placeholderKey: "testResultPlaceholder" },
+    { key: "laboratory", labelKey: "laboratory", placeholderKey: "laboratoryPlaceholder" },
   ],
   deworming: [
-    { key: "product", label: "Middel", placeholder: "Naam ontwormingsmiddel" },
-    { key: "dose", label: "Dosering", placeholder: "Bijvoorbeeld 1 ml of volgens gewicht" },
-    { key: "administered_by", label: "Toegediend door", placeholder: "Bijvoorbeeld fokker of dierenarts" },
-    { key: "next_due_date", label: "Volgende ontworming", type: "date" },
+    { key: "product", labelKey: "product", placeholderKey: "productPlaceholder" },
+    { key: "dose", labelKey: "dosage", placeholderKey: "dosagePlaceholder" },
+    { key: "administered_by", labelKey: "administeredBy", placeholderKey: "administeredByPlaceholder" },
+    { key: "next_due_date", labelKey: "dewormingNextDue", type: "date" },
   ],
   medication: [
-    { key: "medication", label: "Medicijn", placeholder: "Naam geneesmiddel" },
-    { key: "dose", label: "Dosering", placeholder: "Bijvoorbeeld 0,5 ml" },
-    { key: "frequency", label: "Frequentie", placeholder: "Bijvoorbeeld 2× per dag" },
-    { key: "duration", label: "Duur / periode", placeholder: "Bijvoorbeeld 5 dagen" },
+    { key: "medication", labelKey: "medication", placeholderKey: "medicationPlaceholder" },
+    { key: "dose", labelKey: "dosage", placeholderKey: "dosagePlaceholder" },
+    { key: "frequency", labelKey: "frequency", placeholderKey: "frequencyPlaceholder" },
+    { key: "duration", labelKey: "duration", placeholderKey: "durationPlaceholder" },
   ],
   vet_visit: [
-    { key: "veterinarian", label: "Dierenarts", placeholder: "Naam dierenarts" },
-    { key: "clinic", label: "Praktijk / kliniek", placeholder: "Naam praktijk" },
-    { key: "reason", label: "Reden bezoek", placeholder: "Bijvoorbeeld nestcontrole" },
-    { key: "diagnosis", label: "Bevinding / diagnose", type: "textarea", wide: true, placeholder: "Belangrijkste bevindingen" },
-    { key: "treatment", label: "Behandeling / advies", type: "textarea", wide: true, placeholder: "Behandeling, advies of vervolg" },
+    { key: "veterinarian", labelKey: "veterinarian", placeholderKey: "veterinarianPlaceholder" },
+    { key: "clinic", labelKey: "clinic", placeholderKey: "clinicPlaceholder" },
+    { key: "reason", labelKey: "visitReason", placeholderKey: "visitReasonPlaceholder" },
+    { key: "diagnosis", labelKey: "diagnosis", type: "textarea", wide: true, placeholderKey: "diagnosisPlaceholder" },
+    { key: "treatment", labelKey: "treatment", type: "textarea", wide: true, placeholderKey: "treatmentPlaceholder" },
   ],
   milestone: [
-    { key: "milestone", label: "Mijlpaal", placeholder: "Bijvoorbeeld ogen open" },
-    { key: "category", label: "Categorie", placeholder: "Bijvoorbeeld ontwikkeling of socialisatie" },
+    { key: "milestone", labelKey: "milestone", placeholderKey: "milestonePlaceholder" },
+    { key: "category", labelKey: "milestoneCategory", placeholderKey: "milestoneCategoryPlaceholder" },
   ],
 };
 
@@ -75,9 +77,9 @@ function humanizeKey(value) {
   return text ? text.charAt(0).toUpperCase() + text.slice(1) : "";
 }
 
-function displayDataValue(value) {
+function displayDataValue(value, hass = null) {
   if (value === null || value === undefined || value === "") return "";
-  if (typeof value === "boolean") return value ? "Ja" : "Nee";
+  if (typeof value === "boolean") return value ? localize(hass, "yes") : localize(hass, "no");
   if (typeof value === "object") {
     try {
       return JSON.stringify(value);
@@ -88,22 +90,27 @@ function displayDataValue(value) {
   return String(value);
 }
 
-function formatDateOnly(value) {
+function formatDateOnly(value, hass = null) {
   const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) return displayDataValue(value);
-  return `${match[3]}-${match[2]}-${match[1]}`;
+  if (!match) return displayDataValue(value, hass);
+  return languageForHass(hass) === "en"
+    ? `${match[2]}/${match[3]}/${match[1]}`
+    : `${match[3]}-${match[2]}-${match[1]}`;
 }
 
-function dossierActionStatus(action) {
+function dossierActionStatus(hass, action) {
   const days = Number(action?.days_until_due ?? action?.days_until);
   if (action?.status === "overdue") {
     const amount = Math.abs(days);
-    return amount === 1 ? "1 dag te laat" : `${amount} dagen te laat`;
+    return amount === 1
+      ? localize(hass, "overdueOne")
+      : localize(hass, "overdueMany", { days: amount });
   }
-  if (action?.status === "due_today") return "Vandaag";
-  if (action?.status === "upcoming") return days === 1 ? "Morgen" : `Over ${days} dagen`;
-  if (Number.isFinite(days)) return days === 1 ? "Morgen" : `Over ${days} dagen`;
-  return "Gepland";
+  if (action?.status === "due_today") return localize(hass, "today");
+  if (action?.status === "upcoming" || Number.isFinite(days)) {
+    return days === 1 ? localize(hass, "tomorrow") : localize(hass, "inDays", { days });
+  }
+  return localize(hass, "planned");
 }
 
 function dossierActionTone(action) {
@@ -112,9 +119,9 @@ function dossierActionTone(action) {
   return "neutral";
 }
 
-function humanizeType(value) {
+function humanizeType(value, hass = null) {
   const text = String(value || "other");
-  if (TYPE_META[text]) return TYPE_META[text].label;
+  if (TYPE_META[text]) return localize(hass, TYPE_META[text].labelKey);
   const label = text.replaceAll("_", " ");
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
@@ -163,7 +170,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
 
   static getStubConfig() {
     return {
-      title: "Puppydossier",
+      title: "",
       show_litter_selector: true,
       show_profile_note: true,
     };
@@ -181,7 +188,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
 
   setConfig(config) {
     this._config = {
-      title: "Puppydossier",
+      title: "",
       show_litter_selector: true,
       show_profile_note: true,
       ...config,
@@ -236,7 +243,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
       await this._loadLitterAndRecords(false);
       await this._subscribe();
     } catch (err) {
-      this._error = err?.message || "Het Puppy Tracker-dossier kon niet worden geladen.";
+      this._error = err?.message || localize(this._hass, "dossierLoadFailed");
     } finally {
       this._loading = false;
       this._render();
@@ -283,7 +290,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
       } while (this._refreshAgain);
       this._error = "";
     } catch (err) {
-      this._error = err?.message || "Het dossier kon niet worden vernieuwd.";
+      this._error = err?.message || localize(this._hass, "dossierRefreshFailed");
     } finally {
       this._refreshing = false;
       this._render();
@@ -329,7 +336,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
       await this._loadLitterAndRecords(false);
       this._error = "";
     } catch (err) {
-      this._error = err?.message || "Nestdossier kon niet worden geladen.";
+      this._error = err?.message || localize(this._hass, "litterDossierLoadFailed");
     } finally {
       this._loading = false;
       this._render();
@@ -352,7 +359,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
       );
       this._error = "";
     } catch (err) {
-      this._error = err?.message || "Dossier kon niet worden geladen.";
+      this._error = err?.message || localize(this._hass, "dossierLoadFailed");
     } finally {
       this._loading = false;
       this._render();
@@ -446,16 +453,16 @@ class PuppyTrackerDossierCard extends HTMLElement {
       const value = data?.[field.key] ?? "";
       const id = `record-data-${field.key}`;
       const classes = field.wide ? "typed-field wide" : "typed-field";
-      const placeholder = field.placeholder ? ` placeholder="${escapeHtml(field.placeholder)}"` : "";
+      const placeholder = field.placeholderKey ? ` placeholder="${escapeHtml(localize(this._hass, field.placeholderKey))}"` : "";
       const control = field.type === "textarea"
         ? `<textarea id="${id}" rows="3"${placeholder}>${escapeHtml(value)}</textarea>`
         : `<input id="${id}" type="${field.type || "text"}" value="${escapeHtml(value)}"${placeholder}>`;
-      return `<label class="${classes}">${escapeHtml(field.label)} <span class="optional">optioneel</span>${control}</label>`;
+      return `<label class="${classes}">${escapeHtml(localize(this._hass, field.labelKey))} <span class="optional">${escapeHtml(localize(this._hass, "optional"))}</span>${control}</label>`;
     }).join("");
 
     return `
       <div class="typed-section">
-        <div class="typed-title">Aanvullende gegevens · ${escapeHtml(humanizeType(recordType))}</div>
+        <div class="typed-title">${escapeHtml(localize(this._hass, "additionalData"))} · ${escapeHtml(humanizeType(recordType, this._hass))}</div>
         <div class="typed-grid">${controls}</div>
       </div>`;
   }
@@ -472,13 +479,13 @@ class PuppyTrackerDossierCard extends HTMLElement {
       const raw = data[field.key];
       if (raw === null || raw === undefined || raw === "") continue;
       renderedKeys.add(field.key);
-      const value = field.type === "date" ? formatDateOnly(raw) : displayDataValue(raw);
-      rows.push(`<div class="record-data-row"><span>${escapeHtml(field.label)}</span><strong>${escapeHtml(value)}</strong></div>`);
+      const value = field.type === "date" ? formatDateOnly(raw, this._hass) : displayDataValue(raw, this._hass);
+      rows.push(`<div class="record-data-row"><span>${escapeHtml(localize(this._hass, field.labelKey))}</span><strong>${escapeHtml(value)}</strong></div>`);
     }
 
     for (const [key, raw] of Object.entries(data)) {
       if (renderedKeys.has(key) || raw === null || raw === undefined || raw === "") continue;
-      rows.push(`<div class="record-data-row"><span>${escapeHtml(humanizeKey(key))}</span><strong>${escapeHtml(displayDataValue(raw))}</strong></div>`);
+      rows.push(`<div class="record-data-row"><span>${escapeHtml(humanizeKey(key))}</span><strong>${escapeHtml(displayDataValue(raw, this._hass))}</strong></div>`);
     }
 
     return rows.length ? `<div class="record-data">${rows.join("")}</div>` : "";
@@ -492,7 +499,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
     const noteInput = this.shadowRoot?.getElementById("record-note");
     const occurredAt = toIsoTimestamp(occurredInput?.value);
     if (!occurredAt) {
-      this._error = "Vul een geldige datum en tijd in.";
+      this._error = localize(this._hass, "invalidDateTime");
       this._render();
       return;
     }
@@ -508,7 +515,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
 
     this._saving = true;
     this._error = "";
-    this._status = this._editor.mode === "edit" ? "Dossieritem opslaan…" : "Dossieritem toevoegen…";
+    this._status = this._editor.mode === "edit" ? localize(this._hass, "dossierItemSave") : localize(this._hass, "dossierItemAdd");
     this._render();
     try {
       if (this._editor.mode === "edit") {
@@ -519,7 +526,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
           this._editor.id,
           payload
         );
-        this._status = "Dossieritem bijgewerkt.";
+        this._status = localize(this._hass, "dossierItemUpdated");
       } else {
         await addDossierRecord(
           this._hass,
@@ -527,32 +534,32 @@ class PuppyTrackerDossierCard extends HTMLElement {
           this._selectedPuppyId,
           payload
         );
-        this._status = "Dossieritem toegevoegd.";
+        this._status = localize(this._hass, "dossierItemAdded");
       }
       this._editor = null;
       this._saving = false;
       await this._loadLitterAndRecords(false);
     } catch (err) {
       this._saving = false;
-      this._error = err?.message || "Dossieritem kon niet worden opgeslagen.";
+      this._error = err?.message || localize(this._hass, "dossierItemCouldNotSave");
     }
     this._render();
   }
 
   async _deleteRecord(record) {
     if (!this._canManage || this._saving) return;
-    const title = record.title || humanizeType(record.type);
-    if (!window.confirm(`Dossieritem “${title}” verwijderen? Je kunt het later herstellen.`)) return;
+    const title = record.title || humanizeType(record.type, this._hass);
+    if (!window.confirm(localize(this._hass, "confirmDeleteRecord", { title }))) return;
     this._saving = true;
-    this._status = "Dossieritem verwijderen…";
+    this._status = localize(this._hass, "dossierItemDelete");
     this._error = "";
     this._render();
     try {
       await deleteDossierRecord(this._hass, this._selectedLitterId, this._selectedPuppyId, record.id);
-      this._status = "Dossieritem verwijderd.";
+      this._status = localize(this._hass, "dossierItemDeleted");
       await this._loadLitterAndRecords(false);
     } catch (err) {
-      this._error = err?.message || "Dossieritem kon niet worden verwijderd.";
+      this._error = err?.message || localize(this._hass, "dossierItemCouldNotDelete");
     } finally {
       this._saving = false;
       this._render();
@@ -562,15 +569,15 @@ class PuppyTrackerDossierCard extends HTMLElement {
   async _restoreRecord(record) {
     if (!this._canManage || this._saving) return;
     this._saving = true;
-    this._status = "Dossieritem herstellen…";
+    this._status = localize(this._hass, "dossierItemRestore");
     this._error = "";
     this._render();
     try {
       await restoreDossierRecord(this._hass, this._selectedLitterId, this._selectedPuppyId, record.id);
-      this._status = "Dossieritem hersteld.";
+      this._status = localize(this._hass, "dossierItemRestored");
       await this._loadLitterAndRecords(false);
     } catch (err) {
-      this._error = err?.message || "Dossieritem kon niet worden hersteld.";
+      this._error = err?.message || localize(this._hass, "dossierItemCouldNotRestore");
     } finally {
       this._saving = false;
       this._render();
@@ -591,7 +598,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
     const input = this.shadowRoot?.getElementById("profile-note");
     const profileNote = input?.value?.trim() || null;
     this._saving = true;
-    this._status = "Profielnotitie opslaan…";
+    this._status = localize(this._hass, "profileNoteSave");
     this._error = "";
     this._render();
     try {
@@ -602,23 +609,23 @@ class PuppyTrackerDossierCard extends HTMLElement {
         profileNote
       );
       this._profileEditing = false;
-      this._status = "Profielnotitie opgeslagen.";
+      this._status = localize(this._hass, "profileNoteSaved");
       this._saving = false;
       await this._loadLitterAndRecords(false);
     } catch (err) {
       this._saving = false;
-      this._error = err?.message || "Profielnotitie kon niet worden opgeslagen.";
+      this._error = err?.message || localize(this._hass, "profileNoteCouldNotSave");
     }
     this._render();
   }
 
   _recordTypeOptions(selected) {
     const knownValues = new Set(RECORD_TYPES.map(([value]) => value));
-    const options = RECORD_TYPES.map(([value, label]) =>
-      `<option value="${escapeHtml(value)}" ${value === selected ? "selected" : ""}>${escapeHtml(label)}</option>`
+    const options = RECORD_TYPES.map(([value, labelKey]) =>
+      `<option value="${escapeHtml(value)}" ${value === selected ? "selected" : ""}>${escapeHtml(localize(this._hass, labelKey))}</option>`
     );
     if (selected && !knownValues.has(selected)) {
-      options.unshift(`<option value="${escapeHtml(selected)}" selected>${escapeHtml(humanizeType(selected))}</option>`);
+      options.unshift(`<option value="${escapeHtml(selected)}" selected>${escapeHtml(humanizeType(selected, this._hass))}</option>`);
     }
     return options.join("");
   }
@@ -629,21 +636,21 @@ class PuppyTrackerDossierCard extends HTMLElement {
     if (this._profileEditing) {
       return `
         <section class="panel profile-panel">
-          <div class="panel-head"><div><div class="panel-title">Profielnotitie</div><div class="hint">Blijvende samenvatting van deze pup</div></div></div>
-          <textarea id="profile-note" rows="4" placeholder="Bijvoorbeeld karakter, herkenningspunten of blijvende bijzonderheden…">${escapeHtml(note)}</textarea>
+          <div class="panel-head"><div><div class="panel-title">${escapeHtml(localize(this._hass, "profileNote"))}</div><div class="hint">${escapeHtml(localize(this._hass, "profileNoteHint"))}</div></div></div>
+          <textarea id="profile-note" rows="4" placeholder="${escapeHtml(localize(this._hass, "profileNotePlaceholder"))}">${escapeHtml(note)}</textarea>
           <div class="form-actions">
-            <button class="secondary" id="profile-cancel" ${this._saving ? "disabled" : ""}>Annuleren</button>
-            <button class="primary" id="profile-save" ${this._saving ? "disabled" : ""}>Opslaan</button>
+            <button class="secondary" id="profile-cancel" ${this._saving ? "disabled" : ""}>${escapeHtml(localize(this._hass, "cancel"))}</button>
+            <button class="primary" id="profile-save" ${this._saving ? "disabled" : ""}>${escapeHtml(localize(this._hass, "save"))}</button>
           </div>
         </section>`;
     }
     return `
       <section class="panel profile-panel">
         <div class="panel-head">
-          <div><div class="panel-title">Profielnotitie</div><div class="hint">Blijvende samenvatting van deze pup</div></div>
-          ${this._canManage ? `<button class="icon-button" id="profile-edit" title="Profielnotitie aanpassen" aria-label="Profielnotitie aanpassen"><ha-icon icon="mdi:pencil"></ha-icon></button>` : ""}
+          <div><div class="panel-title">${escapeHtml(localize(this._hass, "profileNote"))}</div><div class="hint">${escapeHtml(localize(this._hass, "profileNoteHint"))}</div></div>
+          ${this._canManage ? `<button class="icon-button" id="profile-edit" title="${escapeHtml(localize(this._hass, "editProfileNote"))}" aria-label="${escapeHtml(localize(this._hass, "editProfileNote"))}"><ha-icon icon="mdi:pencil"></ha-icon></button>` : ""}
         </div>
-        ${note ? `<div class="profile-text">${escapeHtml(note)}</div>` : `<div class="empty compact">Nog geen profielnotitie.${this._canManage ? " Tik op het potlood om er één toe te voegen." : ""}</div>`}
+        ${note ? `<div class="profile-text">${escapeHtml(note)}</div>` : `<div class="empty compact">${escapeHtml(localize(this._hass, "noProfileNote"))}${this._canManage ? escapeHtml(localize(this._hass, "noProfileNoteCanAdd")) : ""}</div>`}
       </section>`;
   }
 
@@ -654,19 +661,22 @@ class PuppyTrackerDossierCard extends HTMLElement {
     return `
       <section class="panel followup-panel">
         <div class="panel-head">
-          <div><div class="panel-title">Aankomend</div><div class="hint">Afgeleid uit vervolgdatums in dossierrecords</div></div>
+          <div><div class="panel-title">${escapeHtml(localize(this._hass, "upcoming"))}</div><div class="hint">${escapeHtml(localize(this._hass, "upcomingHint"))}</div></div>
           <span class="followup-count">${actions.length}</span>
         </div>
         <div class="followup-list">
-          ${actions.map((action) => `
+          ${actions.map((action) => {
+            const title = humanizeType(action.type || action.record_type, this._hass);
+            return `
             <div class="followup-row ${dossierActionTone(action)}">
               <div class="followup-icon"><ha-icon icon="${escapeHtml(action.icon || "mdi:calendar-clock")}"></ha-icon></div>
               <div class="followup-main">
-                <strong>${escapeHtml(action.title || action.label || "Vervolgactie")}${!this._selectedPuppyId && action.puppy_name ? ` – ${escapeHtml(action.puppy_name)}` : ""}</strong>
+                <strong>${escapeHtml(title)}${!this._selectedPuppyId && action.puppy_name ? ` - ${escapeHtml(action.puppy_name)}` : ""}</strong>
                 ${action.description ? `<span>${escapeHtml(action.description)}</span>` : ""}
               </div>
-              <div class="followup-date"><strong>${escapeHtml(formatDateOnly(action.due_date || action.due_at))}</strong><span>${escapeHtml(dossierActionStatus(action))}</span></div>
-            </div>`).join("")}
+              <div class="followup-date"><strong>${escapeHtml(formatDateOnly(action.due_date || action.due_at, this._hass))}</strong><span>${escapeHtml(dossierActionStatus(this._hass, action))}</span></div>
+            </div>`;
+          }).join("")}
         </div>
       </section>`;
   }
@@ -677,48 +687,48 @@ class PuppyTrackerDossierCard extends HTMLElement {
     return `
       <section class="panel editor-panel">
         <div class="panel-head">
-          <div><div class="panel-title">${editing ? "Dossieritem aanpassen" : "Nieuw dossieritem"}</div><div class="hint">${escapeHtml(this._selectedPuppy?.name || this._litterData?.litter?.name || "Nest")}</div></div>
+          <div><div class="panel-title">${escapeHtml(editing ? localize(this._hass, "editDossierItem") : localize(this._hass, "newDossierItem"))}</div><div class="hint">${escapeHtml(this._selectedPuppy?.name || this._litterData?.litter?.name || localize(this._hass, "litter"))}</div></div>
         </div>
         <div class="form-grid">
-          <label>Type
+          <label>${escapeHtml(localize(this._hass, "type"))}
             <select id="record-type">${this._recordTypeOptions(this._editor.record_type)}</select>
           </label>
-          <label>Datum en tijd
+          <label>${escapeHtml(localize(this._hass, "dateAndTime"))}
             <input id="record-occurred" type="datetime-local" step="1" value="${escapeHtml(this._editor.occurred_at)}">
           </label>
         </div>
-        <label>Titel <span class="optional">optioneel</span>
-          <input id="record-title" type="text" maxlength="160" value="${escapeHtml(this._editor.title)}" placeholder="Korte omschrijving">
+        <label>${escapeHtml(localize(this._hass, "title"))} <span class="optional">${escapeHtml(localize(this._hass, "optional"))}</span>
+          <input id="record-title" type="text" maxlength="160" value="${escapeHtml(this._editor.title)}" placeholder="${escapeHtml(localize(this._hass, "recordTitlePlaceholder"))}">
         </label>
-        <label>Notitie <span class="optional">optioneel</span>
-          <textarea id="record-note" rows="4" placeholder="Details of bijzonderheden…">${escapeHtml(this._editor.note)}</textarea>
+        <label>${escapeHtml(localize(this._hass, "note"))} <span class="optional">${escapeHtml(localize(this._hass, "optional"))}</span>
+          <textarea id="record-note" rows="4" placeholder="${escapeHtml(localize(this._hass, "detailsPlaceholder"))}">${escapeHtml(this._editor.note)}</textarea>
         </label>
         ${this._renderTypeFields(this._editor.record_type, this._editor.data)}
         <div class="form-actions">
-          <button class="secondary" id="record-cancel" ${this._saving ? "disabled" : ""}>Annuleren</button>
-          <button class="primary" id="record-save" ${this._saving ? "disabled" : ""}>${editing ? "Wijzigingen opslaan" : "Toevoegen"}</button>
+          <button class="secondary" id="record-cancel" ${this._saving ? "disabled" : ""}>${escapeHtml(localize(this._hass, "cancel"))}</button>
+          <button class="primary" id="record-save" ${this._saving ? "disabled" : ""}>${escapeHtml(editing ? localize(this._hass, "saveChanges") : localize(this._hass, "add"))}</button>
         </div>
       </section>`;
   }
 
   _renderRecord(record) {
     const deleted = Boolean(record.deleted);
-    const title = record.title || humanizeType(record.type);
-    const typeLabel = humanizeType(record.type);
+    const title = record.title || humanizeType(record.type, this._hass);
+    const typeLabel = humanizeType(record.type, this._hass);
     return `
       <article class="record ${deleted ? "deleted" : ""}">
         <div class="record-icon"><ha-icon icon="${escapeHtml(iconForType(record.type))}"></ha-icon></div>
         <div class="record-body">
           <div class="record-top">
-            <div class="record-heading"><strong>${escapeHtml(title)}</strong><span class="type-badge">${escapeHtml(typeLabel)}</span>${deleted ? `<span class="deleted-badge">Verwijderd</span>` : ""}</div>
-            <time>${escapeHtml(formatDateTime(record.occurred_at))}</time>
+            <div class="record-heading"><strong>${escapeHtml(title)}</strong><span class="type-badge">${escapeHtml(typeLabel)}</span>${deleted ? `<span class="deleted-badge">${escapeHtml(localize(this._hass, "removed"))}</span>` : ""}</div>
+            <time>${escapeHtml(formatDateTime(record.occurred_at, "—", this._hass))}</time>
           </div>
           ${this._renderRecordData(record)}
           ${record.note ? `<div class="record-note">${escapeHtml(record.note)}</div>` : ""}
           ${this._canManage ? `<div class="record-actions">
             ${deleted
-              ? `<button class="text-button restore-record" data-id="${escapeHtml(record.id)}"><ha-icon icon="mdi:restore"></ha-icon> Herstellen</button>`
-              : `<button class="text-button edit-record" data-id="${escapeHtml(record.id)}"><ha-icon icon="mdi:pencil-outline"></ha-icon> Aanpassen</button><button class="text-button danger delete-record" data-id="${escapeHtml(record.id)}"><ha-icon icon="mdi:delete-outline"></ha-icon> Verwijderen</button>`}
+              ? `<button class="text-button restore-record" data-id="${escapeHtml(record.id)}"><ha-icon icon="mdi:restore"></ha-icon> ${escapeHtml(localize(this._hass, "restore"))}</button>`
+              : `<button class="text-button edit-record" data-id="${escapeHtml(record.id)}"><ha-icon icon="mdi:pencil-outline"></ha-icon> ${escapeHtml(localize(this._hass, "editDossierItem"))}</button><button class="text-button danger delete-record" data-id="${escapeHtml(record.id)}"><ha-icon icon="mdi:delete-outline"></ha-icon> ${escapeHtml(localize(this._hass, "delete"))}</button>`}
           </div>` : ""}
         </div>
       </article>`;
@@ -729,13 +739,17 @@ class PuppyTrackerDossierCard extends HTMLElement {
     const litter = this._litterData?.litter;
     const puppies = this._litterData?.puppies || [];
     const records = this._recordData?.records || [];
-    const ownerName = this._selectedPuppy?.name || litter?.name || "Nest";
+    const activeRecordCount = records.filter((item) => !item.deleted).length;
+    const ownerName = this._selectedPuppy?.name || litter?.name || localize(this._hass, "litter");
+    const activeRecordLabel = activeRecordCount === 1
+      ? localize(this._hass, "activeEntry")
+      : localize(this._hass, "activeEntries");
     const litterSelector = this._config.show_litter_selector !== false && this._litters.length > 1
-      ? `<select id="litter-select" aria-label="Nest kiezen">${this._litters.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === this._selectedLitterId ? "selected" : ""}>${escapeHtml(item.name || "Nest")}</option>`).join("")}</select>`
+      ? `<select id="litter-select" aria-label="${escapeHtml(localize(this._hass, "chooseLitter"))}">${this._litters.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === this._selectedLitterId ? "selected" : ""}>${escapeHtml(item.name || localize(this._hass, "litter"))}</option>`).join("")}</select>`
       : "";
     const ownerOptions = [
-      `<option value="__litter__" ${!this._selectedPuppyId ? "selected" : ""}>Nestdossier</option>`,
-      ...puppies.map((puppy) => `<option value="${escapeHtml(puppy.id)}" ${puppy.id === this._selectedPuppyId ? "selected" : ""}>${escapeHtml(puppy.name || "Pup")}</option>`),
+      `<option value="__litter__" ${!this._selectedPuppyId ? "selected" : ""}>${escapeHtml(localize(this._hass, "litterDossier"))}</option>`,
+      ...puppies.map((puppy) => `<option value="${escapeHtml(puppy.id)}" ${puppy.id === this._selectedPuppyId ? "selected" : ""}>${escapeHtml(puppy.name || localize(this._hass, "puppy"))}</option>`),
     ].join("");
 
     this.shadowRoot.innerHTML = `
@@ -756,13 +770,13 @@ class PuppyTrackerDossierCard extends HTMLElement {
           @container dossier-card (max-width:430px){ha-card{padding:13px}.toolbar{flex-direction:column;align-items:stretch}.tools{justify-content:space-between}.tools button.primary{flex:1}.timeline-head{align-items:flex-start;flex-direction:column}.record{grid-template-columns:32px minmax(0,1fr)}.record-icon{width:30px;height:30px}.record-icon ha-icon{--mdc-icon-size:18px}}
         </style>
         <div class="top">
-          <div><div class="title">${escapeHtml(this._config.title || "Puppydossier")}</div><div class="subtitle">${escapeHtml(litter?.name || (this._loading ? "Laden…" : "Geen nest"))}</div></div>
+          <div><div class="title">${escapeHtml(this._config.title || localize(this._hass, "puppyTrackerDossier"))}</div><div class="subtitle">${escapeHtml(litter?.name || (this._loading ? localize(this._hass, "loading") : localize(this._hass, "noLitter")))}</div></div>
           <div class="selectors">${litterSelector}</div>
         </div>
         <div class="toolbar">
-          <div class="owner"><label for="owner-select">Dossier van</label><select id="owner-select" ${!litter ? "disabled" : ""}>${ownerOptions}</select></div>
+          <div class="owner"><label for="owner-select">${escapeHtml(localize(this._hass, "dossierFor"))}</label><select id="owner-select" ${!litter ? "disabled" : ""}>${ownerOptions}</select></div>
           <div class="tools">
-            ${this._canManage ? `<button class="primary" id="add-record" ${this._saving || !litter ? "disabled" : ""}><ha-icon icon="mdi:plus"></ha-icon> Toevoegen</button>` : ""}
+            ${this._canManage ? `<button class="primary" id="add-record" ${this._saving || !litter ? "disabled" : ""}><ha-icon icon="mdi:plus"></ha-icon> ${escapeHtml(localize(this._hass, "add"))}</button>` : ""}
           </div>
         </div>
         ${this._error ? `<div class="message error">${escapeHtml(this._error)}</div>` : ""}
@@ -771,10 +785,10 @@ class PuppyTrackerDossierCard extends HTMLElement {
         ${this._renderUpcomingActions()}
         ${this._renderEditor()}
         <div class="timeline-head">
-          <div><div class="timeline-title">Tijdlijn</div><div class="timeline-sub">${escapeHtml(ownerName)} · ${records.filter((item) => !item.deleted).length} actieve ${records.filter((item) => !item.deleted).length === 1 ? "vermelding" : "vermeldingen"}</div></div>
-          ${this._canManage ? `<label class="toggle"><input id="show-deleted" type="checkbox" ${this._showDeleted ? "checked" : ""}> Verwijderde tonen</label>` : ""}
+          <div><div class="timeline-title">${escapeHtml(localize(this._hass, "timeline"))}</div><div class="timeline-sub">${escapeHtml(ownerName)} · ${activeRecordCount} ${escapeHtml(activeRecordLabel)}</div></div>
+          ${this._canManage ? `<label class="toggle"><input id="show-deleted" type="checkbox" ${this._showDeleted ? "checked" : ""}> ${escapeHtml(localize(this._hass, "showDeleted"))}</label>` : ""}
         </div>
-        ${this._loading ? `<div class="empty">Dossier laden…</div>` : records.length ? `<div class="timeline">${records.map((record) => this._renderRecord(record)).join("")}</div>` : `<div class="empty">Nog geen dossieritems voor ${escapeHtml(ownerName)}.${this._canManage ? " Voeg de eerste vermelding toe." : ""}</div>`}
+        ${this._loading ? `<div class="empty">${escapeHtml(localize(this._hass, "loading"))}</div>` : records.length ? `<div class="timeline">${records.map((record) => this._renderRecord(record)).join("")}</div>` : `<div class="empty">${escapeHtml(localize(this._hass, "noDossierItems", { owner: ownerName }))}${this._canManage ? escapeHtml(localize(this._hass, "noDossierItemsCanAdd")) : ""}</div>`}
       </ha-card>`;
 
     this.shadowRoot.getElementById("litter-select")?.addEventListener("change", (event) => this._selectLitter(event.target.value));
@@ -817,7 +831,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
         );
         this._error = "";
       } catch (err) {
-        this._error = err?.message || "Verwijderde dossieritems konden niet worden geladen.";
+        this._error = err?.message || localize(this._hass, "deletedItemsLoadFailed");
       } finally {
         this._loading = false;
         this._render();
@@ -853,6 +867,6 @@ if (!window.customCards.some((card) => card.type === "puppy-tracker-dossier-card
   window.customCards.push({
     type: "puppy-tracker-dossier-card",
     name: "Puppy Tracker Dossier",
-    description: "Profielnotities en chronologische dossieritems voor nesten en pups.",
+    description: localize(null, "dossierCardDescription"),
   });
 }

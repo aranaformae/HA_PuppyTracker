@@ -4,21 +4,27 @@ import {
   fetchLitterData,
   fetchLitters,
   fireNavigate,
+  languageForHass,
+  localize,
   selectDefaultLitter,
   statusIcon,
   statusTone,
   subscribeUpdates,
 } from "./puppy-tracker-card-common.js";
 
-function actionStatusText(action) {
+function actionStatusText(hass, action) {
   const days = Number(action?.days_until_due ?? action?.days_until);
   if (action?.status === "overdue") {
     const amount = Math.abs(days);
-    return amount === 1 ? "1 dag te laat" : `${amount} dagen te laat`;
+    return amount === 1
+      ? localize(hass, "overdueOne")
+      : localize(hass, "overdueMany", { days: amount });
   }
-  if (action?.status === "due_today") return "Vandaag";
-  if (action?.status === "upcoming") return days === 1 ? "Morgen" : `Over ${days} dagen`;
-  return "Gepland";
+  if (action?.status === "due_today") return localize(hass, "today");
+  if (action?.status === "upcoming") {
+    return days === 1 ? localize(hass, "tomorrow") : localize(hass, "inDays", { days });
+  }
+  return localize(hass, "planned");
 }
 
 function actionTone(action) {
@@ -27,9 +33,20 @@ function actionTone(action) {
   return "neutral";
 }
 
-function formatDueDate(value) {
+function formatDueDate(hass, value) {
   const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  return match ? `${match[3]}-${match[2]}-${match[1]}` : String(value || "");
+  if (!match) return String(value || "");
+  return languageForHass(hass) === "en"
+    ? `${match[2]}/${match[3]}/${match[1]}`
+    : `${match[3]}-${match[2]}-${match[1]}`;
+}
+
+function actionTitleText(hass, action) {
+  const key = {
+    vaccination: "vaccination",
+    deworming: "deworming",
+  }[String(action?.type || action?.record_type || action?.category || "")];
+  return key ? localize(hass, key) : action?.title || action?.label || localize(hass, "dossierItem");
 }
 
 class PuppyTrackerAttentionCard extends HTMLElement {
@@ -50,7 +67,7 @@ class PuppyTrackerAttentionCard extends HTMLElement {
   }
 
   static getStubConfig() {
-    return { title: "Aandacht", show_litter_selector: true, navigate_path: "" };
+    return { title: "", show_litter_selector: true, navigate_path: "" };
   }
 
   static getConfigForm() {
@@ -64,7 +81,7 @@ class PuppyTrackerAttentionCard extends HTMLElement {
   }
 
   setConfig(config) {
-    this._config = { title: "Aandacht", show_litter_selector: true, navigate_path: "", ...config };
+    this._config = { title: "", show_litter_selector: true, navigate_path: "", ...config };
     this._selectedLitterId = config.litter_id || this._selectedLitterId;
     this._render();
   }
@@ -105,7 +122,7 @@ class PuppyTrackerAttentionCard extends HTMLElement {
       await this._loadData(false);
       await this._ensureSubscription();
     } catch (err) {
-      this._error = err?.message || "Aandachtsgegevens konden niet worden geladen.";
+      this._error = err?.message || localize(this._hass, "attentionDataLoadFailed");
     } finally {
       this._loading = false;
       this._render();
@@ -145,7 +162,7 @@ class PuppyTrackerAttentionCard extends HTMLElement {
       } while (this._refreshAgain);
       this._error = "";
     } catch (err) {
-      this._error = err?.message || "Nieuwe Puppy Tracker-data kon niet worden geladen.";
+      this._error = err?.message || localize(this._hass, "dataRefreshFailed");
     } finally {
       this._refreshing = false;
       this._render();
@@ -158,7 +175,7 @@ class PuppyTrackerAttentionCard extends HTMLElement {
       this._data = await fetchLitterData(this._hass, this._selectedLitterId);
       this._error = "";
     } catch (err) {
-      this._error = err?.message || "Nestdata kon niet worden geladen.";
+      this._error = err?.message || localize(this._hass, "overviewCouldNotLoad");
     }
     if (render) this._render();
   }
@@ -174,12 +191,12 @@ class PuppyTrackerAttentionCard extends HTMLElement {
         entries.push({
           kind: "weight",
           puppy_id: puppy.id,
-          name: puppy.name || "Puppy",
+          name: puppy.name || localize(this._hass, "puppy"),
           collar_color: puppy.collar_color,
           tone: statusTone(summary.status_code),
           icon: statusIcon(summary.status_code),
-          reason: describeStatus(summary),
-          status: summary.status || "Aandacht",
+          reason: describeStatus(summary, this._hass),
+          status: summary.status || localize(this._hass, "attention"),
         });
       }
       for (const action of summary.dossier_actions?.actions || []) {
@@ -187,12 +204,12 @@ class PuppyTrackerAttentionCard extends HTMLElement {
         entries.push({
           kind: "dossier",
           puppy_id: puppy.id,
-          name: puppy.name || "Puppy",
+          name: puppy.name || localize(this._hass, "puppy"),
           collar_color: puppy.collar_color,
           tone: actionTone(action),
           icon: `<ha-icon icon="${escapeHtml(action.icon || "mdi:calendar-alert")}"></ha-icon>`,
-          reason: `${action.title || action.label || "Vervolgactie"} · ${formatDueDate(action.due_date || action.due_at)}`,
-          status: actionStatusText(action),
+          reason: `${actionTitleText(this._hass, action)} · ${formatDueDate(this._hass, action.due_date || action.due_at)}`,
+          status: actionStatusText(this._hass, action),
         });
       }
     }
@@ -202,17 +219,17 @@ class PuppyTrackerAttentionCard extends HTMLElement {
       entries.push({
         kind: "dossier",
         puppy_id: null,
-        name: "Nestdossier",
+        name: localize(this._hass, "litterDossier"),
         collar_color: null,
         tone: actionTone(action),
         icon: `<ha-icon icon="${escapeHtml(action.icon || "mdi:calendar-alert")}"></ha-icon>`,
-        reason: `${action.title || action.label || "Vervolgactie"} · ${formatDueDate(action.due_date || action.due_at)}`,
-        status: actionStatusText(action),
+        reason: `${actionTitleText(this._hass, action)} · ${formatDueDate(this._hass, action.due_date || action.due_at)}`,
+        status: actionStatusText(this._hass, action),
       });
     }
 
     const selector = this._config.show_litter_selector !== false && this._litters.length > 1
-      ? `<select id="litter-select">${this._litters.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === this._selectedLitterId ? "selected" : ""}>${escapeHtml(item.name || "Nest")}</option>`).join("")}</select>`
+      ? `<select id="litter-select">${this._litters.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === this._selectedLitterId ? "selected" : ""}>${escapeHtml(item.name || localize(this._hass, "litter"))}</option>`).join("")}</select>`
       : "";
 
     const body = this._error
@@ -224,7 +241,7 @@ class PuppyTrackerAttentionCard extends HTMLElement {
               <div class="main"><div class="name">${escapeHtml(entry.name)}${entry.collar_color ? `<span class="collar">${escapeHtml(entry.collar_color)}</span>` : ""}</div><div class="reason">${escapeHtml(entry.reason)}</div></div>
               <div class="status">${escapeHtml(entry.status)}</div>
             </div>`).join("")}</div>`
-        : `<div class="all-ok"><span>✓</span><div><strong>Alles op orde</strong><div>Geen actieve gewichts- of dossierwaarschuwingen.</div></div></div>`;
+        : `<div class="all-ok"><span>✓</span><div><strong>${escapeHtml(localize(this._hass, "allInOrder"))}</strong><div>${escapeHtml(localize(this._hass, "goodWeightAndDossier"))}</div></div></div>`;
 
     this.shadowRoot.innerHTML = `
       <ha-card>
@@ -234,7 +251,7 @@ class PuppyTrackerAttentionCard extends HTMLElement {
           .list{display:grid;gap:8px}.row{display:grid;grid-template-columns:34px minmax(0,1fr) auto;align-items:center;gap:10px;padding:10px 11px;border:1px solid var(--divider-color);border-radius:12px}.icon{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--secondary-background-color);font-weight:700}.icon.ha ha-icon{--mdc-icon-size:18px}.name{font-weight:600}.collar{font-weight:400;color:var(--secondary-text-color);margin-left:7px}.reason{font-size:12px;color:var(--secondary-text-color);margin-top:2px}.status{font-size:12px;font-weight:600;white-space:nowrap}.danger .status,.danger .icon{color:var(--error-color)}.warning .status,.warning .icon{color:var(--warning-color,var(--primary-color))}.all-ok{display:flex;align-items:center;gap:12px;padding:13px;border:1px solid var(--divider-color);border-radius:12px}.all-ok>span{font-size:24px}.all-ok div div{font-size:12px;color:var(--secondary-text-color);margin-top:2px}.error{color:var(--error-color)}
           .row.clickable{cursor:pointer}@container attention-card (max-width:520px){.status{display:none}.row{grid-template-columns:34px minmax(0,1fr)}.top{align-items:flex-start}.top select{max-width:52%}}
         </style>
-        <div class="top"><div class="title">${escapeHtml(this._config.title)}<div class="sub">${escapeHtml(litter?.name || (this._loading ? "Laden…" : "Geen nest"))}</div></div>${selector}</div>
+        <div class="top"><div class="title">${escapeHtml(this._config.title || localize(this._hass, "attention"))}<div class="sub">${escapeHtml(litter?.name || (this._loading ? localize(this._hass, "loading") : localize(this._hass, "noLitter")))}</div></div>${selector}</div>
         ${body}
       </ha-card>`;
 
@@ -256,5 +273,5 @@ if (!customElements.get("puppy-tracker-attention-card")) {
 }
 window.customCards = window.customCards || [];
 if (!window.customCards.some((card) => card.type === "puppy-tracker-attention-card")) {
-  window.customCards.push({ type: "puppy-tracker-attention-card", name: "Puppy Tracker Attention", description: "Toont gewichtswaarschuwingen en aankomende dossieracties." });
+  window.customCards.push({ type: "puppy-tracker-attention-card", name: "Puppy Tracker Attention", description: localize(null, "attentionCardDescription") });
 }

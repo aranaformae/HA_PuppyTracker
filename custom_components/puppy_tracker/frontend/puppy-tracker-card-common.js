@@ -1,5 +1,290 @@
 export const DOMAIN = "puppy_tracker";
 
+const CARD_TRANSLATIONS = {
+  en: {
+    add: "Add",
+    activeEntry: "active item",
+    activeEntries: "active items",
+    additionalData: "Additional data",
+    allInOrder: "Everything is in order",
+    administeredBy: "Administered by",
+    administeredByPlaceholder: "Name or role",
+    attention: "Attention",
+    attentionCardDescription: "Shows weight alerts and upcoming dossier actions.",
+    attentionDataLoadFailed: "Attention data could not be loaded.",
+    cancel: "Cancel",
+    chooseLitter: "Choose litter",
+    collarColor: "Collar color",
+    confirmDeleteRecord: "Delete dossier item \"{title}\"? You can restore it later.",
+    dataRefreshFailed: "New Puppy Tracker data could not be loaded.",
+    dateAndTime: "Date and time",
+    deworming: "Deworming",
+    dewormingNextDue: "Next deworming",
+    deletedItemsLoadFailed: "Deleted dossier items could not be loaded.",
+    diagnosis: "Finding / diagnosis",
+    diagnosisPlaceholder: "Main findings",
+    detailsPlaceholder: "Details or special notes...",
+    dossier: "Dossier",
+    dossierCardDescription: "Profile notes and chronological dossier items for litters and puppies.",
+    dossierFor: "Dossier for",
+    dossierItem: "Dossier item",
+    dossierItemAdded: "Dossier item added.",
+    dossierItemAdd: "Add dossier item...",
+    dossierItemCouldNotDelete: "Dossier item could not be deleted.",
+    dossierItemCouldNotRestore: "Dossier item could not be restored.",
+    dossierItemCouldNotSave: "Dossier item could not be saved.",
+    dossierItemDeleted: "Dossier item deleted.",
+    dossierItemDelete: "Deleting dossier item...",
+    dossierItemRestored: "Dossier item restored.",
+    dossierItemRestore: "Restoring dossier item...",
+    dossierItemSave: "Saving dossier item...",
+    dossierItemUpdated: "Dossier item updated.",
+    dossierLoadFailed: "The dossier could not be loaded.",
+    dossierRefreshFailed: "The dossier could not be refreshed.",
+    dosage: "Dosage",
+    dosagePlaceholder: "For example 1 ml or by weight",
+    duration: "Duration / period",
+    durationPlaceholder: "For example 5 days",
+    editDossierItem: "Edit dossier item",
+    editProfileNote: "Edit profile note",
+    extraDataOptional: "optional",
+    frequency: "Frequency",
+    frequencyPlaceholder: "For example twice a day",
+    goodWeightAndDossier: "No active weight or dossier alerts.",
+    invalidDateTime: "Enter a valid date and time.",
+    laboratory: "Laboratory / authority",
+    laboratoryPlaceholder: "Laboratory or authority name",
+    litter: "Litter",
+    litterDossier: "Litter dossier",
+    litterDossierLoadFailed: "Litter dossier could not be loaded.",
+    loading: "Loading...",
+    milestone: "Milestone",
+    milestonePlaceholder: "For example eyes open",
+    milestoneCategory: "Category",
+    milestoneCategoryPlaceholder: "For example development or socialization",
+    medication: "Medication",
+    medicationPlaceholder: "Medication name",
+    name: "Name",
+    nest: "Litter",
+    noActiveWeightAlert: "No active alert",
+    no: "No",
+    noDossierItems: "No dossier items for {owner}.",
+    noDossierItemsCanAdd: " Add the first item.",
+    noItemsToShow: "No items to show.",
+    noLitter: "No litter",
+    noProfileNote: "No profile note yet.",
+    noProfileNoteCanAdd: " Tap the pencil to add one.",
+    newDossierItem: "New dossier item",
+    note: "Note",
+    optional: "optional",
+    other: "Other",
+    overviewCouldNotLoad: "Litter data could not be loaded.",
+    profileNote: "Profile note",
+    profileNoteHint: "Long-lived summary for this puppy",
+    profileNotePlaceholder: "For example character, markings or lasting details...",
+    profileNoteCouldNotSave: "Profile note could not be saved.",
+    profileNoteSave: "Saving profile note...",
+    profileNoteSaved: "Profile note saved.",
+    product: "Product",
+    productPlaceholder: "Deworming product name",
+    puppy: "Puppy",
+    puppyTrackerDossier: "Puppy dossier",
+    recordTitlePlaceholder: "Short description",
+    removed: "Deleted",
+    restore: "Restore",
+    save: "Save",
+    saveChanges: "Save changes",
+    showDeleted: "Show deleted",
+    delete: "Delete",
+    test: "Test / result",
+    testName: "Test / examination",
+    testNamePlaceholder: "For example Giardia rapid test",
+    testResult: "Result",
+    testResultPlaceholder: "For example negative / clear / carrier",
+    timeline: "Timeline",
+    title: "Title",
+    treatment: "Treatment / advice",
+    treatmentPlaceholder: "Treatment, advice or follow-up",
+    type: "Type",
+    upcoming: "Upcoming",
+    upcomingHint: "Derived from due dates in dossier records",
+    validMeasurementMissing: "No valid measurement yet",
+    vaccination: "Vaccination",
+    vaccine: "Vaccine",
+    vaccinePlaceholder: "For example Nobivac Puppy DP",
+    vaccinationNextDue: "Next vaccination",
+    batchNumber: "Batch / lot number",
+    batchNumberPlaceholder: "For example ABC123",
+    veterinarian: "Veterinarian",
+    veterinarianPlaceholder: "Veterinarian name",
+    vetVisit: "Veterinary visit",
+    clinic: "Practice / clinic",
+    clinicPlaceholder: "Practice name",
+    visitReason: "Visit reason",
+    visitReasonPlaceholder: "For example litter check",
+    weightChange: "Last change {weight}",
+    weightDue: "Last weighing {time} ago",
+    weightGrowth: "Growth {percent} per 24 hours",
+    weightSinceBirth: "Since birth {percent}",
+    first24h: "First 24 hours",
+    overdueOne: "1 day overdue",
+    overdueMany: "{days} days overdue",
+    today: "Today",
+    tomorrow: "Tomorrow",
+    inDays: "In {days} days",
+    planned: "Planned",
+    yes: "Yes",
+  },
+  nl: {
+    add: "Toevoegen",
+    activeEntry: "actieve vermelding",
+    activeEntries: "actieve vermeldingen",
+    additionalData: "Aanvullende gegevens",
+    allInOrder: "Alles op orde",
+    administeredBy: "Toegediend door",
+    administeredByPlaceholder: "Naam of rol",
+    attention: "Aandacht",
+    attentionCardDescription: "Toont gewichtswaarschuwingen en aankomende dossieracties.",
+    attentionDataLoadFailed: "Aandachtsgegevens konden niet worden geladen.",
+    cancel: "Annuleren",
+    chooseLitter: "Nest kiezen",
+    collarColor: "Halsbandkleur",
+    confirmDeleteRecord: "Dossieritem \"{title}\" verwijderen? Je kunt het later herstellen.",
+    dataRefreshFailed: "Nieuwe Puppy Tracker-data kon niet worden geladen.",
+    dateAndTime: "Datum en tijd",
+    deworming: "Ontworming",
+    dewormingNextDue: "Volgende ontworming",
+    deletedItemsLoadFailed: "Verwijderde dossieritems konden niet worden geladen.",
+    diagnosis: "Bevinding / diagnose",
+    diagnosisPlaceholder: "Belangrijkste bevindingen",
+    detailsPlaceholder: "Details of bijzonderheden...",
+    dossier: "Dossier",
+    dossierCardDescription: "Profielnotities en chronologische dossieritems voor nesten en pups.",
+    dossierFor: "Dossier van",
+    dossierItem: "Dossieritem",
+    dossierItemAdded: "Dossieritem toegevoegd.",
+    dossierItemAdd: "Dossieritem toevoegen...",
+    dossierItemCouldNotDelete: "Dossieritem kon niet worden verwijderd.",
+    dossierItemCouldNotRestore: "Dossieritem kon niet worden hersteld.",
+    dossierItemCouldNotSave: "Dossieritem kon niet worden opgeslagen.",
+    dossierItemDeleted: "Dossieritem verwijderd.",
+    dossierItemDelete: "Dossieritem verwijderen...",
+    dossierItemRestored: "Dossieritem hersteld.",
+    dossierItemRestore: "Dossieritem herstellen...",
+    dossierItemSave: "Dossieritem opslaan...",
+    dossierItemUpdated: "Dossieritem bijgewerkt.",
+    dossierLoadFailed: "Het dossier kon niet worden geladen.",
+    dossierRefreshFailed: "Het dossier kon niet worden vernieuwd.",
+    dosage: "Dosering",
+    dosagePlaceholder: "Bijvoorbeeld 1 ml of volgens gewicht",
+    duration: "Duur / periode",
+    durationPlaceholder: "Bijvoorbeeld 5 dagen",
+    editDossierItem: "Dossieritem aanpassen",
+    editProfileNote: "Profielnotitie aanpassen",
+    extraDataOptional: "optioneel",
+    frequency: "Frequentie",
+    frequencyPlaceholder: "Bijvoorbeeld 2x per dag",
+    goodWeightAndDossier: "Geen actieve gewichts- of dossierwaarschuwingen.",
+    invalidDateTime: "Vul een geldige datum en tijd in.",
+    laboratory: "Laboratorium / instantie",
+    laboratoryPlaceholder: "Naam laboratorium of instantie",
+    litter: "Nest",
+    litterDossier: "Nestdossier",
+    litterDossierLoadFailed: "Nestdossier kon niet worden geladen.",
+    loading: "Laden...",
+    milestone: "Mijlpaal",
+    milestonePlaceholder: "Bijvoorbeeld ogen open",
+    milestoneCategory: "Categorie",
+    milestoneCategoryPlaceholder: "Bijvoorbeeld ontwikkeling of socialisatie",
+    medication: "Medicatie",
+    medicationPlaceholder: "Naam geneesmiddel",
+    name: "Naam",
+    nest: "Nest",
+    noActiveWeightAlert: "Geen actieve waarschuwing",
+    no: "Nee",
+    noDossierItems: "Nog geen dossieritems voor {owner}.",
+    noDossierItemsCanAdd: " Voeg de eerste vermelding toe.",
+    noItemsToShow: "Geen items om te tonen.",
+    noLitter: "Geen nest",
+    noProfileNote: "Nog geen profielnotitie.",
+    noProfileNoteCanAdd: " Tik op het potlood om er een toe te voegen.",
+    newDossierItem: "Nieuw dossieritem",
+    note: "Notitie",
+    optional: "optioneel",
+    other: "Overig",
+    overviewCouldNotLoad: "Nestdata kon niet worden geladen.",
+    profileNote: "Profielnotitie",
+    profileNoteHint: "Blijvende samenvatting van deze pup",
+    profileNotePlaceholder: "Bijvoorbeeld karakter, herkenningspunten of blijvende bijzonderheden...",
+    profileNoteCouldNotSave: "Profielnotitie kon niet worden opgeslagen.",
+    profileNoteSave: "Profielnotitie opslaan...",
+    profileNoteSaved: "Profielnotitie opgeslagen.",
+    product: "Middel",
+    productPlaceholder: "Naam ontwormingsmiddel",
+    puppy: "Pup",
+    puppyTrackerDossier: "Puppydossier",
+    recordTitlePlaceholder: "Korte omschrijving",
+    removed: "Verwijderd",
+    restore: "Herstellen",
+    save: "Opslaan",
+    saveChanges: "Wijzigingen opslaan",
+    showDeleted: "Verwijderde tonen",
+    delete: "Verwijderen",
+    test: "Test / uitslag",
+    testName: "Test / onderzoek",
+    testNamePlaceholder: "Bijvoorbeeld Giardia sneltest",
+    testResult: "Uitslag",
+    testResultPlaceholder: "Bijvoorbeeld negatief / vrij / drager",
+    timeline: "Tijdlijn",
+    title: "Titel",
+    treatment: "Behandeling / advies",
+    treatmentPlaceholder: "Behandeling, advies of vervolg",
+    type: "Type",
+    upcoming: "Aankomend",
+    upcomingHint: "Afgeleid uit vervolgdatums in dossierrecords",
+    validMeasurementMissing: "Nog geen geldige meting",
+    vaccination: "Vaccinatie",
+    vaccine: "Vaccin",
+    vaccinePlaceholder: "Bijvoorbeeld Nobivac Puppy DP",
+    vaccinationNextDue: "Volgende vaccinatie",
+    batchNumber: "Batch-/lotnummer",
+    batchNumberPlaceholder: "Bijvoorbeeld ABC123",
+    veterinarian: "Dierenarts",
+    veterinarianPlaceholder: "Naam dierenarts",
+    vetVisit: "Dierenartsbezoek",
+    clinic: "Praktijk / kliniek",
+    clinicPlaceholder: "Naam praktijk",
+    visitReason: "Reden bezoek",
+    visitReasonPlaceholder: "Bijvoorbeeld nestcontrole",
+    weightChange: "Laatste verschil {weight}",
+    weightDue: "Laatste weging {time} geleden",
+    weightGrowth: "Groei {percent} per 24 uur",
+    weightSinceBirth: "Sinds geboorte {percent}",
+    first24h: "Eerste 24 uur",
+    overdueOne: "1 dag te laat",
+    overdueMany: "{days} dagen te laat",
+    today: "Vandaag",
+    tomorrow: "Morgen",
+    inDays: "Over {days} dagen",
+    planned: "Gepland",
+    yes: "Ja",
+  },
+};
+
+export function languageForHass(hass = null) {
+  const language = hass?.locale?.language || hass?.language || navigator.language || "nl";
+  return String(language).toLowerCase().split("-")[0] === "en" ? "en" : "nl";
+}
+
+export function localize(hass, key, replacements = {}) {
+  const language = languageForHass(hass);
+  const template = CARD_TRANSLATIONS[language]?.[key] ?? CARD_TRANSLATIONS.nl[key] ?? key;
+  return Object.entries(replacements).reduce(
+    (text, [name, value]) => text.replaceAll(`{${name}}`, String(value ?? "")),
+    template,
+  );
+}
+
 export async function fetchLitters(hass) {
   return hass.callWS({ type: `${DOMAIN}/litters` });
 }
@@ -85,10 +370,10 @@ export function parseDate(value) {
   return Number.isFinite(date.getTime()) ? date : null;
 }
 
-export function formatDateTime(value, fallback = "—") {
+export function formatDateTime(value, fallback = "—", hass = null) {
   const date = parseDate(value);
   if (!date) return fallback;
-  return new Intl.DateTimeFormat("nl-NL", {
+  return new Intl.DateTimeFormat(languageForHass(hass) === "en" ? "en-US" : "nl-NL", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -150,24 +435,24 @@ export function statusIcon(statusCode) {
   return "•";
 }
 
-export function describeStatus(summary) {
+export function describeStatus(summary, hass = null) {
   const code = summary?.status_code;
   if (code === "weigh_due") {
-    return `Laatste weging ${formatHoursSince(summary.hours_since_weighing)} geleden`;
+    return localize(hass, "weightDue", { time: formatHoursSince(summary.hours_since_weighing) });
   }
-  if (code === "no_measurement") return "Nog geen geldige meting";
+  if (code === "no_measurement") return localize(hass, "validMeasurementMissing");
   if (code === "low_growth") {
-    return `Groei ${formatPercent(summary.growth_24h_percent)} per 24 uur`;
+    return localize(hass, "weightGrowth", { percent: formatPercent(summary.growth_24h_percent) });
   }
   if (code === "weight_loss") {
-    return `Laatste verschil ${formatSignedWeight(summary.change_grams)}`;
+    return localize(hass, "weightChange", { weight: formatSignedWeight(summary.change_grams) });
   }
   if (code === "first_day_excess_weight_loss") {
-    return `Sinds geboorte ${formatPercent(summary.first_day_weight_change_percent)}`;
+    return localize(hass, "weightSinceBirth", { percent: formatPercent(summary.first_day_weight_change_percent) });
   }
-  if (code === "first_24h") return "Eerste 24 uur";
-  if (code === "ok") return "Geen actieve waarschuwing";
-  return summary?.status || "Onbekend";
+  if (code === "first_24h") return localize(hass, "first24h");
+  if (code === "ok") return localize(hass, "noActiveWeightAlert");
+  return summary?.status || localize(hass, "dossierItem");
 }
 
 export function selectDefaultLitter(litters, preferredId = null) {
