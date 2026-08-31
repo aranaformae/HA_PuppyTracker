@@ -249,31 +249,36 @@ The notification manager:
 - reconciles reminder completion before evaluating status;
 - checks periodically (currently every 10 minutes);
 - reacts to Puppy Tracker dashboard update signals;
-- creates Home Assistant persistent notifications for `due_soon`/`overdue` states when notifications are enabled;
+- creates Home Assistant persistent notifications for `due_soon`/`overdue` states when recurring-reminder delivery is enabled;
 - optionally sends the same content to configured `notify.*` entities;
 - deduplicates on reminder ID plus status/next-due state;
 - dismisses stale persistent notifications when a reminder is no longer actionable.
 
-Currently recurring reminders use Puppy Tracker's global `notifications_enabled` setting and configured notify targets. This is intentionally documented as a current coupling, not a permanent architectural requirement. A dedicated recurring-reminder notification preference is a desirable follow-up.
+Automatic recurring-reminder delivery is controlled by the independent `recurring_reminder_notifications_enabled` setting rather than the general `notifications_enabled` switch. The key is part of the official main-storage settings contract: it is present in `_default_settings()` and is persisted through `PuppyTrackerStorage.async_update_settings()`. Older stores that do not contain the key receive the default during normal `async_load()` migration without changing reminder data or the storage schema version.
+
+Notification controls are presented centrally through the options flow. Monitoring thresholds remain under monitoring settings; notification preferences contain the general Puppy Tracker notification toggle, recurring-reminder delivery toggle, recovery/session-complete preferences and shared `notify.*` targets.
+
+`notification_delivery.py` provides the shared `notify.*` delivery path used by automatic recurring reminders and explicit test notifications. Automatic reminder delivery remains best-effort so one unavailable target does not interrupt reminder reconciliation. Explicit tests use strict delivery so service/target failures are surfaced to the initiating options flow.
 
 Dashboard due-state calculation must remain useful when notifications are disabled. Notification delivery must never be required for scheduling or completion.
 
 ### Test notification contract
 
-The recurring-reminder notification settings should expose an explicit **Send test notification** action. Its purpose is to verify the configured delivery path without manipulating a real reminder.
+The notification settings expose an explicit **Send test notification** action. Its purpose is to verify the configured delivery path without manipulating a real reminder.
 
-A test notification must:
+A test notification:
 
-- use the same configured recurring-reminder notification targets as real delivery;
-- use representative recurring-reminder title/message formatting and clearly identify itself as a test;
-- be sendable on demand without waiting for a reminder to become `due_soon` or `overdue`;
-- bypass normal reminder delivery deduplication so repeated manual tests are possible;
-- not create or alter a reminder;
-- not change `last_completed_at`, `last_completed_record_id`, `next_due_at` or any reminder schedule state;
-- not mark a dossier action complete;
-- report delivery/configuration errors back to the initiating UI/config flow rather than silently swallowing them.
+- uses the same configured `notify.*` targets and shared delivery helper as real recurring-reminder delivery;
+- is clearly identified as a test;
+- can be sent on demand without waiting for a reminder to become `due_soon` or `overdue`;
+- is allowed even when automatic recurring-reminder notifications are disabled;
+- bypasses normal reminder delivery deduplication so repeated manual tests are possible;
+- does not create or alter a reminder;
+- does not change `last_completed_at`, `last_completed_record_id`, `next_due_at` or any reminder schedule state;
+- does not mark a dossier action complete;
+- reports delivery/configuration errors back to the initiating UI/config flow rather than silently swallowing them.
 
-The dedicated recurring-reminder notification enable/disable preference and the test action are related but distinct. The enable toggle controls automatic reminder delivery. The explicit test action should be allowed to verify the selected notification path on demand, with the UI making clear that a real test message will be sent.
+The dedicated recurring-reminder notification enable/disable preference and the test action are related but distinct. The enable toggle controls automatic reminder delivery; the explicit test action verifies the selected path on demand.
 
 ## Runtime state
 
@@ -330,6 +335,8 @@ The recurring-reminder card must resolve the linked mother through the mother sc
 
 Recurring-reminder backup/restore compatibility should be treated explicitly because reminders are stored separately from the main Puppy Tracker database. New backup schema work must decide whether reminder definitions are portable and how owner IDs are remapped during partial imports rather than silently assuming main-storage semantics.
 
+Adding a notification preference to the existing main `settings` dictionary does not by itself change the backup envelope: full backups already carry the settings dictionary as data, and normal storage loading backfills missing defaults. Changes to reminder definitions, owner identifiers or reminder-store portability remain separate compatibility decisions.
+
 ## Soft deletion and integrity
 
 Measurement history and dossier records favour soft deletion. Historical data remains available for restore/audit/technical backup.
@@ -342,7 +349,7 @@ Duplicate IDs, ambiguous measurement branches and uncertain ownership must be re
 
 ## Testing strategy
 
-Regression tests should protect data meaning and cross-surface contracts, including timezone ordering and precision, measurement correction chains, birth-weight synchronisation, monitoring metrics, dossier ownership/CRUD, mother identity resolution across cards, temperature structured-data rendering, upcoming action derivation, recurring reminder normalization, interval/fixed-time/once scheduling, fixed-time timezone behaviour, exact owner matching, notification deduplication, test-notification state isolation and error propagation, frontend module load order, export selection and runtime selection.
+Regression tests should protect data meaning and cross-surface contracts, including timezone ordering and precision, measurement correction chains, birth-weight synchronisation, monitoring metrics, dossier ownership/CRUD, mother identity resolution across cards, temperature structured-data rendering, upcoming action derivation, recurring reminder normalization, interval/fixed-time/once scheduling, fixed-time timezone behaviour, exact owner matching, notification settings persistence/default migration, notification deduplication, test-notification state isolation and error propagation, frontend module load order, export selection and runtime selection.
 
 Manual release testing should additionally cover HACS upgrade, browser refresh/cache behaviour, phone/tablet interaction, mother selection, reminder completion from real dossier logging, notification-off production testing, explicit test-notification delivery and restart persistence.
 
