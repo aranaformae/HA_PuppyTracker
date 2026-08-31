@@ -1,0 +1,139 @@
+name: Puppy Tracker CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-tests:
+    name: Backend tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements_test.txt
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements_test.txt
+
+      - name: Compile Python sources
+        run: python -m compileall -q custom_components/puppy_tracker tests
+
+      - name: Run pytest
+        run: python -m pytest -v
+
+  metadata:
+    name: Metadata validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Validate JSON files
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          paths = [
+              Path("hacs.json"),
+              Path("custom_components/puppy_tracker/manifest.json"),
+              Path("custom_components/puppy_tracker/strings.json"),
+          ]
+          paths.extend(sorted(Path("custom_components/puppy_tracker/translations").glob("*.json")))
+
+          for path in paths:
+              with path.open("r", encoding="utf-8") as handle:
+                  json.load(handle)
+              print(f"OK: {path}")
+          PY
+
+      - name: Validate integration identity and version consistency
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          MANIFEST="custom_components/puppy_tracker/manifest.json"
+          CONST_FILE="custom_components/puppy_tracker/const.py"
+
+          DOMAIN=$(jq -er '.domain' "$MANIFEST")
+          NAME=$(jq -er '.name' "$MANIFEST")
+          VERSION=$(jq -er '.version' "$MANIFEST")
+          HACS_NAME=$(jq -er '.name' hacs.json)
+          CONST_VERSION=$(sed -n 's/^VERSION = "\([^"]*\)"$/\1/p' "$CONST_FILE")
+
+          test "$DOMAIN" = "puppy_tracker"
+          test "$NAME" = "Puppy Tracker"
+          test "$HACS_NAME" = "Puppy Tracker"
+          test -n "$CONST_VERSION"
+          test "$CONST_VERSION" = "$VERSION"
+
+          echo "Metadata is consistent for Puppy Tracker $VERSION"
+
+  hassfest:
+    name: Hassfest
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Hassfest validation
+        uses: home-assistant/actions/hassfest@master
+
+  hacs:
+    name: HACS validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: HACS validation
+        uses: hacs/action@main
+        with:
+          category: integration
+
+  frontend:
+    name: Frontend JavaScript syntax
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Check JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          find custom_components/puppy_tracker/frontend -type f -name '*.js' -print0 \
+            | xargs -0 -n1 node --check
