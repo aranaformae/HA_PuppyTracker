@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -50,8 +51,7 @@ def test_all_scope_does_not_relabel_authoritative_owner_scopes() -> None:
     source = _read("custom_components/puppy_tracker/frontend/puppy-tracker-all-scope.js")
 
     assert "__aggregate_owner_scope" in source
-    assert 'owner_scope:' not in source
-    assert 'owner_scope =' not in source
+    assert re.search(r"(?<![A-Za-z0-9_])owner_scope\s*[:=]", source) is None
     assert "async_match_record" not in source
     assert "last_completed_at" not in source
     assert "recurring_reminders" not in source
