@@ -45,6 +45,9 @@ CARD_FILES = (
     # Temperature was introduced after these cards already had their own type
     # lists/rendering. Keep all temperature-specific compatibility in one layer.
     "puppy-tracker-temperature-ui.js",
+    # Extend cards that select one dossier owner with the reusable mother scope.
+    # Load after temperature so mother quick logging can handle temperature too.
+    "puppy-tracker-mother-surfaces.js",
     # Loaded after all affected cards so it can patch their rendered layout and
     # add compact show/hide and edit controls without duplicating card logic.
     "puppy-tracker-ui-compact.js",
