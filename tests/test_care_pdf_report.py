@@ -41,7 +41,9 @@ async def test_pdf_includes_structured_care_result(storage, install_litter) -> N
     assert b"ENS" in pdf
     assert b"Uitgevoerd" in pdf
     assert b"Rustig" in pdf
-    assert b"stimulus: tactiel" in pdf
+    # PDF table cells may wrap one logical value over multiple text operators.
+    assert b"stimulus:" in pdf
+    assert b"tactiel" in pdf
     assert b"Goed opgepakt" in pdf
 
 
