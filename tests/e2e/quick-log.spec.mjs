@@ -106,7 +106,8 @@ test("logs a feeding observation for the selected puppy with an editable current
   expect(Number.isFinite(initialDate.getTime())).toBe(true);
   expect(Math.abs(Date.now() - initialDate.getTime())).toBeLessThan(60_000);
 
-  await occurred.fill("2026-08-31T05:00:00");
+  const editedLocalValue = "2026-08-31T05:00";
+  await occurred.fill(editedLocalValue);
   await card.locator("#quick-note").fill("Bottle 45 ml, drank well");
   await card.locator("#quick-save").click();
 
@@ -121,7 +122,11 @@ test("logs a feeding observation for the selected puppy with an editable current
       note: "Bottle 45 ml, drank well",
     })
   );
-  expect(new Date(calls[0].occurred_at).toISOString()).toBe("2026-08-31T05:00:00.000Z");
+  const expectedOccurredAt = await page.evaluate(
+    (value) => new Date(value).toISOString(),
+    editedLocalValue
+  );
+  expect(calls[0].occurred_at).toBe(expectedOccurredAt);
 });
 
 test("supports litter-scoped medication and puppy-scoped milestone logging", async ({ page }) => {
