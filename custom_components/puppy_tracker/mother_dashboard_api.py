@@ -86,7 +86,7 @@ async def websocket_mother_export_url(hass, connection, msg) -> None:
     try:
         storage = _storage(hass)
         mother = _mother_for_litter(storage, msg["litter_id"])
-        url = async_signed_mother_export_path(
+        url = await async_signed_mother_export_path(
             hass,
             mother_id=str(mother["id"]),
             litter_id=msg["litter_id"] if msg.get("history_scope") == "current" else None,
