@@ -213,6 +213,6 @@ test("bulk dossier UI is localized in Dutch", async ({ page }) => {
   await expect(card.getByText("Hele nest selecteren", { exact: true })).toBeVisible();
   await expect(card.getByText("Gedeeld dossieritem", { exact: true })).toBeVisible();
   await expect(card.getByText("Controleren", { exact: true })).toBeVisible();
-  await expect(card.getByText("Werkzame stof", { exact: true })).toBeVisible();
-  await expect(card.getByText("Gewicht bij toediening (g)", { exact: true })).toBeVisible();
+  await expect(card.getByLabel("Werkzame stof optioneel", { exact: true })).toBeVisible();
+  await expect(card.getByLabel("Gewicht bij toediening (g) optioneel", { exact: true })).toBeVisible();
 });
