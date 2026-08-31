@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from copy import deepcopy
 from typing import Any
 
 import voluptuous as vol
@@ -30,23 +29,6 @@ from .notification_delivery import async_send_notify_entities, normalize_notify_
 
 class NotificationSettingsMixin:
     """Expose one central notification settings area in the options flow."""
-
-    async def _async_store_recurring_notification_setting(self, enabled: bool) -> None:
-        """Persist recurring-reminder delivery until settings storage is unified."""
-        storage = self._get_storage()
-        async with storage._lock:  # noqa: SLF001 - transitional storage extension
-            before = deepcopy(storage._data.get("settings", {}))  # noqa: SLF001
-            storage._data.setdefault("settings", {})[  # noqa: SLF001
-                "recurring_reminder_notifications_enabled"
-            ] = bool(enabled)
-            storage._add_audit_entry(  # noqa: SLF001
-                action="update_notification_settings",
-                details={
-                    "before": before,
-                    "after": deepcopy(storage._data.get("settings", {})),  # noqa: SLF001
-                },
-            )
-            await storage.async_save()
 
     async def _async_send_test_notification(self, notify_entities: list[str]) -> None:
         """Send a real test message without touching reminder state."""
@@ -91,6 +73,12 @@ class NotificationSettingsMixin:
                     growth_monitoring_days=int(user_input["growth_monitoring_days"]),
                     notifications_enabled=bool(
                         settings.get("notifications_enabled", DEFAULT_NOTIFICATIONS_ENABLED)
+                    ),
+                    recurring_reminder_notifications_enabled=bool(
+                        settings.get(
+                            "recurring_reminder_notifications_enabled",
+                            DEFAULT_RECURRING_REMINDER_NOTIFICATIONS_ENABLED,
+                        )
                     ),
                     notify_recovery=bool(
                         settings.get("notify_recovery", DEFAULT_NOTIFY_RECOVERY)
@@ -212,14 +200,14 @@ class NotificationSettingsMixin:
                         )
                     ),
                     notifications_enabled=bool(user_input["notifications_enabled"]),
+                    recurring_reminder_notifications_enabled=bool(
+                        user_input["recurring_reminder_notifications_enabled"]
+                    ),
                     notify_recovery=bool(user_input["notify_recovery"]),
                     notify_session_complete=bool(
                         user_input["notify_session_complete"]
                     ),
                     notify_entities=notify_entities,
-                )
-                await self._async_store_recurring_notification_setting(
-                    bool(user_input["recurring_reminder_notifications_enabled"])
                 )
                 async_dispatcher_send(self.hass, SIGNAL_UPDATE, None)
                 async_dispatcher_send(self.hass, SIGNAL_DASHBOARD_UPDATE)
