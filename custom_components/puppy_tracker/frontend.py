@@ -34,6 +34,9 @@ CARD_FILES = (
     # Adds due generic reminders to the existing attention list.
     "puppy-tracker-recurring-attention.js",
     "puppy-tracker-recurring-reminder-card.js",
+    # Resolve the persistent reusable mother id via the mother-scope API instead
+    # of assuming it exists in the regular litter payload.
+    "puppy-tracker-recurring-mother-owner.js",
     "puppy-tracker-litter-card.js",
     # Loaded directly after the litter card. profile_note is already present in
     # puppy_tracker/data; this module only presents it in the expanded details.
