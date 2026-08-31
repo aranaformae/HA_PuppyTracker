@@ -13,6 +13,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from .api import _runtime_data, _runtime_storage
 from .care_occurrences import derive_litter_care_occurrences
 from .care_programs import AgeBasedCareProgramStore
+from .care_status import care_occurrence_status
 from .const import DOMAIN, SIGNAL_DASHBOARD_UPDATE
 
 DATA_API_REGISTERED = f"{DOMAIN}_care_program_api_registered"
@@ -35,34 +36,19 @@ def _validate_litter(storage, litter_id: str) -> dict[str, Any]:
 
 
 PROGRAM_FIELDS = {
-    "litter_id",
-    "enabled",
-    "title",
-    "description",
-    "record_type",
-    "schedule_type",
-    "start_age_days",
-    "end_age_days",
-    "interval_days",
-    "time_of_day",
-    "notifications_enabled",
-    "result_fields",
+    "litter_id", "enabled", "title", "description", "record_type",
+    "schedule_type", "start_age_days", "end_age_days", "interval_days",
+    "time_of_day", "notifications_enabled", "result_fields",
 }
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/care_programs",
-    vol.Optional("litter_id"): str,
-})
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/care_programs", vol.Optional("litter_id"): str})
 @websocket_api.async_response
 async def websocket_list_care_programs(hass, connection, msg) -> None:
     store = _store_or_error(hass, connection, msg)
     if store is None:
         return
-    connection.send_result(
-        msg["id"],
-        {"programs": store.get_programs(litter_id=msg.get("litter_id"))},
-    )
+    connection.send_result(msg["id"], {"programs": store.get_programs(litter_id=msg.get("litter_id"))})
 
 
 @websocket_api.websocket_command({
@@ -89,11 +75,7 @@ async def websocket_list_care_occurrences(hass, connection, msg) -> None:
             connection.send_error(msg["id"], "not_found", "Unknown care program")
             return
 
-    puppies = [
-        puppy
-        for puppy in (litter.get("puppies") or {}).values()
-        if isinstance(puppy, dict)
-    ]
+    puppies = [puppy for puppy in (litter.get("puppies") or {}).values() if isinstance(puppy, dict)]
     occurrences: list[dict[str, Any]] = []
     skipped: list[dict[str, str]] = []
     for program in programs:
@@ -101,7 +83,9 @@ async def websocket_list_care_occurrences(hass, connection, msg) -> None:
             if puppy.get("active", True) is False:
                 continue
             try:
-                occurrences.extend(derive_litter_care_occurrences(program, [puppy]))
+                derived = derive_litter_care_occurrences(program, [puppy])
+                records = storage.get_records(msg["litter_id"], str(puppy.get("id") or ""), newest_first=False)
+                occurrences.extend(care_occurrence_status(item, records) for item in derived)
             except ValueError as err:
                 skipped.append({
                     "program_id": str(program.get("id") or ""),
@@ -185,10 +169,7 @@ async def websocket_update_care_program(hass, connection, msg) -> None:
 
 
 @websocket_api.require_admin
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/care_program/delete",
-    vol.Required("program_id"): str,
-})
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/care_program/delete", vol.Required("program_id"): str})
 @websocket_api.async_response
 async def websocket_delete_care_program(hass, connection, msg) -> None:
     store = _store_or_error(hass, connection, msg)
