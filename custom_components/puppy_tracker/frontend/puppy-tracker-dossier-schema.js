@@ -1,3 +1,5 @@
+import { languageForHass, localize } from "./puppy-tracker-card-common.js";
+
 export const RECORD_TYPES = [
   ["note", "note", "mdi:note-text-outline"],
   ["vaccination", "vaccination", "mdi:needle"],
@@ -21,11 +23,71 @@ export const TYPE_META = Object.fromEntries(
   RECORD_TYPES.map(([value, labelKey, icon]) => [value, { labelKey, icon }]),
 );
 
+const SCHEMA_COPY = {
+  en: {
+    vaccineType: "Vaccine type / indication",
+    vaccineTypePlaceholder: "For example Puppy DP or core vaccine",
+    reaction: "Reaction / observation",
+    reactionPlaceholder: "For example no reaction or mild tenderness",
+    activeIngredient: "Active ingredient",
+    activeIngredientPlaceholder: "For example pyrantel / febantel",
+    amount: "Amount",
+    amountPlaceholder: "For example 1.5",
+    unit: "Unit",
+    unitPlaceholder: "For example ml, tablet or mg",
+    route: "Route",
+    routePlaceholder: "For example oral or subcutaneous",
+    administrationWeight: "Weight at administration (g)",
+    administrationWeightPlaceholder: "Optional puppy weight in grams",
+    freeTextDose: "Dose (free text)",
+    required: "required",
+    requiredFieldsMissing: "Complete the required field(s): {fields}.",
+    overdueSummary: "overdue",
+    dueTodaySummary: "due today",
+    upcomingSummary: "upcoming",
+  },
+  nl: {
+    vaccineType: "Vaccintype / indicatie",
+    vaccineTypePlaceholder: "Bijvoorbeeld Puppy DP of basisvaccinatie",
+    reaction: "Reactie / observatie",
+    reactionPlaceholder: "Bijvoorbeeld geen reactie of lichte gevoeligheid",
+    activeIngredient: "Werkzame stof",
+    activeIngredientPlaceholder: "Bijvoorbeeld pyrantel / febantel",
+    amount: "Hoeveelheid",
+    amountPlaceholder: "Bijvoorbeeld 1,5",
+    unit: "Eenheid",
+    unitPlaceholder: "Bijvoorbeeld ml, tablet of mg",
+    route: "Toedieningsweg",
+    routePlaceholder: "Bijvoorbeeld oraal of subcutaan",
+    administrationWeight: "Gewicht bij toediening (g)",
+    administrationWeightPlaceholder: "Optioneel gewicht van de pup in gram",
+    freeTextDose: "Dosering (vrije tekst)",
+    required: "verplicht",
+    requiredFieldsMissing: "Vul de verplichte veld(en) in: {fields}.",
+    overdueSummary: "te laat",
+    dueTodaySummary: "vandaag",
+    upcomingSummary: "aankomend",
+  },
+};
+
+export function schemaText(hass, key, replacements = {}) {
+  const language = languageForHass(hass);
+  const template = SCHEMA_COPY[language]?.[key] ?? SCHEMA_COPY.nl[key] ?? key;
+  return Object.entries(replacements).reduce(
+    (text, [name, value]) => text.replaceAll(`{${name}}`, String(value ?? "")),
+    template,
+  );
+}
+
 export const TYPE_FIELDS = {
   vaccination: [
     { key: "vaccine", labelKey: "vaccine", placeholderKey: "vaccinePlaceholder", required: true },
+    { key: "vaccine_type", schemaLabelKey: "vaccineType", schemaPlaceholderKey: "vaccineTypePlaceholder" },
     { key: "batch_number", labelKey: "batchNumber", placeholderKey: "batchNumberPlaceholder" },
     { key: "veterinarian", labelKey: "veterinarian", placeholderKey: "veterinarianPlaceholder" },
+    { key: "clinic", labelKey: "clinic", placeholderKey: "clinicPlaceholder" },
+    { key: "reaction", schemaLabelKey: "reaction", schemaPlaceholderKey: "reactionPlaceholder", type: "textarea", wide: true },
+    { key: "weight_grams", schemaLabelKey: "administrationWeight", schemaPlaceholderKey: "administrationWeightPlaceholder", type: "number", min: "0", step: "1" },
     { key: "next_due_date", labelKey: "vaccinationNextDue", type: "date" },
   ],
   test: [
@@ -35,8 +97,14 @@ export const TYPE_FIELDS = {
   ],
   deworming: [
     { key: "product", labelKey: "product", placeholderKey: "productPlaceholder", required: true },
-    { key: "dose", labelKey: "dosage", placeholderKey: "dosagePlaceholder" },
+    { key: "active_ingredient", schemaLabelKey: "activeIngredient", schemaPlaceholderKey: "activeIngredientPlaceholder" },
+    { key: "amount", schemaLabelKey: "amount", schemaPlaceholderKey: "amountPlaceholder", type: "number", min: "0", step: "any" },
+    { key: "unit", schemaLabelKey: "unit", schemaPlaceholderKey: "unitPlaceholder" },
+    { key: "dose", schemaLabelKey: "freeTextDose", placeholderKey: "dosagePlaceholder" },
+    { key: "route", schemaLabelKey: "route", schemaPlaceholderKey: "routePlaceholder" },
+    { key: "batch_number", labelKey: "batchNumber", placeholderKey: "batchNumberPlaceholder" },
     { key: "administered_by", labelKey: "administeredBy", placeholderKey: "administeredByPlaceholder" },
+    { key: "weight_grams", schemaLabelKey: "administrationWeight", schemaPlaceholderKey: "administrationWeightPlaceholder", type: "number", min: "0", step: "1" },
     { key: "next_due_date", labelKey: "dewormingNextDue", type: "date" },
   ],
   medication: [
@@ -62,6 +130,16 @@ export const KNOWN_DATA_KEYS = new Set(
   Object.values(TYPE_FIELDS).flat().map((field) => field.key),
 );
 
+export function fieldLabel(hass, field) {
+  if (field.schemaLabelKey) return schemaText(hass, field.schemaLabelKey);
+  return localize(hass, field.labelKey);
+}
+
+export function fieldPlaceholder(hass, field) {
+  if (field.schemaPlaceholderKey) return schemaText(hass, field.schemaPlaceholderKey);
+  return field.placeholderKey ? localize(hass, field.placeholderKey) : "";
+}
+
 export function requiredFieldsForType(recordType) {
   return (TYPE_FIELDS[recordType] || []).filter((field) => field.required);
 }
@@ -71,4 +149,20 @@ export function missingRequiredFields(recordType, data = {}) {
     const value = data?.[field.key];
     return value === null || value === undefined || String(value).trim() === "";
   });
+}
+
+export function requiredFieldsMessage(hass, recordType, data = {}) {
+  const missing = missingRequiredFields(recordType, data);
+  if (!missing.length) return "";
+  return schemaText(hass, "requiredFieldsMissing", {
+    fields: missing.map((field) => fieldLabel(hass, field)).join(", "),
+  });
+}
+
+export function inputAttributes(field) {
+  const attributes = [];
+  if (field.min !== undefined) attributes.push(`min="${String(field.min)}"`);
+  if (field.max !== undefined) attributes.push(`max="${String(field.max)}"`);
+  if (field.step !== undefined) attributes.push(`step="${String(field.step)}"`);
+  return attributes.join(" ");
 }
