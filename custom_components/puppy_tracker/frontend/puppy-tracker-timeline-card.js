@@ -560,7 +560,7 @@ class PuppyTrackerTimelineCard extends HTMLElement {
           <div class="event-head">
             <div>
               <div class="event-title">${escapeHtml(title)}</div>
-              <div class="meta">${escapeHtml(owner)} · ${escapeHtml(formatDateTime(event.occurred_at, this._hass))}</div>
+              <div class="meta">${escapeHtml(owner)} · ${escapeHtml(formatDateTime(event.occurred_at, "—", this._hass))}</div>
             </div>
             <div class="badges"><span class="type-badge">${escapeHtml(label)}</span>${status}</div>
           </div>
