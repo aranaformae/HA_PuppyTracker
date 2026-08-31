@@ -213,6 +213,12 @@ test("bulk dossier UI is localized in Dutch", async ({ page }) => {
   await expect(card.getByText("Hele nest selecteren", { exact: true })).toBeVisible();
   await expect(card.getByText("Gedeeld dossieritem", { exact: true })).toBeVisible();
   await expect(card.getByText("Controleren", { exact: true })).toBeVisible();
-  await expect(card.getByLabel("Werkzame stof optioneel", { exact: true })).toBeVisible();
-  await expect(card.getByLabel("Gewicht bij toediening (g) optioneel", { exact: true })).toBeVisible();
+
+  const activeIngredient = card.locator("#bulk-data-active_ingredient");
+  await expect(activeIngredient).toBeVisible();
+  await expect(activeIngredient).toHaveAttribute("placeholder", "Bijvoorbeeld pyrantel / febantel");
+
+  const weight = card.locator("#bulk-data-weight_grams");
+  await expect(weight).toBeVisible();
+  await expect(weight).toHaveAttribute("placeholder", "Optioneel gewicht van de pup in gram");
 });
