@@ -1,8 +1,12 @@
+import json
+
 from custom_components.puppy_tracker.mother_backup import (
     MOTHER_EXPORT_VERSION,
     MOTHER_SCHEMA_VERSION,
     build_mother_export_document,
     describe_mother_export,
+    serialize_mother_export,
+    validate_mother_export_document,
 )
 
 
@@ -17,16 +21,20 @@ def _data() -> dict:
                 "records": [
                     {
                         "id": "r1",
+                        "scope": "mother",
                         "litter_id": "litter-1",
                         "mother_id": "mother-1",
+                        "puppy_id": None,
                         "occurred_at": "2025-01-01T10:00:00+00:00",
                         "created_at": "2025-01-01T10:00:01+00:00",
                         "deleted": False,
                     },
                     {
                         "id": "r2",
+                        "scope": "mother",
                         "litter_id": "litter-2",
                         "mother_id": "mother-1",
+                        "puppy_id": None,
                         "occurred_at": "2026-08-31T10:00:00+00:00",
                         "created_at": "2026-08-31T10:00:01+00:00",
                         "deleted": False,
@@ -98,3 +106,57 @@ def test_mother_export_preview_reports_filter_and_counts() -> None:
     assert preview["litter_count"] == 2
     assert preview["record_count"] == 2
     assert preview["filter_mode"] == "all"
+
+
+def test_mother_export_validation_rejects_foreign_or_unlisted_context() -> None:
+    document = build_mother_export_document(_data(), "mother-1")
+    document["mother"]["records"][0]["mother_id"] = "other-mother"
+    try:
+        validate_mother_export_document(document)
+    except ValueError as error:
+        assert "foreign mother" in str(error)
+    else:
+        raise AssertionError("foreign mother record should be rejected")
+
+    document = build_mother_export_document(_data(), "mother-1")
+    document["mother"]["records"][0]["litter_id"] = "missing-litter"
+    try:
+        validate_mother_export_document(document)
+    except ValueError as error:
+        assert "unlisted litter" in str(error)
+    else:
+        raise AssertionError("unlisted litter context should be rejected")
+
+
+def test_filtered_export_validation_refuses_records_from_other_litter() -> None:
+    document = build_mother_export_document(_data(), "mother-1", litter_id="litter-2")
+    document["mother"]["records"].append(
+        {
+            "id": "foreign-context",
+            "scope": "mother",
+            "mother_id": "mother-1",
+            "puppy_id": None,
+            "litter_id": "litter-1",
+        }
+    )
+    document["linked_litters"].append({"id": "litter-1", "name": "Nest 2025"})
+    try:
+        validate_mother_export_document(document)
+    except ValueError as error:
+        assert "another litter" in str(error)
+    else:
+        raise AssertionError("mixed filtered export should be rejected")
+
+
+def test_mother_export_serializes_to_readable_json_filename() -> None:
+    filename, mime_type, content = serialize_mother_export(
+        _data(),
+        "mother-1",
+        litter_id="litter-2",
+    )
+    assert filename.startswith("puppy-tracker-mother-luna-nest-2026-")
+    assert filename.endswith(".json")
+    assert mime_type == "application/json;charset=utf-8"
+    document = json.loads(content)
+    assert document["scope"] == "mother"
+    assert document["filter"]["litter_id"] == "litter-2"
