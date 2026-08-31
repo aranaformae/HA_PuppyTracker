@@ -15,7 +15,12 @@ from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.event import async_track_time_interval
 
-from .const import DEFAULT_NOTIFICATIONS_ENABLED, DEFAULT_NOTIFY_ENTITIES, DOMAIN, SIGNAL_DASHBOARD_UPDATE
+from .const import (
+    DEFAULT_NOTIFY_ENTITIES,
+    DEFAULT_RECURRING_REMINDER_NOTIFICATIONS_ENABLED,
+    DOMAIN,
+    SIGNAL_DASHBOARD_UPDATE,
+)
 from .recurring_reminder_api import async_reconcile_recurring_reminders
 from .recurring_reminders import RecurringReminderStore, reminder_status
 from .runtime import PuppyTrackerRuntimeData
@@ -68,7 +73,12 @@ class RecurringReminderNotificationManager:
             if not isinstance(store, RecurringReminderStore):
                 return
             settings = self.runtime.storage.get_settings()
-            notifications_enabled = bool(settings.get("notifications_enabled", DEFAULT_NOTIFICATIONS_ENABLED))
+            notifications_enabled = bool(
+                settings.get(
+                    "recurring_reminder_notifications_enabled",
+                    DEFAULT_RECURRING_REMINDER_NOTIFICATIONS_ENABLED,
+                )
+            )
             notify_entities = [
                 value for value in settings.get("notify_entities", DEFAULT_NOTIFY_ENTITIES)
                 if isinstance(value, str) and value.startswith("notify.")
