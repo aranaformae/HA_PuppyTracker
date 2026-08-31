@@ -1,20 +1,20 @@
 {
   "domain": "puppy_tracker",
   "name": "Puppy Tracker",
-  "version": "0.11.0",
-  "documentation": "https://github.com/aranaformae/HA_PuppyTracker",
-  "issue_tracker": "https://github.com/aranaformae/HA_PuppyTracker/issues",
   "codeowners": [
     "@aranaformae"
   ],
   "config_flow": true,
-  "single_config_entry": true,
-  "integration_type": "hub",
   "dependencies": [
     "frontend",
     "http",
     "persistent_notification"
   ],
+  "documentation": "https://github.com/aranaformae/HA_PuppyTracker",
+  "integration_type": "hub",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/aranaformae/HA_PuppyTracker/issues",
   "requirements": [],
-  "iot_class": "calculated"
+  "single_config_entry": true,
+  "version": "0.11.0"
 }
