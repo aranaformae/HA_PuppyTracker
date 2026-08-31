@@ -22,6 +22,7 @@
           "manage_measurements": "Metingen beheren",
           "data_management": "Databeheer",
           "settings": "Monitoringinstellingen",
+          "notifications": "Meldingen",
           "integrity": "Data-integriteit controleren"
         }
       },
@@ -197,24 +198,49 @@
       },
       "settings": {
         "title": "Monitoringinstellingen",
-        "description": "Stel de bewakingsgrenzen en optionele Home Assistant-meldingen in. Meldingen worden gededupliceerd: dezelfde waarschuwing verschijnt één keer totdat de status verandert.",
+        "description": "Stel hier alleen de grenzen voor gewicht en groei in. Het versturen van meldingen beheer je apart onder Meldingen.",
         "data": {
           "min_daily_growth_percent": "Minimale groei per 24 uur",
           "max_hours_between_weighings": "Maximale tijd tussen wegingen",
-          "growth_monitoring_days": "Minimale groei bewaken tot leeftijd",
-          "notifications_enabled": "Home Assistant-meldingen",
-          "notify_recovery": "Melding wanneer puppy herstelt",
-          "notify_session_complete": "Melding na voltooide weegsessie",
-          "notify_entities": "Pushmeldingen naar"
+          "growth_monitoring_days": "Minimale groei bewaken tot leeftijd"
         },
         "data_description": {
           "min_daily_growth_percent": "Markeer de genormaliseerde dagelijkse groei als deze onder dit percentage ligt.",
           "max_hours_between_weighings": "Markeer een puppy wanneer binnen dit aantal uren geen nieuw gewicht is geregistreerd.",
-          "growth_monitoring_days": "Na deze leeftijd wordt de minimale dagelijkse groeigrens niet meer toegepast. Gewichtsverlies kan nog steeds worden gemarkeerd.",
-          "notifications_enabled": "Maak een blijvende Home Assistant-melding wanneer een actieve puppy naar een aandachtstatus verandert. Standaard uitgeschakeld.",
-          "notify_recovery": "Vervang de actieve waarschuwing één keer door een herstelmelding wanneer de puppy weer een normale status heeft.",
-          "notify_session_complete": "Maak één melding wanneer een volledige weegsessie is afgerond.",
-          "notify_entities": "Optionele notify-entiteiten, bijvoorbeeld je telefoon. Waarschuwingen, herstelmeldingen en sessiemeldingen worden daar ook naartoe gestuurd wanneer ze zijn ingeschakeld. De blijvende Home Assistant-melding wordt altijd gemaakt."
+          "growth_monitoring_days": "Na deze leeftijd wordt de minimale dagelijkse groeigrens niet meer toegepast. Gewichtsverlies kan nog steeds worden gemarkeerd."
+        }
+      },
+      "notifications": {
+        "title": "Meldingen",
+        "description": "Beheer alle Puppy Tracker-meldingsinstellingen vanuit één centraal punt.",
+        "menu_options": {
+          "notification_preferences": "Meldingsvoorkeuren",
+          "test_notification": "Testmelding versturen"
+        }
+      },
+      "notification_preferences": {
+        "title": "Meldingsvoorkeuren",
+        "description": "Kies welke Puppy Tracker-gebeurtenissen meldingen mogen versturen en naar welke notify-entiteiten pushmeldingen worden gestuurd.",
+        "data": {
+          "notifications_enabled": "Gewichts- en aandachtsmeldingen",
+          "recurring_reminder_notifications_enabled": "Meldingen voor terugkerende herinneringen",
+          "notify_recovery": "Herstelmeldingen",
+          "notify_session_complete": "Melding na voltooide weegsessie",
+          "notify_entities": "Pushmeldingen naar"
+        },
+        "data_description": {
+          "notifications_enabled": "Maak Home Assistant-meldingen wanneer een actieve puppy naar een aandachtstatus verandert.",
+          "recurring_reminder_notifications_enabled": "Stuur automatisch een melding wanneer een terugkerende herinnering bijna vervalt of te laat is.",
+          "notify_recovery": "Stuur één herstelmelding wanneer een puppy weer een normale status heeft.",
+          "notify_session_complete": "Stuur één melding wanneer een volledige weegsessie is afgerond.",
+          "notify_entities": "Optionele notify-entiteiten, bijvoorbeeld je telefoon. Waar van toepassing blijven ook blijvende Home Assistant-meldingen beschikbaar."
+        }
+      },
+      "test_notification": {
+        "title": "Testmelding versturen",
+        "description": "Stuur nu een echte Puppy Tracker-testmelding. Deze wordt ook naar de {targets} ingestelde pushontvanger(s) gestuurd. Er wordt geen herinnering, deadline of voltooiingsstatus aangepast.",
+        "data": {
+          "confirm": "Testmelding versturen"
         }
       },
       "manage_measurements": {
@@ -265,6 +291,8 @@
       "invalid_litter": "Het geselecteerde nest bestaat niet meer.",
       "invalid_puppy": "De geselecteerde puppy bestaat niet meer.",
       "invalid_settings": "Een of meer monitoringinstellingen zijn ongeldig.",
+      "invalid_notification_settings": "Een of meer meldingsinstellingen zijn ongeldig.",
+      "notification_test_failed": "De testmelding kon niet worden verstuurd. Controleer de ingestelde notify-entiteiten en Home Assistant-meldingsdiensten.",
       "invalid_measurement": "De geselecteerde meting bestaat niet meer of kan in de huidige toestand niet worden aangepast.",
       "invalid_backup_json": "Het geüploade bestand is geen geldige UTF-8 JSON-back-up.",
       "invalid_backup": "De back-up is ongeldig of heeft de Puppy Tracker-integriteitscontrole niet doorstaan.",
