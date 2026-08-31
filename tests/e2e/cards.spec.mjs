@@ -8,6 +8,7 @@ const CARD_TYPES = [
   "puppy-tracker-litter-card",
   "puppy-tracker-report-card",
   "puppy-tracker-dossier-card",
+  "puppy-tracker-quick-log-card",
 ];
 
 async function openFixture(page) {
