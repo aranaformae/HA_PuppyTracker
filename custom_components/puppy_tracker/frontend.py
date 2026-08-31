@@ -28,6 +28,7 @@ CARD_FILES = (
     "puppy-tracker-litter-card.js",
     "puppy-tracker-report-card.js",
     "puppy-tracker-dossier-card.js",
+    "puppy-tracker-quick-log-card.js",
     # Loaded last: translates the older cards that still contain Dutch UI
     # literals while Attention and Dossier use localize() directly.
     "puppy-tracker-localization-bridge.js",
