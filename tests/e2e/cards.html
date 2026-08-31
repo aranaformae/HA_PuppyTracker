@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Puppy Tracker E2E fixture</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: system-ui, sans-serif;
+      }
+
+      #cards {
+        display: grid;
+        gap: 16px;
+        padding: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <main id="cards"></main>
+    <script type="module">
+      const frontendBase = "/custom_components/puppy_tracker/frontend";
+      const modules = [
+        "puppy-tracker-card.js",
+        "puppy-tracker-overview-card.js",
+        "puppy-tracker-summary-card.js",
+        "puppy-tracker-attention-card.js",
+        "puppy-tracker-litter-card.js",
+        "puppy-tracker-report-card.js",
+        "puppy-tracker-dossier-card.js",
+        "puppy-tracker-localization-bridge.js",
+      ];
+
+      window.__puppyTrackerModuleErrors = [];
+
+      for (const filename of modules) {
+        try {
+          await import(`${frontendBase}/${filename}`);
+        } catch (error) {
+          window.__puppyTrackerModuleErrors.push({
+            filename,
+            message: error?.stack || error?.message || String(error),
+          });
+        }
+      }
+
+      window.__puppyTrackerReady = true;
+    </script>
+  </body>
+</html>

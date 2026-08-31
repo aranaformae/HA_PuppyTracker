@@ -1,0 +1,14 @@
+{
+  "name": "ha-puppy-tracker-frontend-tests",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1"
+  }
+}

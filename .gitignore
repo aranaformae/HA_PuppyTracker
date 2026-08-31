@@ -18,6 +18,12 @@ Python tooling
 .coverage
 htmlcov/
 
+Node / Playwright
+
+node_modules/
+playwright-report/
+test-results/
+
 IDE / editors
 
 .vscode/
