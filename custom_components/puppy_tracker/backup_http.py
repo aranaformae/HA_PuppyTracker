@@ -14,32 +14,38 @@ from homeassistant.helpers.network import get_url
 from .backup import serialize_export
 from .const import DOMAIN
 from .runtime import PuppyTrackerRuntimeData
-from .storage import PuppyTrackerStorage
 
 DATA_BACKUP_HTTP_REGISTERED = f"{DOMAIN}_backup_http_registered"
 DOWNLOAD_TTL = timedelta(minutes=10)
 
 
-def _runtime_storage(hass: HomeAssistant) -> PuppyTrackerStorage:
+def _runtime(hass: HomeAssistant) -> PuppyTrackerRuntimeData:
     for entry in hass.config_entries.async_entries(DOMAIN):
         runtime = entry.runtime_data
         if isinstance(runtime, PuppyTrackerRuntimeData):
-            return runtime.storage
+            return runtime
     raise RuntimeError("Puppy Tracker is not loaded")
 
 
 def _download_response(
-    storage: PuppyTrackerStorage,
+    runtime: PuppyTrackerRuntimeData,
     *,
     scope: str,
     litter_id: str | None = None,
     puppy_id: str | None = None,
 ) -> web.Response:
+    care_reminder_settings = None
+    if scope == "full":
+        if runtime.care_reminders is None:
+            raise RuntimeError("Puppy Tracker care reminders are not loaded")
+        care_reminder_settings = runtime.care_reminders.get_backup_settings()
+
     filename, _mime, content = serialize_export(
-        storage,
+        runtime.storage,
         scope=scope,
         litter_id=litter_id,
         puppy_id=puppy_id,
+        care_reminder_settings=care_reminder_settings,
     )
     return web.Response(
         text=content,
@@ -65,7 +71,7 @@ class PuppyTrackerFullBackupView(HomeAssistantView):
 
     async def get(self, request: web.Request) -> web.Response:
         del request
-        return _download_response(_runtime_storage(self._hass), scope="full")
+        return _download_response(_runtime(self._hass), scope="full")
 
 
 class PuppyTrackerLitterBackupView(HomeAssistantView):
@@ -82,7 +88,7 @@ class PuppyTrackerLitterBackupView(HomeAssistantView):
         del request
         try:
             return _download_response(
-                _runtime_storage(self._hass),
+                _runtime(self._hass),
                 scope="litter",
                 litter_id=litter_id,
             )
@@ -109,7 +115,7 @@ class PuppyTrackerPuppyBackupView(HomeAssistantView):
         del request
         try:
             return _download_response(
-                _runtime_storage(self._hass),
+                _runtime(self._hass),
                 scope="puppy",
                 litter_id=litter_id,
                 puppy_id=puppy_id,
