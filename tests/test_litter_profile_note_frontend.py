@@ -70,3 +70,17 @@ def test_first_measurement_avoids_false_growth_precision() -> None:
     assert 'setDetailValue(detail, "Vorige meting", "—")' in source
     assert "if (hasComparison) {" in source
     assert ': "Nog geen ontwikkeling beschikbaar"' in source
+
+
+def test_first_day_uses_birth_and_previous_change_instead_of_extrapolated_24h_growth() -> None:
+    """The first 24 hours should not present an extrapolated daily rate as observed growth."""
+    source = _source()
+
+    assert 'return ["first_24h", "first_day_excess_weight_loss"].includes' in source
+    assert 'if (firstDay) {' in source
+    assert 'main.textContent = percent(s.growth_birth_percent)' in source
+    assert 'small.textContent = `${grams(totalGrowthGrams)} · sinds geboorte`' in source
+    assert 'statCell("Sinds geboorte", `${grams(totalGrowthGrams)} · ${percent(totalGrowthPercent)}`)' in source
+    assert 'statCell("Sinds vorige meting", `${grams(s.change_grams)} · ${percent(previousGrowthPercent)}`)' in source
+    assert '} else if (hasComparison) {' in source
+    assert 'statCell("24u groei", `${grams(s.growth_24h_grams)} · ${percent(s.growth_24h_percent)}`)' in source
