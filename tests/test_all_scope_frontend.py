@@ -50,7 +50,8 @@ def test_all_scope_does_not_relabel_authoritative_owner_scopes() -> None:
     source = _read("custom_components/puppy_tracker/frontend/puppy-tracker-all-scope.js")
 
     assert "__aggregate_owner_scope" in source
-    assert "owner_scope" not in source
+    assert 'owner_scope:' not in source
+    assert 'owner_scope =' not in source
     assert "async_match_record" not in source
     assert "last_completed_at" not in source
     assert "recurring_reminders" not in source
