@@ -159,14 +159,22 @@ def next_due_at(reminder: dict[str, Any], *, now: datetime | None = None) -> dat
     times = _normalize_times(reminder.get("fixed_times"))
     if not times:
         return None
-    local_now = dt_util.as_local(now)
+
+    # Fixed clock times belong to the local clock represented by ``now``.
+    # Runtime callers pass Home Assistant local time already, while tests and
+    # other API consumers may pass another explicit aware timezone. Converting
+    # an explicit aware ``now`` through HA's process default timezone changes
+    # the requested wall-clock schedule (for example 14:00 Amsterdam becomes
+    # 05:00/08:00 Pacific), so preserve the caller's timezone here.
+    local_now = now if now.tzinfo is not None else dt_util.as_local(now)
     tz = local_now.tzinfo
+    local_last = last.astimezone(tz) if last is not None and tz is not None else last
     for day_offset in range(0, 8):
         day = (local_now + timedelta(days=day_offset)).date()
         for text in times:
             hour, minute = (int(part) for part in text.split(":"))
             candidate = datetime(day.year, day.month, day.day, hour, minute, tzinfo=tz)
-            if candidate > local_now and (last is None or candidate > dt_util.as_local(last)):
+            if candidate > local_now and (local_last is None or candidate > local_last):
                 return candidate
     return None
 
