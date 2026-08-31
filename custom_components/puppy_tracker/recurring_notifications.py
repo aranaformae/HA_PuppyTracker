@@ -21,6 +21,7 @@ from .const import (
     DOMAIN,
     SIGNAL_DASHBOARD_UPDATE,
 )
+from .notification_delivery import async_send_notify_entities, normalize_notify_entities
 from .recurring_reminder_api import async_reconcile_recurring_reminders
 from .recurring_reminders import RecurringReminderStore, reminder_status
 from .runtime import PuppyTrackerRuntimeData
@@ -79,10 +80,9 @@ class RecurringReminderNotificationManager:
                     DEFAULT_RECURRING_REMINDER_NOTIFICATIONS_ENABLED,
                 )
             )
-            notify_entities = [
-                value for value in settings.get("notify_entities", DEFAULT_NOTIFY_ENTITIES)
-                if isinstance(value, str) and value.startswith("notify.")
-            ]
+            notify_entities = normalize_notify_entities(
+                settings.get("notify_entities", DEFAULT_NOTIFY_ENTITIES)
+            )
             active: set[str] = set()
             for reminder in store.get_reminders():
                 item = reminder_status(reminder)
@@ -105,7 +105,12 @@ class RecurringReminderNotificationManager:
                     title=title,
                     notification_id=self._notification_id(reminder_id),
                 )
-                await self._send_mobile(notify_entities, title, message)
+                await async_send_notify_entities(
+                    self.hass,
+                    notify_entities,
+                    title,
+                    message,
+                )
             for reminder_id in set(self._states) - active:
                 async_dismiss_persistent_notification(self.hass, self._notification_id(reminder_id))
                 self._states.pop(reminder_id, None)
@@ -137,20 +142,6 @@ class RecurringReminderNotificationManager:
         else:
             timing = "nu" if minutes <= 0 else f"over {minutes} minuten"
         return f"**{item.get('title', 'Actie')}** voor **{owner}** is {timing}. Log het bijpassende dossieritem om de herinnering automatisch af te ronden."
-
-    async def _send_mobile(self, targets: list[str], title: str, message: str) -> None:
-        if not targets or not self.hass.services.has_service("notify", "send_message"):
-            return
-        for entity_id in targets:
-            try:
-                await self.hass.services.async_call(
-                    "notify",
-                    "send_message",
-                    {"entity_id": entity_id, "title": title, "message": message},
-                    blocking=False,
-                )
-            except Exception:
-                continue
 
     @staticmethod
     def _notification_id(reminder_id: str) -> str:
