@@ -30,6 +30,9 @@ CARD_FILES = (
     "puppy-tracker-summary-card.js",
     "puppy-tracker-attention-card.js",
     "puppy-tracker-litter-card.js",
+    # Loaded directly after the litter card. profile_note is already present in
+    # puppy_tracker/data; this module only presents it in the expanded details.
+    "puppy-tracker-litter-profile-note.js",
     "puppy-tracker-report-card.js",
     "puppy-tracker-dossier-card.js",
     "puppy-tracker-quick-log-card.js",
