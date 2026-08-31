@@ -16,25 +16,37 @@ def test_care_program_store_is_loaded_into_runtime_before_api_registration() -> 
     assert init_source.index("await care_programs.async_load()") < init_source.index("async_setup_care_program_api(hass)")
 
 
-def test_care_program_api_exposes_program_crud_and_read_only_occurrences() -> None:
+def test_care_program_api_exposes_program_crud_occurrences_and_result_recording() -> None:
     source = (ROOT / "custom_components" / "puppy_tracker" / "care_program_api.py").read_text(encoding="utf-8")
 
     assert 'f"{DOMAIN}/care_programs"' in source
     assert 'f"{DOMAIN}/care_occurrences"' in source
+    assert 'f"{DOMAIN}/care_occurrence/record"' in source
     assert 'f"{DOMAIN}/care_program/create"' in source
     assert 'f"{DOMAIN}/care_program/update"' in source
     assert 'f"{DOMAIN}/care_program/delete"' in source
     assert "derive_litter_care_occurrences" in source
-    assert "async_record_care_result" not in source
-    assert 'f"{DOMAIN}/care_result' not in source
+    assert "async_record_care_result" in source
 
 
-def test_care_program_mutations_require_admin_but_reads_do_not() -> None:
+def test_only_care_program_management_requires_admin() -> None:
     source = (ROOT / "custom_components" / "puppy_tracker" / "care_program_api.py").read_text(encoding="utf-8")
 
     assert source.count("@websocket_api.require_admin") == 3
-    assert source.index('f"{DOMAIN}/care_programs"') < source.index("@websocket_api.require_admin")
-    assert source.index('f"{DOMAIN}/care_occurrences"') < source.index("@websocket_api.require_admin")
+    record_pos = source.index('f"{DOMAIN}/care_occurrence/record"')
+    first_admin_pos = source.index("@websocket_api.require_admin")
+    assert record_pos < first_admin_pos
+
+
+def test_care_result_api_rederives_occurrence_and_rejects_duplicates() -> None:
+    source = (ROOT / "custom_components" / "puppy_tracker" / "care_program_api.py").read_text(encoding="utf-8")
+
+    assert "def _derive_occurrence(" in source
+    assert "derive_litter_care_occurrences(program, [puppy])" in source
+    assert "def _existing_occurrence_result(" in source
+    assert 'data.get("care_occurrence_id")' in source
+    assert "already has an active result" in source
+    assert "occurred_at=msg.get(\"occurred_at\")" in source
 
 
 def test_occurrence_api_reports_missing_birth_times_without_guessing() -> None:
