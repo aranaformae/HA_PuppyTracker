@@ -43,11 +43,12 @@ CARD_FILES = (
     "puppy-tracker-quick-log-card.js",
     "puppy-tracker-bulk-dossier-card.js",
     "puppy-tracker-timeline-card.js",
-    # Adds mother owner support to the remaining owner-aware dashboard cards.
-    "puppy-tracker-mother-surfaces.js",
     # Temperature was introduced after these cards already had their own type
     # lists/rendering. Keep all temperature-specific compatibility in one layer.
     "puppy-tracker-temperature-ui.js",
+    # Mother support depends on the temperature layer for quick-log/timeline
+    # temperature handling, so load it immediately after temperature support.
+    "puppy-tracker-mother-surfaces.js",
     # Loaded after all affected cards so it can patch their rendered layout and
     # add compact show/hide and edit controls without duplicating card logic.
     "puppy-tracker-ui-compact.js",
