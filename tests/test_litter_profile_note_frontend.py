@@ -58,3 +58,15 @@ def test_litter_detail_shows_growth_range_without_duplicate_daily_average() -> N
     assert 'statCell("Laagste gewicht"' in source
     assert 'statCell("Hoogste gewicht"' in source
     assert 'progressLabel.textContent = "Gewichtsontwikkeling sinds geboorte"' in source
+
+
+def test_first_measurement_avoids_false_growth_precision() -> None:
+    """A single weighing must not look like a real comparison or growth range."""
+    source = _source()
+
+    assert "const hasComparison = measurements.length >= 2" in source
+    assert 'main.textContent = "—"' in source
+    assert 'small.textContent = "Nog geen vergelijkingsbasis"' in source
+    assert 'setDetailValue(detail, "Vorige meting", "—")' in source
+    assert "if (hasComparison) {" in source
+    assert ': "Nog geen ontwikkeling beschikbaar"' in source
