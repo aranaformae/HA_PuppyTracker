@@ -9,6 +9,7 @@ from .session import SESSION_ACTIVE, new_session_state
 from .storage import PuppyTrackerStorage
 
 if TYPE_CHECKING:
+    from .care_reminders import CareReminderStore
     from .notifications import PuppyNotificationManager
 
 
@@ -17,6 +18,7 @@ class PuppyTrackerRuntimeData:
     """Runtime-only state owned by one config entry."""
 
     storage: PuppyTrackerStorage
+    care_reminders: CareReminderStore | None = None
     selected_litter_id: str | None = None
     selected_puppy_id: str | None = None
     weight_input: float = 0.0

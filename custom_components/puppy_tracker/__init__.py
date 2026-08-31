@@ -13,6 +13,7 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .api import async_setup_api
+from .care_reminders import CareReminderStore
 from .const import (
     DOMAIN,
     SIGNAL_DASHBOARD_UPDATE,
@@ -42,6 +43,7 @@ PLATFORMS: tuple[Platform, ...] = (
     Platform.BINARY_SENSOR,
     Platform.SELECT,
     Platform.NUMBER,
+    Platform.SWITCH,
     Platform.BUTTON,
 )
 
@@ -173,8 +175,12 @@ async def async_setup_entry(
             integrity_report.get("repairs_applied", 0),
         )
 
+    care_reminders = CareReminderStore(hass)
+    await care_reminders.async_load()
+
     runtime = PuppyTrackerRuntimeData(
         storage=storage,
+        care_reminders=care_reminders,
     )
     reconcile_dashboard_selection(runtime)
     entry.runtime_data = runtime
