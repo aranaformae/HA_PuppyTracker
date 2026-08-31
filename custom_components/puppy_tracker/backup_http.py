@@ -9,6 +9,7 @@ from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.components.http.auth import async_sign_path
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.network import get_url
 
 from .backup import serialize_export
 from .const import DOMAIN
@@ -135,7 +136,7 @@ def async_signed_export_path(
     litter_id: str | None = None,
     puppy_id: str | None = None,
 ) -> str:
-    """Return a short-lived signed relative URL for one backup export."""
+    """Return a short-lived signed absolute URL for one backup export."""
     async_setup_backup_http(hass)
 
     if scope == "full":
@@ -147,4 +148,13 @@ def async_signed_export_path(
     else:
         raise ValueError("Invalid export scope or owner")
 
-    return async_sign_path(hass, path, DOWNLOAD_TTL)
+    signed_path = async_sign_path(hass, path, DOWNLOAD_TTL)
+    base_url = get_url(
+        hass,
+        prefer_external=True,
+        allow_internal=True,
+        allow_external=True,
+        allow_cloud=True,
+        allow_ip=True,
+    )
+    return f"{base_url.rstrip('/')}{signed_path}"
