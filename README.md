@@ -21,7 +21,7 @@ Puppy Tracker is a custom Home Assistant integration for managing litters, mothe
 - Automatic reminder completion when a matching dossier record is logged for the same owner.
 - Attention card integration for due and overdue care.
 - Home Assistant persistent/mobile notifications with deduplication.
-- Planned dedicated recurring-reminder notification control and test-notification action.
+- Central notification preferences, an independent recurring-reminder delivery toggle and an explicit test-notification action.
 - CSV, JSON and direct PDF reporting/export plus validated backup/restore.
 - Built-in Lovelace cards automatically served and registered by the integration.
 
@@ -102,13 +102,13 @@ Logging a new temperature record for Luna completes the current occurrence and m
 
 Recurring reminders become `due_soon` during the final hour before their deadline and `overdue` after it. The Attention card can show these states independently of notification delivery.
 
-Recurring-reminder notifications currently use Puppy Tracker's existing global notification setting. When notifications are disabled, reminder state and dashboard cards continue to work but no Puppy Tracker persistent/mobile reminder notification is sent.
+Notification controls are centralized under **Puppy Tracker → Configure → Notifications**. **Notification preferences** contains the existing Puppy Tracker notification controls, the shared configured `notify.*` targets and an independent **recurring reminder notifications** toggle. Disabling recurring-reminder delivery does not disable reminder scheduling, completion or Attention-card state, and it does not require disabling the other Puppy Tracker notification paths.
 
-When notifications are enabled, a Home Assistant persistent notification can be created for due-soon/overdue reminders and configured `notify.*` targets can receive the same reminder. Delivery state is deduplicated so the same status/deadline is not intentionally sent repeatedly.
+When recurring-reminder notifications are enabled, Home Assistant persistent notifications can be created for due-soon/overdue reminders and configured `notify.*` targets can receive the same reminder. Delivery state is deduplicated so the same status/deadline is not intentionally sent repeatedly.
 
-For first testing on a production Home Assistant instance, keep Puppy Tracker notifications disabled, verify reminder scheduling/completion on the dashboard, and only then enable notifications when desired.
+**Send test notification** exercises the currently configured notification path on demand. The test remains available independently of the automatic recurring-reminder toggle, is clearly identified as a test and does not create, complete, postpone or otherwise mutate a recurring reminder, dossier entry or reminder-delivery deduplication state. Push/configuration failures are surfaced to the initiating options flow instead of being treated as a successful test.
 
-A planned notification-settings improvement will add a dedicated recurring-reminder notification toggle plus a **Send test notification** action. The test action should use the currently configured recurring-reminder notification targets and formatting, but must bypass reminder due-state and deduplication state. Sending a test notification must not create, complete, postpone or otherwise mutate a recurring reminder.
+For first testing on a production Home Assistant instance, automatic recurring-reminder notifications can stay disabled while reminder scheduling/completion is verified on the dashboard. The explicit test action can then verify the chosen delivery targets before automatic recurring delivery is enabled.
 
 ## Installation
 
@@ -183,6 +183,8 @@ Important modules now include:
 custom_components/puppy_tracker/
 ├── api.py
 ├── care_reminders.py
+├── notification_delivery.py
+├── notification_settings_flow.py
 ├── recurring_reminders.py
 ├── recurring_reminder_api.py
 ├── recurring_notifications.py
@@ -213,13 +215,11 @@ python -m pip install -r requirements_test.txt
 pytest
 ```
 
-CI additionally covers Home Assistant/HACS validation and frontend regression checks. Manual release testing should include a real HACS upgrade, affected cards, mother resolution, recurring-reminder scheduling/completion, notification-off production testing, the recurring-reminder test-notification path once implemented, and restart persistence.
+CI additionally covers Home Assistant/HACS validation and frontend regression checks. Manual release testing should include a real HACS upgrade, affected cards, mother resolution, recurring-reminder scheduling/completion, notification-off production testing, explicit test-notification delivery and restart persistence.
 
 ## Roadmap to 1.0
 
-The weight, dossier, mother-scope and recurring-care foundations are now in place. Remaining areas include richer treatment/medication workflows, expanded test and vet workflows, deeper analytics, improved reporting, broader automation/calendar integration and further UX refinement.
-
-A dedicated recurring-reminder notification preference and test-notification action are desirable follow-ups so generic reminders can be tested or disabled independently from other Puppy Tracker notification paths.
+The weight, dossier, mother-scope, recurring-care and centralized notification foundations are now in place. Remaining areas include richer treatment/medication workflows, expanded test and vet workflows, deeper analytics, improved reporting, broader automation/calendar integration and further UX refinement.
 
 After a stable **1.0.0** release, the project intends to move to date-based CalVer releases (`YYYY.MM.DD`, with an optional revision suffix for multiple releases on the same day).
 
