@@ -105,7 +105,7 @@ def care_result_record_payload(
         "litter_id": litter_id,
         "puppy_id": puppy_id,
         "record_type": str(program.get("record_type") or occurrence.get("record_type") or "note"),
-        "occurred_at": occurred_at or occurrence.get("scheduled_at"),
+        "occurred_at": occurred_at,
         "title": str(program.get("title") or occurrence.get("title") or "").strip() or None,
         "note": normalized.get("note"),
         "data": structured_data,
