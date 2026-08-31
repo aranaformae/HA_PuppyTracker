@@ -2,6 +2,8 @@ import { escapeHtml, languageForHass } from "./puppy-tracker-card-common.js";
 
 const QUICK_TAG = "puppy-tracker-quick-log-card";
 const TIMELINE_TAG = "puppy-tracker-timeline-card";
+const ATTENTION_TAG = "puppy-tracker-attention-card";
+const REPORT_TAG = "puppy-tracker-report-card";
 const MOTHER_VALUE = "__mother__";
 
 function isEnglish(card) {
@@ -13,7 +15,7 @@ function copy(card, nl, en) {
 }
 
 function motherName(card) {
-  return card?._litterData?.litter?.mother || null;
+  return card?._litterData?.litter?.mother || card?._data?.litter?.mother || null;
 }
 
 async function motherCall(card, action, payload = {}) {
@@ -254,20 +256,171 @@ function patchTimeline() {
       }
       if (this._scope === "mother") select.value = MOTHER_VALUE;
     }
-    if (this._scope === "mother") {
-      root?.querySelectorAll(".timeline-item .meta").forEach((meta) => {
-        if (name && !meta.textContent?.startsWith(name)) return;
-      });
-    }
     return result;
   };
 
   Card.prototype.__puppyTrackerMotherTimelinePatched = true;
 }
 
+function actionStatus(card, action) {
+  const days = Number(action?.days_until_due ?? action?.days_until);
+  if (action?.status === "overdue") {
+    const amount = Math.abs(days);
+    return isEnglish(card) ? `${amount} day${amount === 1 ? "" : "s"} overdue` : `${amount} dag${amount === 1 ? "" : "en"} te laat`;
+  }
+  if (action?.status === "due_today") return copy(card, "Vandaag", "Today");
+  if (action?.status === "upcoming") {
+    if (days === 1) return copy(card, "Morgen", "Tomorrow");
+    return copy(card, `Over ${days} dagen`, `In ${days} days`);
+  }
+  return copy(card, "Gepland", "Planned");
+}
+
+function actionTitle(card, action) {
+  const type = String(action?.type || action?.record_type || "");
+  if (type === "vaccination") return copy(card, "Vaccinatie", "Vaccination");
+  if (type === "deworming") return copy(card, "Ontworming", "Deworming");
+  return action?.title || action?.label || copy(card, "Dossieritem", "Dossier item");
+}
+
+function actionDate(card, value) {
+  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return String(value || "");
+  return isEnglish(card) ? `${match[2]}/${match[3]}/${match[1]}` : `${match[3]}-${match[2]}-${match[1]}`;
+}
+
+function patchAttention() {
+  const Card = customElements.get(ATTENTION_TAG);
+  if (!Card || Card.prototype.__puppyTrackerMotherAttentionPatched) return;
+  const originalLoadData = Card.prototype._loadData;
+  const originalRender = Card.prototype._render;
+
+  Card.prototype._loadData = async function (render = true) {
+    await originalLoadData.call(this, false);
+    this.__motherAttention = null;
+    if (this._hass && this._selectedLitterId && this._data?.litter?.mother) {
+      try {
+        this.__motherAttention = await this._hass.callWS({
+          type: "puppy_tracker/mother/attention",
+          litter_id: this._selectedLitterId,
+        });
+      } catch (_error) {
+        this.__motherAttention = null;
+      }
+    }
+    if (render) this._render();
+  };
+
+  Card.prototype._render = function (...args) {
+    const result = originalRender.apply(this, args);
+    const root = this.shadowRoot;
+    const actions = this.__motherAttention?.dossier_actions?.actions || [];
+    if (!root || !actions.length) return result;
+
+    let list = root.querySelector(".list");
+    if (!list) {
+      root.querySelector(".all-ok")?.remove();
+      list = document.createElement("div");
+      list.className = "list";
+      root.querySelector("ha-card")?.append(list);
+    }
+
+    for (const action of actions) {
+      if (action?.due_soon === false) continue;
+      const row = document.createElement("div");
+      row.className = `row mother-action ${action.status === "overdue" ? "danger" : action.status === "due_today" ? "warning" : "neutral"}`;
+      const reason = `${actionTitle(this, action)} · ${actionDate(this, action.due_date || action.due_at)}`;
+      row.innerHTML = `<div class="icon ha"><ha-icon icon="${escapeHtml(action.icon || "mdi:calendar-alert")}"></ha-icon></div><div class="main"><div class="name">${escapeHtml(copy(this, "Moederhond", "Mother"))} · ${escapeHtml(this.__motherAttention?.owner?.name || motherName(this) || "")}</div><div class="reason">${escapeHtml(reason)}</div></div><div class="status">${escapeHtml(actionStatus(this, action))}</div>`;
+      list.append(row);
+    }
+    return result;
+  };
+
+  Card.prototype.__puppyTrackerMotherAttentionPatched = true;
+}
+
+function patchReport() {
+  const Card = customElements.get(REPORT_TAG);
+  if (!Card || Card.prototype.__puppyTrackerMotherReportPatched) return;
+  const originalExport = Card.prototype._export;
+  const originalRender = Card.prototype._render;
+
+  Card.prototype._export = async function (format) {
+    if (this._selectedPuppyId !== MOTHER_VALUE) return originalExport.call(this, format);
+    if (format !== "json" || !this._hass || !this._selectedLitterId) {
+      this._status = copy(this, "Voor de moeder is momenteel alleen JSON-dossierexport beschikbaar.", "Only JSON dossier export is currently available for the mother.");
+      this._render();
+      return;
+    }
+    this._status = copy(this, "Moederdossier voorbereiden…", "Preparing mother dossier…");
+    this._render();
+    try {
+      const result = await this._hass.callWS({
+        type: "puppy_tracker/mother/export_url",
+        litter_id: this._selectedLitterId,
+        history_scope: this.__motherExportScope || "all",
+      });
+      const anchor = document.createElement("a");
+      anchor.href = result.url;
+      anchor.rel = "noopener";
+      anchor.style.display = "none";
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      this._status = copy(this, "Moederdossier gedownload.", "Mother dossier downloaded.");
+    } catch (error) {
+      this._status = error?.message || copy(this, "Moederexport mislukt.", "Mother export failed.");
+    }
+    this._render();
+  };
+
+  Card.prototype._render = function (...args) {
+    const result = originalRender.apply(this, args);
+    const root = this.shadowRoot;
+    const select = root?.getElementById("puppy");
+    const name = motherName(this);
+    if (!root || !select || !name) return result;
+
+    let option = Array.from(select.options).find((item) => item.value === MOTHER_VALUE);
+    if (!option) {
+      option = document.createElement("option");
+      option.value = MOTHER_VALUE;
+      option.textContent = `${copy(this, "Moederhond", "Mother")} · ${name}`;
+      select.insertBefore(option, select.options[1] || null);
+    }
+    if (this._selectedPuppyId === MOTHER_VALUE) select.value = MOTHER_VALUE;
+
+    if (this._selectedPuppyId === MOTHER_VALUE) {
+      const controls = root.querySelector(".controls");
+      if (controls && !root.getElementById("mother-export-scope")) {
+        const field = document.createElement("div");
+        field.className = "field";
+        field.innerHTML = `<label>${escapeHtml(copy(this, "Moederhistorie", "Mother history"))}</label><select id="mother-export-scope"><option value="all">${escapeHtml(copy(this, "Alle nesten", "All litters"))}</option><option value="current">${escapeHtml(copy(this, "Alleen dit nest", "Current litter only"))}</option></select>`;
+        controls.append(field);
+        const scope = field.querySelector("select");
+        scope.value = this.__motherExportScope || "all";
+        scope.addEventListener("change", (event) => { this.__motherExportScope = event.target.value; });
+      }
+      const pdf = root.getElementById("pdf");
+      const csv = root.getElementById("csv");
+      if (pdf) pdf.style.display = "none";
+      if (csv) csv.style.display = "none";
+      const json = root.getElementById("json");
+      if (json) json.textContent = copy(this, "Moeder JSON", "Mother JSON");
+      const note = root.querySelector(".note");
+      if (note) note.textContent = copy(this, "Moeder JSON bevat standaard de volledige historie over alle nesten; dit is hierboven te beperken tot het huidige nest.", "Mother JSON includes the complete history across all litters by default; limit it to the current litter above if needed.");
+    }
+    return result;
+  };
+
+  Card.prototype.__puppyTrackerMotherReportPatched = true;
+}
+
 for (const [tag, callback] of [
   [QUICK_TAG, patchQuickLog],
   [TIMELINE_TAG, patchTimeline],
+  [ATTENTION_TAG, patchAttention],
+  [REPORT_TAG, patchReport],
 ]) {
   if (customElements.get(tag)) callback();
   else customElements.whenDefined(tag).then(callback);
