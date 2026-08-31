@@ -20,9 +20,74 @@
           "add_puppy": "Puppy toevoegen",
           "manage_puppy": "Puppy beheren",
           "manage_measurements": "Metingen beheren",
+          "data_management": "Databeheer",
           "settings": "Monitoringinstellingen",
           "integrity": "Data-integriteit controleren"
         }
+      },
+      "data_management": {
+        "title": "Databeheer",
+        "menu_options": {
+          "export_data": "Back-up exporteren",
+          "import_data": "Back-up importeren / herstellen"
+        }
+      },
+      "export_data": {
+        "title": "Puppy Tracker-data exporteren",
+        "description": "Maak een gezaghebbende JSON-back-up. Een volledige back-up bevat alle Puppy Tracker-opslag; nest- en puppyexports zijn overdraagbare gedeeltelijke back-ups.",
+        "data": {
+          "scope": "Wat wil je exporteren"
+        }
+      },
+      "export_litter": {
+        "title": "Nest exporteren",
+        "description": "Kies het nest dat je wilt exporteren met alle puppy's, metingen, dossierrecords en relevante audithistorie.",
+        "data": {
+          "litter_id": "Nest"
+        }
+      },
+      "export_puppy": {
+        "title": "Puppy exporteren",
+        "description": "Kies één puppy om te exporteren met profielgegevens, volledige meet- en correctiehistorie, dossierrecords en relevante audithistorie.",
+        "data": {
+          "puppy": "Puppy"
+        }
+      },
+      "export_ready": {
+        "title": "Back-up gereed",
+        "description": "[JSON-back-up downloaden]({download_url})\n\nDeze ondertekende downloadlink verloopt na 10 minuten en wordt niet in `/www` opgeslagen."
+      },
+      "import_data": {
+        "title": "Puppy Tracker-data importeren / herstellen",
+        "description": "Upload een Puppy Tracker JSON-back-up. Er wordt niets gewijzigd voordat validatie, voorvertoning en expliciete bevestiging zijn afgerond.",
+        "data": {
+          "backup_file": "JSON-back-upbestand"
+        }
+      },
+      "import_mode": {
+        "title": "Importmodus kiezen",
+        "description": "Gevalideerde back-up: **{source}** — {litters} nest(en), {puppies} puppy('s), {measurements} meetversies en {records} dossierrecords. Gedeeltelijke imports krijgen altijd nieuwe identifiers.",
+        "data": {
+          "mode": "Importmodus"
+        }
+      },
+      "import_target": {
+        "title": "Doelnest kiezen",
+        "description": "De geïmporteerde puppy of nestinhoud wordt met nieuw gegenereerde identifiers aan dit nest toegevoegd. Bestaande historie wordt niet overschreven.",
+        "data": {
+          "litter_id": "Doelnest"
+        }
+      },
+      "import_preview": {
+        "title": "Herstelvoorvertoning controleren",
+        "description": "De dry-run voor **{source}** is geslaagd: {litters} nest(en), {puppies} puppy('s), {measurements} meetversies en {records} dossierrecords. Integriteitswaarschuwingen: {warnings}. Er is nog niets gewijzigd. Een volledige vervanging gebeurt alleen als je die modus in de vorige stap expliciet hebt gekozen.",
+        "data": {
+          "confirm": "Ik heb deze voorvertoning gecontroleerd en wil de import uitvoeren"
+        }
+      },
+      "import_complete": {
+        "title": "Import voltooid",
+        "description": "Import van **{source}** voltooid: {litters} nest(en), {puppies} puppy('s), {measurements} meetversies en {records} dossierrecords zijn verwerkt."
       },
       "create_litter": {
         "title": "Nest aanmaken",
@@ -200,7 +265,15 @@
       "invalid_litter": "Het geselecteerde nest bestaat niet meer.",
       "invalid_puppy": "De geselecteerde puppy bestaat niet meer.",
       "invalid_settings": "Een of meer monitoringinstellingen zijn ongeldig.",
-      "invalid_measurement": "De geselecteerde meting bestaat niet meer of kan in de huidige toestand niet worden aangepast."
+      "invalid_measurement": "De geselecteerde meting bestaat niet meer of kan in de huidige toestand niet worden aangepast.",
+      "invalid_backup_json": "Het geüploade bestand is geen geldige UTF-8 JSON-back-up.",
+      "invalid_backup": "De back-up is ongeldig of heeft de Puppy Tracker-integriteitscontrole niet doorstaan.",
+      "unsupported_export_version": "Deze Puppy Tracker-exportversie wordt niet ondersteund.",
+      "unsupported_schema_version": "Deze back-up gebruikt een opslagschema dat deze versie niet veilig kan herstellen.",
+      "invalid_import_mode": "Deze importmodus is niet geldig voor de geüploade back-up.",
+      "invalid_import_target": "Het geselecteerde doelnest bestaat niet meer.",
+      "backup_too_large": "De back-up is groter dan de importlimiet van 20 MB.",
+      "storage_changed": "Puppy Tracker-data is na de voorvertoning gewijzigd. Controleer de back-up opnieuw voordat je importeert."
     },
     "abort": {
       "no_litters": "Er zijn nog geen nesten beschikbaar.",
@@ -242,6 +315,25 @@
     "deleted_measurement_action": {
       "options": {
         "restore": "Verwijderde meting herstellen"
+      }
+    },
+    "backup_scope": {
+      "options": {
+        "full": "Volledige Puppy Tracker-back-up",
+        "litter": "Eén compleet nest",
+        "puppy": "Eén losse puppy"
+      }
+    },
+    "full_import_mode": {
+      "options": {
+        "merge_as_new": "Huidige data behouden en alle nesten uit de back-up als nieuw importeren",
+        "replace_all": "Alle huidige Puppy Tracker-data vervangen door deze back-up"
+      }
+    },
+    "partial_import_mode": {
+      "options": {
+        "new_litter": "Importeren in een nieuw nest",
+        "existing_litter": "Toevoegen aan een bestaand nest"
       }
     }
   }

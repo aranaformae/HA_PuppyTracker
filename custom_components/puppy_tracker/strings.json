@@ -20,9 +20,74 @@
           "add_puppy": "Add puppy",
           "manage_puppy": "Manage puppy",
           "manage_measurements": "Manage measurements",
+          "data_management": "Data management",
           "settings": "Monitoring settings",
           "integrity": "Data integrity check"
         }
+      },
+      "data_management": {
+        "title": "Data management",
+        "menu_options": {
+          "export_data": "Export backup",
+          "import_data": "Import / restore backup"
+        }
+      },
+      "export_data": {
+        "title": "Export Puppy Tracker data",
+        "description": "Create an authoritative JSON backup. A full backup contains all Puppy Tracker storage; litter and puppy exports are portable partial backups.",
+        "data": {
+          "scope": "What to export"
+        }
+      },
+      "export_litter": {
+        "title": "Export litter",
+        "description": "Choose the litter to export with all puppies, measurements, dossier records and relevant audit history.",
+        "data": {
+          "litter_id": "Litter"
+        }
+      },
+      "export_puppy": {
+        "title": "Export puppy",
+        "description": "Choose one puppy to export with profile data, complete measurement/correction history, dossier records and relevant audit history.",
+        "data": {
+          "puppy": "Puppy"
+        }
+      },
+      "export_ready": {
+        "title": "Backup ready",
+        "description": "[Download JSON backup]({download_url})\n\nThis signed download link expires after 10 minutes and is not stored in `/www`."
+      },
+      "import_data": {
+        "title": "Import / restore Puppy Tracker data",
+        "description": "Upload a Puppy Tracker JSON backup. Nothing is changed until validation, preview and explicit confirmation are complete.",
+        "data": {
+          "backup_file": "JSON backup file"
+        }
+      },
+      "import_mode": {
+        "title": "Choose import mode",
+        "description": "Validated backup: **{source}** — {litters} litter(s), {puppies} puppy/puppies, {measurements} measurement versions and {records} dossier records. Partial imports always receive new identifiers.",
+        "data": {
+          "mode": "Import mode"
+        }
+      },
+      "import_target": {
+        "title": "Choose destination litter",
+        "description": "The imported puppy or litter contents will be added to this litter with newly generated identifiers. Existing history is not overwritten.",
+        "data": {
+          "litter_id": "Destination litter"
+        }
+      },
+      "import_preview": {
+        "title": "Review restore preview",
+        "description": "Dry-run validation succeeded for **{source}**: {litters} litter(s), {puppies} puppy/puppies, {measurements} measurement versions and {records} dossier records. Integrity warnings: {warnings}. No data has been changed yet. A full replacement only occurs if you explicitly selected that mode on the previous step.",
+        "data": {
+          "confirm": "I reviewed this preview and want to apply the import"
+        }
+      },
+      "import_complete": {
+        "title": "Import complete",
+        "description": "Import of **{source}** completed: {litters} litter(s), {puppies} puppy/puppies, {measurements} measurement versions and {records} dossier records were processed."
       },
       "create_litter": {
         "title": "Create litter",
@@ -200,7 +265,15 @@
       "invalid_litter": "The selected litter no longer exists.",
       "invalid_puppy": "The selected puppy no longer exists.",
       "invalid_settings": "One or more monitoring settings are invalid.",
-      "invalid_measurement": "The selected measurement no longer exists or cannot be changed in its current state."
+      "invalid_measurement": "The selected measurement no longer exists or cannot be changed in its current state.",
+      "invalid_backup_json": "The uploaded file is not a valid UTF-8 JSON backup.",
+      "invalid_backup": "The backup is invalid or failed the Puppy Tracker integrity check.",
+      "unsupported_export_version": "This Puppy Tracker export version is not supported.",
+      "unsupported_schema_version": "This backup uses a storage schema that this version cannot restore safely.",
+      "invalid_import_mode": "This import mode is not valid for the uploaded backup.",
+      "invalid_import_target": "The selected destination litter no longer exists.",
+      "backup_too_large": "The backup is larger than the 20 MB import limit.",
+      "storage_changed": "Puppy Tracker data changed after the preview. Review the backup again before importing it."
     },
     "abort": {
       "no_litters": "There are no litters available yet.",
@@ -242,6 +315,25 @@
     "deleted_measurement_action": {
       "options": {
         "restore": "Restore deleted measurement"
+      }
+    },
+    "backup_scope": {
+      "options": {
+        "full": "Complete Puppy Tracker backup",
+        "litter": "One complete litter",
+        "puppy": "One individual puppy"
+      }
+    },
+    "full_import_mode": {
+      "options": {
+        "merge_as_new": "Keep current data and import all backup litters as new",
+        "replace_all": "Replace all current Puppy Tracker data with this backup"
+      }
+    },
+    "partial_import_mode": {
+      "options": {
+        "new_litter": "Import into a new litter",
+        "existing_litter": "Add to an existing litter"
       }
     }
   }
