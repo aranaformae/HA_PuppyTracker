@@ -52,4 +52,4 @@ def test_standalone_timeline_items_are_collapsible_and_scrollable() -> None:
     assert 'max-height:520px' in source
     assert 'buttonLabel(card, "Verberg tijdlijnitems", "Hide timeline items")' in source
     assert 'buttonLabel(card, `Toon tijdlijnitems (${count})`, `Show timeline items (${count})`)' in source
-    assert 'timeline-footer-toggle' in source
+    assert 'timeline-toggle-footer' in source
