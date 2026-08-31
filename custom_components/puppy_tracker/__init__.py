@@ -26,6 +26,8 @@ from .frontend import async_setup_frontend, async_unload_frontend
 from .mother_api import async_setup_mother_api
 from .mother_storage_integrity import MotherScopeIntegrityStorage
 from .notifications import PuppyNotificationManager
+from .recurring_reminder_api import async_setup_recurring_reminder_api
+from .recurring_reminders import RecurringReminderStore
 from .runtime import (
     PuppyTrackerRuntimeData,
     reconcile_dashboard_selection,
@@ -120,13 +122,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     care_reminders = CareReminderStore(hass)
     await care_reminders.async_load()
+    recurring_reminders = RecurringReminderStore(hass)
+    await recurring_reminders.async_load()
 
-    runtime = PuppyTrackerRuntimeData(storage=storage, care_reminders=care_reminders)
+    runtime = PuppyTrackerRuntimeData(
+        storage=storage,
+        care_reminders=care_reminders,
+        recurring_reminders=recurring_reminders,
+    )
     reconcile_dashboard_selection(runtime)
     entry.runtime_data = runtime
 
     async_setup_api(hass)
     async_setup_mother_api(hass)
+    async_setup_recurring_reminder_api(hass)
     await async_setup_frontend(hass)
 
     async_sync_devices(hass, entry, storage.get_data())
