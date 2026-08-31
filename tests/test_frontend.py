@@ -5,6 +5,8 @@ from custom_components.puppy_tracker.frontend import CARD_FILES, FRONTEND_URL, _
 
 
 LOCALIZATION_BRIDGE = "puppy-tracker-localization-bridge.js"
+OVERVIEW_CARD = "puppy-tracker-overview-card.js"
+OVERVIEW_REGISTRY_REFRESH = "puppy-tracker-overview-registry-refresh.js"
 LEGACY_LOCALIZED_CARDS = (
     "puppy-tracker-card",
     "puppy-tracker-overview-card",
@@ -23,6 +25,30 @@ def test_frontend_module_url_inherits_versioned_path() -> None:
     """Relative ES-module imports inherit the same release-specific base path."""
     filename = "puppy-tracker-attention-card.js"
     assert _frontend_url(filename) == f"/{DOMAIN}/frontend/{VERSION}/{filename}"
+
+
+def test_overview_registry_refresh_loads_after_overview_card() -> None:
+    """Registry refresh must patch the overview card after it is registered."""
+    overview_index = CARD_FILES.index(OVERVIEW_CARD)
+    assert CARD_FILES[overview_index + 1] == OVERVIEW_REGISTRY_REFRESH
+
+
+def test_overview_registry_refresh_reloads_device_and_entity_registries() -> None:
+    """Structural data updates must refresh discovery before reloading history."""
+    source = (
+        Path(__file__).parents[1]
+        / "custom_components"
+        / "puppy_tracker"
+        / "frontend"
+        / OVERVIEW_REGISTRY_REFRESH
+    ).read_text(encoding="utf-8")
+
+    assert 'type: "config/entity_registry/list"' in source
+    assert 'type: "config/device_registry/list"' in source
+    assert "await this._refreshRegistryAfterDataUpdate();" in source
+    assert source.index("await this._refreshRegistryAfterDataUpdate();") < source.index(
+        "this._scheduleHistoryReload();"
+    )
 
 
 def test_localization_bridge_loads_after_dashboard_cards() -> None:
