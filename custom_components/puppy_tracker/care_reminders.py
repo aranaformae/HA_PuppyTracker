@@ -116,6 +116,55 @@ class CareReminderStore:
             return {}
         return deepcopy(states)
 
+    def get_backup_settings(self) -> dict[str, Any]:
+        """Return portable reminder preferences without delivery state."""
+        return {
+            "lead_days": self.get_lead_days(),
+            "categories": self.get_categories(),
+        }
+
+    async def async_restore_backup_settings(self, settings: dict[str, Any]) -> None:
+        """Restore portable reminder preferences and reset delivery state."""
+        if not isinstance(settings, dict):
+            raise ValueError("Care reminder backup settings must be an object")
+
+        try:
+            lead_days = int(settings["lead_days"])
+        except (KeyError, TypeError, ValueError) as err:
+            raise ValueError("Care reminder lead_days is invalid") from err
+        if not 0 <= lead_days <= MAX_CARE_REMINDER_LEAD_DAYS:
+            raise ValueError(
+                f"Care reminder lead days must be between 0 and {MAX_CARE_REMINDER_LEAD_DAYS}"
+            )
+
+        categories = settings.get("categories")
+        if not isinstance(categories, dict):
+            raise ValueError("Care reminder categories are invalid")
+        if any(category not in categories for category in CARE_REMINDER_CATEGORIES):
+            raise ValueError("Care reminder categories are incomplete")
+
+        restored = {
+            "lead_days": lead_days,
+            "categories": {
+                category: bool(categories[category])
+                for category in CARE_REMINDER_CATEGORIES
+            },
+            "states": {},
+        }
+
+        async with self._lock:
+            before = deepcopy(self._data)
+            self._data = restored
+            try:
+                await self._store.async_save(self._data)
+            except Exception:
+                self._data = before
+                try:
+                    await self._store.async_save(self._data)
+                except Exception:
+                    pass
+                raise
+
     async def async_set_lead_days(self, lead_days: int) -> None:
         """Set the first reminder lead time."""
         value = int(lead_days)
