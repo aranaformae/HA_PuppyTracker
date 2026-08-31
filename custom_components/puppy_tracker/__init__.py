@@ -23,6 +23,8 @@ from .const import (
 )
 from .devices import async_sync_devices
 from .frontend import async_setup_frontend, async_unload_frontend
+from .mother_api import async_setup_mother_api
+from .mother_storage import MotherScopeStorage
 from .notifications import PuppyNotificationManager
 from .runtime import (
     PuppyTrackerRuntimeData,
@@ -32,7 +34,6 @@ from .session import (
     get_session,
     mark_weight_recorded,
 )
-from .storage import PuppyTrackerStorage
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -156,7 +157,7 @@ async def async_setup_entry(
 ) -> bool:
     """Set up Puppy Tracker."""
 
-    storage = PuppyTrackerStorage(
+    storage = MotherScopeStorage(
         hass
     )
 
@@ -186,6 +187,7 @@ async def async_setup_entry(
     entry.runtime_data = runtime
 
     async_setup_api(hass)
+    async_setup_mother_api(hass)
     await async_setup_frontend(hass)
 
     async_sync_devices(
