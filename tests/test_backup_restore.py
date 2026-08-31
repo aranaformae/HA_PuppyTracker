@@ -17,6 +17,14 @@ from custom_components.puppy_tracker.backup import (
     serialize_export,
 )
 
+CARE_SETTINGS = {
+    "lead_days": 5,
+    "categories": {
+        "vaccination": True,
+        "deworming": False,
+    },
+}
+
 
 def _puppy_record(
     record_id: str,
@@ -92,10 +100,18 @@ async def test_full_export_and_replace_restore_preserves_identifiers(
         make_measurement,
     )
     original = deepcopy(storage.get_data())
-    _filename, mime, content = serialize_export(storage, scope="full")
+    _filename, mime, content = serialize_export(
+        storage,
+        scope="full",
+        care_reminder_settings=CARE_SETTINGS,
+    )
     document = parse_export_json(content)
 
     assert mime == "application/json;charset=utf-8"
+    assert document["export_version"] == 4
+    assert document["care_reminders"] == CARE_SETTINGS
+    assert "states" not in document["care_reminders"]
+
     storage._data["litters"] = {}
     plan = prepare_import(storage, document, mode="replace_all")
 
@@ -103,6 +119,7 @@ async def test_full_export_and_replace_restore_preserves_identifiers(
     assert plan["summary"]["replaces_all"] is True
     assert plan["summary"]["puppies"] == 1
     assert plan["summary"]["measurements"] == 3
+    assert plan["summary"]["care_reminders"] == CARE_SETTINGS
 
     await async_apply_import(storage, plan)
 
@@ -155,7 +172,6 @@ async def test_puppy_export_import_into_existing_litter_remaps_all_identifiers(
         target_litter_id=target_litter_id,
     )
 
-    # Preview is a true dry run.
     assert storage.get_data() == before
 
     await async_apply_import(storage, plan)
@@ -184,7 +200,6 @@ async def test_puppy_export_import_into_existing_litter_remaps_all_identifiers(
     assert imported_record["litter_id"] == target_litter_id
     assert imported_record["puppy_id"] == imported_puppy_id
 
-    # The original source puppy remains untouched.
     source = storage.get_puppy(source_litter_id, source_puppy_id)
     assert source is not None
     assert {item["id"] for item in source["measurements"]} >= {"weight-old", "weight-new"}
@@ -272,7 +287,11 @@ async def test_full_merge_as_new_keeps_current_data_and_remaps_source(
         install_litter,
         make_measurement,
     )
-    document = build_export_document(storage, scope="full")
+    document = build_export_document(
+        storage,
+        scope="full",
+        care_reminder_settings=CARE_SETTINGS,
+    )
 
     storage._data["litters"] = {
         "existing": {
@@ -291,6 +310,7 @@ async def test_full_merge_as_new_keeps_current_data_and_remaps_source(
     }
 
     plan = prepare_import(storage, document, mode="merge_as_new")
+    assert "care_reminders" not in plan["summary"]
     await async_apply_import(storage, plan)
 
     litters = storage.get_litters()
@@ -299,30 +319,50 @@ async def test_full_merge_as_new_keeps_current_data_and_remaps_source(
     assert len(litters) == 2
 
 
-def test_legacy_export_version_two_is_recognized_as_litter_backup(
-    storage,
-    install_litter,
-    make_measurement,
-) -> None:
-    litter_id, _ = _install_consistent_source(
-        storage,
-        install_litter,
-        make_measurement,
-    )
-    legacy = {
-        "export_version": 2,
+@pytest.mark.parametrize("version", [2, 3])
+def test_preproduction_backup_versions_are_rejected(version: int) -> None:
+    payload = {
+        "export_version": version,
         "exported_at": "2026-08-31T00:00:00+00:00",
         "integration": "puppy_tracker",
         "schema_version": 7,
-        "litter": storage.get_litter(litter_id),
-        "audit_log": [],
+        "scope": "full",
+        "data": {"schema_version": 7, "litters": {}, "audit_log": []},
     }
 
-    document = parse_export_json(json.dumps(legacy))
-    assert document["scope"] == "litter"
+    with pytest.raises(BackupValidationError) as err:
+        parse_export_json(json.dumps(payload))
+    assert err.value.code == "unsupported_export_version"
 
-    plan = prepare_import(storage, document, mode="new_litter")
-    assert plan["summary"]["scope"] == "litter"
+
+def test_full_v4_backup_requires_care_settings(storage) -> None:
+    with pytest.raises(ValueError, match="care_reminder_settings"):
+        build_export_document(storage, scope="full")
+
+    payload = {
+        "export_version": 4,
+        "exported_at": "2026-08-31T00:00:00+00:00",
+        "integration": "puppy_tracker",
+        "schema_version": 7,
+        "scope": "full",
+        "data": {"schema_version": 7, "litters": {}, "audit_log": []},
+    }
+    with pytest.raises(BackupValidationError) as err:
+        parse_export_json(json.dumps(payload))
+    assert err.value.code == "invalid_backup"
+
+
+def test_full_v4_backup_rejects_delivery_state(storage) -> None:
+    with pytest.raises(BackupValidationError) as err:
+        build_export_document(
+            storage,
+            scope="full",
+            care_reminder_settings={
+                **CARE_SETTINGS,
+                "states": {"record": {"state": "upcoming"}},
+            },
+        )
+    assert err.value.code == "invalid_backup"
 
 
 @pytest.mark.parametrize(
@@ -330,11 +370,11 @@ def test_legacy_export_version_two_is_recognized_as_litter_backup(
     [
         ("not json", "invalid_backup_json"),
         (
-            '{"export_version":3,"integration":"other","schema_version":7,"scope":"full","data":{}}',
+            '{"export_version":4,"integration":"other","schema_version":7,"scope":"full","data":{}}',
             "invalid_backup",
         ),
         (
-            '{"export_version":3,"integration":"puppy_tracker","schema_version":99,"scope":"full","data":{}}',
+            '{"export_version":4,"integration":"puppy_tracker","schema_version":99,"scope":"full","data":{}}',
             "unsupported_schema_version",
         ),
     ],
