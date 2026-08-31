@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - "v*"
+    branches:
+      - "release/v*"
 
 permissions:
   contents: write
@@ -36,8 +38,11 @@ jobs:
         run: python -m pytest -v
 
   metadata-and-tag:
-    name: Metadata and tag validation
+    name: Metadata and release ref validation
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.manifest.outputs.version }}
+      tag: ${{ steps.manifest.outputs.tag }}
 
     steps:
       - name: Checkout repository
@@ -96,30 +101,39 @@ jobs:
           }
 
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
           echo "✅ Puppy Tracker metadata is consistent for version $VERSION"
 
-      - name: Validate release tag
+      - name: Validate release ref
         shell: bash
         run: |
           set -euo pipefail
 
-          TAG="${GITHUB_REF_NAME}"
           VERSION="${{ steps.manifest.outputs.version }}"
           EXPECTED_TAG="v${VERSION}"
+          EXPECTED_BRANCH="release/v${VERSION}"
 
-          echo "Git tag:          $TAG"
-          echo "Expected tag:     $EXPECTED_TAG"
-          echo "Manifest version: $VERSION"
+          echo "Git ref:           ${GITHUB_REF}"
+          echo "Expected tag:      ${EXPECTED_TAG}"
+          echo "Expected branch:   ${EXPECTED_BRANCH}"
+          echo "Manifest version:  ${VERSION}"
 
-          if [ "$TAG" != "$EXPECTED_TAG" ]; then
-            echo ""
-            echo "❌ Release tags must use lowercase v and match manifest.json exactly."
-            echo "Expected: $EXPECTED_TAG"
-            echo "Received: $TAG"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            test "${GITHUB_REF_NAME}" = "${EXPECTED_TAG}" || {
+              echo "❌ Release tag must match manifest.json exactly."
+              exit 1
+            }
+          elif [ "${GITHUB_REF_TYPE}" = "branch" ]; then
+            test "${GITHUB_REF_NAME}" = "${EXPECTED_BRANCH}" || {
+              echo "❌ Release branch must match manifest.json exactly."
+              exit 1
+            }
+          else
+            echo "❌ Unsupported release ref type: ${GITHUB_REF_TYPE}"
             exit 1
           fi
 
-          echo "✅ Tag matches manifest version."
+          echo "✅ Release ref matches manifest version."
 
   hassfest:
     name: Hassfest
@@ -202,6 +216,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
-          name: ${{ github.ref_name }}
-          tag_name: ${{ github.ref_name }}
+          name: ${{ needs.metadata-and-tag.outputs.tag }}
+          tag_name: ${{ needs.metadata-and-tag.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           generate_release_notes: true
