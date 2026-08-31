@@ -13,6 +13,8 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .api import async_setup_api
+from .care_program_api import async_setup_care_program_api
+from .care_programs import AgeBasedCareProgramStore
 from .care_reminders import CareReminderStore
 from .const import (
     DOMAIN,
@@ -125,11 +127,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await care_reminders.async_load()
     recurring_reminders = RecurringReminderStore(hass)
     await recurring_reminders.async_load()
+    care_programs = AgeBasedCareProgramStore(hass)
+    await care_programs.async_load()
 
     runtime = PuppyTrackerRuntimeData(
         storage=storage,
         care_reminders=care_reminders,
         recurring_reminders=recurring_reminders,
+        care_programs=care_programs,
     )
     reconcile_dashboard_selection(runtime)
     entry.runtime_data = runtime
@@ -137,6 +142,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async_setup_api(hass)
     async_setup_mother_api(hass)
     async_setup_recurring_reminder_api(hass)
+    async_setup_care_program_api(hass)
     await async_setup_frontend(hass)
 
     async_sync_devices(hass, entry, storage.get_data())
