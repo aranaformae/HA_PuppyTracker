@@ -28,6 +28,7 @@ CARD_FILES = (
     # is reconciled. This keeps imported/new puppies visible without a reload.
     "puppy-tracker-overview-registry-refresh.js",
     "puppy-tracker-summary-card.js",
+    "puppy-tracker-today-card.js",
     "puppy-tracker-attention-card.js",
     "puppy-tracker-litter-card.js",
     # Loaded directly after the litter card. profile_note is already present in
