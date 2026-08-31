@@ -45,6 +45,30 @@ def _active_measurements(
     ]
 
 
+def _active_care_records(
+    storage: PuppyTrackerStorage,
+    litter_id: str,
+    puppy_id: str,
+    range_hours: float | None = None,
+) -> list[dict[str, Any]]:
+    """Return canonical care-result dossier records in chronological order."""
+    records = [
+        record
+        for record in storage.get_records(litter_id, puppy_id, newest_first=False)
+        if isinstance(record.get("data"), dict)
+        and record["data"].get("care_occurrence_id")
+    ]
+    if range_hours is None or range_hours <= 0:
+        return records
+
+    cutoff = dt_util.now().timestamp() - float(range_hours) * 3600
+    return [
+        record
+        for record in records
+        if timestamp_sort_key(record.get("occurred_at")) >= cutoff
+    ]
+
+
 def _format_local_datetime(value: str | None) -> str:
     return format_local_timestamp(value)
 
@@ -71,6 +95,29 @@ def _format_percent(value: float | None) -> str:
         return "—"
     prefix = "+" if value > 0 else "" if value == 0 else "-"
     return f"{prefix}{abs(value):.2f}%".replace(".00%", "%").replace(".", ",")
+
+
+def _format_care_score(value: Any) -> str:
+    if value in (None, ""):
+        return "—"
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    if math.isclose(number, round(number), abs_tol=1e-9):
+        return str(int(round(number)))
+    return f"{number:.2f}".rstrip("0").rstrip(".").replace(".", ",")
+
+
+def _care_result_text(data: dict[str, Any]) -> str:
+    parts: list[str] = []
+    result = data.get("care_result")
+    if result not in (None, ""):
+        parts.append(str(result))
+    extra = data.get("care_data")
+    if isinstance(extra, dict):
+        parts.extend(f"{key}: {value}" for key, value in extra.items() if value not in (None, ""))
+    return " · ".join(parts) or "—"
 
 
 def _pdf_literal(text: str) -> bytes:
@@ -443,6 +490,29 @@ def build_pdf_export(
             )
         else:
             report.paragraph("Geen geldige metingen in deze periode.", size=9)
+
+        care_records = _active_care_records(storage, litter_id, current_id, range_hours)
+        if care_records:
+            report.heading("Zorgprogrammaresultaten", level=2)
+            care_rows: list[list[str]] = []
+            for record in care_records:
+                data = record.get("data") if isinstance(record.get("data"), dict) else {}
+                status = "Uitgevoerd" if data.get("care_status") == "completed" else "Gemist" if data.get("care_status") == "missed" else str(data.get("care_status") or "—")
+                care_rows.append([
+                    _format_local_datetime(record.get("occurred_at")),
+                    str(record.get("title") or "Zorgactie"),
+                    str(data.get("care_age_days") if data.get("care_age_days") is not None else "—"),
+                    status,
+                    _care_result_text(data),
+                    _format_care_score(data.get("care_score")),
+                    str(record.get("note") or ""),
+                ])
+            report.table(
+                ["Datum/tijd", "Programma", "Dag", "Status", "Resultaat", "Score", "Notitie"],
+                care_rows,
+                [75, 80, 35, 55, 85, 40, 141],
+                font_size=7.0,
+            )
 
     report.ensure(40)
     report.line(MARGIN, report.y, PAGE_WIDTH - MARGIN, report.y, gray=0.8)
