@@ -36,6 +36,9 @@ CARD_FILES = (
     "puppy-tracker-litter-profile-note.js",
     "puppy-tracker-report-card.js",
     "puppy-tracker-dossier-card.js",
+    # Adds the reusable mother owner and current/all-litter history filter to
+    # the dossier card without duplicating the base dossier implementation.
+    "puppy-tracker-mother-dossier.js",
     "puppy-tracker-quick-log-card.js",
     "puppy-tracker-bulk-dossier-card.js",
     "puppy-tracker-timeline-card.js",
