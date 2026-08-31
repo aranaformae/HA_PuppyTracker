@@ -2,6 +2,7 @@ import { languageForHass, localize } from "./puppy-tracker-card-common.js";
 
 export const RECORD_TYPES = [
   ["note", "note", "mdi:note-text-outline"],
+  ["temperature", "temperature", "mdi:thermometer"],
   ["vaccination", "vaccination", "mdi:needle"],
   ["test", "test", "mdi:test-tube"],
   ["deworming", "deworming", "mdi:shield-bug-outline"],
@@ -29,6 +30,12 @@ const SCHEMA_COPY = {
     vaccineTypePlaceholder: "For example Puppy DP or core vaccine",
     reaction: "Reaction / observation",
     reactionPlaceholder: "For example no reaction or mild tenderness",
+    temperatureValue: "Temperature (°C)",
+    temperatureValuePlaceholder: "For example 38.4",
+    temperatureMethod: "Measurement method / location",
+    temperatureMethodPlaceholder: "For example rectal",
+    temperatureObservation: "Observation / note",
+    temperatureObservationPlaceholder: "For example calm, sleeping or after feeding",
     activeIngredient: "Active ingredient",
     activeIngredientPlaceholder: "For example pyrantel / febantel",
     amount: "Amount",
@@ -51,6 +58,12 @@ const SCHEMA_COPY = {
     vaccineTypePlaceholder: "Bijvoorbeeld Puppy DP of basisvaccinatie",
     reaction: "Reactie / observatie",
     reactionPlaceholder: "Bijvoorbeeld geen reactie of lichte gevoeligheid",
+    temperatureValue: "Temperatuur (°C)",
+    temperatureValuePlaceholder: "Bijvoorbeeld 38,4",
+    temperatureMethod: "Meetmethode / locatie",
+    temperatureMethodPlaceholder: "Bijvoorbeeld rectaal",
+    temperatureObservation: "Observatie / notitie",
+    temperatureObservationPlaceholder: "Bijvoorbeeld rustig, slapend of na voeding",
     activeIngredient: "Werkzame stof",
     activeIngredientPlaceholder: "Bijvoorbeeld pyrantel / febantel",
     amount: "Hoeveelheid",
@@ -80,6 +93,11 @@ export function schemaText(hass, key, replacements = {}) {
 }
 
 export const TYPE_FIELDS = {
+  temperature: [
+    { key: "temperature_c", schemaLabelKey: "temperatureValue", schemaPlaceholderKey: "temperatureValuePlaceholder", type: "number", min: "20", max: "45", step: "0.1", required: true },
+    { key: "method", schemaLabelKey: "temperatureMethod", schemaPlaceholderKey: "temperatureMethodPlaceholder" },
+    { key: "observation", schemaLabelKey: "temperatureObservation", schemaPlaceholderKey: "temperatureObservationPlaceholder", type: "textarea", wide: true },
+  ],
   vaccination: [
     { key: "vaccine", labelKey: "vaccine", placeholderKey: "vaccinePlaceholder", required: true },
     { key: "vaccine_type", schemaLabelKey: "vaccineType", schemaPlaceholderKey: "vaccineTypePlaceholder" },
