@@ -14,63 +14,17 @@ import {
   updateDossierRecord,
   updateProfileNote,
 } from "./puppy-tracker-card-common.js";
-
-const RECORD_TYPES = [
-  ["note", "note", "mdi:note-text-outline"],
-  ["vaccination", "vaccination", "mdi:needle"],
-  ["test", "test", "mdi:test-tube"],
-  ["deworming", "deworming", "mdi:shield-bug-outline"],
-  ["medication", "medication", "mdi:pill"],
-  ["vet_visit", "vetVisit", "mdi:stethoscope"],
-  ["milestone", "milestone", "mdi:flag-checkered"],
-  ["other", "other", "mdi:dots-horizontal-circle-outline"],
-];
-
-const TYPE_META = Object.fromEntries(
-  RECORD_TYPES.map(([value, labelKey, icon]) => [value, { labelKey, icon }])
-);
-
-
-const TYPE_FIELDS = {
-  vaccination: [
-    { key: "vaccine", labelKey: "vaccine", placeholderKey: "vaccinePlaceholder" },
-    { key: "batch_number", labelKey: "batchNumber", placeholderKey: "batchNumberPlaceholder" },
-    { key: "veterinarian", labelKey: "veterinarian", placeholderKey: "veterinarianPlaceholder" },
-    { key: "next_due_date", labelKey: "vaccinationNextDue", type: "date" },
-  ],
-  test: [
-    { key: "test_name", labelKey: "testName", placeholderKey: "testNamePlaceholder" },
-    { key: "result", labelKey: "testResult", placeholderKey: "testResultPlaceholder" },
-    { key: "laboratory", labelKey: "laboratory", placeholderKey: "laboratoryPlaceholder" },
-  ],
-  deworming: [
-    { key: "product", labelKey: "product", placeholderKey: "productPlaceholder" },
-    { key: "dose", labelKey: "dosage", placeholderKey: "dosagePlaceholder" },
-    { key: "administered_by", labelKey: "administeredBy", placeholderKey: "administeredByPlaceholder" },
-    { key: "next_due_date", labelKey: "dewormingNextDue", type: "date" },
-  ],
-  medication: [
-    { key: "medication", labelKey: "medication", placeholderKey: "medicationPlaceholder" },
-    { key: "dose", labelKey: "dosage", placeholderKey: "dosagePlaceholder" },
-    { key: "frequency", labelKey: "frequency", placeholderKey: "frequencyPlaceholder" },
-    { key: "duration", labelKey: "duration", placeholderKey: "durationPlaceholder" },
-  ],
-  vet_visit: [
-    { key: "veterinarian", labelKey: "veterinarian", placeholderKey: "veterinarianPlaceholder" },
-    { key: "clinic", labelKey: "clinic", placeholderKey: "clinicPlaceholder" },
-    { key: "reason", labelKey: "visitReason", placeholderKey: "visitReasonPlaceholder" },
-    { key: "diagnosis", labelKey: "diagnosis", type: "textarea", wide: true, placeholderKey: "diagnosisPlaceholder" },
-    { key: "treatment", labelKey: "treatment", type: "textarea", wide: true, placeholderKey: "treatmentPlaceholder" },
-  ],
-  milestone: [
-    { key: "milestone", labelKey: "milestone", placeholderKey: "milestonePlaceholder" },
-    { key: "category", labelKey: "milestoneCategory", placeholderKey: "milestoneCategoryPlaceholder" },
-  ],
-};
-
-const KNOWN_DATA_KEYS = new Set(
-  Object.values(TYPE_FIELDS).flat().map((field) => field.key)
-);
+import {
+  fieldLabel,
+  fieldPlaceholder,
+  inputAttributes,
+  KNOWN_DATA_KEYS,
+  RECORD_TYPES,
+  requiredFieldsMessage,
+  schemaText,
+  TYPE_FIELDS,
+  TYPE_META,
+} from "./puppy-tracker-dossier-schema.js";
 
 function humanizeKey(value) {
   const text = String(value || "").replaceAll("_", " ");
@@ -432,9 +386,6 @@ class PuppyTrackerDossierCard extends HTMLElement {
   _collectEditorData(recordType) {
     const data = { ...(this._editor?.data || {}) };
 
-    // Known typed fields belong to the currently selected record type. Remove
-    // stale typed values when a record is intentionally changed to another
-    // type, while leaving future/unknown payload keys untouched.
     for (const key of KNOWN_DATA_KEYS) delete data[key];
 
     for (const field of TYPE_FIELDS[recordType] || []) {
@@ -453,11 +404,16 @@ class PuppyTrackerDossierCard extends HTMLElement {
       const value = data?.[field.key] ?? "";
       const id = `record-data-${field.key}`;
       const classes = field.wide ? "typed-field wide" : "typed-field";
-      const placeholder = field.placeholderKey ? ` placeholder="${escapeHtml(localize(this._hass, field.placeholderKey))}"` : "";
+      const placeholderValue = fieldPlaceholder(this._hass, field);
+      const placeholder = placeholderValue ? ` placeholder="${escapeHtml(placeholderValue)}"` : "";
+      const attributes = inputAttributes(field);
       const control = field.type === "textarea"
         ? `<textarea id="${id}" rows="3"${placeholder}>${escapeHtml(value)}</textarea>`
-        : `<input id="${id}" type="${field.type || "text"}" value="${escapeHtml(value)}"${placeholder}>`;
-      return `<label class="${classes}">${escapeHtml(localize(this._hass, field.labelKey))} <span class="optional">${escapeHtml(localize(this._hass, "optional"))}</span>${control}</label>`;
+        : `<input id="${id}" type="${field.type || "text"}" value="${escapeHtml(value)}"${placeholder}${attributes ? ` ${attributes}` : ""}>`;
+      const requirement = field.required
+        ? `<span class="required">${escapeHtml(schemaText(this._hass, "required"))}</span>`
+        : `<span class="optional">${escapeHtml(localize(this._hass, "optional"))}</span>`;
+      return `<label class="${classes}">${escapeHtml(fieldLabel(this._hass, field))} ${requirement}${control}</label>`;
     }).join("");
 
     return `
@@ -480,7 +436,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
       if (raw === null || raw === undefined || raw === "") continue;
       renderedKeys.add(field.key);
       const value = field.type === "date" ? formatDateOnly(raw, this._hass) : displayDataValue(raw, this._hass);
-      rows.push(`<div class="record-data-row"><span>${escapeHtml(localize(this._hass, field.labelKey))}</span><strong>${escapeHtml(value)}</strong></div>`);
+      rows.push(`<div class="record-data-row"><span>${escapeHtml(fieldLabel(this._hass, field))}</span><strong>${escapeHtml(value)}</strong></div>`);
     }
 
     for (const [key, raw] of Object.entries(data)) {
@@ -505,12 +461,20 @@ class PuppyTrackerDossierCard extends HTMLElement {
     }
 
     const recordType = typeInput?.value || "note";
+    const recordData = this._collectEditorData(recordType);
+    const validationError = requiredFieldsMessage(this._hass, recordType, recordData);
+    if (validationError) {
+      this._error = validationError;
+      this._render();
+      return;
+    }
+
     const payload = {
       record_type: recordType,
       occurred_at: occurredAt,
       title: titleInput?.value?.trim() || null,
       note: noteInput?.value?.trim() || null,
-      data: this._collectEditorData(recordType),
+      data: recordData,
     };
 
     this._saving = true;
@@ -657,12 +621,20 @@ class PuppyTrackerDossierCard extends HTMLElement {
   _renderUpcomingActions() {
     const actions = this._recordData?.actions?.actions || [];
     if (!actions.length) return "";
+    const overdueCount = actions.filter((action) => action?.status === "overdue").length;
+    const dueTodayCount = actions.filter((action) => action?.status === "due_today").length;
+    const upcomingCount = actions.filter((action) => action?.status === "upcoming").length;
 
     return `
       <section class="panel followup-panel">
         <div class="panel-head">
           <div><div class="panel-title">${escapeHtml(localize(this._hass, "upcoming"))}</div><div class="hint">${escapeHtml(localize(this._hass, "upcomingHint"))}</div></div>
           <span class="followup-count">${actions.length}</span>
+        </div>
+        <div class="followup-summary">
+          <span class="summary-chip danger">${overdueCount} ${escapeHtml(schemaText(this._hass, "overdueSummary"))}</span>
+          <span class="summary-chip warning">${dueTodayCount} ${escapeHtml(schemaText(this._hass, "dueTodaySummary"))}</span>
+          <span class="summary-chip">${upcomingCount} ${escapeHtml(schemaText(this._hass, "upcomingSummary"))}</span>
         </div>
         <div class="followup-list">
           ${actions.map((action) => {
@@ -761,8 +733,8 @@ class PuppyTrackerDossierCard extends HTMLElement {
           .toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:12px 0}.owner{display:flex;align-items:center;gap:8px;min-width:0}.owner label{font-size:12px;color:var(--secondary-text-color);white-space:nowrap}.owner select{min-width:170px}.tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
           button{font:inherit;cursor:pointer;border-radius:10px;min-height:38px;padding:0 12px;border:1px solid var(--divider-color);background:transparent;color:var(--primary-text-color);display:inline-flex;align-items:center;justify-content:center;gap:6px}button:disabled{opacity:.55;cursor:default}.primary{background:var(--primary-color);border-color:var(--primary-color);color:var(--text-primary-color,#fff);font-weight:600}.secondary{background:var(--secondary-background-color)}.icon-button{width:38px;padding:0;border-radius:50%}.text-button{min-height:30px;padding:3px 7px;border:0;font-size:12px;color:var(--primary-color)}.text-button.danger{color:var(--error-color)}
           .panel{border:1px solid var(--divider-color);border-radius:14px;padding:13px;margin:12px 0;background:color-mix(in srgb,var(--card-background-color) 96%,var(--primary-color) 4%)}.panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:9px}.panel-title{font-weight:650;font-size:15px}.hint{font-size:11px;color:var(--secondary-text-color);margin-top:2px}.profile-text{white-space:pre-wrap;line-height:1.45;font-size:14px}.empty{padding:24px 12px;text-align:center;color:var(--secondary-text-color);font-size:13px}.empty.compact{padding:4px 0;text-align:left}
-          .followup-count{min-width:28px;height:28px;padding:0 8px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:var(--secondary-background-color);font-size:12px;font-weight:650}.followup-list{display:grid;gap:7px}.followup-row{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:9px;align-items:center;padding:8px 9px;border:1px solid var(--divider-color);border-radius:11px}.followup-icon{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--secondary-background-color);color:var(--primary-color)}.followup-icon ha-icon{--mdc-icon-size:18px}.followup-main{display:flex;flex-direction:column;gap:2px;min-width:0}.followup-main strong{font-size:13px;overflow-wrap:anywhere}.followup-main span{font-size:11px;color:var(--secondary-text-color);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.followup-date{display:flex;flex-direction:column;align-items:flex-end;gap:1px;white-space:nowrap}.followup-date strong{font-size:12px}.followup-date span{font-size:10px;color:var(--secondary-text-color)}.followup-row.danger{border-color:color-mix(in srgb,var(--error-color) 38%,var(--divider-color));background:color-mix(in srgb,var(--error-color) 7%,transparent)}.followup-row.danger .followup-date span{color:var(--error-color);font-weight:650}.followup-row.warning{border-color:color-mix(in srgb,var(--warning-color,var(--primary-color)) 32%,var(--divider-color))}.followup-row.warning .followup-date span{color:var(--warning-color,var(--primary-color));font-weight:650}
-          .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}label{display:block;font-size:12px;color:var(--secondary-text-color);margin-bottom:10px}label input,label select,label textarea{margin-top:5px;color:var(--primary-text-color)}.optional{font-weight:400;opacity:.75}.form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}.typed-section{margin:2px 0 12px;padding-top:10px;border-top:1px solid var(--divider-color)}.typed-title{font-size:12px;font-weight:650;color:var(--secondary-text-color);margin-bottom:8px}.typed-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}.typed-field.wide{grid-column:1/-1}
+          .followup-count{min-width:28px;height:28px;padding:0 8px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:var(--secondary-background-color);font-size:12px;font-weight:650}.followup-summary{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 9px}.summary-chip{font-size:10px;padding:3px 7px;border-radius:999px;background:var(--secondary-background-color);color:var(--secondary-text-color)}.summary-chip.danger{color:var(--error-color);background:color-mix(in srgb,var(--error-color) 9%,transparent)}.summary-chip.warning{color:var(--warning-color,var(--primary-color));background:color-mix(in srgb,var(--warning-color,var(--primary-color)) 9%,transparent)}.followup-list{display:grid;gap:7px}.followup-row{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:9px;align-items:center;padding:8px 9px;border:1px solid var(--divider-color);border-radius:11px}.followup-icon{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--secondary-background-color);color:var(--primary-color)}.followup-icon ha-icon{--mdc-icon-size:18px}.followup-main{display:flex;flex-direction:column;gap:2px;min-width:0}.followup-main strong{font-size:13px;overflow-wrap:anywhere}.followup-main span{font-size:11px;color:var(--secondary-text-color);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.followup-date{display:flex;flex-direction:column;align-items:flex-end;gap:1px;white-space:nowrap}.followup-date strong{font-size:12px}.followup-date span{font-size:10px;color:var(--secondary-text-color)}.followup-row.danger{border-color:color-mix(in srgb,var(--error-color) 38%,var(--divider-color));background:color-mix(in srgb,var(--error-color) 7%,transparent)}.followup-row.danger .followup-date span{color:var(--error-color);font-weight:650}.followup-row.warning{border-color:color-mix(in srgb,var(--warning-color,var(--primary-color)) 32%,var(--divider-color))}.followup-row.warning .followup-date span{color:var(--warning-color,var(--primary-color));font-weight:650}
+          .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}label{display:block;font-size:12px;color:var(--secondary-text-color);margin-bottom:10px}label input,label select,label textarea{margin-top:5px;color:var(--primary-text-color)}.optional{font-weight:400;opacity:.75}.required{font-weight:600;color:var(--error-color);font-size:10px}.form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}.typed-section{margin:2px 0 12px;padding-top:10px;border-top:1px solid var(--divider-color)}.typed-title{font-size:12px;font-weight:650;color:var(--secondary-text-color);margin-bottom:8px}.typed-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}.typed-field.wide{grid-column:1/-1}
           .timeline-head{display:flex;justify-content:space-between;align-items:end;gap:10px;margin:16px 0 8px}.timeline-title{font-size:16px;font-weight:650}.timeline-sub{font-size:11px;color:var(--secondary-text-color);margin-top:2px}.toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--secondary-text-color);cursor:pointer}.toggle input{width:16px;min-height:16px;margin:0;padding:0}
           .timeline{display:flex;flex-direction:column}.record{position:relative;display:grid;grid-template-columns:38px minmax(0,1fr);gap:10px;padding:12px 0}.record:not(:last-child){border-bottom:1px solid var(--divider-color)}.record.deleted{opacity:.62}.record-icon{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--secondary-background-color);color:var(--primary-color)}.record-icon ha-icon{--mdc-icon-size:20px}.record-body{min-width:0}.record-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.record-heading{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}.record-heading strong{font-size:14px}.record time{font-size:11px;color:var(--secondary-text-color);white-space:nowrap}.type-badge,.deleted-badge{font-size:10px;padding:2px 6px;border-radius:999px;background:var(--secondary-background-color);color:var(--secondary-text-color)}.deleted-badge{color:var(--error-color)}.record-data{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 14px;margin-top:7px;padding:8px 10px;border-radius:10px;background:var(--secondary-background-color)}.record-data-row{min-width:0;display:flex;flex-direction:column;gap:1px}.record-data-row span{font-size:10px;color:var(--secondary-text-color)}.record-data-row strong{font-size:12px;font-weight:550;overflow-wrap:anywhere}.record-note{margin-top:6px;white-space:pre-wrap;line-height:1.42;font-size:13px}.record-actions{display:flex;gap:2px;margin-top:6px;flex-wrap:wrap}
           .message{font-size:12px;margin:8px 0;padding:8px 10px;border-radius:10px;background:var(--secondary-background-color)}.error{color:var(--error-color);background:color-mix(in srgb,var(--error-color) 10%,transparent)}.status{color:var(--secondary-text-color)}
