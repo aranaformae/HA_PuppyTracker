@@ -42,6 +42,9 @@ CARD_FILES = (
     "puppy-tracker-quick-log-card.js",
     "puppy-tracker-bulk-dossier-card.js",
     "puppy-tracker-timeline-card.js",
+    # Temperature was introduced after these cards already had their own type
+    # lists/rendering. Keep all temperature-specific compatibility in one layer.
+    "puppy-tracker-temperature-ui.js",
     # Loaded after all affected cards so it can patch their rendered layout and
     # add compact show/hide and edit controls without duplicating card logic.
     "puppy-tracker-ui-compact.js",
