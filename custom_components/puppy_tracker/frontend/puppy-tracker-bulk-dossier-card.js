@@ -7,45 +7,15 @@ import {
   selectDefaultLitter,
   subscribeUpdates,
 } from "./puppy-tracker-card-common.js";
-
-const RECORD_TYPES = [
-  ["deworming", "deworming"],
-  ["vaccination", "vaccination"],
-  ["test", "test"],
-  ["vet_visit", "vetVisit"],
-  ["milestone", "milestone"],
-];
-
-const TYPE_FIELDS = {
-  vaccination: [
-    { key: "vaccine", labelKey: "vaccine", placeholderKey: "vaccinePlaceholder" },
-    { key: "batch_number", labelKey: "batchNumber", placeholderKey: "batchNumberPlaceholder" },
-    { key: "veterinarian", labelKey: "veterinarian", placeholderKey: "veterinarianPlaceholder" },
-    { key: "next_due_date", labelKey: "vaccinationNextDue", type: "date" },
-  ],
-  test: [
-    { key: "test_name", labelKey: "testName", placeholderKey: "testNamePlaceholder" },
-    { key: "result", labelKey: "testResult", placeholderKey: "testResultPlaceholder" },
-    { key: "laboratory", labelKey: "laboratory", placeholderKey: "laboratoryPlaceholder" },
-  ],
-  deworming: [
-    { key: "product", labelKey: "product", placeholderKey: "productPlaceholder" },
-    { key: "dose", labelKey: "dosage", placeholderKey: "dosagePlaceholder" },
-    { key: "administered_by", labelKey: "administeredBy", placeholderKey: "administeredByPlaceholder" },
-    { key: "next_due_date", labelKey: "dewormingNextDue", type: "date" },
-  ],
-  vet_visit: [
-    { key: "veterinarian", labelKey: "veterinarian", placeholderKey: "veterinarianPlaceholder" },
-    { key: "clinic", labelKey: "clinic", placeholderKey: "clinicPlaceholder" },
-    { key: "reason", labelKey: "visitReason", placeholderKey: "visitReasonPlaceholder" },
-    { key: "diagnosis", labelKey: "diagnosis", placeholderKey: "diagnosisPlaceholder", type: "textarea", wide: true },
-    { key: "treatment", labelKey: "treatment", placeholderKey: "treatmentPlaceholder", type: "textarea", wide: true },
-  ],
-  milestone: [
-    { key: "milestone", labelKey: "milestone", placeholderKey: "milestonePlaceholder" },
-    { key: "category", labelKey: "milestoneCategory", placeholderKey: "milestoneCategoryPlaceholder" },
-  ],
-};
+import {
+  BULK_RECORD_TYPES as RECORD_TYPES,
+  fieldLabel,
+  fieldPlaceholder,
+  inputAttributes,
+  requiredFieldsMessage,
+  schemaText,
+  TYPE_FIELDS,
+} from "./puppy-tracker-dossier-schema.js";
 
 const COPY = {
   en: {
@@ -61,6 +31,7 @@ const COPY = {
     reviewHint: "Check the puppies and shared details before saving.",
     back: "Back",
     confirmSave: "Save for {count} puppies",
+    confirmSaveOne: "Save for 1 puppy",
     noPuppies: "No puppies available in this litter.",
     selectAtLeastOne: "Select at least one puppy.",
     loadFailed: "Bulk dossier data could not be loaded.",
@@ -68,6 +39,7 @@ const COPY = {
     saveFailed: "The bulk dossier entry could not be saved.",
     saving: "Saving shared dossier entry...",
     allSaved: "Saved for all {count} puppies.",
+    allSavedOne: "Saved for 1 puppy.",
     partiallySaved: "Saved for {success} of {total} puppies. Failed puppies remain selected for retry.",
     failedPuppies: "Failed puppies",
     recordType: "Event type",
@@ -88,6 +60,7 @@ const COPY = {
     reviewHint: "Controleer de pups en gedeelde gegevens voordat je opslaat.",
     back: "Terug",
     confirmSave: "Opslaan voor {count} pups",
+    confirmSaveOne: "Opslaan voor 1 pup",
     noPuppies: "Geen pups beschikbaar in dit nest.",
     selectAtLeastOne: "Selecteer minimaal één pup.",
     loadFailed: "Bulkdossiergegevens konden niet worden geladen.",
@@ -95,6 +68,7 @@ const COPY = {
     saveFailed: "De bulkregistratie kon niet worden opgeslagen.",
     saving: "Gedeeld dossieritem opslaan...",
     allSaved: "Opgeslagen voor alle {count} pups.",
+    allSavedOne: "Opgeslagen voor 1 pup.",
     partiallySaved: "Opgeslagen voor {success} van {total} pups. Alleen mislukte pups blijven geselecteerd voor een nieuwe poging.",
     failedPuppies: "Mislukte pups",
     recordType: "Type gebeurtenis",
@@ -131,6 +105,11 @@ function toIsoTimestamp(value) {
 function recordTypeLabel(hass, value) {
   const entry = RECORD_TYPES.find(([recordType]) => recordType === value);
   return entry ? localize(hass, entry[1]) : String(value || "");
+}
+
+function bulkCountText(hass, key, count) {
+  if (count === 1) return text(hass, `${key}One`, { count });
+  return text(hass, key, { count });
 }
 
 class PuppyTrackerBulkDossierCard extends HTMLElement {
@@ -374,6 +353,16 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
       this._render();
       return;
     }
+    const validationError = requiredFieldsMessage(
+      this._hass,
+      this._form.record_type,
+      this._currentData(),
+    );
+    if (validationError) {
+      this._error = validationError;
+      this._render();
+      return;
+    }
     this._error = "";
     this._review = true;
     this._render();
@@ -440,7 +429,7 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
         total: selected.length,
       });
     } else {
-      this._status = text(this._hass, "allSaved", { count: successes.length });
+      this._status = bulkCountText(this._hass, "allSaved", successes.length);
       const recordType = this._form.record_type;
       this._form = this._emptyForm(recordType);
       this._dirty = false;
@@ -463,19 +452,23 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
     return `<div class="typed-grid">${fields.map((field) => {
       const id = `bulk-data-${field.key}`;
       const value = this._form.data?.[field.key] || "";
-      const placeholder = field.placeholderKey
-        ? ` placeholder="${escapeHtml(localize(this._hass, field.placeholderKey))}"`
-        : "";
+      const placeholderValue = fieldPlaceholder(this._hass, field);
+      const placeholder = placeholderValue ? ` placeholder="${escapeHtml(placeholderValue)}"` : "";
+      const attributes = inputAttributes(field);
       const control = field.type === "textarea"
         ? `<textarea id="${id}" rows="3"${placeholder}>${escapeHtml(value)}</textarea>`
-        : `<input id="${id}" type="${field.type || "text"}" value="${escapeHtml(value)}"${placeholder}>`;
-      return `<label class="field ${field.wide ? "wide" : ""}">${escapeHtml(localize(this._hass, field.labelKey))}<span class="optional">${escapeHtml(localize(this._hass, "optional"))}</span>${control}</label>`;
+        : `<input id="${id}" type="${field.type || "text"}" value="${escapeHtml(value)}"${placeholder}${attributes ? ` ${attributes}` : ""}>`;
+      const requirement = field.required
+        ? `<span class="required">${escapeHtml(schemaText(this._hass, "required"))}</span>`
+        : `<span class="optional">${escapeHtml(localize(this._hass, "optional"))}</span>`;
+      return `<label class="field ${field.wide ? "wide" : ""}">${escapeHtml(fieldLabel(this._hass, field))}${requirement}${control}</label>`;
     }).join("")}</div>`;
   }
 
   _renderReview() {
     const selected = this._puppies.filter((puppy) => this._selectedPuppyIds.has(puppy.id));
     const data = this._currentData();
+    const fields = new Map((TYPE_FIELDS[this._form.record_type] || []).map((field) => [field.key, field]));
     return `
       <section class="review">
         <div class="section-title">${escapeHtml(text(this._hass, "reviewTitle"))}</div>
@@ -485,10 +478,10 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
         <div class="review-row"><span>${escapeHtml(localize(this._hass, "dateAndTime"))}</span><strong>${escapeHtml(this._form.occurred_at.replace("T", " "))}</strong></div>
         ${this._form.title ? `<div class="review-row"><span>${escapeHtml(localize(this._hass, "title"))}</span><strong>${escapeHtml(this._form.title)}</strong></div>` : ""}
         ${this._form.note ? `<div class="review-row"><span>${escapeHtml(localize(this._hass, "note"))}</span><strong>${escapeHtml(this._form.note)}</strong></div>` : ""}
-        ${Object.keys(data).length ? `<div class="review-data"><strong>${escapeHtml(text(this._hass, "sharedDetails"))}</strong>${Object.entries(data).map(([key, value]) => `<div>${escapeHtml(key.replaceAll("_", " "))}: ${escapeHtml(value)}</div>`).join("")}</div>` : ""}
+        ${Object.keys(data).length ? `<div class="review-data"><strong>${escapeHtml(text(this._hass, "sharedDetails"))}</strong>${Object.entries(data).map(([key, value]) => `<div>${escapeHtml(fields.has(key) ? fieldLabel(this._hass, fields.get(key)) : key.replaceAll("_", " "))}: ${escapeHtml(value)}</div>`).join("")}</div>` : ""}
         <div class="actions">
           <button id="bulk-back" class="secondary" type="button">${escapeHtml(text(this._hass, "back"))}</button>
-          <button id="bulk-confirm" class="primary" type="button" ${this._saving ? "disabled" : ""}>${escapeHtml(text(this._hass, "confirmSave", { count: selected.length }))}</button>
+          <button id="bulk-confirm" class="primary" type="button" ${this._saving ? "disabled" : ""}>${escapeHtml(bulkCountText(this._hass, "confirmSave", selected.length))}</button>
         </div>
       </section>`;
   }
@@ -531,6 +524,7 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
         .field { display:flex; flex-direction:column; gap:5px; font-size:13px; }
         .field.wide,.note-field { grid-column:1/-1; }
         .optional { color:var(--secondary-text-color); font-size:11px; margin-left:4px; }
+        .required { color:var(--error-color); font-size:11px; margin-left:4px; font-weight:600; }
         .message { margin-top:12px; padding:10px 12px; border-radius:8px; background:var(--secondary-background-color); }
         .error { color:var(--error-color); }
         .review { border:1px solid var(--divider-color); border-radius:10px; padding:14px; margin-top:16px; }
