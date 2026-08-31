@@ -115,6 +115,7 @@ function statusExplanation(puppy) {
 
 function enhanceRow(row, puppy) {
   const s = puppy?.summary || {};
+  const avg = averageGrowth(puppy);
   const birthWeight = finite(puppy?.birth_weight);
   const currentWeight = finite(s.current_weight);
   const totalGrowthGrams = birthWeight !== null && currentWeight !== null ? currentWeight - birthWeight : null;
@@ -127,7 +128,7 @@ function enhanceRow(row, puppy) {
     const main = growth.querySelector("b");
     const small = growth.querySelector("small");
     if (main) main.textContent = percent(s.growth_24h_percent);
-    if (small) small.textContent = `${grams(s.growth_24h_grams)} · 24 uur`;
+    if (small) small.textContent = `${grams(s.growth_24h_grams)} · gem. ${percent(avg.percentPerDay)}/dag`;
   }
 
   const total = row.querySelector(".total-growth");
