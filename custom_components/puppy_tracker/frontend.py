@@ -23,6 +23,10 @@ FRONTEND_URL = f"{FRONTEND_BASE_URL}/{VERSION}"
 CARD_FILES = (
     "puppy-tracker-card.js",
     "puppy-tracker-overview-card.js",
+    # Loaded directly after the overview card so structural integration updates
+    # refresh its cached Home Assistant device/entity registries before history
+    # is reconciled. This keeps imported/new puppies visible without a reload.
+    "puppy-tracker-overview-registry-refresh.js",
     "puppy-tracker-summary-card.js",
     "puppy-tracker-attention-card.js",
     "puppy-tracker-litter-card.js",
