@@ -213,10 +213,84 @@ jobs:
       - frontend-e2e
 
     steps:
+      - name: Checkout repository with full history
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Generate release summary
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ needs.metadata-and-tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          git fetch --force --tags
+
+          PREVIOUS_TAG=$(git tag --merged HEAD --sort=-version:refname \
+            | grep -v -F "$RELEASE_TAG" \
+            | head -n 1 || true)
+
+          if [ -n "$PREVIOUS_TAG" ]; then
+            RANGE="$PREVIOUS_TAG..HEAD"
+          else
+            RANGE="HEAD"
+          fi
+
+          mapfile -t COMMITS < <(git log --no-merges --format='%s' "$RANGE")
+          USER_CHANGES=()
+          MAINTENANCE=()
+
+          for SUBJECT in "${COMMITS[@]}"; do
+            LOWER=$(printf '%s' "$SUBJECT" | tr '[:upper:]' '[:lower:]')
+
+            case "$LOWER" in
+              "sync puppy tracker version constant"|"sync puppy tracker version"*|"bump version"*|"prepare release"*|"release v"*)
+                continue
+                ;;
+            esac
+
+            if [[ "$LOWER" =~ (^test|^add.*test|^update.*test|^fix.*test|^ci|workflow|hassfest|hacs|release[[:space:]]workflow|metadata) ]]; then
+              MAINTENANCE+=("$SUBJECT")
+            else
+              USER_CHANGES+=("$SUBJECT")
+            fi
+          done
+
+          {
+            echo "## What's changed"
+            echo
+            if [ ${#USER_CHANGES[@]} -gt 0 ]; then
+              for SUBJECT in "${USER_CHANGES[@]}"; do
+                printf -- '- %s\n' "$SUBJECT"
+              done
+            else
+              echo "- Maintenance and internal improvements."
+            fi
+
+            if [ ${#MAINTENANCE[@]} -gt 0 ]; then
+              echo
+              echo "## Maintenance"
+              echo
+              for SUBJECT in "${MAINTENANCE[@]}"; do
+                printf -- '- %s\n' "$SUBJECT"
+              done
+            fi
+
+            if [ -n "$PREVIOUS_TAG" ]; then
+              echo
+              printf '**Full Changelog**: https://github.com/%s/compare/%s...%s\n' \
+                "$GITHUB_REPOSITORY" "$PREVIOUS_TAG" "$RELEASE_TAG"
+            fi
+          } > release-notes.md
+
+          echo "Generated release notes:"
+          cat release-notes.md
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
           name: ${{ needs.metadata-and-tag.outputs.tag }}
           tag_name: ${{ needs.metadata-and-tag.outputs.tag }}
           target_commitish: ${{ github.sha }}
-          generate_release_notes: true
+          body_path: release-notes.md
