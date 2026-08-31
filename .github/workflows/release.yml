@@ -165,6 +165,28 @@ jobs:
           find custom_components/puppy_tracker/frontend -type f -name '*.js' -print0 \
             | xargs -0 -n1 node --check
 
+  frontend-e2e:
+    name: Frontend browser E2E
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install frontend test dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium webkit
+
+      - name: Run Playwright card tests
+        run: npm run test:e2e
+
   release:
     name: Publish GitHub Release
     runs-on: ubuntu-latest
@@ -174,6 +196,7 @@ jobs:
       - hassfest
       - hacs
       - frontend
+      - frontend-e2e
 
     steps:
       - name: Create GitHub Release
