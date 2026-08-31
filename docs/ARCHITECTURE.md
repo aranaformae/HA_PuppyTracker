@@ -1,18 +1,20 @@
 # Puppy Tracker architecture
 
-This document describes the architectural direction of Puppy Tracker during the pre-1.0 development cycle.
+This document describes the architectural direction and current pre-1.0 contracts of Puppy Tracker.
 
 ## Goal
 
-Puppy Tracker is no longer designed as only a weight tracker. The target is a Home Assistant integration that can maintain a useful puppy and litter dossier while still providing specialised, high-quality weight tracking.
+Puppy Tracker is a Home Assistant integration for maintaining litter, mother-dog and puppy care data while retaining specialised, high-quality puppy weight tracking.
 
-The architecture therefore separates:
+The architecture separates:
 
-1. profile data;
+1. reusable profile/owner data;
 2. high-frequency specialised measurements;
 3. chronological dossier records;
-4. derived metrics/monitoring;
-5. presentation through Home Assistant entities and custom cards.
+4. derived metrics and dossier follow-up actions;
+5. persistent generic recurring-care rules;
+6. notification delivery state;
+7. presentation through Home Assistant devices/entities and custom cards.
 
 ## Integration identity
 
@@ -24,15 +26,20 @@ Storage key:  puppy_tracker
 WebSocket:    puppy_tracker/*
 ```
 
-The old prerelease `puppy_weight_tracker` identity is intentionally not retained as a compatibility layer because the project had not reached a stable public 1.0 contract.
+The old prerelease `puppy_weight_tracker` identity is intentionally not retained as a compatibility layer.
 
 ## Core hierarchy
 
 ```text
 PuppyTrackerStorage
+├── mothers[]
+│   └── Mother
+│       ├── profile fields
+│       └── records[]
 └── litters[]
     └── Litter
         ├── profile fields
+        ├── mother reference/context
         ├── records[]
         ├── last_completed_session
         └── puppies[]
@@ -41,14 +48,41 @@ PuppyTrackerStorage
                 ├── profile_note
                 ├── records[]
                 └── measurements[]
+
+RecurringReminderStore
+└── reminders{}
 ```
+
+The recurring reminder store is intentionally separate from the main dossier storage. Dossier records describe facts that happened; reminder definitions describe future scheduling rules.
+
+## Owner scopes
+
+Care data and recurring reminders use explicit ownership. Current logical scopes are:
+
+```text
+litter
+mother
+puppy
+```
+
+A litter-scoped record/action belongs to the whole nest. A puppy-scoped record belongs to one puppy within a known litter. A mother-scoped record belongs to a persistent mother profile and carries litter context where appropriate.
+
+Ownership is not inferred from display names. IDs are authoritative.
+
+### Mother identity
+
+A mother dog is a reusable first-class owner, not merely a string copied into each litter. The same mother can therefore participate in multiple litters while keeping one persistent identity and dossier.
+
+Frontend code must resolve mother identity through the mother-scope API/storage contract. It must not assume that the normal litter dashboard payload contains a directly usable `mother_id`. This rule prevents cards from disagreeing about whether a mother exists.
+
+Mother devices are top-level Home Assistant devices rather than children of one litter because one mother can span multiple litters.
 
 ## Why measurements remain separate
 
-Weight measurements are time-series data with behaviour that generic dossier records do not need:
+Weight measurements are time-series data with behaviour generic dossier records do not need:
 
 - current/previous value selection;
-- 24-hour growth calculations;
+- normalised 24-hour growth calculations;
 - correction chains;
 - soft-delete/restore semantics;
 - birth-weight synchronisation;
@@ -56,66 +90,24 @@ Weight measurements are time-series data with behaviour that generic dossier rec
 - frequent updates;
 - monitoring thresholds.
 
-Forcing weight measurements into the general record model would make both models harder to validate and maintain. The timeline UI may later *display* weight events, but the authoritative weight data remains in `measurements[]`.
-
-## Profile note versus dossier note
-
-A puppy has one `profile_note` for persistent summary information.
-
-Examples:
-
-```text
-Calm puppy, white chest marking, smallest at birth.
-```
-
-A new chronological note is a dossier record and receives its own identity and timestamps.
-
-```text
-2026-08-30 10:42 — Drank goed na ochtendvoeding.
-2026-08-30 18:15 — Nageltjes gecontroleerd.
-```
-
-Appending free text to one large profile field is intentionally avoided because it prevents reliable chronological filtering, editing, reporting and future categorisation.
+The Timeline may display weight events beside dossier records, but authoritative weight data remains in `measurements[]`.
 
 ## Dossier record envelope
 
-Records use a generic outer structure with type-specific payload data.
+Records use a generic outer structure with type-specific payload data. Important timestamp semantics remain:
 
-```json
-{
-  "id": "uuid",
-  "type": "vaccination",
-  "scope": "puppy",
-  "litter_id": "uuid",
-  "puppy_id": "uuid",
-  "occurred_at": "2026-09-10T12:30:00+00:00",
-  "created_at": "2026-09-10T12:35:12+00:00",
-  "updated_at": "2026-09-10T12:35:12+00:00",
-  "deleted": false,
-  "deleted_at": null,
-  "title": "Puppy DP",
-  "note": "Geen bijzonderheden",
-  "data": {
-    "batch": "ABC123"
-  }
-}
-```
-
-### Timestamp semantics
-
-- `occurred_at`: when the real-world event happened.
-- `created_at`: when the record was entered into Puppy Tracker.
-- `updated_at`: last edit time.
+- `occurred_at`: when the real-world event happened;
+- `created_at`: when it was entered;
+- `updated_at`: last edit time;
 - `deleted_at`: soft-delete time.
 
-These fields must not be conflated. A vaccination entered two days later should still sort by the actual vaccination time when showing the puppy timeline.
+These values must not be conflated because timeline ordering and reminder completion depend on the real occurrence time.
 
-## Record types
-
-The initial model recognises concepts such as:
+Current record concepts include:
 
 ```text
 note
+temperature
 vaccination
 test
 deworming
@@ -125,19 +117,19 @@ milestone
 other
 ```
 
-The storage layer permits future validated snake_case record types so new modules do not require restructuring every stored puppy.
+Temperature is a structured dossier event. Its Celsius value belongs in record data rather than being encoded only into title/note text.
 
-Type-specific validation belongs above the generic persistence layer. For example, a vaccination module can later require vaccine/product fields without making those fields mandatory for a generic note.
+The storage layer remains extensible for future validated snake_case record types.
 
-## Upcoming dossier actions
+## Profile note versus dossier record
 
-Upcoming dossier actions are derived from active dossier records. They are not
-stored as a second persistent task model. The `upcoming.py` backend helper reads
-known follow-up fields such as `vaccination.data.next_due_date` and
-`deworming.data.next_due_date`, treats those values as local calendar dates, and
-returns transient actions for dashboard cards and WebSocket payloads.
+A puppy has one editable `profile_note` for persistent summary information. Chronological observations are separate dossier records with their own identities and timestamps. This preserves filtering, editing, reporting and future categorisation.
 
-The first supported statuses are:
+## Derived upcoming dossier actions
+
+`upcoming.py` derives follow-up actions from active dossier records, for example vaccination/deworming `next_due_date` fields. These actions are transient projections and are not stored as a second task database.
+
+Typical statuses are:
 
 ```text
 overdue
@@ -145,86 +137,160 @@ due_today
 upcoming
 ```
 
-New record types can join this mechanism by adding a type configuration that
-points to the relevant field inside `record["data"]`.
+Mother records can participate in the same attention surface when their record type contains a supported follow-up field.
 
-## Scope
+## Generic recurring reminders
 
-Records can belong to either:
+Recurring reminders are a separate persistent scheduling mechanism for repetitive or one-time care. They are generic by design and are not specific to temperature, medication or weighing.
+
+Authoritative implementation lives in:
 
 ```text
-scope = litter
-scope = puppy
+recurring_reminders.py
+recurring_reminder_api.py
+recurring_notifications.py
 ```
 
-Puppy records always have a known litter owner as well. Ownership is validated by the integrity checker.
+### Reminder envelope
 
-Examples of litter-scoped events:
+A normalized reminder contains at least:
 
-- all puppies dewormed;
-- whole-litter veterinary check;
-- general litter observation.
+```text
+id
+enabled
+title
+owner_scope
+owner_id
+litter_id
+record_type
+match_title
+schedule_mode
+interval_minutes
+fixed_times
+start_at
+due_at
+last_completed_at
+last_completed_record_id
+created_at
+updated_at
+```
 
-Examples of puppy-scoped events:
+Valid owner scopes:
 
-- individual note;
-- vaccination;
-- test result;
-- treatment;
-- milestone.
+```text
+litter
+mother
+puppy
+```
 
-## Soft deletion
+Valid schedule modes:
 
-Both measurement history and dossier records favour soft deletion. Historical data can therefore be restored and remains available for technical backups/audit purposes.
+```text
+interval
+fixed_times
+once
+```
 
-Automatic integrity repair follows a conservative rule:
+For litter ownership, `owner_id` normalizes to the litter ID. Mother and puppy reminders require an explicit persistent owner ID.
 
-> Repair automatically only when the intended result is unambiguous.
+### Completion matching
 
-Duplicate IDs, ambiguous measurement branches or similarly uncertain corruption should be reported rather than guessed.
+A dossier record completes a reminder only when all required conditions match:
+
+1. reminder is enabled;
+2. record is active/not deleted;
+3. record type equals `record_type`;
+4. optional `match_title` matches exactly after normalized case handling;
+5. litter context matches;
+6. owner scope matches;
+7. owner ID matches;
+8. the record occurrence is newer than the previously completed occurrence.
+
+This exact-owner rule is a critical invariant. A puppy temperature cannot complete a mother temperature reminder and neither can complete a whole-litter reminder.
+
+### Interval schedules
+
+For `interval`, the next due time is:
+
+```text
+(last_completed_at OR start_at) + interval_minutes
+```
+
+This deliberately makes the schedule follow the actual completion time. A late action shifts the next interval instead of accumulating artificial lateness from an old planned time.
+
+### Fixed-time schedules
+
+`fixed_times` contains normalized `HH:MM` local-clock values. Fixed schedules preserve the timezone represented by the caller/Home Assistant local time. They must not be silently converted through an unrelated process-default timezone before constructing the wall-clock candidate.
+
+### One-time schedules
+
+`once` uses `due_at`. Once a matching dossier record sets `last_completed_at`, there is no next due occurrence.
+
+### Derived reminder status
+
+Reminder status is calculated, not persisted as authoritative state:
+
+```text
+completed
+disabled
+upcoming
+due_soon
+overdue
+```
+
+`due_soon` currently represents the final 60 minutes before the deadline.
+
+## Notification architecture
+
+Recurring reminder notifications are a delivery projection over reminder state, not part of reminder scheduling itself.
+
+The notification manager:
+
+- reconciles reminder completion before evaluating status;
+- checks periodically (currently every 10 minutes);
+- reacts to Puppy Tracker dashboard update signals;
+- creates Home Assistant persistent notifications for `due_soon`/`overdue` states when notifications are enabled;
+- optionally sends the same content to configured `notify.*` entities;
+- deduplicates on reminder ID plus status/next-due state;
+- dismisses stale persistent notifications when a reminder is no longer actionable.
+
+Currently recurring reminders use Puppy Tracker's global `notifications_enabled` setting and configured notify targets. This is intentionally documented as a current coupling, not a permanent architectural requirement. A dedicated recurring-reminder notification preference is a desirable follow-up.
+
+Dashboard due-state calculation must remain useful when notifications are disabled. Notification delivery must never be required for scheduling or completion.
 
 ## Runtime state
 
-Per-config-entry state is held in typed `ConfigEntry.runtime_data` using `PuppyTrackerRuntimeData` rather than arbitrary `hass.data[DOMAIN][entry_id]` dictionaries.
+Per-config-entry state is held in typed `ConfigEntry.runtime_data` using `PuppyTrackerRuntimeData`. Persistent recurring reminders are represented by their own Home Assistant `Store` (`puppy_tracker_recurring_reminders`, version 1) and attached to runtime data for API/notification access.
 
-Global one-time registration flags, such as static frontend route registration, may still live in `hass.data` because they are Home Assistant instance state rather than integration-entry runtime state.
+Global one-time registration flags may live in `hass.data` when they represent Home Assistant instance state rather than entry-owned domain data.
 
 ## Metrics layer
 
-Weight calculations and monitoring status belong to shared domain logic, not Home Assistant sensor classes. Sensors, binary sensors, notifications, API and PDF reports consume the same canonical metric functions.
-
-This avoids disagreement between:
-
-```text
-sensor state
-websocket dashboard
-notification
-PDF report
-```
+Weight calculations and monitoring status belong to shared domain logic, not sensor classes. Sensors, binary sensors, notifications, WebSocket APIs and reports consume canonical metric functions.
 
 ## Time handling
 
-Storage timestamps are timezone-aware. Measurement ordering is based on actual instants, not lexical ISO-string ordering.
+Storage timestamps are timezone-aware. Ordering is based on actual instants, with deterministic tie-breakers where needed.
 
-Where timestamps are equal, deterministic tie-breakers are used (`created_at`, then stable identity where applicable).
-
-User interfaces must preserve timestamp precision. Weight-only corrections must not modify the original measurement timestamp.
+User interfaces must preserve timestamp precision. Weight-only corrections must not modify the original measurement timestamp. Reminder fixed-time schedules must preserve local wall-clock intent.
 
 ## Frontend API
 
-Custom cards consume the integration's WebSocket API instead of re-deriving business logic from Home Assistant entity names.
+Custom cards consume `puppy_tracker/*` WebSocket APIs rather than re-deriving domain relationships from Home Assistant entity names.
 
-Current namespace:
+The backend remains source of truth for:
 
-```text
-puppy_tracker/*
-```
+- monitoring state;
+- effective measurements;
+- dossier data;
+- mother identity;
+- recurring reminder definitions and derived status.
 
-The backend remains the source of truth for monitoring state, effective measurements and dossier data.
+Frontend compatibility layers may enrich presentation, but must not invent a second persistence model.
 
-## Frontend cards
+## Frontend surfaces
 
-Current element namespace:
+Current core element namespace includes:
 
 ```text
 custom:puppy-tracker-card
@@ -234,99 +300,76 @@ custom:puppy-tracker-attention-card
 custom:puppy-tracker-litter-card
 custom:puppy-tracker-report-card
 custom:puppy-tracker-dossier-card
+custom:puppy-tracker-quick-log-card
+custom:puppy-tracker-bulk-dossier-card
+custom:puppy-tracker-timeline-card
+custom:puppy-tracker-recurring-reminder-card
 ```
 
-The dossier card uses the same API and record model rather than inventing card-local storage conventions.
+Mother scope is expected on Dossier, Quick Log, Timeline, Attention, Report/export and Recurring Reminders where the workflow logically supports a single owner. Bulk Dossier remains puppy-oriented because its purpose is one event applied to multiple puppies.
+
+The recurring-reminder card must resolve the linked mother through the mother scope rather than requiring `litter.mother_id` in the ordinary litter payload.
 
 ## Export philosophy
 
 - CSV is an analysis-friendly view of effective measurement data.
-- JSON is the complete technical backup format.
+- JSON is the complete technical backup/transfer format.
 - PDF is a user-facing report.
+- Mother dossier JSON export preserves persistent mother identity and can be filtered by litter context.
 
-Future dossier reporting should preserve that distinction: JSON retains full technical history; user-facing reports select meaningful events for the requested puppy, litter and period.
+Recurring-reminder backup/restore compatibility should be treated explicitly because reminders are stored separately from the main Puppy Tracker database. New backup schema work must decide whether reminder definitions are portable and how owner IDs are remapped during partial imports rather than silently assuming main-storage semantics.
+
+## Soft deletion and integrity
+
+Measurement history and dossier records favour soft deletion. Historical data remains available for restore/audit/technical backup.
+
+Automatic integrity repair follows the rule:
+
+> Repair automatically only when the intended result is unambiguous.
+
+Duplicate IDs, ambiguous measurement branches and uncertain ownership must be reported rather than guessed.
 
 ## Testing strategy
 
-Regression tests live under `tests/` and protect behaviour that could silently alter data meaning.
+Regression tests should protect data meaning and cross-surface contracts, including:
 
-Critical areas include:
-
-- timezone ordering;
-- timestamp precision;
+- timezone ordering and precision;
 - measurement correction chains;
-- delete/restore;
 - birth-weight synchronisation;
 - monitoring metrics;
-- integrity repairs;
-- dossier record ownership and CRUD;
+- dossier ownership/CRUD;
+- mother identity resolution across cards;
+- temperature structured-data rendering;
 - upcoming action derivation;
+- recurring reminder normalization;
+- interval/fixed-time/once scheduling;
+- fixed-time timezone behaviour;
+- exact owner matching;
+- notification deduplication;
+- frontend module load order;
 - export selection;
 - runtime selection.
 
-Browser/iOS behaviour still requires manual or future end-to-end testing because backend pytest tests do not exercise Lovelace/WKWebView behaviour.
+Manual release testing should additionally cover HACS upgrade, browser refresh/cache behaviour, phone/tablet interaction, mother selection, reminder completion from real dossier logging, notification-off production testing and restart persistence.
 
-## Future modules
+## Future modules and extension rules
 
-The dossier envelope is intended to support modules such as:
+The generic dossier envelope and recurring-reminder engine should support future workflows such as medication courses, feeding, veterinary follow-up, tests and milestones without creating parallel per-feature task engines.
 
-### Vaccinations
-
-Possible payload fields:
+New care features should prefer:
 
 ```text
-vaccine/product
-batch/lot
-veterinarian
-next_due_date
+structured dossier record
+        +
+optional recurring reminder rule
+        +
+derived attention/notification projection
 ```
 
-### Tests
+over feature-specific persistent reminder databases.
 
-Possible payload fields:
-
-```text
-test_type
-result
-status
-laboratory
-reference
-```
-
-### Deworming / medication
-
-Possible payload fields:
-
-```text
-product
-amount
-dose/unit
-route
-next_due_date
-```
-
-### Veterinary visits
-
-Possible payload fields:
-
-```text
-clinic/veterinarian
-reason
-outcome
-follow_up
-```
-
-### Milestones
-
-Possible payload fields:
-
-```text
-category
-observation
-```
-
-These are direction-setting examples, not frozen schemas. Type-specific schemas should be added only when the corresponding feature is implemented and tested.
+Type-specific schemas should be added only when the corresponding feature is implemented and tested.
 
 ## Pre-1.0 rule
 
-The pre-1.0 period is the time to correct naming and architecture. Once 1.0 is released, domain names, entity identities, storage contracts and dashboard element names should be treated as compatibility-sensitive public interfaces.
+The pre-1.0 period is the time to correct naming and architecture. Once 1.0 is released, domain names, entity identities, storage contracts, owner-scope semantics, WebSocket message shapes and dashboard element names should be treated as compatibility-sensitive public interfaces.
