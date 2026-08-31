@@ -11,6 +11,7 @@ from .storage import PuppyTrackerStorage
 if TYPE_CHECKING:
     from .care_reminders import CareReminderStore
     from .notifications import PuppyNotificationManager
+    from .recurring_notifications import RecurringReminderNotificationManager
     from .recurring_reminders import RecurringReminderStore
 
 
@@ -26,6 +27,7 @@ class PuppyTrackerRuntimeData:
     weight_input: float = 0.0
     weighing_session: dict[str, Any] = field(default_factory=new_session_state)
     notification_manager: PuppyNotificationManager | None = None
+    recurring_notification_manager: RecurringReminderNotificationManager | None = None
 
 
 def reconcile_dashboard_selection(
