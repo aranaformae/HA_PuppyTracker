@@ -32,14 +32,45 @@ def _puppy_identifier(
     )
 
 
+def _mother_identifier(
+    mother_id: str,
+) -> tuple[str, str]:
+    """Return reusable mother device identifier."""
+    return (
+        DOMAIN,
+        f"mother_{mother_id}",
+    )
+
+
 def async_sync_devices(
     hass: HomeAssistant,
     entry: ConfigEntry,
     data: dict[str, Any],
 ) -> None:
-    """Create or update litter and puppy devices."""
+    """Create or update mother, litter and puppy devices."""
 
     registry = dr.async_get(hass)
+
+    # A mother profile can be reused by multiple litters, so it is deliberately
+    # a top-level Puppy Tracker device rather than a child of one litter.
+    for mother_id, mother in data.get(
+        "mothers",
+        {},
+    ).items():
+        registry.async_get_or_create(
+            config_entry_id=entry.entry_id,
+            identifiers={
+                _mother_identifier(
+                    mother_id
+                )
+            },
+            name=mother.get(
+                "name",
+                "Mother dog",
+            ),
+            manufacturer="Puppy Tracker",
+            model="Mother dog",
+        )
 
     for litter_id, litter in data.get(
         "litters",
