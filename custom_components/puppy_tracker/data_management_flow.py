@@ -372,6 +372,14 @@ class PuppyTrackerDataManagementMixin:
             before = storage.get_data()
             try:
                 self._import_result = await async_apply_import(storage, plan)
+
+                runtime = self.config_entry.runtime_data
+                if isinstance(runtime, PuppyTrackerRuntimeData) and summary.get("replaces_all"):
+                    if runtime.care_reminders is None:
+                        raise RuntimeError("Puppy Tracker care reminders are not loaded")
+                    await runtime.care_reminders.async_restore_backup_settings(
+                        summary["care_reminders"]
+                    )
             except BackupValidationError as err:
                 errors["base"] = err.code
             except Exception:
@@ -383,8 +391,6 @@ class PuppyTrackerDataManagementMixin:
                 runtime = self.config_entry.runtime_data
                 if isinstance(runtime, PuppyTrackerRuntimeData):
                     reconcile_dashboard_selection(runtime)
-                    if summary.get("replaces_all"):
-                        await runtime.care_reminders.async_clear_states()
 
                 async_dispatcher_send(self.hass, SIGNAL_DASHBOARD_UPDATE)
                 return await self.async_step_import_complete()
