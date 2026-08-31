@@ -25,6 +25,7 @@ from .const import (
     SIGNAL_DASHBOARD_UPDATE,
     SIGNAL_UPDATE,
 )
+from .notification_delivery import async_send_notify_entities, normalize_notify_entities
 
 
 class NotificationSettingsMixin:
@@ -54,29 +55,24 @@ class NotificationSettingsMixin:
             "Dit is een testmelding van Puppy Tracker. "
             "Je meldingsinstellingen en gekozen ontvangers werken."
         )
+
+        # Explicit tests use the exact same notify.* delivery helper as automatic
+        # recurring reminders, but in strict mode so delivery/configuration
+        # failures are surfaced to the options flow instead of being swallowed.
+        await async_send_notify_entities(
+            self.hass,
+            notify_entities,
+            title,
+            message,
+            strict=True,
+        )
+
         async_create(
             self.hass,
             message,
             title=title,
             notification_id="puppy_tracker_notification_test",
         )
-
-        if not notify_entities:
-            return
-        if not self.hass.services.has_service("notify", "send_message"):
-            raise ValueError("notify service is unavailable")
-
-        for entity_id in notify_entities:
-            await self.hass.services.async_call(
-                "notify",
-                "send_message",
-                {
-                    "entity_id": entity_id,
-                    "title": title,
-                    "message": message,
-                },
-                blocking=True,
-            )
 
     async def async_step_settings(
         self,
@@ -196,11 +192,9 @@ class NotificationSettingsMixin:
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            notify_entities = [
-                str(entity_id)
-                for entity_id in user_input.get("notify_entities", [])
-                if str(entity_id).startswith("notify.")
-            ]
+            notify_entities = normalize_notify_entities(
+                user_input.get("notify_entities", [])
+            )
             try:
                 await storage.async_update_settings(
                     min_daily_growth_percent=settings.get(
@@ -286,11 +280,9 @@ class NotificationSettingsMixin:
         """Send a test through the currently configured notification path."""
         storage = self._get_storage()
         settings = storage.get_settings()
-        notify_entities = [
-            str(entity_id)
-            for entity_id in settings.get("notify_entities", [])
-            if str(entity_id).startswith("notify.")
-        ]
+        notify_entities = normalize_notify_entities(
+            settings.get("notify_entities", [])
+        )
         errors: dict[str, str] = {}
 
         if user_input is not None and user_input.get("confirm"):
