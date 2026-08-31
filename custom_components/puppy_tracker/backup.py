@@ -9,13 +9,14 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
+from .care_reminders import CARE_REMINDER_CATEGORIES, MAX_CARE_REMINDER_LEAD_DAYS
 from .const import DOMAIN
 from .integrity import inspect_and_repair_data
 from .storage import PuppyTrackerStorage
 
-EXPORT_VERSION = 3
+EXPORT_VERSION = 4
 CURRENT_SCHEMA_VERSION = 7
-SUPPORTED_EXPORT_VERSIONS = frozenset({2, EXPORT_VERSION})
+SUPPORTED_EXPORT_VERSIONS = frozenset({EXPORT_VERSION})
 VALID_SCOPES = frozenset({"full", "litter", "puppy"})
 VALID_IMPORT_MODES = {
     "full": frozenset({"replace_all", "merge_as_new"}),
@@ -66,12 +67,61 @@ def _audit_for_puppy(
     ]
 
 
+def _validate_care_reminder_settings(settings: Any) -> dict[str, Any]:
+    """Validate and normalize portable care reminder preferences."""
+    if not isinstance(settings, dict):
+        raise BackupValidationError(
+            "invalid_backup",
+            "Full backup care reminder settings are missing or invalid",
+        )
+
+    try:
+        lead_days = int(settings["lead_days"])
+    except (KeyError, TypeError, ValueError) as err:
+        raise BackupValidationError(
+            "invalid_backup",
+            "Full backup care reminder lead time is invalid",
+        ) from err
+    if not 0 <= lead_days <= MAX_CARE_REMINDER_LEAD_DAYS:
+        raise BackupValidationError(
+            "invalid_backup",
+            "Full backup care reminder lead time is out of range",
+        )
+
+    categories = settings.get("categories")
+    if not isinstance(categories, dict):
+        raise BackupValidationError(
+            "invalid_backup",
+            "Full backup care reminder categories are invalid",
+        )
+    if any(category not in categories for category in CARE_REMINDER_CATEGORIES):
+        raise BackupValidationError(
+            "invalid_backup",
+            "Full backup care reminder categories are incomplete",
+        )
+
+    if "states" in settings:
+        raise BackupValidationError(
+            "invalid_backup",
+            "Care reminder delivery state must not be stored in backups",
+        )
+
+    return {
+        "lead_days": lead_days,
+        "categories": {
+            category: bool(categories[category])
+            for category in CARE_REMINDER_CATEGORIES
+        },
+    }
+
+
 def build_export_document(
     storage: PuppyTrackerStorage,
     *,
     scope: str,
     litter_id: str | None = None,
     puppy_id: str | None = None,
+    care_reminder_settings: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build an authoritative JSON backup document."""
     if scope not in VALID_SCOPES:
@@ -87,7 +137,12 @@ def build_export_document(
     }
 
     if scope == "full":
+        if care_reminder_settings is None:
+            raise ValueError("care_reminder_settings is required for a full backup")
         document["data"] = data
+        document["care_reminders"] = _validate_care_reminder_settings(
+            care_reminder_settings
+        )
         return document
 
     if not litter_id:
@@ -125,6 +180,7 @@ def serialize_export(
     scope: str,
     litter_id: str | None = None,
     puppy_id: str | None = None,
+    care_reminder_settings: dict[str, Any] | None = None,
 ) -> tuple[str, str, str]:
     """Return filename, MIME type, and JSON text for one backup."""
     document = build_export_document(
@@ -132,6 +188,7 @@ def serialize_export(
         scope=scope,
         litter_id=litter_id,
         puppy_id=puppy_id,
+        care_reminder_settings=care_reminder_settings,
     )
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
 
@@ -196,10 +253,6 @@ def parse_export_json(content: str) -> dict[str, Any]:
         )
 
     document = deepcopy(raw)
-    if export_version == 2:
-        # Version 2 was the pre-restore litter JSON export.
-        document["scope"] = "litter"
-
     scope = document.get("scope")
     if scope not in VALID_SCOPES:
         raise BackupValidationError("invalid_backup", f"Unsupported backup scope: {scope}")
@@ -215,6 +268,9 @@ def parse_export_json(content: str) -> dict[str, Any]:
                 "unsupported_schema_version",
                 "Full backup data uses a different storage schema",
             )
+        document["care_reminders"] = _validate_care_reminder_settings(
+            document.get("care_reminders")
+        )
 
     elif scope == "litter":
         litter = document.get("litter")
@@ -500,6 +556,7 @@ def prepare_import(
         if mode == "replace_all":
             candidate = source_data
             result["replaces_all"] = True
+            result["care_reminders"] = deepcopy(document["care_reminders"])
             _append_import_audit(
                 candidate,
                 scope=scope,
