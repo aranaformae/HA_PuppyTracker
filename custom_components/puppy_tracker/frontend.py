@@ -14,8 +14,11 @@ from .const import DOMAIN, VERSION
 _LOGGER = logging.getLogger(__name__)
 
 FRONTEND_DIR = Path(__file__).parent / "frontend"
-FRONTEND_URL = f"/{DOMAIN}/frontend"
-FRONTEND_VERSION = VERSION
+FRONTEND_BASE_URL = f"/{DOMAIN}/frontend"
+# Keep the integration version in the path itself. Relative ES-module imports
+# then inherit the same versioned path and cannot accidentally reuse a cached
+# shared module from an older Puppy Tracker release.
+FRONTEND_URL = f"{FRONTEND_BASE_URL}/{VERSION}"
 
 CARD_FILES = (
     "puppy-tracker-card.js",
@@ -27,15 +30,15 @@ CARD_FILES = (
     "puppy-tracker-dossier-card.js",
 )
 
-# Static HTTP routes cannot currently be cleanly unregistered. Keep this flag
-# outside hass.data[DOMAIN] so an integration reload does not register the same
-# route a second time.
-DATA_STATIC_PATH_REGISTERED = f"{DOMAIN}_frontend_static_path_registered"
+# Static HTTP routes cannot currently be cleanly unregistered. Keep the flag
+# outside hass.data[DOMAIN] and version it together with the route so a newer
+# frontend can be registered safely if code is refreshed in the same process.
+DATA_STATIC_PATH_REGISTERED = f"{DOMAIN}_frontend_static_path_registered_{VERSION}"
 
 
 def _frontend_url(filename: str) -> str:
-    """Return the cache-busted URL for a frontend module."""
-    return f"{FRONTEND_URL}/{filename}?v={FRONTEND_VERSION}"
+    """Return the versioned URL for a frontend module."""
+    return f"{FRONTEND_URL}/{filename}"
 
 
 async def async_setup_frontend(hass: HomeAssistant) -> None:
