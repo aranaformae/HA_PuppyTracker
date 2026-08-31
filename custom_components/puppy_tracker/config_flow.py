@@ -9,9 +9,11 @@ from homeassistant.config_entries import ConfigFlowResult
 from . import config_flow_management as _management
 from .data_management_flow import PuppyTrackerDataManagementMixin
 from .mother_data_management import MotherDataManagementMixin
+from .notification_settings_flow import NotificationSettingsMixin
 
 
 class PuppyTrackerOptionsFlow(
+    NotificationSettingsMixin,
     MotherDataManagementMixin,
     PuppyTrackerDataManagementMixin,
     _management.PuppyTrackerOptionsFlow,
