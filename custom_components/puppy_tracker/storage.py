@@ -28,6 +28,7 @@ from .const import (
     DEFAULT_NOTIFY_RECOVERY,
     DEFAULT_NOTIFY_SESSION_COMPLETE,
     DEFAULT_NOTIFY_ENTITIES,
+    DEFAULT_RECURRING_REMINDER_NOTIFICATIONS_ENABLED,
     STORAGE_KEY,
     STORAGE_VERSION,
 )
@@ -45,6 +46,7 @@ def _default_settings() -> dict[str, Any]:
         "max_hours_between_weighings": DEFAULT_MAX_HOURS_BETWEEN_WEIGHINGS,
         "growth_monitoring_days": DEFAULT_GROWTH_MONITORING_DAYS,
         "notifications_enabled": DEFAULT_NOTIFICATIONS_ENABLED,
+        "recurring_reminder_notifications_enabled": DEFAULT_RECURRING_REMINDER_NOTIFICATIONS_ENABLED,
         "notify_recovery": DEFAULT_NOTIFY_RECOVERY,
         "notify_session_complete": DEFAULT_NOTIFY_SESSION_COMPLETE,
         "notify_entities": list(DEFAULT_NOTIFY_ENTITIES),
@@ -765,6 +767,7 @@ class PuppyTrackerStorage:
         max_hours_between_weighings: float,
         growth_monitoring_days: int,
         notifications_enabled: bool,
+        recurring_reminder_notifications_enabled: bool,
         notify_recovery: bool,
         notify_session_complete: bool,
         notify_entities: list[str] | None = None,
@@ -809,6 +812,9 @@ class PuppyTrackerStorage:
                 "max_hours_between_weighings": max_hours,
                 "growth_monitoring_days": monitoring_days,
                 "notifications_enabled": bool(notifications_enabled),
+                "recurring_reminder_notifications_enabled": bool(
+                    recurring_reminder_notifications_enabled
+                ),
                 "notify_recovery": bool(notify_recovery),
                 "notify_session_complete": bool(notify_session_complete),
                 "notify_entities": [
