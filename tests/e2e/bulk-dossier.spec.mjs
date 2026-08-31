@@ -88,7 +88,7 @@ function recordAddCalls(page) {
   );
 }
 
-test("creates individual deworming records for the whole litter after review", async ({ page }) => {
+test("creates enriched individual deworming records for the whole litter after review", async ({ page }) => {
   const card = await mountBulkDossier(page, "en");
 
   await card.locator("#select-all").click();
@@ -97,14 +97,22 @@ test("creates individual deworming records for the whole litter after review", a
   await card.locator("#bulk-title").fill("Routine deworming");
   await card.locator("#bulk-note").fill("All puppies tolerated treatment well");
   await card.locator("#bulk-data-product").fill("Puppy wormer");
-  await card.locator("#bulk-data-dose").fill("1 ml");
+  await card.locator("#bulk-data-active_ingredient").fill("Pyrantel / febantel");
+  await card.locator("#bulk-data-amount").fill("1.5");
+  await card.locator("#bulk-data-unit").fill("ml");
+  await card.locator("#bulk-data-dose").fill("1.5 ml oral");
+  await card.locator("#bulk-data-route").fill("oral");
+  await card.locator("#bulk-data-batch_number").fill("WORM-42");
   await card.locator("#bulk-data-administered_by").fill("Breeder");
+  await card.locator("#bulk-data-weight_grams").fill("1500");
   await card.locator("#bulk-data-next_due_date").fill("2026-09-14");
 
   await card.locator("#bulk-review").click();
   await expect(card.getByText("Review bulk entry", { exact: true })).toBeVisible();
   await expect(card.getByText("Alice, Bob, Charlie", { exact: true })).toBeVisible();
   await expect(card.getByText("Routine deworming", { exact: true })).toBeVisible();
+  await expect(card.getByText(/Active ingredient: Pyrantel \/ febantel/)).toBeVisible();
+  await expect(card.getByText(/Weight at administration \(g\): 1500/)).toBeVisible();
 
   await card.locator("#bulk-confirm").click();
   await expect(card.getByText("Saved for all 3 puppies.", { exact: true })).toBeVisible();
@@ -118,8 +126,14 @@ test("creates individual deworming records for the whole litter after review", a
     expect(call.note).toBe("All puppies tolerated treatment well");
     expect(call.data).toEqual({
       product: "Puppy wormer",
-      dose: "1 ml",
+      active_ingredient: "Pyrantel / febantel",
+      amount: "1.5",
+      unit: "ml",
+      dose: "1.5 ml oral",
+      route: "oral",
+      batch_number: "WORM-42",
       administered_by: "Breeder",
+      weight_grams: "1500",
       next_due_date: "2026-09-14",
     });
   }
@@ -128,6 +142,17 @@ test("creates individual deworming records for the whole litter after review", a
     element._result.successes.map((success) => success.record_id)
   );
   expect(new Set(ids).size).toBe(3);
+});
+
+test("bulk care review blocks missing required product fields", async ({ page }) => {
+  const card = await mountBulkDossier(page, "en");
+
+  await card.locator("#select-all").click();
+  await card.locator("#bulk-review").click();
+
+  await expect(card.getByText(/Complete the required field\(s\): Product/)).toBeVisible();
+  await expect(card.getByText("Review bulk entry", { exact: true })).toHaveCount(0);
+  expect(await recordAddCalls(page)).toHaveLength(0);
 });
 
 test("supports all planned bulk care record types", async ({ page }) => {
@@ -170,9 +195,9 @@ test("partial failure keeps only failed puppies selected for a safe retry", asyn
 
   await page.evaluate(() => { window.__bulkFailPuppyId = null; });
   await card.locator("#bulk-review").click();
-  await expect(card.getByText("Save for 1 puppies", { exact: true })).toBeVisible();
+  await expect(card.getByText("Save for 1 puppy", { exact: true })).toBeVisible();
   await card.locator("#bulk-confirm").click();
-  await expect(card.getByText("Saved for all 1 puppies.", { exact: true })).toBeVisible();
+  await expect(card.getByText("Saved for 1 puppy.", { exact: true })).toBeVisible();
 
   successful = await page.evaluate(() => window.__bulkSuccessfulAdds.map((item) => item.puppy_id));
   expect(successful).toEqual(["p1", "p3", "p2"]);
@@ -188,4 +213,6 @@ test("bulk dossier UI is localized in Dutch", async ({ page }) => {
   await expect(card.getByText("Hele nest selecteren", { exact: true })).toBeVisible();
   await expect(card.getByText("Gedeeld dossieritem", { exact: true })).toBeVisible();
   await expect(card.getByText("Controleren", { exact: true })).toBeVisible();
+  await expect(card.getByText("Werkzame stof", { exact: true })).toBeVisible();
+  await expect(card.getByText("Gewicht bij toediening (g)", { exact: true })).toBeVisible();
 });
