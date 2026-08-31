@@ -37,6 +37,7 @@ class PuppyTrackerOptionsFlow(
                 "data_management",
                 "integrity",
                 "settings",
+                "notifications",
             ],
         )
 
