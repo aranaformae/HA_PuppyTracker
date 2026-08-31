@@ -44,16 +44,17 @@ def test_litter_display_shows_richer_growth_context() -> None:
     assert "sparkline(puppy)" in source
     assert 'small.textContent = localDateTime(s.last_weighed)' in source
     assert "statusExplanation(puppy)" in source
+    assert 'small.textContent = `${grams(s.growth_24h_grams)} · gem. ${percent(avg.percentPerDay)}/dag`' in source
 
 
-def test_litter_detail_shows_average_daily_growth_and_range() -> None:
-    """Expanded pup details include average daily growth and useful range data."""
+def test_litter_detail_shows_growth_range_without_duplicate_daily_average() -> None:
+    """Expanded pup details keep useful range data without repeating daily growth."""
     source = _source()
 
     assert "function averageGrowth(puppy)" in source
     assert "gramsPerDay: totalGrams / ageDaysAtMeasurement" in source
     assert "percentPerDay: totalPercent / ageDaysAtMeasurement" in source
-    assert 'statCell("Gem. groei / dag"' in source
+    assert 'statCell("Gem. groei / dag"' not in source
     assert 'statCell("Laagste gewicht"' in source
     assert 'statCell("Hoogste gewicht"' in source
     assert 'progressLabel.textContent = "Gewichtsontwikkeling sinds geboorte"' in source
