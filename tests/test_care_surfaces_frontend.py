@@ -27,3 +27,26 @@ def test_attention_and_today_are_both_patched() -> None:
     assert 'const ATTENTION_TAG = "puppy-tracker-attention-card"' in source
     assert "patchToday();" in source
     assert "patchAttention();" in source
+
+
+def test_open_care_rows_launch_structured_result_entry() -> None:
+    source = (FRONTEND / "puppy-tracker-care-surfaces.js").read_text()
+    assert "function openResultEditor(card, item)" in source
+    assert 'type: "puppy_tracker/care_occurrence/record"' in source
+    assert "program_id: item.program_id" in source
+    assert "puppy_id: item.puppy_id" in source
+    assert "occurrence_id: item.id" in source
+    assert 'value="completed"' in source
+    assert 'value="missed"' in source
+    assert 'fields.has("result")' in source
+    assert 'fields.has("score")' in source
+    assert 'fields.has("note")' in source
+
+
+def test_care_result_save_refreshes_backend_derived_status() -> None:
+    source = (FRONTEND / "puppy-tracker-care-surfaces.js").read_text()
+    record_call = source.index('type: "puppy_tracker/care_occurrence/record"')
+    refresh = source.index("await card._loadData();", record_call)
+    assert record_call < refresh
+    assert "data-care-occurrence" in source
+    assert "wireCareRows(this);" in source
