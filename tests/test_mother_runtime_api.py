@@ -4,13 +4,23 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 INIT = ROOT / "custom_components" / "puppy_tracker" / "__init__.py"
 API = ROOT / "custom_components" / "puppy_tracker" / "mother_api.py"
+INTEGRITY_STORAGE = (
+    ROOT / "custom_components" / "puppy_tracker" / "mother_storage_integrity.py"
+)
 
 
-def test_runtime_uses_mother_scope_storage() -> None:
+def test_runtime_uses_mother_scope_integrity_storage() -> None:
     source = INIT.read_text(encoding="utf-8")
-    assert "from .mother_storage import MotherScopeStorage" in source
-    assert "storage = MotherScopeStorage(" in source
+    integrity_source = INTEGRITY_STORAGE.read_text(encoding="utf-8")
+
+    assert "from .mother_storage_integrity import MotherScopeIntegrityStorage" in source
+    assert "storage = MotherScopeIntegrityStorage(" in source
     assert "async_setup_mother_api(hass)" in source
+
+    # The runtime storage must still extend the actual mother-scope storage;
+    # the extra subclass only layers combined base + mother integrity checks.
+    assert "from .mother_storage import MotherScopeStorage" in integrity_source
+    assert "class MotherScopeIntegrityStorage(MotherScopeStorage):" in integrity_source
 
 
 def test_mother_api_exposes_read_and_crud_commands() -> None:
