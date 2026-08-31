@@ -258,6 +258,23 @@ Currently recurring reminders use Puppy Tracker's global `notifications_enabled`
 
 Dashboard due-state calculation must remain useful when notifications are disabled. Notification delivery must never be required for scheduling or completion.
 
+### Test notification contract
+
+The recurring-reminder notification settings should expose an explicit **Send test notification** action. Its purpose is to verify the configured delivery path without manipulating a real reminder.
+
+A test notification must:
+
+- use the same configured recurring-reminder notification targets as real delivery;
+- use representative recurring-reminder title/message formatting and clearly identify itself as a test;
+- be sendable on demand without waiting for a reminder to become `due_soon` or `overdue`;
+- bypass normal reminder delivery deduplication so repeated manual tests are possible;
+- not create or alter a reminder;
+- not change `last_completed_at`, `last_completed_record_id`, `next_due_at` or any reminder schedule state;
+- not mark a dossier action complete;
+- report delivery/configuration errors back to the initiating UI/config flow rather than silently swallowing them.
+
+The dedicated recurring-reminder notification enable/disable preference and the test action are related but distinct. The enable toggle controls automatic reminder delivery. The explicit test action should be allowed to verify the selected notification path on demand, with the UI making clear that a real test message will be sent.
+
 ## Runtime state
 
 Per-config-entry state is held in typed `ConfigEntry.runtime_data` using `PuppyTrackerRuntimeData`. Persistent recurring reminders are represented by their own Home Assistant `Store` (`puppy_tracker_recurring_reminders`, version 1) and attached to runtime data for API/notification access.
@@ -278,13 +295,7 @@ User interfaces must preserve timestamp precision. Weight-only corrections must 
 
 Custom cards consume `puppy_tracker/*` WebSocket APIs rather than re-deriving domain relationships from Home Assistant entity names.
 
-The backend remains source of truth for:
-
-- monitoring state;
-- effective measurements;
-- dossier data;
-- mother identity;
-- recurring reminder definitions and derived status.
+The backend remains source of truth for monitoring state, effective measurements, dossier data, mother identity, recurring reminder definitions and derived status.
 
 Frontend compatibility layers may enrich presentation, but must not invent a second persistence model.
 
@@ -331,26 +342,9 @@ Duplicate IDs, ambiguous measurement branches and uncertain ownership must be re
 
 ## Testing strategy
 
-Regression tests should protect data meaning and cross-surface contracts, including:
+Regression tests should protect data meaning and cross-surface contracts, including timezone ordering and precision, measurement correction chains, birth-weight synchronisation, monitoring metrics, dossier ownership/CRUD, mother identity resolution across cards, temperature structured-data rendering, upcoming action derivation, recurring reminder normalization, interval/fixed-time/once scheduling, fixed-time timezone behaviour, exact owner matching, notification deduplication, test-notification state isolation and error propagation, frontend module load order, export selection and runtime selection.
 
-- timezone ordering and precision;
-- measurement correction chains;
-- birth-weight synchronisation;
-- monitoring metrics;
-- dossier ownership/CRUD;
-- mother identity resolution across cards;
-- temperature structured-data rendering;
-- upcoming action derivation;
-- recurring reminder normalization;
-- interval/fixed-time/once scheduling;
-- fixed-time timezone behaviour;
-- exact owner matching;
-- notification deduplication;
-- frontend module load order;
-- export selection;
-- runtime selection.
-
-Manual release testing should additionally cover HACS upgrade, browser refresh/cache behaviour, phone/tablet interaction, mother selection, reminder completion from real dossier logging, notification-off production testing and restart persistence.
+Manual release testing should additionally cover HACS upgrade, browser refresh/cache behaviour, phone/tablet interaction, mother selection, reminder completion from real dossier logging, notification-off production testing, explicit test-notification delivery and restart persistence.
 
 ## Future modules and extension rules
 
