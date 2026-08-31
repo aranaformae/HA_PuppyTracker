@@ -220,3 +220,69 @@ test("live updates do not reset an active dossier form", async ({ page }) => {
   expect(editorState.refreshDeferred).toBe(true);
   expect(editorState.editorActive).toBe(true);
 });
+
+test("vaccination form validates required product and stores enriched structured care data", async ({ page }) => {
+  const card = await mountDossier(page);
+
+  await card.locator("#add-record").click();
+  await card.locator("#record-type").selectOption("vaccination");
+  await expect(card.locator("#record-data-vaccine")).toBeVisible();
+
+  await card.locator("#record-save").click();
+  await expect(card.getByText(/Complete the required field\(s\): Vaccine/)).toBeVisible();
+
+  let addCalls = await page.evaluate(() =>
+    window.__dossierCalls.filter((call) => call.type === "puppy_tracker/record/add")
+  );
+  expect(addCalls).toHaveLength(0);
+
+  await card.locator("#record-data-vaccine").fill("Nobivac Puppy DP");
+  await card.locator("#record-data-vaccine_type").fill("Puppy DP");
+  await card.locator("#record-data-batch_number").fill("LOT-2026-42");
+  await card.locator("#record-data-veterinarian").fill("Dr. Vet");
+  await card.locator("#record-data-clinic").fill("Puppy Clinic");
+  await card.locator("#record-data-reaction").fill("No reaction observed");
+  await card.locator("#record-data-weight_grams").fill("1450");
+  await card.locator("#record-data-next_due_date").fill("2026-09-28");
+  await card.locator("#record-save").click();
+
+  addCalls = await page.evaluate(() =>
+    window.__dossierCalls.filter((call) => call.type === "puppy_tracker/record/add")
+  );
+  expect(addCalls).toHaveLength(1);
+  expect(addCalls[0].data).toEqual({
+    vaccine: "Nobivac Puppy DP",
+    vaccine_type: "Puppy DP",
+    batch_number: "LOT-2026-42",
+    veterinarian: "Dr. Vet",
+    clinic: "Puppy Clinic",
+    reaction: "No reaction observed",
+    weight_grams: "1450",
+    next_due_date: "2026-09-28",
+  });
+
+  await expect(card.getByText("Vaccine type / indication", { exact: true })).toBeVisible();
+  await expect(card.getByText("Puppy DP", { exact: true })).toBeVisible();
+  await expect(card.getByText("Reaction / observation", { exact: true })).toBeVisible();
+  await expect(card.getByText("No reaction observed", { exact: true })).toBeVisible();
+  await expect(card.getByText("Weight at administration (g)", { exact: true })).toBeVisible();
+});
+
+test("dossier shows compact overdue, today and upcoming care summaries", async ({ page }) => {
+  const card = await mountDossier(page);
+
+  await card.evaluate((element) => {
+    element._recordData.actions = {
+      actions: [
+        { type: "vaccination", status: "overdue", due_date: "2026-08-30", days_until_due: -1 },
+        { type: "deworming", status: "due_today", due_date: "2026-08-31", days_until_due: 0 },
+        { type: "vaccination", status: "upcoming", due_date: "2026-09-05", days_until_due: 5 },
+      ],
+    };
+    element._render();
+  });
+
+  await expect(card.getByText("1 overdue", { exact: true })).toBeVisible();
+  await expect(card.getByText("1 due today", { exact: true })).toBeVisible();
+  await expect(card.getByText("1 upcoming", { exact: true })).toBeVisible();
+});
