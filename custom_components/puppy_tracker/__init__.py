@@ -26,6 +26,7 @@ from .frontend import async_setup_frontend, async_unload_frontend
 from .mother_api import async_setup_mother_api
 from .mother_storage_integrity import MotherScopeIntegrityStorage
 from .notifications import PuppyNotificationManager
+from .recurring_notifications import RecurringReminderNotificationManager
 from .recurring_reminder_api import async_setup_recurring_reminder_api
 from .recurring_reminders import RecurringReminderStore
 from .runtime import (
@@ -145,6 +146,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     runtime.notification_manager = notification_manager
     await notification_manager.async_start()
 
+    recurring_notification_manager = RecurringReminderNotificationManager(hass, entry, runtime)
+    runtime.recurring_notification_manager = recurring_notification_manager
+    await recurring_notification_manager.async_start()
+
     async def handle_create_litter(call: ServiceCall) -> None:
         """Create a litter."""
         litter_id = await storage.async_create_litter(
@@ -232,6 +237,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         notification_manager = runtime.notification_manager
         if notification_manager is not None:
             await notification_manager.async_stop()
+        recurring_notification_manager = runtime.recurring_notification_manager
+        if recurring_notification_manager is not None:
+            await recurring_notification_manager.async_stop()
 
     async_unload_frontend(hass)
     for service in SERVICES:
