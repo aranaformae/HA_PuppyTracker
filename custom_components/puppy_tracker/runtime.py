@@ -11,6 +11,7 @@ from .storage import PuppyTrackerStorage
 if TYPE_CHECKING:
     from .care_reminders import CareReminderStore
     from .notifications import PuppyNotificationManager
+    from .recurring_reminders import RecurringReminderStore
 
 
 @dataclass(slots=True)
@@ -19,6 +20,7 @@ class PuppyTrackerRuntimeData:
 
     storage: PuppyTrackerStorage
     care_reminders: CareReminderStore | None = None
+    recurring_reminders: RecurringReminderStore | None = None
     selected_litter_id: str | None = None
     selected_puppy_id: str | None = None
     weight_input: float = 0.0
