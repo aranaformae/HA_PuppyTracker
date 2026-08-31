@@ -13,6 +13,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from .api import _runtime_data, _runtime_storage
 from .care_occurrences import derive_litter_care_occurrences
 from .care_programs import AgeBasedCareProgramStore
+from .care_results import async_record_care_result
 from .care_status import care_occurrence_status
 from .const import DOMAIN, SIGNAL_DASHBOARD_UPDATE
 
@@ -33,6 +34,41 @@ def _validate_litter(storage, litter_id: str) -> dict[str, Any]:
     if litter is None:
         raise ValueError("Unknown litter")
     return litter
+
+
+def _derive_occurrence(
+    storage,
+    program: dict[str, Any],
+    *,
+    puppy_id: str,
+    occurrence_id: str,
+) -> dict[str, Any]:
+    """Re-derive one requested occurrence instead of trusting client payload data."""
+    litter_id = str(program.get("litter_id") or "")
+    puppy = storage.get_puppy(litter_id, puppy_id)
+    if puppy is None or puppy.get("active", True) is False:
+        raise ValueError("Unknown active puppy for this care program")
+    occurrences = derive_litter_care_occurrences(program, [puppy])
+    for occurrence in occurrences:
+        if str(occurrence.get("id") or "") == occurrence_id:
+            return occurrence
+    raise ValueError("Unknown occurrence for this care program and puppy")
+
+
+def _existing_occurrence_result(storage, occurrence: dict[str, Any]) -> dict[str, Any] | None:
+    records = storage.get_records(
+        str(occurrence.get("litter_id") or ""),
+        str(occurrence.get("puppy_id") or ""),
+        newest_first=True,
+    )
+    occurrence_id = str(occurrence.get("id") or "")
+    for record in records:
+        if record.get("deleted", False):
+            continue
+        data = record.get("data") if isinstance(record.get("data"), dict) else {}
+        if str(data.get("care_occurrence_id") or "") == occurrence_id:
+            return record
+    return None
 
 
 PROGRAM_FIELDS = {
@@ -94,6 +130,59 @@ async def websocket_list_care_occurrences(hass, connection, msg) -> None:
                 })
     occurrences.sort(key=lambda item: (item["scheduled_at"], item["puppy_id"], item["program_id"]))
     connection.send_result(msg["id"], {"occurrences": occurrences, "skipped": skipped})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/care_occurrence/record",
+    vol.Required("program_id"): str,
+    vol.Required("puppy_id"): str,
+    vol.Required("occurrence_id"): str,
+    vol.Required("status"): vol.In(("completed", "missed")),
+    vol.Optional("result"): vol.Any(str, None),
+    vol.Optional("score"): vol.Any(float, int, str, None),
+    vol.Optional("note"): vol.Any(str, None),
+    vol.Optional("data"): dict,
+    vol.Optional("occurred_at"): vol.Any(str, None),
+})
+@websocket_api.async_response
+async def websocket_record_care_occurrence(hass, connection, msg) -> None:
+    """Record one exact care occurrence as a canonical puppy dossier record."""
+    store = _store_or_error(hass, connection, msg)
+    storage = _runtime_storage(hass)
+    if store is None or storage is None:
+        return
+    program = store.get_program(msg["program_id"])
+    if program is None:
+        connection.send_error(msg["id"], "not_found", "Unknown care program")
+        return
+    try:
+        occurrence = _derive_occurrence(
+            storage,
+            program,
+            puppy_id=msg["puppy_id"],
+            occurrence_id=msg["occurrence_id"],
+        )
+        if _existing_occurrence_result(storage, occurrence) is not None:
+            raise ValueError("This care occurrence already has an active result")
+        result = {
+            "status": msg["status"],
+            "result": msg.get("result"),
+            "score": msg.get("score"),
+            "note": msg.get("note"),
+            "data": msg.get("data") or {},
+        }
+        record_id = await async_record_care_result(
+            storage,
+            program,
+            occurrence,
+            result,
+            occurred_at=msg.get("occurred_at"),
+        )
+    except ValueError as err:
+        connection.send_error(msg["id"], "invalid_care_result", str(err))
+        return
+    async_dispatcher_send(hass, SIGNAL_DASHBOARD_UPDATE)
+    connection.send_result(msg["id"], {"ok": True, "record_id": record_id})
 
 
 @websocket_api.require_admin
@@ -191,6 +280,7 @@ def async_setup_care_program_api(hass: HomeAssistant) -> None:
     for command in (
         websocket_list_care_programs,
         websocket_list_care_occurrences,
+        websocket_record_care_occurrence,
         websocket_create_care_program,
         websocket_update_care_program,
         websocket_delete_care_program,
