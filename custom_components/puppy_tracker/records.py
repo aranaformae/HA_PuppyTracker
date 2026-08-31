@@ -11,12 +11,16 @@ from uuid import uuid4
 from .time_utils import normalize_timestamp, timestamp_sort_key
 
 RECORD_SCOPE_LITTER = "litter"
+RECORD_SCOPE_MOTHER = "mother"
 RECORD_SCOPE_PUPPY = "puppy"
-VALID_RECORD_SCOPES = frozenset({RECORD_SCOPE_LITTER, RECORD_SCOPE_PUPPY})
+VALID_RECORD_SCOPES = frozenset(
+    {RECORD_SCOPE_LITTER, RECORD_SCOPE_MOTHER, RECORD_SCOPE_PUPPY}
+)
 
 # These are the first planned dossier types. Storage deliberately accepts any
 # valid snake_case type so new modules can be added without a storage migration.
 RECORD_TYPE_NOTE = "note"
+RECORD_TYPE_TEMPERATURE = "temperature"
 RECORD_TYPE_VACCINATION = "vaccination"
 RECORD_TYPE_TEST = "test"
 RECORD_TYPE_DEWORMING = "deworming"
@@ -28,6 +32,7 @@ RECORD_TYPE_OTHER = "other"
 PLANNED_RECORD_TYPES = frozenset(
     {
         RECORD_TYPE_NOTE,
+        RECORD_TYPE_TEMPERATURE,
         RECORD_TYPE_VACCINATION,
         RECORD_TYPE_TEST,
         RECORD_TYPE_DEWORMING,
@@ -46,6 +51,17 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _record_scope(*, puppy_id: str | None, mother_id: str | None) -> str:
+    """Return the canonical record scope for one owner."""
+    if puppy_id is not None and mother_id is not None:
+        raise ValueError("A dossier record cannot belong to both mother and puppy")
+    if puppy_id is not None:
+        return RECORD_SCOPE_PUPPY
+    if mother_id is not None:
+        return RECORD_SCOPE_MOTHER
+    return RECORD_SCOPE_LITTER
+
+
 def validate_record_type(value: str) -> str:
     """Validate and return a future-proof dossier record type."""
     record_type = str(value or "").strip()
@@ -61,6 +77,7 @@ def create_record(
     litter_id: str,
     record_type: str,
     puppy_id: str | None = None,
+    mother_id: str | None = None,
     occurred_at: str | None = None,
     title: str | None = None,
     note: str | None = None,
@@ -72,13 +89,14 @@ def create_record(
     normalized_occurred_at = (
         normalize_timestamp(occurred_at, created_at) if occurred_at else created_at
     )
-    scope = RECORD_SCOPE_PUPPY if puppy_id is not None else RECORD_SCOPE_LITTER
+    scope = _record_scope(puppy_id=puppy_id, mother_id=mother_id)
 
     return {
         "id": str(uuid4()),
         "type": validate_record_type(record_type),
         "scope": scope,
         "litter_id": litter_id,
+        "mother_id": mother_id,
         "puppy_id": puppy_id,
         "occurred_at": normalized_occurred_at,
         "created_at": created_at,
@@ -96,6 +114,7 @@ def normalize_record(
     *,
     litter_id: str,
     puppy_id: str | None,
+    mother_id: str | None = None,
     now: str | None = None,
 ) -> bool:
     """Normalize a stored dossier record in place.
@@ -105,13 +124,14 @@ def normalize_record(
     """
     changed = False
     fallback_now = normalize_timestamp(now or _now_iso()) or _now_iso()
-    scope = RECORD_SCOPE_PUPPY if puppy_id is not None else RECORD_SCOPE_LITTER
+    scope = _record_scope(puppy_id=puppy_id, mother_id=mother_id)
 
     defaults: dict[str, Any] = {
         "id": str(uuid4()),
         "type": RECORD_TYPE_NOTE,
         "scope": scope,
         "litter_id": litter_id,
+        "mother_id": mother_id,
         "puppy_id": puppy_id,
         "occurred_at": fallback_now,
         "created_at": fallback_now,
@@ -133,6 +153,7 @@ def normalize_record(
     owner_values = {
         "scope": scope,
         "litter_id": litter_id,
+        "mother_id": mother_id,
         "puppy_id": puppy_id,
     }
     for key, value in owner_values.items():
