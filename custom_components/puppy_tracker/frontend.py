@@ -31,6 +31,8 @@ CARD_FILES = (
     "puppy-tracker-summary-card.js",
     "puppy-tracker-today-card.js",
     "puppy-tracker-attention-card.js",
+    # Adds due generic reminders to the existing attention list.
+    "puppy-tracker-recurring-attention.js",
     "puppy-tracker-recurring-reminder-card.js",
     "puppy-tracker-litter-card.js",
     # Loaded directly after the litter card. profile_note is already present in
