@@ -1,8 +1,8 @@
 # Puppy Tracker for Home Assistant
 
-Puppy Tracker is a custom Home Assistant integration for managing litters, mother dogs and individual puppies. Weight tracking remains a first-class module, while the integration also provides chronological dossiers, temperature logging, recurring care reminders, timeline views and safe backup/restore.
+Puppy Tracker is a custom Home Assistant integration for managing litters, mother dogs and individual puppies. Weight tracking remains a first-class module, while the integration also provides chronological dossiers, temperature logging, recurring care reminders, age-based care programs, timeline views and safe backup/restore.
 
-> **Development status:** pre-1.0. The current release line is **0.16.x** on the stable `puppy_tracker` integration domain. Breaking changes are still possible before 1.0.
+> **Development status:** pre-1.0. The current development line is **0.17.x** on the stable `puppy_tracker` integration domain. Breaking changes are still possible before 1.0.
 
 ## Highlights
 
@@ -17,9 +17,9 @@ Puppy Tracker is a custom Home Assistant integration for managing litters, mothe
 - Combined Timeline for weights and dossier history, including mother-dog records.
 - Derived vaccination/deworming follow-up actions.
 - Generic recurring reminders for a whole litter, mother dog or individual puppy.
-- Recurring schedules based on the last matching log, fixed daily times or a one-time due date.
-- Automatic reminder completion when a matching dossier record is logged for the same owner.
-- Attention card integration for due and overdue care.
+- Age-based litter care programs with deterministic per-puppy occurrences, including one-time ages and fixed age ranges such as ENS/ESI.
+- Structured care-program results stored in the puppy dossier and included in PDF reports.
+- Attention and Today integration for due and overdue care.
 - Home Assistant persistent/mobile notifications with deduplication.
 - Central notification preferences, an independent recurring-reminder delivery toggle and an explicit test-notification action.
 - CSV, JSON and direct PDF reporting/export plus validated backup/restore.
@@ -39,7 +39,7 @@ The old prerelease `puppy_weight_tracker` domain is intentionally not kept as a 
 
 ## Data model
 
-Puppy Tracker separates profile information, specialised measurements, chronological dossier records and persistent recurring-reminder definitions.
+Puppy Tracker separates profile information, specialised measurements, chronological dossier records and persistent scheduling definitions.
 
 ```text
 Puppy Tracker
@@ -56,8 +56,10 @@ Puppy Tracker
 │                   ├── profile_note
 │                   ├── records[]
 │                   └── measurements[]
-└── recurring reminder store
-    └── reminders[]
+├── recurring reminder store
+│   └── reminders[]
+└── age-based care program store
+    └── programs[]
 ```
 
 Mother dogs are persistent owners rather than duplicated litter text. This allows the same mother profile and dossier to span multiple litters while still allowing records and exports to be filtered by litter context.
@@ -98,6 +100,21 @@ Interval:    240 minutes
 
 Logging a new temperature record for Luna completes the current occurrence and moves the next due time four hours forward.
 
+## Age-based litter care programs
+
+Age-based care programs cover actions whose schedule is anchored to each puppy's age rather than to the previous completion time. They are deliberately separate from recurring reminders because a late or missed action must not shift later age-based occurrences.
+
+Programs are configured per litter and support:
+
+- **Once** — one occurrence at a specific puppy age, for example deworming at day 35.
+- **Range** — repeated occurrences between a start and end age with a configurable day interval, for example ENS on days 3–17 or ESI on days 5–17.
+
+The backend derives a deterministic occurrence for every active puppy and scheduled age day from the puppy's `birth_time`. Each occurrence has its own identity, so completing ENS day 7 for one puppy cannot complete another puppy or another age day. Missed or late occurrences never move the remaining calendar.
+
+Today and Attention show open care occurrences as upcoming, due today or overdue. Selecting an occurrence allows it to be recorded as **completed** or **missed**, with optional structured result, score and note fields according to the program configuration. The result is stored as a normal puppy dossier record; occurrence state is not a second results database.
+
+Care notifications use the shared Puppy Tracker notification coordinator and `notify.*` delivery path. Only open due-today/overdue occurrences are actionable, delivery respects both the global notification setting and the program notification setting, and related puppy actions are grouped to avoid one push per puppy.
+
 ## Notifications and production testing
 
 Recurring reminders become `due_soon` during the final hour before their deadline and `overdue` after it. The Attention card can show these states independently of notification delivery.
@@ -136,14 +153,15 @@ Puppy Tracker automatically registers its frontend modules. A full browser refre
 | Weighing Station | `custom:puppy-tracker-card` | Register weights and weighing sessions |
 | Overview | `custom:puppy-tracker-overview-card` | Weight/growth overview and charts |
 | Summary | `custom:puppy-tracker-summary-card` | Compact litter summary |
-| Attention | `custom:puppy-tracker-attention-card` | Weight, care and recurring-reminder attention |
+| Attention | `custom:puppy-tracker-attention-card` | Weight, recurring-reminder and age-based care attention |
 | Litter | `custom:puppy-tracker-litter-card` | Puppy/litter overview |
-| Report | `custom:puppy-tracker-report-card` | Reports and CSV/JSON/PDF export, including mother dossier export |
+| Report | `custom:puppy-tracker-report-card` | Reports and CSV/JSON/PDF export, including care-program results |
 | Dossier | `custom:puppy-tracker-dossier-card` | Litter, mother and puppy dossier records |
 | Quick Log | `custom:puppy-tracker-quick-log-card` | Fast litter/mother/puppy care logging |
 | Bulk Dossier | `custom:puppy-tracker-bulk-dossier-card` | Add one event to multiple puppies |
 | Timeline | `custom:puppy-tracker-timeline-card` | Combined weight + dossier chronology |
 | Recurring Reminders | `custom:puppy-tracker-recurring-reminder-card` | Create and manage generic recurring care rules |
+| Care Programs | `custom:puppy-tracker-care-program-card` | Manage age-based litter care programs such as ENS, ESI and age-specific care |
 
 ### Recurring reminder card example
 
@@ -161,6 +179,8 @@ The card lets you select the whole litter, the linked mother dog or an active pu
 
 **Timeline** is a derived view over authoritative weight and dossier data. It can show litter, mother and puppy dossier history plus effective puppy weight measurements, with filtering and compact/collapsible presentation.
 
+**Today and Attention** consume backend-derived care occurrence state. Open age-based care actions can be completed or marked missed from these surfaces, with configured result/score/note fields stored in the puppy dossier.
+
 **Mother scope** is first-class and reusable across litters. Mother records can be logged/viewed through Dossier, Quick Log and Timeline; mother actions can appear on Attention; mother JSON dossier export is available through Report & export; and a mother receives a Home Assistant device.
 
 ## Monitoring
@@ -171,7 +191,7 @@ Weight monitoring can flag no measurement, overdue weighing, excessive first-day
 
 - **CSV** is intended for analysis of effective weight measurements.
 - **JSON** is the authoritative technical backup/transfer format.
-- **PDF** is a user-facing report generated by the backend.
+- **PDF** is a user-facing report generated by the backend and includes structured age-based care results for each puppy within the selected report period.
 
 Data management validates imports before writing, provides dry-run previews and remaps identifiers for partial imports. See [`docs/backup-restore.md`](docs/backup-restore.md) for the detailed procedure.
 
@@ -183,6 +203,10 @@ Important modules now include:
 custom_components/puppy_tracker/
 ├── api.py
 ├── care_reminders.py
+├── care_programs.py
+├── care_occurrences.py
+├── care_results.py
+├── care_program_api.py
 ├── notification_delivery.py
 ├── notification_settings_flow.py
 ├── recurring_reminders.py
@@ -200,7 +224,9 @@ custom_components/puppy_tracker/
     ├── puppy-tracker-timeline-card.js
     ├── puppy-tracker-attention-card.js
     ├── puppy-tracker-report-card.js
-    └── puppy-tracker-recurring-reminder-card.js
+    ├── puppy-tracker-recurring-reminder-card.js
+    ├── puppy-tracker-care-program-card.js
+    └── puppy-tracker-care-surfaces.js
 ```
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for architectural contracts and [`tests/README.md`](tests/README.md) for regression testing.
@@ -215,11 +241,11 @@ python -m pip install -r requirements_test.txt
 pytest
 ```
 
-CI additionally covers Home Assistant/HACS validation and frontend regression checks. Manual release testing should include a real HACS upgrade, affected cards, mother resolution, recurring-reminder scheduling/completion, notification-off production testing, explicit test-notification delivery and restart persistence.
+CI additionally covers Home Assistant/HACS validation and frontend regression checks. Manual release testing should include a real HACS upgrade, affected cards, mother resolution, recurring-reminder scheduling/completion, age-based care program creation/completion, notification delivery, care-result PDF output and restart persistence.
 
 ## Roadmap to 1.0
 
-The weight, dossier, mother-scope, recurring-care and centralized notification foundations are now in place. Remaining areas include richer treatment/medication workflows, expanded test and vet workflows, deeper analytics, improved reporting, broader automation/calendar integration and further UX refinement.
+The weight, dossier, mother-scope, recurring-care, age-based care-program and centralized notification foundations are now in place. Remaining areas include richer treatment/medication workflows, expanded test and vet workflows, deeper analytics, improved reporting, broader automation/calendar integration and further UX refinement.
 
 After a stable **1.0.0** release, the project intends to move to date-based CalVer releases (`YYYY.MM.DD`, with an optional revision suffix for multiple releases on the same day).
 
