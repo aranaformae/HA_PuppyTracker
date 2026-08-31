@@ -115,6 +115,8 @@ function statusExplanation(puppy) {
 
 function enhanceRow(row, puppy) {
   const s = puppy?.summary || {};
+  const measurements = activeMeasurements(puppy);
+  const hasComparison = measurements.length >= 2;
   const avg = averageGrowth(puppy);
   const birthWeight = finite(puppy?.birth_weight);
   const currentWeight = finite(s.current_weight);
@@ -127,8 +129,13 @@ function enhanceRow(row, puppy) {
   if (growth) {
     const main = growth.querySelector("b");
     const small = growth.querySelector("small");
-    if (main) main.textContent = percent(s.growth_24h_percent);
-    if (small) small.textContent = `${grams(s.growth_24h_grams)} · gem. ${percent(avg.percentPerDay)}/dag`;
+    if (!hasComparison) {
+      if (main) main.textContent = "—";
+      if (small) small.textContent = "Nog geen vergelijkingsbasis";
+    } else {
+      if (main) main.textContent = percent(s.growth_24h_percent);
+      if (small) small.textContent = `${grams(s.growth_24h_grams)} · gem. ${percent(avg.percentPerDay)}/dag`;
+    }
   }
 
   const total = row.querySelector(".total-growth");
@@ -182,17 +189,31 @@ function statCell(labelText, valueText) {
   return cell;
 }
 
+function setDetailValue(detail, labelText, valueText) {
+  for (const cell of detail.children) {
+    const label = cell.querySelector?.(":scope > span");
+    const value = cell.querySelector?.(":scope > b");
+    if (label?.textContent === labelText && value) {
+      value.textContent = valueText;
+      return;
+    }
+  }
+}
+
 function enhanceDetail(card, puppy) {
   const detail = card?.shadowRoot?.querySelector(".detail");
   if (!detail || detail.querySelector(".puppy-data-insights")) return;
 
   const s = puppy?.summary || {};
   const measurements = activeMeasurements(puppy);
+  const hasComparison = measurements.length >= 2;
   const weights = measurements.map((item) => finite(item.weight)).filter((item) => item !== null);
   const birthWeight = finite(puppy?.birth_weight);
   const currentWeight = finite(s.current_weight);
   const totalGrowthGrams = birthWeight !== null && currentWeight !== null ? currentWeight - birthWeight : null;
   const totalGrowthPercent = finite(s.growth_birth_percent);
+
+  if (!hasComparison) setDetailValue(detail, "Vorige meting", "—");
 
   const section = document.createElement("div");
   section.className = "puppy-data-insights";
@@ -204,10 +225,15 @@ function enhanceDetail(card, puppy) {
   section.style.paddingTop = "10px";
   section.style.borderTop = "1px solid var(--divider-color)";
 
+  if (hasComparison) {
+    section.append(
+      statCell("24u groei", `${grams(s.growth_24h_grams)} · ${percent(s.growth_24h_percent)}`),
+      statCell("Laagste gewicht", `${Math.min(...weights).toLocaleString("nl-NL")} g`),
+      statCell("Hoogste gewicht", `${Math.max(...weights).toLocaleString("nl-NL")} g`),
+    );
+  }
+
   section.append(
-    statCell("24u groei", `${grams(s.growth_24h_grams)} · ${percent(s.growth_24h_percent)}`),
-    statCell("Laagste gewicht", weights.length ? `${Math.min(...weights).toLocaleString("nl-NL")} g` : "—"),
-    statCell("Hoogste gewicht", weights.length ? `${Math.max(...weights).toLocaleString("nl-NL")} g` : "—"),
     statCell("Geboren", localDateTime(puppy?.birth_time)),
     statCell("Laatste weging", localDateTime(s.last_weighed)),
   );
@@ -219,22 +245,29 @@ function enhanceDetail(card, puppy) {
   const progressLabel = document.createElement("span");
   progressLabel.textContent = "Gewichtsontwikkeling sinds geboorte";
   const progressText = document.createElement("b");
-  progressText.textContent = `${birthWeight !== null ? `${birthWeight.toLocaleString("nl-NL")} g` : "—"} → ${currentWeight !== null ? `${currentWeight.toLocaleString("nl-NL")} g` : "—"} · ${grams(totalGrowthGrams)} · ${percent(totalGrowthPercent)}`;
+  progressText.textContent = hasComparison
+    ? `${birthWeight !== null ? `${birthWeight.toLocaleString("nl-NL")} g` : "—"} → ${currentWeight !== null ? `${currentWeight.toLocaleString("nl-NL")} g` : "—"} · ${grams(totalGrowthGrams)} · ${percent(totalGrowthPercent)}`
+    : "Nog geen ontwikkeling beschikbaar";
   progressText.style.whiteSpace = "normal";
   progressText.style.overflow = "visible";
-  const track = document.createElement("div");
-  track.style.height = "6px";
-  track.style.marginTop = "6px";
-  track.style.borderRadius = "999px";
-  track.style.background = "var(--divider-color)";
-  track.style.overflow = "hidden";
-  const fill = document.createElement("div");
-  fill.style.height = "100%";
-  fill.style.width = `${Math.max(0, Math.min(100, totalGrowthPercent || 0))}%`;
-  fill.style.background = "var(--primary-color)";
-  fill.style.borderRadius = "inherit";
-  track.append(fill);
-  progress.append(progressLabel, progressText, track);
+  progress.append(progressLabel, progressText);
+
+  if (hasComparison) {
+    const track = document.createElement("div");
+    track.style.height = "6px";
+    track.style.marginTop = "6px";
+    track.style.borderRadius = "999px";
+    track.style.background = "var(--divider-color)";
+    track.style.overflow = "hidden";
+    const fill = document.createElement("div");
+    fill.style.height = "100%";
+    fill.style.width = `${Math.max(0, Math.min(100, totalGrowthPercent || 0))}%`;
+    fill.style.background = "var(--primary-color)";
+    fill.style.borderRadius = "inherit";
+    track.append(fill);
+    progress.append(track);
+  }
+
   section.append(progress);
   detail.append(section);
 
