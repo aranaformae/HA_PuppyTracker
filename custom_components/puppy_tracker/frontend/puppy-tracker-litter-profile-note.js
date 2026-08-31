@@ -92,6 +92,17 @@ function averageGrowth(puppy) {
   };
 }
 
+function isFirstDay(summary) {
+  return ["first_24h", "first_day_excess_weight_loss"].includes(String(summary?.status_code || ""));
+}
+
+function changePercent(currentWeight, previousWeight) {
+  const current = finite(currentWeight);
+  const previous = finite(previousWeight);
+  if (current === null || previous === null || previous <= 0) return null;
+  return ((current - previous) / previous) * 100;
+}
+
 function statusExplanation(puppy) {
   const s = puppy?.summary || {};
   if (s.status_code === "weigh_due" && finite(s.hours_since_weighing) !== null) {
@@ -117,6 +128,7 @@ function enhanceRow(row, puppy) {
   const s = puppy?.summary || {};
   const measurements = activeMeasurements(puppy);
   const hasComparison = measurements.length >= 2;
+  const firstDay = isFirstDay(s);
   const avg = averageGrowth(puppy);
   const birthWeight = finite(puppy?.birth_weight);
   const currentWeight = finite(s.current_weight);
@@ -129,7 +141,10 @@ function enhanceRow(row, puppy) {
   if (growth) {
     const main = growth.querySelector("b");
     const small = growth.querySelector("small");
-    if (!hasComparison) {
+    if (firstDay) {
+      if (main) main.textContent = percent(s.growth_birth_percent);
+      if (small) small.textContent = `${grams(totalGrowthGrams)} · sinds geboorte`;
+    } else if (!hasComparison) {
       if (main) main.textContent = "—";
       if (small) small.textContent = "Nog geen vergelijkingsbasis";
     } else {
@@ -207,11 +222,13 @@ function enhanceDetail(card, puppy) {
   const s = puppy?.summary || {};
   const measurements = activeMeasurements(puppy);
   const hasComparison = measurements.length >= 2;
+  const firstDay = isFirstDay(s);
   const weights = measurements.map((item) => finite(item.weight)).filter((item) => item !== null);
   const birthWeight = finite(puppy?.birth_weight);
   const currentWeight = finite(s.current_weight);
   const totalGrowthGrams = birthWeight !== null && currentWeight !== null ? currentWeight - birthWeight : null;
   const totalGrowthPercent = finite(s.growth_birth_percent);
+  const previousGrowthPercent = changePercent(currentWeight, s.previous_weight);
 
   if (!hasComparison) setDetailValue(detail, "Vorige meting", "—");
 
@@ -225,7 +242,18 @@ function enhanceDetail(card, puppy) {
   section.style.paddingTop = "10px";
   section.style.borderTop = "1px solid var(--divider-color)";
 
-  if (hasComparison) {
+  if (firstDay) {
+    section.append(
+      statCell("Sinds geboorte", `${grams(totalGrowthGrams)} · ${percent(totalGrowthPercent)}`),
+    );
+    if (hasComparison) {
+      section.append(
+        statCell("Sinds vorige meting", `${grams(s.change_grams)} · ${percent(previousGrowthPercent)}`),
+        statCell("Laagste gewicht", `${Math.min(...weights).toLocaleString("nl-NL")} g`),
+        statCell("Hoogste gewicht", `${Math.max(...weights).toLocaleString("nl-NL")} g`),
+      );
+    }
+  } else if (hasComparison) {
     section.append(
       statCell("24u groei", `${grams(s.growth_24h_grams)} · ${percent(s.growth_24h_percent)}`),
       statCell("Laagste gewicht", `${Math.min(...weights).toLocaleString("nl-NL")} g`),
