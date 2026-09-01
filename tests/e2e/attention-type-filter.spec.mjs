@@ -3,16 +3,17 @@ import { expect, test } from "@playwright/test";
 async function openFixture(page) {
   await page.goto("/tests/e2e/cards.html");
   await page.waitForFunction(() => window.__puppyTrackerReady === true);
+  expect(await page.evaluate(() => window.__puppyTrackerModuleErrors)).toEqual([]);
 }
 
-test("Attention type chips show exactly the selected alert types", async ({ page }) => {
+test("Attention chips hide deselected alert types without losing acknowledgement actions", async ({ page }) => {
   await openFixture(page);
 
-  const result = await page.evaluate(() => {
+  await page.evaluate(() => {
     const card = document.createElement("puppy-tracker-attention-card");
     card._hass = {
-      language: "en",
-      locale: { language: "en" },
+      language: "nl",
+      locale: { language: "nl" },
       callWS: async () => ({}),
     };
     card._selectedLitterId = "litter-1";
@@ -27,89 +28,93 @@ test("Attention type chips show exactly the selected alert types", async ({ page
         name: "Blue",
         active: true,
         summary: {
-          needs_attention: false,
+          needs_attention: true,
+          status_code: "growth_low",
+          status: "Aandacht",
+          latest_measurement_id: "m-1",
           dossier_actions: {
-            actions: [
-              {
-                id: "record-vax:next_due_date",
-                due_soon: true,
-                record_type: "vaccination",
-                due_date: "2026-09-01",
-                status: "due_today",
-                days_until_due: 0,
-              },
-              {
-                id: "record-worm:next_due_date",
-                due_soon: true,
-                record_type: "deworming",
-                due_date: "2026-09-01",
-                status: "due_today",
-                days_until_due: 0,
-              },
-              {
-                id: "record-med:next_due_date",
-                due_soon: true,
-                record_type: "medication",
-                due_date: "2026-09-01",
-                status: "due_today",
-                days_until_due: 0,
-              },
-            ],
+            actions: [{
+              id: "record-vax:next_due_date",
+              due_soon: true,
+              record_type: "vaccination",
+              due_date: "2026-09-01",
+              status: "due_today",
+              days_until_due: 0,
+            }],
           },
         },
       }],
     };
+    card.__careOccurrences = [{
+      id: "ens:pup-1:3",
+      program_id: "ens",
+      litter_id: "litter-1",
+      puppy_id: "pup-1",
+      puppy_name: "Blue",
+      title: "ENS",
+      record_type: "test",
+      age_days: 3,
+      status: "due_today",
+      days_until_due: 0,
+      result_fields: [],
+    }];
     card.__attentionAcknowledgements = {};
-    card.setConfig({ title: "Attention", show_litter_selector: false });
+    card.setConfig({ title: "Aandacht", show_litter_selector: false });
     document.querySelector("#cards").appendChild(card);
     card._render();
-
-    const snapshot = () => ({
-      visible: Array.from(card.shadowRoot.querySelectorAll(".list > .row:not([hidden])"))
-        .map((row) => row.dataset.attentionType)
-        .sort(),
-      active: Array.from(card.shadowRoot.querySelectorAll("[data-attention-filter-type].active"))
-        .map((button) => button.dataset.attentionFilterType)
-        .sort(),
-    });
-
-    const initial = snapshot();
-
-    card.shadowRoot.querySelector('[data-attention-filter-type="deworming"]')?.click();
-    const withoutDeworming = snapshot();
-
-    card.shadowRoot.querySelector('[data-attention-filter-type="vaccination"]')?.click();
-    const medicationOnly = snapshot();
-
-    card.shadowRoot.querySelector('[data-attention-filter-type="medication"]')?.click();
-    const lastTypeCannotBeDeselected = snapshot();
-
-    card.shadowRoot.querySelector('[data-attention-filter-type="__all__"]')?.click();
-    const restoredAll = snapshot();
-
-    return {
-      initial,
-      withoutDeworming,
-      medicationOnly,
-      lastTypeCannotBeDeselected,
-      restoredAll,
-      hasLegacySelect: Boolean(card.shadowRoot.querySelector("#attention-type-filter")),
-    };
   });
 
-  expect(result.initial.visible).toEqual(["deworming", "medication", "vaccination"]);
-  expect(result.initial.active).toEqual(["__all__", "deworming", "medication", "vaccination"]);
+  const card = page.locator("puppy-tracker-attention-card");
+  const all = card.locator('[data-attention-filter-type="__all__"]');
+  const weight = card.locator('[data-attention-filter-type="weight"]');
+  const vaccination = card.locator('[data-attention-filter-type="vaccination"]');
+  const testType = card.locator('[data-attention-filter-type="test"]');
+  const weightRow = card.locator('[data-attention-type="weight"]');
+  const vaccinationRow = card.locator('[data-attention-type="vaccination"]');
+  const testRow = card.locator('[data-attention-type="test"]');
 
-  expect(result.withoutDeworming.visible).toEqual(["medication", "vaccination"]);
-  expect(result.withoutDeworming.active).toEqual(["medication", "vaccination"]);
+  await expect(all).toHaveClass(/active/);
+  await expect(weight).toHaveClass(/active/);
+  await expect(vaccination).toHaveClass(/active/);
+  await expect(testType).toHaveClass(/active/);
+  await expect(weightRow).toBeVisible();
+  await expect(vaccinationRow).toBeVisible();
+  await expect(testRow).toBeVisible();
+  await expect(weightRow.locator(":scope > .attention-ack-button")).toBeVisible();
+  await expect(vaccinationRow.locator(":scope > .attention-ack-button")).toBeVisible();
+  await expect(testRow.locator(":scope > .attention-ack-button")).toBeVisible();
 
-  expect(result.medicationOnly.visible).toEqual(["medication"]);
-  expect(result.medicationOnly.active).toEqual(["medication"]);
+  await weight.click();
+  await expect(weight).not.toHaveClass(/active/);
+  await expect(weightRow).toBeHidden();
+  await expect(vaccinationRow).toBeVisible();
+  await expect(testRow).toBeVisible();
 
-  expect(result.lastTypeCannotBeDeselected.visible).toEqual(["medication"]);
-  expect(result.lastTypeCannotBeDeselected.active).toEqual(["medication"]);
+  await testType.click();
+  await expect(testType).not.toHaveClass(/active/);
+  await expect(weightRow).toBeHidden();
+  await expect(testRow).toBeHidden();
+  await expect(vaccinationRow).toBeVisible();
+  await expect(vaccinationRow.locator(":scope > .attention-ack-button")).toBeVisible();
 
-  expect(result.restoredAll.visible).toEqual(["deworming", "medication", "vaccination"]);
-  expect(result.restoredAll.active).toEqual(["__all__", "deworming", "medication", "vaccination"]);
-  expect(result.hasLegacySelect).toBe(false);
+  // The last selected type cannot be disabled, matching Timeline behavior.
+  await vaccination.click();
+  await expect(vaccination).toHaveClass(/active/);
+  await expect(vaccinationRow).toBeVisible();
+  await expect(vaccinationRow.locator(":scope > .attention-ack-button")).toBeVisible();
+
+  await all.click();
+  await expect(all).toHaveClass(/active/);
+  await expect(weight).toHaveClass(/active/);
+  await expect(vaccination).toHaveClass(/active/);
+  await expect(testType).toHaveClass(/active/);
+  await expect(weightRow).toBeVisible();
+  await expect(vaccinationRow).toBeVisible();
+  await expect(testRow).toBeVisible();
+  await expect(testRow.locator(":scope > .attention-ack-button")).toBeVisible();
+
+  await testType.click();
+  await expect(testRow).toBeHidden();
+  await expect(vaccinationRow.locator(":scope > .attention-ack-button")).toBeVisible();
+  await expect(card.locator("#attention-type-filter")).toHaveCount(0);
 });
