@@ -76,7 +76,7 @@ def _normalize_result_fields(value: Any) -> list[str]:
 
 def _normalize_revision(value: Any) -> int:
     try:
-        revision = int(value or 1)
+        revision = 1 if value in (None, "") else int(value)
     except (TypeError, ValueError) as err:
         raise ValueError("revision must be a positive integer") from err
     if revision < 1:
