@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
+from .backup_scheduler_integrity import validate_scheduler_references
 from .care_programs import normalize_care_program_backup_data
 from .care_reminders import CARE_REMINDER_CATEGORIES, MAX_CARE_REMINDER_LEAD_DAYS
 from .const import DOMAIN
@@ -210,6 +211,20 @@ def _validate_scheduler_backup(schedulers: Any) -> dict[str, Any]:
     }
 
 
+def _validate_scheduler_references(
+    data: dict[str, Any],
+    schedulers: dict[str, Any],
+) -> None:
+    """Translate cross-store ownership failures into backup validation errors."""
+    try:
+        validate_scheduler_references(data, schedulers)
+    except ValueError as err:
+        raise BackupValidationError(
+            "invalid_backup",
+            f"Full backup scheduler references are invalid: {err}",
+        ) from err
+
+
 def _scheduler_backup_has_entries(schedulers: dict[str, Any]) -> bool:
     """Return whether a scheduler envelope contains definitions or quarantine."""
     care_programs = schedulers.get("care_programs", {})
@@ -263,7 +278,9 @@ def build_export_document(
         document["care_reminders"] = _validate_care_reminder_settings(
             care_reminder_settings
         )
-        document["schedulers"] = _validate_scheduler_backup(scheduler_data)
+        normalized_schedulers = _validate_scheduler_backup(scheduler_data)
+        _validate_scheduler_references(data, normalized_schedulers)
+        document["schedulers"] = normalized_schedulers
         return document
 
     if scheduler_data is not None:
@@ -864,6 +881,10 @@ def prepare_import(
         )
 
     report = _validate_candidate(candidate)
+    if scope == "full" and mode == "replace_all":
+        schedulers = result.get("schedulers")
+        if isinstance(schedulers, dict):
+            _validate_scheduler_references(candidate, schedulers)
     result["integrity_warnings"] = int(report.get("unresolved_warnings", 0))
     result["integrity_critical"] = int(report.get("unresolved_critical", 0))
 
