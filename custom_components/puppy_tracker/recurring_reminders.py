@@ -143,6 +143,40 @@ def normalize_reminder(
     }
 
 
+def normalize_recurring_reminder_backup_data(data: Any) -> dict[str, Any]:
+    """Validate one portable recurring-reminder store snapshot.
+
+    Active reminders must be readable by this version. Quarantined definitions
+    remain opaque and are copied verbatim so backup/restore never destroys a
+    future definition simply because the current runtime cannot parse it.
+    """
+    if not isinstance(data, dict):
+        raise ValueError("Recurring reminder backup data must be an object")
+    reminders = data.get("reminders")
+    if not isinstance(reminders, dict):
+        raise ValueError("Recurring reminder backup reminders must be an object")
+    quarantined = data.get("quarantined_reminders", {})
+    if not isinstance(quarantined, dict):
+        raise ValueError("Recurring reminder backup quarantine must be an object")
+
+    normalized: dict[str, dict[str, Any]] = {}
+    for key, value in reminders.items():
+        reminder_id = str(key)
+        if not reminder_id or not isinstance(value, dict):
+            raise ValueError("Recurring reminder backup contains an invalid reminder")
+        normalized[reminder_id] = normalize_reminder(value, reminder_id=reminder_id)
+
+    normalized_quarantine = {str(key): deepcopy(value) for key, value in quarantined.items()}
+    overlap = set(normalized) & set(normalized_quarantine)
+    if overlap:
+        raise ValueError("Recurring reminder backup contains duplicate active/quarantined identifiers")
+
+    result: dict[str, Any] = {"reminders": normalized}
+    if normalized_quarantine:
+        result["quarantined_reminders"] = normalized_quarantine
+    return result
+
+
 def reminder_matches_record(reminder: dict[str, Any], record: dict[str, Any]) -> bool:
     """Return whether a dossier record completes a reminder."""
     if not reminder.get("enabled", True) or record.get("deleted"):
@@ -269,6 +303,26 @@ class RecurringReminderStore:
         """Return the number of preserved reminders that could not be normalized."""
         value = self._data.get("quarantined_reminders", {})
         return len(value) if isinstance(value, dict) else 0
+
+    def get_backup_data(self) -> dict[str, Any]:
+        """Return the complete portable store snapshot, including quarantine."""
+        return deepcopy(self._data)
+
+    async def async_restore_backup_data(self, data: dict[str, Any]) -> None:
+        """Atomically replace the portable store snapshot."""
+        restored = normalize_recurring_reminder_backup_data(data)
+        async with self._lock:
+            previous = deepcopy(self._data)
+            self._data = restored
+            try:
+                await self._store.async_save(self._data)
+            except Exception:
+                self._data = previous
+                try:
+                    await self._store.async_save(self._data)
+                except Exception:
+                    pass
+                raise
 
     async def async_create(self, data: dict[str, Any]) -> str:
         item = normalize_reminder(data)
