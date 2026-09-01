@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from zoneinfo import ZoneInfo
+
+from homeassistant.util import dt as dt_util
+
 from custom_components.puppy_tracker.care_occurrences import (
     care_program_age_days,
     derive_litter_care_occurrences,
@@ -17,7 +21,13 @@ def _puppy(puppy_id: str, name: str, birth_time: str = "2026-09-02T06:30:00+02:0
     }
 
 
-def test_ens_range_creates_one_fixed_occurrence_per_age_day() -> None:
+def _use_amsterdam_local_time(monkeypatch) -> None:
+    zone = ZoneInfo("Europe/Amsterdam")
+    monkeypatch.setattr(dt_util, "as_local", lambda value: value.astimezone(zone))
+
+
+def test_ens_range_creates_one_fixed_occurrence_per_age_day(monkeypatch) -> None:
+    _use_amsterdam_local_time(monkeypatch)
     program = normalize_care_program({
         "id": "ens",
         "litter_id": "litter-1",
@@ -39,7 +49,30 @@ def test_ens_range_creates_one_fixed_occurrence_per_age_day() -> None:
     assert occurrences[-1]["id"] == "ens:pup-1:17"
     assert occurrences[0]["scheduled_at"] == "2026-09-05T09:00:00+02:00"
     assert occurrences[-1]["scheduled_at"] == "2026-09-19T09:00:00+02:00"
+    assert occurrences[0]["time_of_day"] == "09:00"
     assert occurrences[0]["result_fields"] == ["result", "score", "note"]
+
+
+def test_configured_clock_time_uses_ha_local_timezone_and_target_dst(monkeypatch) -> None:
+    _use_amsterdam_local_time(monkeypatch)
+    program = normalize_care_program({
+        "id": "care",
+        "litter_id": "litter-1",
+        "title": "Care",
+        "schedule_type": "once",
+        "start_age_days": 3,
+        "time_of_day": "09:00",
+    })
+
+    # Stored birth timestamps are canonical UTC. The target date crosses the
+    # 2026 Europe/Amsterdam DST transition, so 09:00 must become +01:00.
+    occurrence = derive_puppy_care_occurrences(
+        program,
+        _puppy("pup-1", "Rood", "2026-10-23T06:30:00+00:00"),
+    )[0]
+
+    assert occurrence["scheduled_at"] == "2026-10-26T09:00:00+01:00"
+    assert occurrence["scheduled_date"] == "2026-10-26"
 
 
 def test_esi_schedule_is_independent_from_completion_timing() -> None:
