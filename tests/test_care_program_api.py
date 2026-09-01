@@ -2,7 +2,29 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from custom_components.puppy_tracker.care_program_api import _program_has_active_results
+
 ROOT = Path(__file__).resolve().parents[1]
+
+
+class _ResultStorage:
+    def __init__(self, records_by_puppy: dict[str, list[dict]]) -> None:
+        self.records_by_puppy = records_by_puppy
+
+    def get_litter(self, litter_id: str):
+        if litter_id != "litter-1":
+            return None
+        return {
+            "id": litter_id,
+            "puppies": {
+                "pup-1": {"id": "pup-1", "active": True},
+                "pup-2": {"id": "pup-2", "active": False},
+            },
+        }
+
+    def get_records(self, litter_id: str, puppy_id: str, *, newest_first: bool = False):
+        assert litter_id == "litter-1"
+        return list(self.records_by_puppy.get(puppy_id, []))
 
 
 def test_care_program_store_is_loaded_into_runtime_before_api_registration() -> None:
@@ -58,6 +80,56 @@ def test_occurrence_api_reports_missing_birth_times_without_guessing() -> None:
     assert 'return "missing_birth_time"' in source
     assert '"reason": reason' in source
     assert "except ValueError as err" in source
+
+
+def test_active_result_locks_program_even_for_inactive_puppy() -> None:
+    storage = _ResultStorage(
+        {
+            "pup-2": [
+                {
+                    "id": "record-1",
+                    "deleted": False,
+                    "data": {"care_program_id": "program-1"},
+                }
+            ]
+        }
+    )
+    assert _program_has_active_results(
+        storage,
+        {"id": "program-1", "litter_id": "litter-1"},
+    )
+
+
+def test_deleted_or_other_program_results_do_not_lock_program() -> None:
+    storage = _ResultStorage(
+        {
+            "pup-1": [
+                {
+                    "id": "deleted",
+                    "deleted": True,
+                    "data": {"care_program_id": "program-1"},
+                },
+                {
+                    "id": "other",
+                    "deleted": False,
+                    "data": {"care_program_id": "program-2"},
+                },
+            ]
+        }
+    )
+    assert not _program_has_active_results(
+        storage,
+        {"id": "program-1", "litter_id": "litter-1"},
+    )
+
+
+def test_care_program_update_locks_identity_after_results() -> None:
+    source = (ROOT / "custom_components" / "puppy_tracker" / "care_program_api.py").read_text(encoding="utf-8")
+
+    assert "care_program_identity_changed(current, normalized_candidate)" in source
+    assert "_program_has_active_results(storage, current)" in source
+    assert '"care_program_locked"' in source
+    assert "create a new care program instead" in source
 
 
 def test_care_program_api_preserves_existing_owner_and_reminder_contracts() -> None:
