@@ -47,10 +47,30 @@ def test_ens_range_creates_one_fixed_occurrence_per_age_day(monkeypatch) -> None
     assert len(occurrences) == 15
     assert occurrences[0]["id"] == "ens:pup-1:3"
     assert occurrences[-1]["id"] == "ens:pup-1:17"
+    assert occurrences[0]["program_revision"] == 1
     assert occurrences[0]["scheduled_at"] == "2026-09-05T09:00:00+02:00"
     assert occurrences[-1]["scheduled_at"] == "2026-09-19T09:00:00+02:00"
     assert occurrences[0]["time_of_day"] == "09:00"
     assert occurrences[0]["result_fields"] == ["result", "score", "note"]
+
+
+def test_revision_one_keeps_v017_occurrence_ids_and_later_revisions_are_isolated() -> None:
+    base = normalize_care_program({
+        "id": "ens",
+        "revision": 1,
+        "litter_id": "litter-1",
+        "title": "ENS",
+        "schedule_type": "once",
+        "start_age_days": 7,
+    })
+    revised = {**base, "revision": 2, "title": "ENS revised"}
+
+    old = derive_puppy_care_occurrences(base, _puppy("pup-1", "Rood"))[0]
+    new = derive_puppy_care_occurrences(revised, _puppy("pup-1", "Rood"))[0]
+
+    assert old["id"] == "ens:pup-1:7"
+    assert new["id"] == "ens:r2:pup-1:7"
+    assert old["id"] != new["id"]
 
 
 def test_configured_clock_time_uses_ha_local_timezone_and_target_dst(monkeypatch) -> None:
