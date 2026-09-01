@@ -17,6 +17,13 @@
         gap: 16px;
         padding: 16px;
       }
+
+      /* In Home Assistant ha-card is a rendered block component. In this
+         lightweight fixture it is otherwise an undefined inline custom tag,
+         which gives WebKit incorrect hit-testing for overflowing controls. */
+      ha-card {
+        display: block;
+      }
     </style>
   </head>
   <body>
