@@ -86,6 +86,52 @@ function decorateRows(card) {
   return rows;
 }
 
+function selectedTypesFor(card, types) {
+  const available = Array.isArray(types) ? types : [];
+  const previousAvailable = Array.isArray(card.__attentionAvailableTypes)
+    ? card.__attentionAvailableTypes
+    : [];
+  let selected = card.__attentionTypeFilters instanceof Set
+    ? new Set(card.__attentionTypeFilters)
+    : null;
+
+  if (!selected) {
+    const legacy = String(card.__attentionTypeFilter || "all");
+    selected = legacy !== "all" && available.includes(legacy)
+      ? new Set([legacy])
+      : new Set(available);
+  }
+
+  const previouslyAllSelected = previousAvailable.length > 0
+    && previousAvailable.every((type) => selected.has(type));
+  selected = new Set([...selected].filter((type) => available.includes(type)));
+
+  if (!previousAvailable.length || previouslyAllSelected) {
+    for (const type of available) selected.add(type);
+  }
+  if (!selected.size && available.length) selected = new Set(available);
+
+  card.__attentionTypeFilters = selected;
+  card.__attentionAvailableTypes = [...available];
+  delete card.__attentionTypeFilter;
+  return selected;
+}
+
+function toggleType(card, type, types) {
+  const selected = selectedTypesFor(card, types);
+  if (type === "__all__") {
+    card.__attentionTypeFilters = new Set(types);
+  } else if (selected.has(type)) {
+    if (selected.size > 1) selected.delete(type);
+    card.__attentionTypeFilters = selected;
+  } else {
+    selected.add(type);
+    card.__attentionTypeFilters = selected;
+  }
+  card.__attentionAvailableTypes = [...types];
+  card._render();
+}
+
 async function loadAcknowledgements(card) {
   if (!card?._hass || !card?._selectedLitterId) {
     card.__attentionAcknowledgements = {};
@@ -130,17 +176,16 @@ function renderQol(card) {
   if (!rows.length) return;
   root.querySelector(".all-ok")?.remove();
 
-  const selectedType = card.__attentionTypeFilter || "all";
   const types = [...new Set(rows.map((row) => row.dataset.attentionType).filter(Boolean))]
     .sort((a, b) => typeLabel(card, a).localeCompare(typeLabel(card, b)));
-  if (selectedType !== "all" && !types.includes(selectedType)) card.__attentionTypeFilter = "all";
-  const activeType = card.__attentionTypeFilter || "all";
+  const selectedTypes = selectedTypesFor(card, types);
+  const allSelected = selectedTypes.size === types.length;
 
   const controls = document.createElement("div");
   controls.className = "attention-qol-controls";
   controls.innerHTML = `<style>
-    .attention-qol-controls{display:flex;gap:8px;align-items:center;margin:0 0 10px}.attention-qol-controls label{font-size:.78rem;color:var(--secondary-text-color);font-weight:600}.attention-qol-controls select{min-height:34px;max-width:none;padding:0 9px}.attention-ack-button{display:grid;place-items:center;width:30px;height:30px;border:0;border-radius:9px;background:var(--secondary-background-color);color:var(--secondary-text-color);cursor:pointer}.attention-ack-button:hover{color:var(--primary-color)}.attention-ack-button ha-icon{--mdc-icon-size:18px}.list>.row{grid-template-columns:34px minmax(0,1fr) auto 32px}.attention-acknowledged{margin-top:10px;border-top:1px solid var(--divider-color);padding-top:8px}.attention-acknowledged summary{cursor:pointer;font-size:.85rem;font-weight:600;color:var(--secondary-text-color);padding:5px 2px}.attention-ack-list{display:grid;gap:8px;margin-top:6px}.attention-ack-list .row{grid-template-columns:34px minmax(0,1fr) auto 32px;opacity:.72}.attention-empty-open{font-size:.82rem;color:var(--secondary-text-color);padding:8px 2px}.attention-ack-error{font-size:.8rem;color:var(--error-color);margin:6px 0}@container attention-card (max-width:520px){.list>.row,.attention-ack-list .row{grid-template-columns:34px minmax(0,1fr) 32px}.list>.row>.status,.attention-ack-list .row>.status{display:none}.attention-qol-controls{align-items:flex-end;flex-wrap:wrap}}
-  </style><label>${escapeHtml(t(card, "Type", "Type"))}<select id="attention-type-filter"><option value="all">${escapeHtml(t(card, "Alle types", "All types"))}</option>${types.map((value) => `<option value="${escapeHtml(value)}" ${value === activeType ? "selected" : ""}>${escapeHtml(typeLabel(card, value))}</option>`).join("")}</select></label>`;
+    .attention-qol-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 10px}.attention-filter-label{font-size:.78rem;color:var(--secondary-text-color);font-weight:600}.attention-type-filters{display:flex;flex-wrap:wrap;gap:6px}.attention-type-chip{display:inline-flex;align-items:center;border:1px solid var(--divider-color);border-radius:999px;background:transparent;color:var(--primary-text-color);padding:6px 9px;cursor:pointer;font:inherit;font-size:.82rem}.attention-type-chip.active{background:var(--primary-color);color:var(--text-primary-color,#fff);border-color:var(--primary-color)}.attention-ack-button{display:grid;place-items:center;width:30px;height:30px;border:0;border-radius:9px;background:var(--secondary-background-color);color:var(--secondary-text-color);cursor:pointer}.attention-ack-button:hover{color:var(--primary-color)}.attention-ack-button ha-icon{--mdc-icon-size:18px}.list>.row{grid-template-columns:34px minmax(0,1fr) auto 32px}.attention-acknowledged{margin-top:10px;border-top:1px solid var(--divider-color);padding-top:8px}.attention-acknowledged summary{cursor:pointer;font-size:.85rem;font-weight:600;color:var(--secondary-text-color);padding:5px 2px}.attention-ack-list{display:grid;gap:8px;margin-top:6px}.attention-ack-list .row{grid-template-columns:34px minmax(0,1fr) auto 32px;opacity:.72}.attention-empty-open{font-size:.82rem;color:var(--secondary-text-color);padding:8px 2px}.attention-ack-error{font-size:.8rem;color:var(--error-color);margin:6px 0}@container attention-card (max-width:520px){.list>.row,.attention-ack-list .row{grid-template-columns:34px minmax(0,1fr) 32px}.list>.row>.status,.attention-ack-list .row>.status{display:none}.attention-qol-controls{align-items:flex-start}}
+  </style><span class="attention-filter-label">${escapeHtml(t(card, "Type", "Type"))}</span><div class="attention-type-filters"><button type="button" class="attention-type-chip ${allSelected ? "active" : ""}" data-attention-filter-type="__all__">${escapeHtml(t(card, "Alles", "All"))}</button>${types.map((value) => `<button type="button" class="attention-type-chip ${selectedTypes.has(value) ? "active" : ""}" data-attention-filter-type="${escapeHtml(value)}">${escapeHtml(typeLabel(card, value))}</button>`).join("")}</div>`;
   const top = root.querySelector(".top");
   top?.insertAdjacentElement("afterend", controls);
 
@@ -155,7 +200,7 @@ function renderQol(card) {
   let ackCount = 0;
   const acknowledgements = card.__attentionAcknowledgements || {};
   for (const row of rows) {
-    const matches = activeType === "all" || row.dataset.attentionType === activeType;
+    const matches = selectedTypes.has(row.dataset.attentionType);
     row.hidden = !matches;
     if (!matches) continue;
     const attentionId = row.dataset.attentionId;
@@ -195,8 +240,8 @@ function renderQol(card) {
     const empty = document.createElement("div");
     empty.className = "attention-empty-open";
     empty.textContent = ackCount
-      ? t(card, "Geen onbevestigde meldingen voor dit type.", "No unacknowledged alerts for this type.")
-      : t(card, "Geen meldingen voor dit type.", "No alerts for this type.");
+      ? t(card, "Geen onbevestigde meldingen voor de geselecteerde types.", "No unacknowledged alerts for the selected types.")
+      : t(card, "Geen meldingen voor de geselecteerde types.", "No alerts for the selected types.");
     list?.insertAdjacentElement("afterend", empty);
   }
   if (ackCount) {
@@ -212,9 +257,8 @@ function renderQol(card) {
     controls.insertAdjacentElement("afterend", error);
   }
 
-  controls.querySelector("#attention-type-filter")?.addEventListener("change", (event) => {
-    card.__attentionTypeFilter = event.target.value || "all";
-    card._render();
+  controls.querySelectorAll("[data-attention-filter-type]").forEach((button) => {
+    button.addEventListener("click", () => toggleType(card, button.dataset.attentionFilterType, types));
   });
 }
 
