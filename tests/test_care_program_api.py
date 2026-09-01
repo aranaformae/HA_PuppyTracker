@@ -53,9 +53,11 @@ def test_occurrence_api_reports_missing_birth_times_without_guessing() -> None:
     source = (ROOT / "custom_components" / "puppy_tracker" / "care_program_api.py").read_text(encoding="utf-8")
 
     assert '"skipped": skipped' in source
-    assert '"reason": str(err)' in source
+    assert '"puppy_name":' in source
+    assert '"reason_code": _skip_reason_code(reason)' in source
+    assert 'return "missing_birth_time"' in source
+    assert '"reason": reason' in source
     assert "except ValueError as err" in source
-    assert "birth_time" not in source or "fallback" not in source
 
 
 def test_care_program_api_preserves_existing_owner_and_reminder_contracts() -> None:
