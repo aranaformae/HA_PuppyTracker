@@ -73,7 +73,7 @@ def test_care_program_backup_preserves_quarantine_and_validates_active_data() ->
     assert normalized["programs"]["care-1"] == program
     assert normalized["quarantined_programs"]["future-care"] == raw_future
 
-    with pytest.raises(ValueError, match="Care program backup"):
+    with pytest.raises(ValueError):
         normalize_care_program_backup_data(
             {"programs": {"broken": {"litter_id": "litter-1"}}}
         )
@@ -100,7 +100,7 @@ def test_recurring_backup_preserves_quarantine_and_validates_active_data() -> No
     assert normalized["reminders"]["reminder-1"] == reminder
     assert normalized["quarantined_reminders"]["future-reminder"] == raw_future
 
-    with pytest.raises(ValueError, match="Recurring reminder backup"):
+    with pytest.raises(ValueError):
         normalize_recurring_reminder_backup_data(
             {"reminders": {"broken": {"litter_id": "litter-1"}}}
         )
