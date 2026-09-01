@@ -72,8 +72,13 @@ def care_occurrence_status(
     item["completed_at"] = None
     if days_until < 0:
         item["status"] = "overdue"
-    elif days_until == 0:
-        item["status"] = "due_today"
-    else:
+    elif days_until > 0:
         item["status"] = "upcoming"
+    elif occurrence.get("time_of_day") and current_local < scheduled:
+        # An explicit care clock time is a real due instant. Keep the occurrence
+        # visible as upcoming on Today/Attention, but do not make it actionable
+        # for notifications until that local wall-clock time has arrived.
+        item["status"] = "upcoming"
+    else:
+        item["status"] = "due_today"
     return item
