@@ -48,7 +48,12 @@ async function mountReport(page) {
 
         if (message.type === "puppy_tracker/data") {
           return {
-            litter: { id: "l1", name: "Luna x Dutch", active: true },
+            litter: {
+              id: "l1",
+              name: "Luna x Dutch",
+              mother: "Luna",
+              active: true,
+            },
             puppies: [
               {
                 id: "p1",
@@ -90,15 +95,39 @@ async function mountReport(page) {
   return card;
 }
 
-test("report selection uses the shared all-scope label", async ({ page }) => {
+test("report selection separates aggregate and whole-litter scopes", async ({ page }) => {
+  const card = await mountReport(page);
+  const options = card.locator("#puppy option");
+
+  await expect(options).toHaveText([
+    "All",
+    "Whole litter",
+    "Mother · Luna",
+    "Alice – Red",
+  ]);
+  await expect(card.locator(".field label").nth(1)).toHaveText("Selectie");
+  await expect(card.locator("#puppy")).not.toContainText("Complete litter");
+});
+
+test("whole-litter PDF export keeps the puppy-only litter scope", async ({ page }) => {
   const card = await mountReport(page);
 
-  // The fixture runs in English, so the shared localization layer renders
-  // the source label "Alles" as "All". The important contract is that the
-  // aggregate selection uses the common all-scope wording, not "Compleet nest".
-  await expect(card.locator("#puppy option[value='all']")).toHaveText("All");
-  await expect(card.locator(".field label").nth(1)).toHaveText("Selectie");
-  await expect(card.locator("#puppy")).not.toContainText("Compleet nest");
+  await card.locator("#puppy").selectOption("__litter__");
+  await expect(card.locator("#puppy")).toHaveValue("__litter__");
+
+  const downloadPromise = page.waitForEvent("download");
+  await card.locator("#pdf").click();
+  await downloadPromise;
+
+  const exportCall = await page.evaluate(() =>
+    window.__reportCalls.find(
+      (call) => call.type === "puppy_tracker/export" && call.format === "pdf"
+    )
+  );
+
+  expect(exportCall).toBeTruthy();
+  expect(exportCall.litter_id).toBe("l1");
+  expect(exportCall.puppy_id).toBeUndefined();
 });
 
 for (const [buttonId, format, filename] of [
