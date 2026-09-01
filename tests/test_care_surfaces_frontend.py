@@ -7,8 +7,10 @@ FRONTEND = ROOT / "custom_components" / "puppy_tracker" / "frontend"
 def test_care_surfaces_are_registered_after_base_cards() -> None:
     source = (ROOT / "custom_components" / "puppy_tracker" / "frontend.py").read_text()
     care = source.index('"puppy-tracker-care-surfaces.js"')
+    warning = source.index('"puppy-tracker-care-skipped-warning.js"')
     assert source.index('"puppy-tracker-today-card.js"') < care
     assert source.index('"puppy-tracker-attention-card.js"') < care
+    assert care < warning
 
 
 def test_care_surfaces_use_backend_occurrence_status() -> None:
@@ -50,3 +52,13 @@ def test_care_result_save_refreshes_backend_derived_status() -> None:
     assert record_call < refresh
     assert "data-care-occurrence" in source
     assert "wireCareRows(this);" in source
+
+
+def test_skipped_puppies_are_not_silently_hidden() -> None:
+    source = (FRONTEND / "puppy-tracker-care-skipped-warning.js").read_text()
+    assert 'const TAGS = ["puppy-tracker-today-card", "puppy-tracker-attention-card"]' in source
+    assert "card.__careSkipped" in source
+    assert 'item?.reason_code === "missing_birth_time"' in source
+    assert "geboortetijd ontbreekt" in source
+    assert "birth time is missing" in source
+    assert 'root.querySelector(".all-ok")?.remove()' in source
