@@ -12,6 +12,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
+from .records import validate_record_type
 
 STORE_KEY = f"{DOMAIN}_care_programs"
 STORE_VERSION = 1
@@ -19,6 +20,17 @@ SCHEDULE_TYPES = {"once", "range"}
 RESULT_FIELDS = {"result", "score", "note"}
 DEFAULT_RESULT_FIELDS = ["result", "note"]
 MAX_AGE_DAYS = 3650
+SEMANTIC_FIELDS = (
+    "title",
+    "description",
+    "record_type",
+    "schedule_type",
+    "start_age_days",
+    "end_age_days",
+    "interval_days",
+    "time_of_day",
+    "result_fields",
+)
 
 
 def _normalize_time_of_day(value: Any) -> str | None:
@@ -62,8 +74,21 @@ def _normalize_result_fields(value: Any) -> list[str]:
     return normalized
 
 
+def _normalize_revision(value: Any) -> int:
+    try:
+        revision = int(value or 1)
+    except (TypeError, ValueError) as err:
+        raise ValueError("revision must be a positive integer") from err
+    if revision < 1:
+        raise ValueError("revision must be a positive integer")
+    return revision
+
+
 def normalize_care_program(
-    data: dict[str, Any], *, program_id: str | None = None
+    data: dict[str, Any],
+    *,
+    program_id: str | None = None,
+    updated_at: str | None = None,
 ) -> dict[str, Any]:
     """Validate and normalize one age-based care program."""
     litter_id = str(data.get("litter_id") or "").strip()
@@ -94,13 +119,15 @@ def normalize_care_program(
             raise ValueError("interval_days must be a positive integer")
 
     description = str(data.get("description") or "").strip() or None
-    record_type = str(data.get("record_type") or "note").strip() or "note"
+    record_type = validate_record_type(str(data.get("record_type") or "note").strip() or "note")
     time_of_day = _normalize_time_of_day(data.get("time_of_day"))
     result_fields = _normalize_result_fields(data.get("result_fields"))
+    revision = _normalize_revision(data.get("revision", 1))
     now = dt_util.now().isoformat()
 
     return {
         "id": program_id or str(data.get("id") or uuid4()),
+        "revision": revision,
         "litter_id": litter_id,
         "enabled": bool(data.get("enabled", True)),
         "title": title,
@@ -114,7 +141,7 @@ def normalize_care_program(
         "notifications_enabled": bool(data.get("notifications_enabled", True)),
         "result_fields": result_fields,
         "created_at": str(data.get("created_at") or now),
-        "updated_at": now,
+        "updated_at": str(updated_at or data.get("updated_at") or now),
     }
 
 
@@ -129,17 +156,26 @@ class AgeBasedCareProgramStore:
     async def async_load(self) -> None:
         loaded = await self._store.async_load()
         programs = loaded.get("programs", {}) if isinstance(loaded, dict) else {}
+        quarantined = deepcopy(loaded.get("quarantined_programs", {})) if isinstance(loaded, dict) and isinstance(loaded.get("quarantined_programs"), dict) else {}
         normalized: dict[str, dict[str, Any]] = {}
         if isinstance(programs, dict):
             for key, value in programs.items():
                 if not isinstance(value, dict):
+                    quarantined[str(key)] = deepcopy(value)
                     continue
                 try:
                     item = normalize_care_program(value, program_id=str(key))
                 except ValueError:
+                    # Preserve unreadable/future data instead of silently
+                    # deleting it on the next store save.
+                    quarantined[str(key)] = deepcopy(value)
                     continue
                 normalized[item["id"]] = item
-        self._data = {"programs": normalized}
+                quarantined.pop(item["id"], None)
+        data: dict[str, Any] = {"programs": normalized}
+        if quarantined:
+            data["quarantined_programs"] = quarantined
+        self._data = data
         if loaded != self._data:
             await self._store.async_save(self._data)
 
@@ -155,30 +191,60 @@ class AgeBasedCareProgramStore:
         item = self._data.get("programs", {}).get(program_id)
         return deepcopy(item) if isinstance(item, dict) else None
 
+    def get_quarantined_program_count(self) -> int:
+        """Return the number of preserved programs that could not be normalized."""
+        value = self._data.get("quarantined_programs", {})
+        return len(value) if isinstance(value, dict) else 0
+
     async def async_create(self, data: dict[str, Any]) -> str:
         """Create one age-based care program."""
         item = normalize_care_program(data)
         async with self._lock:
+            previous = deepcopy(self._data)
             self._data.setdefault("programs", {})[item["id"]] = item
-            await self._store.async_save(self._data)
+            try:
+                await self._store.async_save(self._data)
+            except Exception:
+                self._data = previous
+                raise
         return item["id"]
 
     async def async_update(self, program_id: str, data: dict[str, Any]) -> None:
-        """Update one age-based care program."""
+        """Update one age-based care program and revision its semantic identity."""
         current = self.get_program(program_id)
         if current is None:
             raise ValueError("Unknown care program")
+        merged = {**current, **deepcopy(data)}
+        if str(merged.get("litter_id") or "") != str(current.get("litter_id") or ""):
+            raise ValueError("litter_id cannot be changed for an existing care program")
         item = normalize_care_program(
-            {**current, **deepcopy(data)}, program_id=program_id
+            merged,
+            program_id=program_id,
+            updated_at=dt_util.now().isoformat(),
         )
+        if any(current.get(field) != item.get(field) for field in SEMANTIC_FIELDS):
+            item["revision"] = int(current.get("revision") or 1) + 1
+        else:
+            item["revision"] = int(current.get("revision") or 1)
+
         async with self._lock:
+            previous = deepcopy(self._data)
             self._data["programs"][program_id] = item
-            await self._store.async_save(self._data)
+            try:
+                await self._store.async_save(self._data)
+            except Exception:
+                self._data = previous
+                raise
 
     async def async_delete(self, program_id: str) -> None:
         """Delete one age-based care program."""
         async with self._lock:
             if program_id not in self._data.get("programs", {}):
                 raise ValueError("Unknown care program")
+            previous = deepcopy(self._data)
             del self._data["programs"][program_id]
-            await self._store.async_save(self._data)
+            try:
+                await self._store.async_save(self._data)
+            except Exception:
+                self._data = previous
+                raise
