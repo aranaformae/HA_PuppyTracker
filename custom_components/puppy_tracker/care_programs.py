@@ -20,9 +20,12 @@ SCHEDULE_TYPES = {"once", "range"}
 RESULT_FIELDS = {"result", "score", "note"}
 DEFAULT_RESULT_FIELDS = ["result", "note"]
 MAX_AGE_DAYS = 3650
-SEMANTIC_FIELDS = (
+# These fields define what a scheduled occurrence means. Once results exist,
+# changing them would make old completion records ambiguous. Presentation-only
+# description and operational enabled/notification toggles are intentionally
+# excluded.
+OCCURRENCE_IDENTITY_FIELDS = (
     "title",
-    "description",
     "record_type",
     "schedule_type",
     "start_age_days",
@@ -82,6 +85,16 @@ def _normalize_revision(value: Any) -> int:
     if revision < 1:
         raise ValueError("revision must be a positive integer")
     return revision
+
+
+def care_program_identity_changed(
+    current: dict[str, Any], candidate: dict[str, Any]
+) -> bool:
+    """Return whether an update changes occurrence identity semantics."""
+    return any(
+        current.get(field) != candidate.get(field)
+        for field in OCCURRENCE_IDENTITY_FIELDS
+    )
 
 
 def normalize_care_program(
@@ -222,7 +235,7 @@ class AgeBasedCareProgramStore:
             program_id=program_id,
             updated_at=dt_util.now().isoformat(),
         )
-        if any(current.get(field) != item.get(field) for field in SEMANTIC_FIELDS):
+        if care_program_identity_changed(current, item):
             item["revision"] = int(current.get("revision") or 1) + 1
         else:
             item["revision"] = int(current.get("revision") or 1)
