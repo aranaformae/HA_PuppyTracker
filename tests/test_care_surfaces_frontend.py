@@ -23,6 +23,14 @@ def test_care_surfaces_use_backend_occurrence_status() -> None:
     assert "care_occurrence_id" not in source
 
 
+def test_same_day_upcoming_care_uses_clock_label_not_zero_days() -> None:
+    source = (FRONTEND / "puppy-tracker-care-surfaces.js").read_text()
+    assert "if (days === 0)" in source
+    assert "item?.time_of_day" in source
+    assert "Vandaag om ${clock}" in source
+    assert "Today at ${clock}" in source
+
+
 def test_attention_and_today_are_both_patched() -> None:
     source = (FRONTEND / "puppy-tracker-care-surfaces.js").read_text()
     assert 'const TODAY_TAG = "puppy-tracker-today-card"' in source
