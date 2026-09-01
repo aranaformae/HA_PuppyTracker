@@ -155,7 +155,29 @@ jobs:
         run: npm install --no-audit --no-fund
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium webkit
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2; do
+            echo "Playwright browser install attempt ${attempt}/2"
+            set +e
+            timeout --signal=TERM --kill-after=15s 300s \
+              npx playwright install --with-deps chromium webkit
+            status=$?
+            set -e
+
+            if [ "$status" -eq 0 ]; then
+              exit 0
+            fi
+
+            if [ "$attempt" -eq 2 ]; then
+              echo "::error::Playwright browser installation failed after 2 attempts (last status: $status)."
+              exit "$status"
+            fi
+
+            echo "::warning::Playwright browser installation failed or timed out (status: $status); retrying."
+            sleep 10
+          done
 
       - name: Run Playwright card tests
         run: npm run test:e2e
