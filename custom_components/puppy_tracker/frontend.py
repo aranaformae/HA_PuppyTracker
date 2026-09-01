@@ -16,10 +16,12 @@ _LOGGER = logging.getLogger(__name__)
 
 FRONTEND_DIR = Path(__file__).parent / "frontend"
 FRONTEND_BASE_URL = f"/{DOMAIN}/frontend"
+# Diagnostics and cache-busting intentionally use the same release version.
+FRONTEND_VERSION = VERSION
 # Keep the integration version in the path itself. Relative ES-module imports
 # then inherit the same versioned path and cannot accidentally reuse a cached
 # shared module from an older Puppy Tracker release.
-FRONTEND_URL = f"{FRONTEND_BASE_URL}/{VERSION}"
+FRONTEND_URL = f"{FRONTEND_BASE_URL}/{FRONTEND_VERSION}"
 
 CARD_FILES = (
     "puppy-tracker-card.js",
@@ -75,7 +77,7 @@ CARD_FILES = (
 # Static HTTP routes cannot currently be cleanly unregistered. Keep the flag
 # outside hass.data[DOMAIN] and version it together with the route so a newer
 # frontend can be registered safely if code is refreshed in the same process.
-DATA_STATIC_PATH_REGISTERED = f"{DOMAIN}_frontend_static_path_registered_{VERSION}"
+DATA_STATIC_PATH_REGISTERED = f"{DOMAIN}_frontend_static_path_registered_{FRONTEND_VERSION}"
 
 
 def _frontend_url(filename: str) -> str:
