@@ -42,6 +42,8 @@ CARD_FILES = (
     # Enrich Today and Attention with open age-based care occurrences after the
     # base cards are defined; completion remains dossier-derived in the backend.
     "puppy-tracker-care-surfaces.js",
+    # Never silently omit a puppy whose care schedule cannot be derived.
+    "puppy-tracker-care-skipped-warning.js",
     # Resolve the persistent reusable mother id via the mother-scope API instead
     # of assuming it exists in the regular litter payload.
     "puppy-tracker-recurring-mother-owner.js",
