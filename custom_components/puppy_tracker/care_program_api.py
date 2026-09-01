@@ -71,6 +71,13 @@ def _existing_occurrence_result(storage, occurrence: dict[str, Any]) -> dict[str
     return None
 
 
+def _skip_reason_code(reason: str) -> str:
+    """Return a stable UI-safe reason code for one derivation failure."""
+    if reason == "puppy birth_time is required":
+        return "missing_birth_time"
+    return "invalid_schedule"
+
+
 PROGRAM_FIELDS = {
     "litter_id", "enabled", "title", "description", "record_type",
     "schedule_type", "start_age_days", "end_age_days", "interval_days",
@@ -123,10 +130,13 @@ async def websocket_list_care_occurrences(hass, connection, msg) -> None:
                 records = storage.get_records(msg["litter_id"], str(puppy.get("id") or ""), newest_first=False)
                 occurrences.extend(care_occurrence_status(item, records) for item in derived)
             except ValueError as err:
+                reason = str(err)
                 skipped.append({
                     "program_id": str(program.get("id") or ""),
                     "puppy_id": str(puppy.get("id") or ""),
-                    "reason": str(err),
+                    "puppy_name": str(puppy.get("name") or puppy.get("id") or "Pup"),
+                    "reason_code": _skip_reason_code(reason),
+                    "reason": reason,
                 })
     occurrences.sort(key=lambda item: (item["scheduled_at"], item["puppy_id"], item["program_id"]))
     connection.send_result(msg["id"], {"occurrences": occurrences, "skipped": skipped})
