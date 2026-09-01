@@ -6,6 +6,7 @@ import pytest
 
 from custom_components.puppy_tracker.care_programs import (
     AgeBasedCareProgramStore,
+    care_program_identity_changed,
     normalize_care_program,
 )
 
@@ -15,11 +16,13 @@ def _program_data(**overrides) -> dict:
         "id": "program-1",
         "litter_id": "litter-1",
         "title": "ENS",
+        "description": "Daily ENS protocol",
         "record_type": "note",
         "schedule_type": "range",
         "start_age_days": 3,
         "end_age_days": 17,
         "interval_days": 1,
+        "time_of_day": "09:00",
         "result_fields": ["result", "note"],
     }
     data.update(overrides)
@@ -177,13 +180,53 @@ def test_normalization_preserves_existing_updated_at_on_load() -> None:
     assert program["updated_at"] == "2026-08-31T11:00:00+00:00"
 
 
-async def test_semantic_update_increments_revision_but_notification_toggle_does_not(hass) -> None:
+def test_occurrence_identity_excludes_operational_and_description_changes() -> None:
+    current = normalize_care_program(_program_data(), program_id="program-1")
+
+    assert not care_program_identity_changed(
+        current,
+        normalize_care_program(
+            {**current, "description": "Improved explanation"},
+            program_id="program-1",
+        ),
+    )
+    assert not care_program_identity_changed(
+        current,
+        normalize_care_program(
+            {**current, "enabled": False, "notifications_enabled": False},
+            program_id="program-1",
+        ),
+    )
+
+
+def test_occurrence_identity_changes_for_protocol_fields() -> None:
+    current = normalize_care_program(_program_data(), program_id="program-1")
+    for field, value in (
+        ("title", "ENS revised"),
+        ("record_type", "test"),
+        ("start_age_days", 4),
+        ("end_age_days", 18),
+        ("interval_days", 2),
+        ("time_of_day", "10:00"),
+        ("result_fields", ["score", "note"]),
+    ):
+        candidate = normalize_care_program(
+            {**current, field: value},
+            program_id="program-1",
+        )
+        assert care_program_identity_changed(current, candidate), field
+
+
+async def test_identity_update_increments_revision_but_operational_changes_do_not(hass) -> None:
     store = AgeBasedCareProgramStore(hass)
     initial = normalize_care_program(_program_data(), program_id="program-1")
     store._data = {"programs": {"program-1": initial}}
     store._store.async_save = AsyncMock()
 
-    await store.async_update("program-1", {"notifications_enabled": False})
+    await store.async_update(
+        "program-1",
+        {"notifications_enabled": False, "description": "Updated explanation"},
+    )
     assert store.get_program("program-1")["revision"] == 1
 
     await store.async_update("program-1", {"title": "ENS nieuw protocol"})
