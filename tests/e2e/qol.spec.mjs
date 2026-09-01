@@ -125,14 +125,16 @@ test("Attention keeps unacknowledged alerts visible and acknowledged alerts coll
       acknowledgedRows: card.shadowRoot.querySelectorAll(".attention-ack-list > .row").length,
       detailsOpen: card.shadowRoot.querySelector(".attention-acknowledged")?.open || false,
       summary: card.shadowRoot.querySelector(".attention-acknowledged summary")?.textContent || "",
-      options: Array.from(card.shadowRoot.querySelectorAll("#attention-type-filter option")).map((item) => item.textContent),
+      filters: Array.from(card.shadowRoot.querySelectorAll("[data-attention-filter-type]"))
+        .map((item) => item.textContent),
     };
 
-    card.__attentionTypeFilter = "vaccination";
-    card._render();
+    card.shadowRoot.querySelector('[data-attention-filter-type="deworming"]')?.click();
     const filtered = {
       openRows: card.shadowRoot.querySelectorAll(".list > .row:not([hidden])").length,
       acknowledgedRows: card.shadowRoot.querySelectorAll(".attention-ack-list > .row").length,
+      vaccinationActive: card.shadowRoot.querySelector('[data-attention-filter-type="vaccination"]')?.classList.contains("active") || false,
+      dewormingActive: card.shadowRoot.querySelector('[data-attention-filter-type="deworming"]')?.classList.contains("active") || false,
     };
 
     const undo = card.shadowRoot.querySelector(".attention-ack-list .attention-ack-button");
@@ -152,10 +154,12 @@ test("Attention keeps unacknowledged alerts visible and acknowledged alerts coll
   expect(result.initial.acknowledgedRows).toBe(1);
   expect(result.initial.detailsOpen).toBe(false);
   expect(result.initial.summary).toContain("Acknowledged (1)");
-  expect(result.initial.options).toContain("Vaccination");
-  expect(result.initial.options).toContain("Deworming");
+  expect(result.initial.filters).toContain("Vaccination");
+  expect(result.initial.filters).toContain("Deworming");
   expect(result.filtered.openRows).toBe(0);
   expect(result.filtered.acknowledgedRows).toBe(1);
+  expect(result.filtered.vaccinationActive).toBe(true);
+  expect(result.filtered.dewormingActive).toBe(false);
   expect(result.afterUndoOpenRows).toBe(1);
   expect(result.afterUndoAcknowledged).toBe(0);
   expect(result.call).toMatchObject({
