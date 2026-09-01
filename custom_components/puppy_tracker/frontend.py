@@ -68,6 +68,10 @@ CARD_FILES = (
     # Mother support depends on the temperature layer for quick-log/timeline
     # temperature handling, so load it immediately after temperature support.
     "puppy-tracker-mother-surfaces.js",
+    # Keep "All" as the future aggregate report scope while exposing a separate
+    # whole-litter scope for puppy-only exports. Loaded after mother support so
+    # the selector order stays All -> Whole litter -> Mother -> puppies.
+    "puppy-tracker-report-scope.js",
     # Adds a read-only aggregate "All" owner to Timeline and Dossier after the
     # mother patches are active, without weakening authoritative owner scopes.
     "puppy-tracker-all-scope.js",
