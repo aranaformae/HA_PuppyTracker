@@ -66,3 +66,101 @@ test("overview chart uses each puppy collar color for line point and legend", as
   expect(result.pinkLegend).toBe("#ec407a");
   expect(result.hasOverrideStyle).toBe(true);
 });
+
+test("Attention keeps unacknowledged alerts visible and acknowledged alerts collapsed", async ({ page }) => {
+  await openFixture(page);
+
+  const result = await page.evaluate(async () => {
+    const calls = [];
+    const card = document.createElement("puppy-tracker-attention-card");
+    card._hass = {
+      language: "en",
+      locale: { language: "en" },
+      callWS: async (payload) => {
+        calls.push(payload);
+        return {};
+      },
+    };
+    card._selectedLitterId = "litter-1";
+    card._data = {
+      litter: { id: "litter-1", name: "Litter", summary: { dossier_actions: { actions: [] } } },
+      puppies: [{
+        id: "pup-1",
+        name: "Blue",
+        active: true,
+        summary: {
+          needs_attention: false,
+          dossier_actions: {
+            actions: [
+              {
+                id: "record-vax:next_due_date",
+                due_soon: true,
+                record_type: "vaccination",
+                due_date: "2026-09-01",
+                status: "due_today",
+                days_until_due: 0,
+              },
+              {
+                id: "record-worm:next_due_date",
+                due_soon: true,
+                record_type: "deworming",
+                due_date: "2026-09-01",
+                status: "due_today",
+                days_until_due: 0,
+              },
+            ],
+          },
+        },
+      }],
+    };
+    card.__attentionAcknowledgements = {
+      "dossier:record-vax:next_due_date": { acknowledged_at: "2026-09-01T12:00:00Z" },
+    };
+    card.setConfig({ title: "Attention", show_litter_selector: false });
+    card._render();
+    document.querySelector("#cards").appendChild(card);
+
+    const initial = {
+      openRows: card.shadowRoot.querySelectorAll(".list > .row:not([hidden])").length,
+      acknowledgedRows: card.shadowRoot.querySelectorAll(".attention-ack-list > .row").length,
+      detailsOpen: card.shadowRoot.querySelector(".attention-acknowledged")?.open || false,
+      summary: card.shadowRoot.querySelector(".attention-acknowledged summary")?.textContent || "",
+      options: Array.from(card.shadowRoot.querySelectorAll("#attention-type-filter option")).map((item) => item.textContent),
+    };
+
+    card.__attentionTypeFilter = "vaccination";
+    card._render();
+    const filtered = {
+      openRows: card.shadowRoot.querySelectorAll(".list > .row:not([hidden])").length,
+      acknowledgedRows: card.shadowRoot.querySelectorAll(".attention-ack-list > .row").length,
+    };
+
+    const undo = card.shadowRoot.querySelector(".attention-ack-list .attention-ack-button");
+    undo?.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    return {
+      initial,
+      filtered,
+      afterUndoOpenRows: card.shadowRoot.querySelectorAll(".list > .row:not([hidden])").length,
+      afterUndoAcknowledged: card.shadowRoot.querySelectorAll(".attention-ack-list > .row").length,
+      call: calls.find((item) => item.type === "puppy_tracker/attention_acknowledgement/set"),
+    };
+  });
+
+  expect(result.initial.openRows).toBe(1);
+  expect(result.initial.acknowledgedRows).toBe(1);
+  expect(result.initial.detailsOpen).toBe(false);
+  expect(result.initial.summary).toContain("Acknowledged (1)");
+  expect(result.initial.options).toContain("Vaccination");
+  expect(result.initial.options).toContain("Deworming");
+  expect(result.filtered.openRows).toBe(0);
+  expect(result.filtered.acknowledgedRows).toBe(1);
+  expect(result.afterUndoOpenRows).toBe(1);
+  expect(result.afterUndoAcknowledged).toBe(0);
+  expect(result.call).toMatchObject({
+    litter_id: "litter-1",
+    attention_id: "dossier:record-vax:next_due_date",
+    acknowledged: false,
+  });
+});
