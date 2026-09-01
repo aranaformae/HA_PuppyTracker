@@ -11,7 +11,7 @@ from homeassistant.components.http.auth import async_sign_path
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.network import get_url
 
-from .backup import serialize_export
+from .backup import SCHEDULER_BACKUP_VERSION, serialize_export
 from .const import DOMAIN
 from .runtime import PuppyTrackerRuntimeData
 
@@ -35,10 +35,20 @@ def _download_response(
     puppy_id: str | None = None,
 ) -> web.Response:
     care_reminder_settings = None
+    scheduler_data = None
     if scope == "full":
         if runtime.care_reminders is None:
             raise RuntimeError("Puppy Tracker care reminders are not loaded")
+        if runtime.care_programs is None:
+            raise RuntimeError("Puppy Tracker care programs are not loaded")
+        if runtime.recurring_reminders is None:
+            raise RuntimeError("Puppy Tracker recurring reminders are not loaded")
         care_reminder_settings = runtime.care_reminders.get_backup_settings()
+        scheduler_data = {
+            "version": SCHEDULER_BACKUP_VERSION,
+            "care_programs": runtime.care_programs.get_backup_data(),
+            "recurring_reminders": runtime.recurring_reminders.get_backup_data(),
+        }
 
     filename, _mime, content = serialize_export(
         runtime.storage,
@@ -46,6 +56,7 @@ def _download_response(
         litter_id=litter_id,
         puppy_id=puppy_id,
         care_reminder_settings=care_reminder_settings,
+        scheduler_data=scheduler_data,
     )
     return web.Response(
         text=content,

@@ -14,12 +14,12 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .backup import (
     BackupValidationError,
-    async_apply_import,
     describe_backup,
     parse_export_json,
     prepare_import,
 )
 from .backup_http import async_signed_export_path
+from .backup_transaction import async_apply_import_transaction
 from .const import (
     SIGNAL_DASHBOARD_UPDATE,
     SIGNAL_NEW_LITTER,
@@ -370,15 +370,20 @@ class PuppyTrackerDataManagementMixin:
 
             storage = self._get_storage()
             before = storage.get_data()
+            runtime = self.config_entry.runtime_data
             try:
-                self._import_result = await async_apply_import(storage, plan)
-
-                runtime = self.config_entry.runtime_data
-                if isinstance(runtime, PuppyTrackerRuntimeData) and summary.get("replaces_all"):
-                    if runtime.care_reminders is None:
-                        raise RuntimeError("Puppy Tracker care reminders are not loaded")
-                    await runtime.care_reminders.async_restore_backup_settings(
-                        summary["care_reminders"]
+                if isinstance(runtime, PuppyTrackerRuntimeData):
+                    self._import_result = await async_apply_import_transaction(
+                        storage,
+                        plan,
+                        care_reminders=runtime.care_reminders,
+                        care_programs=runtime.care_programs,
+                        recurring_reminders=runtime.recurring_reminders,
+                    )
+                else:
+                    self._import_result = await async_apply_import_transaction(
+                        storage,
+                        plan,
                     )
             except BackupValidationError as err:
                 errors["base"] = err.code
@@ -388,7 +393,6 @@ class PuppyTrackerDataManagementMixin:
                 after = storage.get_data()
                 self._sync_after_import(before, after)
 
-                runtime = self.config_entry.runtime_data
                 if isinstance(runtime, PuppyTrackerRuntimeData):
                     reconcile_dashboard_selection(runtime)
 

@@ -25,6 +25,12 @@ CARE_SETTINGS = {
     },
 }
 
+EMPTY_SCHEDULERS = {
+    "version": 1,
+    "care_programs": {"programs": {}},
+    "recurring_reminders": {"reminders": {}},
+}
+
 
 def _puppy_record(
     record_id: str,
@@ -104,12 +110,14 @@ async def test_full_export_and_replace_restore_preserves_identifiers(
         storage,
         scope="full",
         care_reminder_settings=CARE_SETTINGS,
+        scheduler_data=EMPTY_SCHEDULERS,
     )
     document = parse_export_json(content)
 
     assert mime == "application/json;charset=utf-8"
-    assert document["export_version"] == 4
+    assert document["export_version"] == 5
     assert document["care_reminders"] == CARE_SETTINGS
+    assert document["schedulers"] == EMPTY_SCHEDULERS
     assert "states" not in document["care_reminders"]
 
     storage._data["litters"] = {}
@@ -120,6 +128,7 @@ async def test_full_export_and_replace_restore_preserves_identifiers(
     assert plan["summary"]["puppies"] == 1
     assert plan["summary"]["measurements"] == 3
     assert plan["summary"]["care_reminders"] == CARE_SETTINGS
+    assert plan["summary"]["schedulers"] == EMPTY_SCHEDULERS
 
     await async_apply_import(storage, plan)
 
@@ -291,6 +300,7 @@ async def test_full_merge_as_new_keeps_current_data_and_remaps_source(
         storage,
         scope="full",
         care_reminder_settings=CARE_SETTINGS,
+        scheduler_data=EMPTY_SCHEDULERS,
     )
 
     storage._data["litters"] = {
@@ -311,6 +321,7 @@ async def test_full_merge_as_new_keeps_current_data_and_remaps_source(
 
     plan = prepare_import(storage, document, mode="merge_as_new")
     assert "care_reminders" not in plan["summary"]
+    assert "schedulers" not in plan["summary"]
     await async_apply_import(storage, plan)
 
     litters = storage.get_litters()
@@ -335,10 +346,36 @@ def test_preproduction_backup_versions_are_rejected(version: int) -> None:
     assert err.value.code == "unsupported_export_version"
 
 
-def test_full_v4_backup_requires_care_settings(storage) -> None:
+def test_full_v5_export_requires_care_and_scheduler_data(storage) -> None:
     with pytest.raises(ValueError, match="care_reminder_settings"):
         build_export_document(storage, scope="full")
 
+    with pytest.raises(ValueError, match="scheduler_data"):
+        build_export_document(
+            storage,
+            scope="full",
+            care_reminder_settings=CARE_SETTINGS,
+        )
+
+
+def test_full_v4_backup_remains_readable_without_schedulers() -> None:
+    payload = {
+        "export_version": 4,
+        "exported_at": "2026-08-31T00:00:00+00:00",
+        "integration": "puppy_tracker",
+        "schema_version": 7,
+        "scope": "full",
+        "data": {"schema_version": 7, "litters": {}, "audit_log": []},
+        "care_reminders": CARE_SETTINGS,
+    }
+
+    document = parse_export_json(json.dumps(payload))
+    assert document["export_version"] == 4
+    assert document["care_reminders"] == CARE_SETTINGS
+    assert "schedulers" not in document
+
+
+def test_full_v4_backup_requires_care_settings() -> None:
     payload = {
         "export_version": 4,
         "exported_at": "2026-08-31T00:00:00+00:00",
@@ -352,7 +389,7 @@ def test_full_v4_backup_requires_care_settings(storage) -> None:
     assert err.value.code == "invalid_backup"
 
 
-def test_full_v4_backup_rejects_delivery_state(storage) -> None:
+def test_full_v5_export_rejects_delivery_state(storage) -> None:
     with pytest.raises(BackupValidationError) as err:
         build_export_document(
             storage,
@@ -361,6 +398,7 @@ def test_full_v4_backup_rejects_delivery_state(storage) -> None:
                 **CARE_SETTINGS,
                 "states": {"record": {"state": "upcoming"}},
             },
+            scheduler_data=EMPTY_SCHEDULERS,
         )
     assert err.value.code == "invalid_backup"
 
