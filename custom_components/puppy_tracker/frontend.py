@@ -52,6 +52,8 @@ CARD_FILES = (
     # Enrich Today and Attention with open age-based care occurrences after the
     # base cards are defined; completion remains dossier-derived in the backend.
     "puppy-tracker-care-surfaces.js",
+    # Give Today the same inclusive active-chip type filtering as Attention.
+    "puppy-tracker-today-qol.js",
     # Never silently omit a puppy whose care schedule cannot be derived.
     "puppy-tracker-care-skipped-warning.js",
     # Apply one shared filter/acknowledgement layer after every Attention source
