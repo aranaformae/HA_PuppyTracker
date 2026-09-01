@@ -13,6 +13,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
+from .records import validate_record_type
 
 STORE_KEY = f"{DOMAIN}_recurring_reminders"
 STORE_VERSION = 1
@@ -28,6 +29,15 @@ def _parse_datetime(value: Any) -> datetime | None:
         return None
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=dt_util.get_default_time_zone())
+    return parsed
+
+
+def _validated_datetime(value: Any, *, field: str) -> datetime | None:
+    if value in (None, ""):
+        return None
+    parsed = _parse_datetime(value)
+    if parsed is None:
+        raise ValueError(f"{field} must be a valid datetime")
     return parsed
 
 
@@ -55,7 +65,12 @@ def _normalize_times(values: Any) -> list[str]:
     return sorted(result)
 
 
-def normalize_reminder(data: dict[str, Any], *, reminder_id: str | None = None) -> dict[str, Any]:
+def normalize_reminder(
+    data: dict[str, Any],
+    *,
+    reminder_id: str | None = None,
+    updated_at: str | None = None,
+) -> dict[str, Any]:
     """Validate and normalize one generic reminder."""
     owner_scope = str(data.get("owner_scope") or "").strip()
     if owner_scope not in OWNER_SCOPES:
@@ -75,14 +90,16 @@ def normalize_reminder(data: dict[str, Any], *, reminder_id: str | None = None) 
     if not title:
         raise ValueError("title is required")
 
-    record_type = str(data.get("record_type") or "note").strip() or "note"
+    record_type = validate_record_type(
+        str(data.get("record_type") or "note").strip() or "note"
+    )
     mode = str(data.get("schedule_mode") or "interval").strip()
     if mode not in SCHEDULE_MODES:
         raise ValueError("schedule_mode must be interval, fixed_times or once")
 
     interval_minutes: int | None = None
     fixed_times: list[str] = []
-    due_at = _parse_datetime(data.get("due_at"))
+    due_at = _validated_datetime(data.get("due_at"), field="due_at")
 
     if mode == "interval":
         try:
@@ -99,8 +116,11 @@ def normalize_reminder(data: dict[str, Any], *, reminder_id: str | None = None) 
         raise ValueError("due_at is required for one-time reminders")
 
     match_title = str(data.get("match_title") or "").strip() or None
-    start_at = _parse_datetime(data.get("start_at")) or dt_util.now()
-    last_completed_at = _parse_datetime(data.get("last_completed_at"))
+    start_at = _validated_datetime(data.get("start_at"), field="start_at") or dt_util.now()
+    last_completed_at = _validated_datetime(
+        data.get("last_completed_at"), field="last_completed_at"
+    )
+    now = dt_util.now().isoformat()
 
     return {
         "id": reminder_id or str(data.get("id") or uuid4()),
@@ -118,8 +138,8 @@ def normalize_reminder(data: dict[str, Any], *, reminder_id: str | None = None) 
         "due_at": _iso(due_at),
         "last_completed_at": _iso(last_completed_at),
         "last_completed_record_id": str(data.get("last_completed_record_id") or "") or None,
-        "created_at": str(data.get("created_at") or dt_util.now().isoformat()),
-        "updated_at": dt_util.now().isoformat(),
+        "created_at": str(data.get("created_at") or now),
+        "updated_at": str(updated_at or data.get("updated_at") or now),
     }
 
 
@@ -207,17 +227,31 @@ class RecurringReminderStore:
     async def async_load(self) -> None:
         loaded = await self._store.async_load()
         reminders = loaded.get("reminders", {}) if isinstance(loaded, dict) else {}
+        quarantined = (
+            deepcopy(loaded.get("quarantined_reminders", {}))
+            if isinstance(loaded, dict)
+            and isinstance(loaded.get("quarantined_reminders"), dict)
+            else {}
+        )
         normalized: dict[str, dict[str, Any]] = {}
         if isinstance(reminders, dict):
             for key, value in reminders.items():
                 if not isinstance(value, dict):
+                    quarantined[str(key)] = deepcopy(value)
                     continue
                 try:
                     item = normalize_reminder(value, reminder_id=str(key))
                 except ValueError:
+                    # Preserve unreadable/future records rather than silently
+                    # deleting them during startup normalization.
+                    quarantined[str(key)] = deepcopy(value)
                     continue
                 normalized[item["id"]] = item
-        self._data = {"reminders": normalized}
+                quarantined.pop(item["id"], None)
+        data: dict[str, Any] = {"reminders": normalized}
+        if quarantined:
+            data["quarantined_reminders"] = quarantined
+        self._data = data
         if loaded != self._data:
             await self._store.async_save(self._data)
 
@@ -231,28 +265,52 @@ class RecurringReminderStore:
         item = self._data.get("reminders", {}).get(reminder_id)
         return deepcopy(item) if isinstance(item, dict) else None
 
+    def get_quarantined_reminder_count(self) -> int:
+        """Return the number of preserved reminders that could not be normalized."""
+        value = self._data.get("quarantined_reminders", {})
+        return len(value) if isinstance(value, dict) else 0
+
     async def async_create(self, data: dict[str, Any]) -> str:
         item = normalize_reminder(data)
         async with self._lock:
+            previous = deepcopy(self._data)
             self._data.setdefault("reminders", {})[item["id"]] = item
-            await self._store.async_save(self._data)
+            try:
+                await self._store.async_save(self._data)
+            except Exception:
+                self._data = previous
+                raise
         return item["id"]
 
     async def async_update(self, reminder_id: str, data: dict[str, Any]) -> None:
         current = self.get_reminder(reminder_id)
         if current is None:
             raise ValueError("Unknown reminder")
-        item = normalize_reminder({**current, **deepcopy(data)}, reminder_id=reminder_id)
+        item = normalize_reminder(
+            {**current, **deepcopy(data)},
+            reminder_id=reminder_id,
+            updated_at=dt_util.now().isoformat(),
+        )
         async with self._lock:
+            previous = deepcopy(self._data)
             self._data["reminders"][reminder_id] = item
-            await self._store.async_save(self._data)
+            try:
+                await self._store.async_save(self._data)
+            except Exception:
+                self._data = previous
+                raise
 
     async def async_delete(self, reminder_id: str) -> None:
         async with self._lock:
             if reminder_id not in self._data.get("reminders", {}):
                 raise ValueError("Unknown reminder")
+            previous = deepcopy(self._data)
             del self._data["reminders"][reminder_id]
-            await self._store.async_save(self._data)
+            try:
+                await self._store.async_save(self._data)
+            except Exception:
+                self._data = previous
+                raise
 
     async def async_mark_completed(self, reminder_id: str, *, occurred_at: str, record_id: str | None = None) -> None:
         current = self.get_reminder(reminder_id)
