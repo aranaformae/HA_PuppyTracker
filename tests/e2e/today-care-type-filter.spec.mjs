@@ -6,10 +6,21 @@ async function openFixture(page) {
   expect(await page.evaluate(() => window.__puppyTrackerModuleErrors)).toEqual([]);
 }
 
-test("Today care type chips inclusively control a bounded scrollable care list", async ({ page }) => {
+test("Today combines today's timeline and care items behind one inclusive scrollable filter", async ({ page }) => {
   await openFixture(page);
 
   await page.evaluate(() => {
+    const now = new Date();
+    const at = (dayOffset, hour) => new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() + dayOffset,
+      hour,
+      0,
+      0,
+      0,
+    ).toISOString();
+
     const hass = {
       locale: { language: "nl" },
       language: "nl",
@@ -27,6 +38,26 @@ test("Today care type chips inclusively control a bounded scrollable care list",
               id: "l1",
               name: "Luna x Dutch",
               active: true,
+              records: [
+                {
+                  id: "litter-note-today",
+                  scope: "litter",
+                  type: "note",
+                  title: "Nestcontrole",
+                  occurred_at: at(0, 9),
+                  created_at: at(0, 9),
+                  data: {},
+                },
+                {
+                  id: "litter-old",
+                  scope: "litter",
+                  type: "milestone",
+                  title: "Gisteren",
+                  occurred_at: at(-1, 12),
+                  created_at: at(-1, 12),
+                  data: {},
+                },
+              ],
               summary: {
                 active_puppies: 1,
                 attention_count: 0,
@@ -37,6 +68,24 @@ test("Today care type chips inclusively control a bounded scrollable care list",
               id: "p1",
               name: "Alice",
               active: true,
+              measurements: [{
+                id: "weight-today",
+                weight: 428,
+                timestamp: at(0, 10),
+                created_at: at(0, 10),
+                status: "active",
+              }],
+              records: [{
+                id: "test-today",
+                scope: "puppy",
+                puppy_id: "p1",
+                puppy_name: "Alice",
+                type: "test",
+                title: "ENS observatie",
+                occurred_at: at(0, 11),
+                created_at: at(0, 11),
+                data: { result: "rustig" },
+              }],
               summary: { needs_attention: false },
             }],
           };
@@ -111,29 +160,38 @@ test("Today care type chips inclusively control a bounded scrollable care list",
   });
 
   const card = page.locator("puppy-tracker-today-card");
-  const all = card.locator('[data-today-care-filter-type="__all__"]');
-  const vaccination = card.locator('[data-today-care-filter-type="vaccination"]');
-  const deworming = card.locator('[data-today-care-filter-type="deworming"]');
-  const testType = card.locator('[data-today-care-filter-type="test"]');
-  const ensRow = card.locator('[data-care-occurrence="ens:p1:3"]');
-  const vaccinationRow = card.locator('[data-care-occurrence="vaccination:p1:42"]');
-  const dewormingRow = card.locator('[data-care-occurrence="deworming:p1:14"]');
-  const careList = card.locator(".care-list");
+  const all = card.locator('[data-today-filter-type="__all__"]');
+  const weight = card.locator('[data-today-filter-type="weight"]');
+  const note = card.locator('[data-today-filter-type="note"]');
+  const vaccination = card.locator('[data-today-filter-type="vaccination"]');
+  const deworming = card.locator('[data-today-filter-type="deworming"]');
+  const testType = card.locator('[data-today-filter-type="test"]');
+  const weightTimeline = card.locator('[data-today-event^="weight:p1:"]');
+  const noteTimeline = card.locator('[data-today-event="record:litter:litter-note-today"]');
+  const testTimeline = card.locator('[data-today-event="record:puppy:test-today"]');
+  const oldTimeline = card.locator('[data-today-event="record:litter:litter-old"]');
+  const ensCare = card.locator('[data-care-occurrence="ens:p1:3"]');
+  const vaccinationCare = card.locator('[data-care-occurrence="vaccination:p1:42"]');
+  const dewormingCare = card.locator('[data-care-occurrence="deworming:p1:14"]');
+  const scroll = card.locator(".today-items-scroll");
 
-  await expect(card.locator(".care-summary")).toBeVisible();
-  await expect(all).toContainText("Alles");
-  await expect(vaccination).toContainText("Vaccinatie");
-  await expect(deworming).toContainText("Ontworming");
-  await expect(testType).toContainText("Test");
+  await expect(card.locator(".today-timeline-section")).toBeVisible();
+  await expect(card.locator(".today-group-title")).toContainText("Tijdlijn vandaag");
   await expect(all).toHaveClass(/active/);
+  await expect(weight).toHaveClass(/active/);
+  await expect(note).toHaveClass(/active/);
   await expect(vaccination).toHaveClass(/active/);
   await expect(deworming).toHaveClass(/active/);
   await expect(testType).toHaveClass(/active/);
-  await expect(ensRow).toBeVisible();
-  await expect(vaccinationRow).toBeVisible();
-  await expect(dewormingRow).toBeVisible();
+  await expect(weightTimeline).toBeVisible();
+  await expect(noteTimeline).toBeVisible();
+  await expect(testTimeline).toBeVisible();
+  await expect(oldTimeline).toHaveCount(0);
+  await expect(ensCare).toBeVisible();
+  await expect(vaccinationCare).toBeVisible();
+  await expect(dewormingCare).toBeVisible();
 
-  const scrollState = await careList.evaluate((element) => {
+  const scrollState = await scroll.evaluate((element) => {
     const style = getComputedStyle(element);
     return {
       maxHeight: style.maxHeight,
@@ -147,29 +205,35 @@ test("Today care type chips inclusively control a bounded scrollable care list",
   expect(scrollState.clientHeight).toBeLessThanOrEqual(520);
   expect(scrollState.scrollHeight).toBeGreaterThan(scrollState.clientHeight);
 
-  await vaccination.click();
-  await expect(vaccination).not.toHaveClass(/active/);
-  await expect(all).not.toHaveClass(/active/);
-  await expect(vaccinationRow).toBeHidden();
-  await expect(ensRow).toBeVisible();
-  await expect(dewormingRow).toBeVisible();
+  const nestedCareScroll = await card.locator(".care-list").evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { maxHeight: style.maxHeight, overflowY: style.overflowY };
+  });
+  expect(nestedCareScroll.maxHeight).toBe("none");
+  expect(nestedCareScroll.overflowY).toBe("visible");
 
+  await weight.click();
+  await expect(weight).not.toHaveClass(/active/);
+  await expect(weightTimeline).toBeHidden();
+  await expect(noteTimeline).toBeVisible();
+  await expect(testTimeline).toBeVisible();
+  await expect(ensCare).toBeVisible();
+
+  // Test controls both today's test records and care-program test occurrences.
   await testType.click();
   await expect(testType).not.toHaveClass(/active/);
-  await expect(ensRow).toBeHidden();
-  await expect(dewormingRow).toBeVisible();
-
-  // The last active type cannot be deselected, matching Timeline/Attention.
-  await deworming.click();
-  await expect(deworming).toHaveClass(/active/);
-  await expect(dewormingRow).toBeVisible();
+  await expect(weightTimeline).toBeHidden();
+  await expect(testTimeline).toBeHidden();
+  await expect(ensCare).toBeHidden();
+  await expect(noteTimeline).toBeVisible();
+  await expect(vaccinationCare).toBeVisible();
+  await expect(dewormingCare).toBeVisible();
 
   await all.click();
   await expect(all).toHaveClass(/active/);
-  await expect(vaccination).toHaveClass(/active/);
-  await expect(deworming).toHaveClass(/active/);
+  await expect(weight).toHaveClass(/active/);
   await expect(testType).toHaveClass(/active/);
-  await expect(ensRow).toBeVisible();
-  await expect(vaccinationRow).toBeVisible();
-  await expect(dewormingRow).toBeVisible();
+  await expect(weightTimeline).toBeVisible();
+  await expect(testTimeline).toBeVisible();
+  await expect(ensCare).toBeVisible();
 });
