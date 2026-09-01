@@ -18,13 +18,9 @@ const TEXT = {
     allDone: "Alle pups zijn vandaag gewogen",
     allGood: "Alles ziet er goed uit",
     needsAttention: "{count} pup(s) vragen aandacht",
-    start: "Start weegsessie",
-    continue: "Ga verder met weegsessie",
-    done: "Weegsessie compleet",
     noLitter: "Geen actief nest beschikbaar",
     loading: "Vandaag laden…",
     failed: "De dagstatus kon niet worden geladen.",
-    sessionUnavailable: "Het weegstation is niet beschikbaar. Herlaad de Puppy Tracker-integratie.",
     remainingNames: "Nog: {names}",
   },
   en: {
@@ -37,13 +33,9 @@ const TEXT = {
     allDone: "All puppies have been weighed today",
     allGood: "Everything looks good",
     needsAttention: "{count} puppy/puppies need attention",
-    start: "Start weighing session",
-    continue: "Continue weighing session",
-    done: "Weighing session complete",
     noLitter: "No active litter available",
     loading: "Loading today…",
     failed: "Today's status could not be loaded.",
-    sessionUnavailable: "The weighing station is unavailable. Reload the Puppy Tracker integration.",
     remainingNames: "Still: {names}",
   },
 };
@@ -78,7 +70,6 @@ class PuppyTrackerTodayCard extends HTMLElement {
     this._selectedLitterId = null;
     this._data = null;
     this._loading = false;
-    this._working = false;
     this._error = "";
     this._unsubscribe = null;
   }
@@ -154,39 +145,6 @@ class PuppyTrackerTodayCard extends HTMLElement {
     } catch (_error) { this._unsubscribe = null; }
   }
 
-  _findButton(tokens) {
-    const states = Object.entries(this._hass?.states || {});
-    const normalized = tokens.map((token) => token.toLowerCase());
-    const matches = states.filter(([entityId, state]) => {
-      if (!entityId.startsWith("button.")) return false;
-      const haystack = `${entityId} ${state?.attributes?.friendly_name || ""}`.toLowerCase();
-      return normalized.every((token) => haystack.includes(token));
-    });
-    return matches.length === 1 ? matches[0][0] : null;
-  }
-
-  async _startSession() {
-    if (!this._hass || this._working) return;
-    const entityId = this._findButton(["weegsessie", "start"]) || this._findButton(["puppy", "start", "session"]);
-    if (!entityId) {
-      this._error = text(this._hass, "sessionUnavailable");
-      this._render();
-      return;
-    }
-    this._working = true;
-    this._error = "";
-    this._render();
-    try {
-      await this._hass.callService("button", "press", {}, { entity_id: entityId });
-      await this._loadData(false);
-    } catch (error) {
-      this._error = error?.message || text(this._hass, "sessionUnavailable");
-    } finally {
-      this._working = false;
-      this._render();
-    }
-  }
-
   async _selectLitter(id) {
     this._selectedLitterId = id;
     this._loading = true;
@@ -211,7 +169,6 @@ class PuppyTrackerTodayCard extends HTMLElement {
     const statusText = attention
       ? text(this._hass, "needsAttention", { count: attention })
       : complete ? text(this._hass, "allDone") : text(this._hass, "allGood");
-    const actionText = complete ? text(this._hass, "done") : (info.active ? text(this._hass, "continue") : text(this._hass, "start"));
 
     this.shadowRoot.innerHTML = `
       <ha-card>
@@ -226,20 +183,18 @@ class PuppyTrackerTodayCard extends HTMLElement {
           </div>
           <div class="status ${attention ? "danger" : "ok"}"><ha-icon icon="${attention ? "mdi:alert-circle-outline" : "mdi:check-circle-outline"}"></ha-icon><span>${escapeHtml(statusText)}</span></div>
           ${remainingNames.length ? `<div class="remaining">${escapeHtml(text(this._hass, "remainingNames", { names: remainingNames.join(", ") }))}</div>` : ""}
-          <button id="session-action" class="primary" ${!litter || complete || this._working ? "disabled" : ""}><ha-icon icon="${complete ? "mdi:check" : "mdi:scale"}"></ha-icon><span>${escapeHtml(this._working ? text(this._hass, "loading") : actionText)}</span></button>
         `}
       </ha-card>
       <style>
-        :host{display:block}ha-card{padding:18px;overflow:hidden}.head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.title{font-size:1.3rem;font-weight:700}.sub{margin-top:3px;color:var(--secondary-text-color);font-size:.9rem}select{min-height:40px;max-width:48%;border:1px solid var(--divider-color);border-radius:10px;padding:0 10px;background:var(--card-background-color);color:var(--primary-text-color)}.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:16px}.stat{padding:10px;border:1px solid var(--divider-color);border-radius:12px;display:grid;gap:2px}.stat strong{font-size:1.35rem}.stat span{font-size:.75rem;color:var(--secondary-text-color)}.stat.danger strong{color:var(--error-color)}.status{display:flex;align-items:center;gap:8px;margin-top:14px;padding:10px 12px;border-radius:12px;background:var(--secondary-background-color)}.status.ok ha-icon{color:var(--success-color,var(--primary-color))}.status.danger ha-icon{color:var(--error-color)}.remaining{margin:9px 2px 0;color:var(--secondary-text-color);font-size:.85rem}.primary{width:100%;min-height:50px;margin-top:14px;border:0;border-radius:12px;background:var(--primary-color);color:var(--text-primary-color,#fff);font:inherit;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer}.primary:disabled{opacity:.55;cursor:default}.primary ha-icon{--mdc-icon-size:21px}.message,.state{margin-top:14px}.error{color:var(--error-color)}@media(max-width:520px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.head{align-items:flex-start}}
+        :host{display:block}ha-card{padding:18px;overflow:hidden}.head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.title{font-size:1.3rem;font-weight:700}.sub{margin-top:3px;color:var(--secondary-text-color);font-size:.9rem}select{min-height:40px;max-width:48%;border:1px solid var(--divider-color);border-radius:10px;padding:0 10px;background:var(--card-background-color);color:var(--primary-text-color)}.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:16px}.stat{padding:10px;border:1px solid var(--divider-color);border-radius:12px;display:grid;gap:2px}.stat strong{font-size:1.35rem}.stat span{font-size:.75rem;color:var(--secondary-text-color)}.stat.danger strong{color:var(--error-color)}.status{display:flex;align-items:center;gap:8px;margin-top:14px;padding:10px 12px;border-radius:12px;background:var(--secondary-background-color)}.status.ok ha-icon{color:var(--success-color,var(--primary-color))}.status.danger ha-icon{color:var(--error-color)}.remaining{margin:9px 2px 0;color:var(--secondary-text-color);font-size:.85rem}.message,.state{margin-top:14px}.error{color:var(--error-color)}@media(max-width:520px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.head{align-items:flex-start}}
       </style>`;
 
     this.shadowRoot.getElementById("litter-select")?.addEventListener("change", (event) => this._selectLitter(event.target.value));
-    this.shadowRoot.getElementById("session-action")?.addEventListener("click", () => this._startSession());
   }
 }
 
 if (!customElements.get("puppy-tracker-today-card")) customElements.define("puppy-tracker-today-card", PuppyTrackerTodayCard);
 window.customCards = window.customCards || [];
 if (!window.customCards.some((card) => card.type === "puppy-tracker-today-card")) {
-  window.customCards.push({ type: "puppy-tracker-today-card", name: "Puppy Tracker Today", description: "Dagelijkse neststatus en snelle start van de weegsessie." });
+  window.customCards.push({ type: "puppy-tracker-today-card", name: "Puppy Tracker Today", description: "Dagelijkse neststatus in één compacte kaart." });
 }
