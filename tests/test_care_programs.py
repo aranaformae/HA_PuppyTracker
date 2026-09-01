@@ -1,8 +1,29 @@
 from __future__ import annotations
 
+from unittest.mock import AsyncMock
+
 import pytest
 
-from custom_components.puppy_tracker.care_programs import normalize_care_program
+from custom_components.puppy_tracker.care_programs import (
+    AgeBasedCareProgramStore,
+    normalize_care_program,
+)
+
+
+def _program_data(**overrides) -> dict:
+    data = {
+        "id": "program-1",
+        "litter_id": "litter-1",
+        "title": "ENS",
+        "record_type": "note",
+        "schedule_type": "range",
+        "start_age_days": 3,
+        "end_age_days": 17,
+        "interval_days": 1,
+        "result_fields": ["result", "note"],
+    }
+    data.update(overrides)
+    return data
 
 
 def test_once_program_normalizes_single_age() -> None:
@@ -22,6 +43,7 @@ def test_once_program_normalizes_single_age() -> None:
     assert program["interval_days"] is None
     assert program["time_of_day"] == "09:00"
     assert program["record_type"] == "medication"
+    assert program["revision"] == 1
 
 
 def test_range_program_supports_daily_ens_and_esi_windows() -> None:
@@ -88,7 +110,7 @@ def test_program_rejects_invalid_age_ranges_and_frequency() -> None:
         })
 
 
-def test_program_rejects_unknown_result_fields_and_invalid_clock_time() -> None:
+def test_program_rejects_unknown_result_fields_invalid_clock_and_record_type() -> None:
     with pytest.raises(ValueError, match="Unsupported result field"):
         normalize_care_program({
             "litter_id": "litter-1",
@@ -106,6 +128,15 @@ def test_program_rejects_unknown_result_fields_and_invalid_clock_time() -> None:
             "schedule_type": "once",
             "start_age_days": 35,
             "time_of_day": "25:00",
+        })
+
+    with pytest.raises(ValueError, match="lowercase snake_case"):
+        normalize_care_program({
+            "litter_id": "litter-1",
+            "title": "Invalid type",
+            "record_type": "Not Valid",
+            "schedule_type": "once",
+            "start_age_days": 3,
         })
 
 
@@ -132,3 +163,89 @@ def test_program_requires_litter_title_and_supported_schedule() -> None:
             "schedule_type": "interval",
             "start_age_days": 3,
         })
+
+
+def test_normalization_preserves_existing_updated_at_on_load() -> None:
+    program = normalize_care_program(
+        _program_data(
+            created_at="2026-08-31T10:00:00+00:00",
+            updated_at="2026-08-31T11:00:00+00:00",
+        ),
+        program_id="program-1",
+    )
+    assert program["created_at"] == "2026-08-31T10:00:00+00:00"
+    assert program["updated_at"] == "2026-08-31T11:00:00+00:00"
+
+
+async def test_semantic_update_increments_revision_but_notification_toggle_does_not(hass) -> None:
+    store = AgeBasedCareProgramStore(hass)
+    initial = normalize_care_program(_program_data(), program_id="program-1")
+    store._data = {"programs": {"program-1": initial}}
+    store._store.async_save = AsyncMock()
+
+    await store.async_update("program-1", {"notifications_enabled": False})
+    assert store.get_program("program-1")["revision"] == 1
+
+    await store.async_update("program-1", {"title": "ENS nieuw protocol"})
+    assert store.get_program("program-1")["revision"] == 2
+
+
+async def test_existing_program_cannot_be_moved_to_another_litter(hass) -> None:
+    store = AgeBasedCareProgramStore(hass)
+    initial = normalize_care_program(_program_data(), program_id="program-1")
+    store._data = {"programs": {"program-1": initial}}
+    store._store.async_save = AsyncMock()
+
+    with pytest.raises(ValueError, match="litter_id cannot be changed"):
+        await store.async_update("program-1", {"litter_id": "litter-2"})
+
+
+def test_revision_must_be_positive() -> None:
+    with pytest.raises(ValueError, match="revision"):
+        normalize_care_program(_program_data(revision=0))
+
+
+async def test_invalid_loaded_program_is_quarantined_not_deleted(hass) -> None:
+    store = AgeBasedCareProgramStore(hass)
+    raw = {"id": "broken", "litter_id": "litter-1", "title": "Broken"}
+    store._store.async_load = AsyncMock(return_value={"programs": {"broken": raw}})
+    store._store.async_save = AsyncMock()
+
+    await store.async_load()
+
+    assert store.get_program("broken") is None
+    assert store.get_quarantined_program_count() == 1
+    saved = store._store.async_save.await_args.args[0]
+    assert saved["quarantined_programs"]["broken"] == raw
+
+
+async def test_valid_loaded_program_does_not_rewrite_unchanged_timestamps(hass) -> None:
+    store = AgeBasedCareProgramStore(hass)
+    program = normalize_care_program(
+        _program_data(
+            revision=1,
+            created_at="2026-08-31T10:00:00+00:00",
+            updated_at="2026-08-31T11:00:00+00:00",
+        ),
+        program_id="program-1",
+    )
+    store._store.async_load = AsyncMock(return_value={"programs": {"program-1": program}})
+    store._store.async_save = AsyncMock()
+
+    await store.async_load()
+
+    store._store.async_save.assert_not_awaited()
+    assert store.get_program("program-1")["updated_at"] == "2026-08-31T11:00:00+00:00"
+
+
+async def test_failed_program_save_rolls_back_runtime_state(hass) -> None:
+    store = AgeBasedCareProgramStore(hass)
+    initial = normalize_care_program(_program_data(), program_id="program-1")
+    store._data = {"programs": {"program-1": initial}}
+    before = store.get_program("program-1")
+    store._store.async_save = AsyncMock(side_effect=RuntimeError("disk failure"))
+
+    with pytest.raises(RuntimeError, match="disk failure"):
+        await store.async_update("program-1", {"title": "Should roll back"})
+
+    assert store.get_program("program-1") == before
