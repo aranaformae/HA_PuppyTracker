@@ -42,10 +42,14 @@ def care_program_age_days(program: dict[str, Any]) -> list[int]:
 
 
 def _scheduled_at(birth_time: datetime, age_days: int, time_of_day: str | None) -> datetime:
-    target = birth_time + timedelta(days=age_days)
     if not time_of_day:
-        return target
+        return birth_time + timedelta(days=age_days)
 
+    # ``birth_time`` is canonical storage data and is commonly UTC. A care
+    # program clock value is entered as Home Assistant local wall time, so move
+    # to HA local time before applying the requested age day and HH:MM. This
+    # also lets zoneinfo apply the correct DST offset for the target date.
+    target = dt_util.as_local(birth_time) + timedelta(days=age_days)
     hour, minute = (int(part) for part in time_of_day.split(":"))
     return target.replace(hour=hour, minute=minute, second=0, microsecond=0)
 
