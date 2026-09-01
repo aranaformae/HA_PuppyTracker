@@ -7,11 +7,16 @@ from typing import Any
 
 from .integrity import inspect_and_repair_data
 from .mother_integrity import inspect_mother_data, merge_integrity_reports
+from .mother_schema import migrate_mother_scope_data
 from .mother_storage import MotherScopeStorage
 
 
 class MotherScopeIntegrityStorage(MotherScopeStorage):
     """Mother-aware storage with one combined integrity report."""
+
+    def _migrate_mothers(self) -> bool:
+        """Use the shared pure mother migration used by backup candidates too."""
+        return migrate_mother_scope_data(self._data)
 
     def _combined_integrity(self, *, repair: bool) -> tuple[bool, dict[str, Any]]:
         base_changed, base_report = inspect_and_repair_data(self._data, repair=repair)
