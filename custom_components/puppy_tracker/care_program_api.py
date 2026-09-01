@@ -12,7 +12,11 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .api import _runtime_data, _runtime_storage
 from .care_occurrences import derive_litter_care_occurrences
-from .care_programs import AgeBasedCareProgramStore
+from .care_programs import (
+    AgeBasedCareProgramStore,
+    care_program_identity_changed,
+    normalize_care_program,
+)
 from .care_results import async_record_care_result
 from .care_status import care_occurrence_status
 from .const import DOMAIN, SIGNAL_DASHBOARD_UPDATE
@@ -69,6 +73,23 @@ def _existing_occurrence_result(storage, occurrence: dict[str, Any]) -> dict[str
         if str(data.get("care_occurrence_id") or "") == occurrence_id:
             return record
     return None
+
+
+def _program_has_active_results(storage, program: dict[str, Any]) -> bool:
+    """Return whether a care program already owns any active dossier result."""
+    program_id = str(program.get("id") or "")
+    litter_id = str(program.get("litter_id") or "")
+    litter = storage.get_litter(litter_id) or {}
+    for puppy_id, puppy in (litter.get("puppies") or {}).items():
+        if not isinstance(puppy, dict):
+            continue
+        for record in storage.get_records(litter_id, str(puppy_id), newest_first=False):
+            if record.get("deleted", False):
+                continue
+            data = record.get("data") if isinstance(record.get("data"), dict) else {}
+            if str(data.get("care_program_id") or "") == program_id:
+                return True
+    return False
 
 
 def _skip_reason_code(reason: str) -> str:
@@ -259,6 +280,21 @@ async def websocket_update_care_program(hass, connection, msg) -> None:
     candidate = {**current, **updates}
     try:
         _validate_litter(storage, str(candidate.get("litter_id") or ""))
+        normalized_candidate = normalize_care_program(
+            candidate,
+            program_id=str(current.get("id") or msg["program_id"]),
+            updated_at=str(current.get("updated_at") or "") or None,
+        )
+        if (
+            care_program_identity_changed(current, normalized_candidate)
+            and _program_has_active_results(storage, current)
+        ):
+            connection.send_error(
+                msg["id"],
+                "care_program_locked",
+                "Care program schedule and result identity cannot be changed after results exist; create a new care program instead",
+            )
+            return
         await store.async_update(msg["program_id"], candidate)
     except ValueError as err:
         connection.send_error(msg["id"], "invalid_care_program", str(err))
