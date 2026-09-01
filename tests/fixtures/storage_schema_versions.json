@@ -1,0 +1,934 @@
+{
+  "1": {
+    "created_at": "2026-08-20T05:50:00+02:00",
+    "updated_at": "2026-08-20T08:10:00+02:00",
+    "settings": {
+      "min_daily_growth_percent": 5.0,
+      "max_hours_between_weighings": 24.0,
+      "growth_monitoring_days": 14
+    },
+    "litters": {
+      "litter-legacy": {
+        "id": "litter-legacy",
+        "name": "Legacy Nest",
+        "birth_date": "2026-08-20",
+        "mother": "Luna",
+        "father": "Dutch",
+        "active": false,
+        "created_at": "2026-08-20T05:55:00+02:00",
+        "updated_at": "2026-08-20T08:05:00+02:00",
+        "puppies": {
+          "puppy-legacy": {
+            "id": "puppy-legacy",
+            "name": "Rood",
+            "collar_color": "red",
+            "sex": "male",
+            "birth_weight": 400.0,
+            "birth_time": "2026-08-20T06:00:00+02:00",
+            "active": false,
+            "created_at": "2026-08-20T06:00:00+02:00",
+            "updated_at": "2026-08-20T08:00:00+02:00",
+            "notes": "Legacy profile note",
+            "measurements": [
+              {
+                "id": "birth-1",
+                "weight": 400.0,
+                "timestamp": "2026-08-20T06:00:00+02:00",
+                "created_at": "2026-08-20T06:00:05+02:00",
+                "note": "Geboortegewicht"
+              },
+              {
+                "id": "m1",
+                "weight": 420.0,
+                "timestamp": "2026-08-20T07:00:00+02:00",
+                "created_at": "2026-08-20T07:00:05+02:00"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "audit_log": [
+      {
+        "id": "audit-schema-1",
+        "timestamp": "2026-08-20T08:10:00+02:00",
+        "action": "legacy_fixture",
+        "litter_id": "litter-legacy",
+        "puppy_id": "puppy-legacy",
+        "measurement_id": null,
+        "details": {
+          "source_schema": 1
+        }
+      }
+    ]
+  },
+  "2": {
+    "created_at": "2026-08-20T05:50:00+02:00",
+    "updated_at": "2026-08-20T08:10:00+02:00",
+    "settings": {
+      "min_daily_growth_percent": 5.0,
+      "max_hours_between_weighings": 24.0,
+      "growth_monitoring_days": 14
+    },
+    "litters": {
+      "litter-legacy": {
+        "id": "litter-legacy",
+        "name": "Legacy Nest",
+        "birth_date": "2026-08-20",
+        "mother": "Luna",
+        "father": "Dutch",
+        "active": false,
+        "created_at": "2026-08-20T05:55:00+02:00",
+        "updated_at": "2026-08-20T08:05:00+02:00",
+        "puppies": {
+          "puppy-legacy": {
+            "id": "puppy-legacy",
+            "name": "Rood",
+            "collar_color": "red",
+            "sex": "male",
+            "birth_weight": 400.0,
+            "birth_time": "2026-08-20T06:00:00+02:00",
+            "active": false,
+            "created_at": "2026-08-20T06:00:00+02:00",
+            "updated_at": "2026-08-20T08:00:00+02:00",
+            "notes": "Legacy profile note",
+            "birth_measurement_id": "birth-1",
+            "measurements": [
+              {
+                "id": "birth-1",
+                "weight": 400,
+                "timestamp": "2026-08-20T06:00:00+02:00",
+                "created_at": "2026-08-20T06:00:00+02:00",
+                "updated_at": "2026-08-20T06:00:00+02:00",
+                "deleted": false,
+                "deleted_at": null,
+                "superseded_by": null,
+                "note": "Geboortegewicht",
+                "kind": "birth",
+                "correction_reason": null,
+                "source_measurement_id": null
+              },
+              {
+                "id": "m1",
+                "weight": 420,
+                "timestamp": "2026-08-20T07:00:00+02:00",
+                "created_at": "2026-08-20T07:00:00+02:00",
+                "updated_at": "2026-08-20T07:00:00+02:00",
+                "deleted": false,
+                "deleted_at": null,
+                "superseded_by": "m1-corrected",
+                "note": null,
+                "kind": null,
+                "correction_reason": null,
+                "source_measurement_id": null
+              },
+              {
+                "id": "m1-corrected",
+                "weight": 425,
+                "timestamp": "2026-08-20T07:00:00+02:00",
+                "created_at": "2026-08-20T07:10:00+02:00",
+                "updated_at": "2026-08-20T07:10:00+02:00",
+                "deleted": false,
+                "deleted_at": null,
+                "superseded_by": null,
+                "note": null,
+                "kind": null,
+                "correction_reason": "Correctie",
+                "source_measurement_id": "m1"
+              },
+              {
+                "id": "deleted-old",
+                "weight": 410,
+                "timestamp": "2026-08-20T06:30:00+02:00",
+                "created_at": "2026-08-20T06:30:00+02:00",
+                "updated_at": "2026-08-20T07:20:00+02:00",
+                "deleted": true,
+                "deleted_at": "2026-08-20T07:20:00+02:00",
+                "superseded_by": null,
+                "note": null,
+                "kind": null,
+                "correction_reason": null,
+                "source_measurement_id": null
+              }
+            ]
+          }
+        }
+      }
+    },
+    "audit_log": [
+      {
+        "id": "audit-schema-2",
+        "timestamp": "2026-08-20T08:10:00+02:00",
+        "action": "legacy_fixture",
+        "litter_id": "litter-legacy",
+        "puppy_id": "puppy-legacy",
+        "measurement_id": null,
+        "details": {
+          "source_schema": 2
+        }
+      }
+    ],
+    "schema_version": 2
+  },
+  "3": {
+    "created_at": "2026-08-20T05:50:00+02:00",
+    "updated_at": "2026-08-20T08:10:00+02:00",
+    "settings": {
+      "min_daily_growth_percent": 5.0,
+      "max_hours_between_weighings": 24.0,
+      "growth_monitoring_days": 14
+    },
+    "litters": {
+      "litter-legacy": {
+        "id": "litter-legacy",
+        "name": "Legacy Nest",
+        "birth_date": "2026-08-20",
+        "mother": "Luna",
+        "father": "Dutch",
+        "active": false,
+        "created_at": "2026-08-20T05:55:00+02:00",
+        "updated_at": "2026-08-20T08:05:00+02:00",
+        "puppies": {
+          "puppy-legacy": {
+            "id": "puppy-legacy",
+            "name": "Rood",
+            "collar_color": "red",
+            "sex": "male",
+            "birth_weight": 400.0,
+            "birth_time": "2026-08-20T06:00:00+02:00",
+            "active": false,
+            "created_at": "2026-08-20T06:00:00+02:00",
+            "updated_at": "2026-08-20T08:00:00+02:00",
+            "notes": "Legacy profile note",
+            "birth_measurement_id": "birth-1",
+            "measurements": [
+              {
+                "id": "birth-1",
+                "weight": 400,
+                "timestamp": "2026-08-20T06:00:00+02:00",
+                "created_at": "2026-08-20T06:00:00+02:00",
+                "updated_at": "2026-08-20T06:00:00+02:00",
+                "deleted": false,
+                "deleted_at": null,
+                "superseded_by": null,
+                "note": "Geboortegewicht",
+                "kind": "birth",
+                "correction_reason": null,
+                "source_measurement_id": null
+              },
+              {
+                "id": "m1",
+                "weight": 420,
+                "timestamp": "2026-08-20T07:00:00+02:00",
+                "created_at": "2026-08-20T07:00:00+02:00",
+                "updated_at": "2026-08-20T07:00:00+02:00",
+                "deleted": false,
+                "deleted_at": null,
+                "superseded_by": "m1-corrected",
+                "note": null,
+                "kind": null,
+                "correction_reason": null,
+                "source_measurement_id": null
+              },
+              {
+                "id": "m1-corrected",
+                "weight": 425,
+                "timestamp": "2026-08-20T07:00:00+02:00",
+                "created_at": "2026-08-20T07:10:00+02:00",
+                "updated_at": "2026-08-20T07:10:00+02:00",
+                "deleted": false,
+                "deleted_at": null,
+                "superseded_by": null,
+                "note": null,
+                "kind": null,
+                "correction_reason": "Correctie",
+                "source_measurement_id": "m1"
+              },
+              {
+                "id": "deleted-old",
+                "weight": 410,
+                "timestamp": "2026-08-20T06:30:00+02:00",
+                "created_at": "2026-08-20T06:30:00+02:00",
+                "updated_at": "2026-08-20T07:20:00+02:00",
+                "deleted": true,
+                "deleted_at": "2026-08-20T07:20:00+02:00",
+                "superseded_by": null,
+                "note": null,
+                "kind": null,
+                "correction_reason": null,
+                "source_measurement_id": null
+              }
+            ]
+          }
+        },
+        "last_completed_session": {
+          "status": "completed",
+          "completed_at": "2026-08-20T08:00:00+02:00",
+          "puppy_ids": [
+            "puppy-legacy"
+          ],
+          "weights": {
+            "puppy-legacy": 425.0
+          }
+        }
+      }
+    },
+    "audit_log": [
+      {
+        "id": "audit-schema-3",
+        "timestamp": "2026-08-20T08:10:00+02:00",
+        "action": "legacy_fixture",
+        "litter_id": "litter-legacy",
+        "puppy_id": "puppy-legacy",
+        "measurement_id": null,
+        "details": {
+          "source_schema": 3
+        }
+      }
+    ],
+    "schema_version": 3
+  },
+  "4": {
+    "created_at": "2026-08-20T05:50:00+02:00",
+    "updated_at": "2026-08-20T08:10:00+02:00",
+    "settings": {
+      "min_daily_growth_percent": 5.0,
+      "max_hours_between_weighings": 24.0,
+      "growth_monitoring_days": 14
+    },
+    "litters": {
+      "litter-legacy": {
+        "id": "litter-legacy",
+        "name": "Legacy Nest",
+        "birth_date": "2026-08-20",
+        "mother": "Luna",
+        "father": "Dutch",
+        "active": false,
+        "created_at": "2026-08-20T05:55:00+02:00",
+        "updated_at": "2026-08-20T08:05:00+02:00",
+        "puppies": {
+          "puppy-legacy": {
+            "id": "puppy-legacy",
+            "name": "Rood",
+            "collar_color": "red",
+            "sex": "male",
+            "birth_weight": 400.0,
+            "birth_time": "2026-08-20T06:00:00+02:00",
+            "active": false,
+            "created_at": "2026-08-20T06:00:00+02:00",
+            "updated_at": "2026-08-20T08:00:00+02:00",
+            "notes": "Legacy profile note",
+            "birth_measurement_id": "birth-1",
+            "measurements": [
+              {
+                "id": "birth-1",
+                "weight": 400,
+                "timestamp": "2026-08-20T06:00:00+02:00",
+                "created_at": "2026-08-20T06:00:00+02:00",
+                "updated_at": "2026-08-20T06:00:00+02:00",
+                "deleted": false,
+                "deleted_at": null,
+                "superseded_by": null,
+                "note": "Geboortegewicht",
+                "kind": "birth",
+                "correction_reason": null,
+                "source_measurement_id": null
+              },
+              {
+                "id": "m1",
+                "weight": 420,
+                "timestamp": "2026-08-20T07:00:00+02:00",
+                "created_at": "2026-08-20T07:00:00+02:00",
+                "updated_at": "2026-08-20T07:00:00+02:00",
+                "deleted": false,
+                "deleted_at": null,
+                "superseded_by": "m1-corrected",
+                "note": null,
+                "kind": null,
+                "correction_reason": null,
+                "source_measurement_id": null
+              },
+              {
+                "id": "m1-corrected",
+                "weight": 425,
+                "timestamp": "2026-08-20T07:00:00+02:00",
+                "created_at": "2026-08-20T07:10:00+02:00",
+                "updated_at": "2026-08-20T07:20:00+02:00",
+                "deleted": true,
+                "deleted_at": "2026-08-20T07:20:00+02:00",
+                "superseded_by": null,
+                "note": null,
+                "kind": null,
+                "correction_reason": "Correctie",
+                "source_measurement_id": "m1"
+              }
+            ]
+          }
+        },
+        "last_completed_session": null
+      }
+    },
+    "audit_log": [
+      {
+        "id": "audit-schema-4",
+        "timestamp": "2026-08-20T08:10:00+02:00",
+        "action": "legacy_fixture",
+        "litter_id": "litter-legacy",
+        "puppy_id": "puppy-legacy",
+        "measurement_id": null,
+        "details": {
+          "source_schema": 4
+        }
+      }
+    ],
+    "schema_version": 4
+  },
+  "5": {
+    "created_at": "2026-08-20T05:50:00+02:00",
+    "updated_at": "2026-08-20T08:10:00+02:00",
+    "settings": {
+      "min_daily_growth_percent": 5.0,
+      "max_hours_between_weighings": 24.0,
+      "growth_monitoring_days": 14
+    },
+    "litters": {
+      "litter-legacy": {
+        "id": "litter-legacy",
+        "name": "Legacy Nest",
+        "birth_date": "2026-08-20",
+        "mother": "Luna",
+        "father": "Dutch",
+        "active": false,
+        "created_at": "2026-08-20T05:55:00+02:00",
+        "updated_at": "2026-08-20T08:05:00+02:00",
+        "puppies": {
+          "puppy-legacy": {
+            "id": "puppy-legacy",
+            "name": "Rood",
+            "collar_color": "red",
+            "sex": "male",
+            "birth_weight": 400.0,
+            "birth_time": "2026-08-20T06:00:00+02:00",
+            "active": false,
+            "created_at": "2026-08-20T06:00:00+02:00",
+            "updated_at": "2026-08-20T08:00:00+02:00",
+            "notes": "Legacy profile note",
+            "birth_measurement_id": "birth-1",
+            "measurements": [
+              {
+                "id": "birth-1",
+                "weight": 400,
+                "timestamp": "2026-08-20T06:00:00+02:00",
+                "created_at": "2026-08-20T06:00:00+02:00",
+                "updated_at": "2026-08-20T06:00:00+02:00",
+                "deleted": false,
+                "deleted_at": null,
+                "superseded_by": null,
+                "note": "Geboortegewicht",
+                "kind": "birth",
+                "correction_reason": null,
+                "source_measurement_id": null
+              },
+              {
+                "id": "m1",
+                "weight": 420,
+                "timestamp": "2026-08-20T07:00:00+02:00",
+                "created_at": "2026-08-20T07:00:00+02:00",
+                "updated_at": "2026-08-20T07:00:00+02:00",
+                "deleted": false,
+                "deleted_at": null,
+                "superseded_by": "m1-corrected",
+                "note": null,
+                "kind": null,
+                "correction_reason": null,
+                "source_measurement_id": null
+              },
+              {
+                "id": "m1-corrected",
+                "weight": 425,
+                "timestamp": "2026-08-20T07:00:00+02:00",
+                "created_at": "2026-08-20T07:10:00+02:00",
+                "updated_at": "2026-08-20T07:10:00+02:00",
+                "deleted": false,
+                "deleted_at": null,
+                "superseded_by": null,
+                "note": null,
+                "kind": null,
+                "correction_reason": "Correctie",
+                "source_measurement_id": "m1"
+              },
+              {
+                "id": "deleted-old",
+                "weight": 410,
+                "timestamp": "2026-08-20T06:30:00+02:00",
+                "created_at": "2026-08-20T06:30:00+02:00",
+                "updated_at": "2026-08-20T07:20:00+02:00",
+                "deleted": true,
+                "deleted_at": "2026-08-20T07:20:00+02:00",
+                "superseded_by": null,
+                "note": null,
+                "kind": null,
+                "correction_reason": null,
+                "source_measurement_id": null
+              }
+            ]
+          }
+        },
+        "last_completed_session": null
+      }
+    },
+    "audit_log": [
+      {
+        "id": "audit-schema-5",
+        "timestamp": "2026-08-20T08:10:00+02:00",
+        "action": "legacy_fixture",
+        "litter_id": "litter-legacy",
+        "puppy_id": "puppy-legacy",
+        "measurement_id": null,
+        "details": {
+          "source_schema": 5
+        }
+      }
+    ],
+    "schema_version": 5
+  },
+  "6": {
+    "created_at": "2026-08-20T05:50:00+02:00",
+    "updated_at": "2026-08-20T08:10:00+02:00",
+    "settings": {
+      "min_daily_growth_percent": 5.0,
+      "max_hours_between_weighings": 24.0,
+      "growth_monitoring_days": 14,
+      "notifications_enabled": false,
+      "notify_recovery": true,
+      "notify_session_complete": false,
+      "notify_entities": []
+    },
+    "litters": {
+      "litter-legacy": {
+        "id": "litter-legacy",
+        "name": "Legacy Nest",
+        "birth_date": "2026-08-20",
+        "mother": "Luna",
+        "father": "Dutch",
+        "active": false,
+        "created_at": "2026-08-20T05:55:00+02:00",
+        "updated_at": "2026-08-20T08:05:00+02:00",
+        "puppies": {
+          "puppy-legacy": {
+            "id": "puppy-legacy",
+            "name": "Rood",
+            "collar_color": "red",
+            "sex": "male",
+            "birth_weight": 400.0,
+            "birth_time": "2026-08-20T06:00:00+02:00",
+            "active": false,
+            "created_at": "2026-08-20T06:00:00+02:00",
+            "updated_at": "2026-08-20T08:00:00+02:00",
+            "notes": "Legacy profile note",
+            "birth_measurement_id": "birth-1",
+            "measurements": [
+              {
+                "id": "birth-1",
+                "weight": 400,
+                "timestamp": "2026-08-20T06:00:00+02:00",
+                "created_at": "2026-08-20T06:00:00+02:00",
+                "updated_at": "2026-08-20T06:00:00+02:00",
+                "deleted": false,
+                "deleted_at": null,
+                "superseded_by": null,
+                "note": "Geboortegewicht",
+                "kind": "birth",
+                "correction_reason": null,
+                "source_measurement_id": null
+              },
+              {
+                "id": "m1",
+                "weight": 420,
+                "timestamp": "2026-08-20T07:00:00+02:00",
+                "created_at": "2026-08-20T07:00:00+02:00",
+                "updated_at": "2026-08-20T07:00:00+02:00",
+                "deleted": false,
+                "deleted_at": null,
+                "superseded_by": "m1-corrected",
+                "note": null,
+                "kind": null,
+                "correction_reason": null,
+                "source_measurement_id": null
+              },
+              {
+                "id": "m1-corrected",
+                "weight": 425,
+                "timestamp": "2026-08-20T07:00:00+02:00",
+                "created_at": "2026-08-20T07:10:00+02:00",
+                "updated_at": "2026-08-20T07:10:00+02:00",
+                "deleted": false,
+                "deleted_at": null,
+                "superseded_by": null,
+                "note": null,
+                "kind": null,
+                "correction_reason": "Correctie",
+                "source_measurement_id": "m1"
+              },
+              {
+                "id": "deleted-old",
+                "weight": 410,
+                "timestamp": "2026-08-20T06:30:00+02:00",
+                "created_at": "2026-08-20T06:30:00+02:00",
+                "updated_at": "2026-08-20T07:20:00+02:00",
+                "deleted": true,
+                "deleted_at": "2026-08-20T07:20:00+02:00",
+                "superseded_by": null,
+                "note": null,
+                "kind": null,
+                "correction_reason": null,
+                "source_measurement_id": null
+              }
+            ]
+          }
+        },
+        "last_completed_session": null
+      }
+    },
+    "audit_log": [
+      {
+        "id": "audit-schema-6",
+        "timestamp": "2026-08-20T08:10:00+02:00",
+        "action": "legacy_fixture",
+        "litter_id": "litter-legacy",
+        "puppy_id": "puppy-legacy",
+        "measurement_id": null,
+        "details": {
+          "source_schema": 6
+        }
+      }
+    ],
+    "schema_version": 6
+  },
+  "7": {
+    "created_at": "2026-08-20T05:50:00+02:00",
+    "updated_at": "2026-08-20T08:10:00+02:00",
+    "settings": {
+      "min_daily_growth_percent": 5.0,
+      "max_hours_between_weighings": 24.0,
+      "growth_monitoring_days": 14
+    },
+    "litters": {
+      "litter-legacy": {
+        "id": "litter-legacy",
+        "name": "Legacy Nest",
+        "birth_date": "2026-08-20",
+        "mother": "Luna",
+        "father": "Dutch",
+        "active": false,
+        "created_at": "2026-08-20T05:55:00+02:00",
+        "updated_at": "2026-08-20T08:05:00+02:00",
+        "puppies": {
+          "puppy-legacy": {
+            "id": "puppy-legacy",
+            "name": "Rood",
+            "collar_color": "red",
+            "sex": "male",
+            "birth_weight": 400.0,
+            "birth_time": "2026-08-20T06:00:00+02:00",
+            "active": false,
+            "created_at": "2026-08-20T06:00:00+02:00",
+            "updated_at": "2026-08-20T08:00:00+02:00",
+            "profile_note": "Legacy profile note",
+            "birth_measurement_id": "birth-1",
+            "measurements": [
+              {
+                "id": "birth-1",
+                "weight": 400,
+                "timestamp": "2026-08-20T04:00:00+00:00",
+                "created_at": "2026-08-20T04:00:00+00:00",
+                "updated_at": "2026-08-20T04:00:00+00:00",
+                "deleted": false,
+                "deleted_at": null,
+                "superseded_by": null,
+                "note": "Geboortegewicht",
+                "kind": "birth",
+                "correction_reason": null,
+                "source_measurement_id": null
+              },
+              {
+                "id": "m1",
+                "weight": 420,
+                "timestamp": "2026-08-20T05:00:00+00:00",
+                "created_at": "2026-08-20T05:00:00+00:00",
+                "updated_at": "2026-08-20T05:00:00+00:00",
+                "deleted": false,
+                "deleted_at": null,
+                "superseded_by": "m1-corrected",
+                "note": null,
+                "kind": null,
+                "correction_reason": null,
+                "source_measurement_id": null
+              },
+              {
+                "id": "m1-corrected",
+                "weight": 425,
+                "timestamp": "2026-08-20T05:00:00+00:00",
+                "created_at": "2026-08-20T05:10:00+00:00",
+                "updated_at": "2026-08-20T05:10:00+00:00",
+                "deleted": false,
+                "deleted_at": null,
+                "superseded_by": null,
+                "note": null,
+                "kind": null,
+                "correction_reason": "Correctie",
+                "source_measurement_id": "m1"
+              }
+            ],
+            "records": [
+              {
+                "id": "record-puppy-1",
+                "type": "note",
+                "scope": "puppy",
+                "litter_id": "litter-legacy",
+                "mother_id": null,
+                "puppy_id": "puppy-legacy",
+                "occurred_at": "2026-08-20T06:30:00+00:00",
+                "created_at": "2026-08-20T06:30:00+00:00",
+                "updated_at": "2026-08-20T06:30:00+00:00",
+                "deleted": false,
+                "deleted_at": null,
+                "title": "Pupnotitie",
+                "note": "Bewaren",
+                "data": {}
+              },
+              {
+                "id": "record-puppy-deleted",
+                "type": "note",
+                "scope": "puppy",
+                "litter_id": "litter-legacy",
+                "mother_id": null,
+                "puppy_id": "puppy-legacy",
+                "occurred_at": "2026-08-20T06:40:00+00:00",
+                "created_at": "2026-08-20T06:40:00+00:00",
+                "updated_at": "2026-08-20T06:50:00+00:00",
+                "deleted": true,
+                "deleted_at": "2026-08-20T06:50:00+00:00",
+                "title": "Verwijderd",
+                "note": "Historie",
+                "data": {}
+              }
+            ]
+          }
+        },
+        "last_completed_session": null,
+        "records": [
+          {
+            "id": "record-litter-1",
+            "type": "milestone",
+            "scope": "litter",
+            "litter_id": "litter-legacy",
+            "mother_id": null,
+            "puppy_id": null,
+            "occurred_at": "2026-08-20T06:00:00+00:00",
+            "created_at": "2026-08-20T06:00:00+00:00",
+            "updated_at": "2026-08-20T06:00:00+00:00",
+            "deleted": false,
+            "deleted_at": null,
+            "title": "Nestmijlpaal",
+            "note": "Legacy dossier",
+            "data": {
+              "kind": "legacy"
+            }
+          }
+        ]
+      }
+    },
+    "audit_log": [
+      {
+        "id": "audit-schema-7",
+        "timestamp": "2026-08-20T08:10:00+02:00",
+        "action": "legacy_fixture",
+        "litter_id": "litter-legacy",
+        "puppy_id": "puppy-legacy",
+        "measurement_id": null,
+        "details": {
+          "source_schema": 7
+        }
+      }
+    ],
+    "schema_version": 7
+  },
+  "8": {
+    "created_at": "2026-08-20T05:50:00+02:00",
+    "updated_at": "2026-08-20T08:10:00+02:00",
+    "settings": {
+      "min_daily_growth_percent": 5.0,
+      "max_hours_between_weighings": 24.0,
+      "growth_monitoring_days": 14
+    },
+    "litters": {
+      "litter-legacy": {
+        "id": "litter-legacy",
+        "name": "Legacy Nest",
+        "birth_date": "2026-08-20",
+        "mother": "Luna",
+        "father": "Dutch",
+        "active": false,
+        "created_at": "2026-08-20T05:55:00+02:00",
+        "updated_at": "2026-08-20T08:05:00+02:00",
+        "puppies": {
+          "puppy-legacy": {
+            "id": "puppy-legacy",
+            "name": "Rood",
+            "collar_color": "red",
+            "sex": "male",
+            "birth_weight": 400.0,
+            "birth_time": "2026-08-20T06:00:00+02:00",
+            "active": false,
+            "created_at": "2026-08-20T06:00:00+02:00",
+            "updated_at": "2026-08-20T08:00:00+02:00",
+            "profile_note": "Legacy profile note",
+            "birth_measurement_id": "birth-1",
+            "measurements": [
+              {
+                "id": "birth-1",
+                "weight": 400,
+                "timestamp": "2026-08-20T04:00:00+00:00",
+                "created_at": "2026-08-20T04:00:00+00:00",
+                "updated_at": "2026-08-20T04:00:00+00:00",
+                "deleted": false,
+                "deleted_at": null,
+                "superseded_by": null,
+                "note": "Geboortegewicht",
+                "kind": "birth",
+                "correction_reason": null,
+                "source_measurement_id": null
+              },
+              {
+                "id": "m1",
+                "weight": 420,
+                "timestamp": "2026-08-20T05:00:00+00:00",
+                "created_at": "2026-08-20T05:00:00+00:00",
+                "updated_at": "2026-08-20T05:00:00+00:00",
+                "deleted": false,
+                "deleted_at": null,
+                "superseded_by": "m1-corrected",
+                "note": null,
+                "kind": null,
+                "correction_reason": null,
+                "source_measurement_id": null
+              },
+              {
+                "id": "m1-corrected",
+                "weight": 425,
+                "timestamp": "2026-08-20T05:00:00+00:00",
+                "created_at": "2026-08-20T05:10:00+00:00",
+                "updated_at": "2026-08-20T05:10:00+00:00",
+                "deleted": false,
+                "deleted_at": null,
+                "superseded_by": null,
+                "note": null,
+                "kind": null,
+                "correction_reason": "Correctie",
+                "source_measurement_id": "m1"
+              }
+            ],
+            "records": [
+              {
+                "id": "record-puppy-1",
+                "type": "note",
+                "scope": "puppy",
+                "litter_id": "litter-legacy",
+                "mother_id": null,
+                "puppy_id": "puppy-legacy",
+                "occurred_at": "2026-08-20T06:30:00+00:00",
+                "created_at": "2026-08-20T06:30:00+00:00",
+                "updated_at": "2026-08-20T06:30:00+00:00",
+                "deleted": false,
+                "deleted_at": null,
+                "title": "Pupnotitie",
+                "note": "Bewaren",
+                "data": {}
+              },
+              {
+                "id": "record-puppy-deleted",
+                "type": "note",
+                "scope": "puppy",
+                "litter_id": "litter-legacy",
+                "mother_id": null,
+                "puppy_id": "puppy-legacy",
+                "occurred_at": "2026-08-20T06:40:00+00:00",
+                "created_at": "2026-08-20T06:40:00+00:00",
+                "updated_at": "2026-08-20T06:50:00+00:00",
+                "deleted": true,
+                "deleted_at": "2026-08-20T06:50:00+00:00",
+                "title": "Verwijderd",
+                "note": "Historie",
+                "data": {}
+              }
+            ]
+          }
+        },
+        "last_completed_session": null,
+        "records": [
+          {
+            "id": "record-litter-1",
+            "type": "milestone",
+            "scope": "litter",
+            "litter_id": "litter-legacy",
+            "mother_id": null,
+            "puppy_id": null,
+            "occurred_at": "2026-08-20T06:00:00+00:00",
+            "created_at": "2026-08-20T06:00:00+00:00",
+            "updated_at": "2026-08-20T06:00:00+00:00",
+            "deleted": false,
+            "deleted_at": null,
+            "title": "Nestmijlpaal",
+            "note": "Legacy dossier",
+            "data": {
+              "kind": "legacy"
+            }
+          }
+        ],
+        "mother_id": "mother-luna"
+      }
+    },
+    "audit_log": [
+      {
+        "id": "audit-schema-8",
+        "timestamp": "2026-08-20T08:10:00+02:00",
+        "action": "legacy_fixture",
+        "litter_id": "litter-legacy",
+        "puppy_id": "puppy-legacy",
+        "measurement_id": null,
+        "details": {
+          "source_schema": 8
+        }
+      }
+    ],
+    "schema_version": 8,
+    "mothers": {
+      "mother-luna": {
+        "id": "mother-luna",
+        "name": "Luna",
+        "profile_note": "Persistent mother",
+        "created_at": "2026-08-01T08:00:00+00:00",
+        "updated_at": "2026-08-20T08:00:00+00:00",
+        "records": [
+          {
+            "id": "record-mother-1",
+            "type": "vet_visit",
+            "scope": "mother",
+            "litter_id": "litter-legacy",
+            "mother_id": "mother-luna",
+            "puppy_id": null,
+            "occurred_at": "2026-08-20T03:00:00+00:00",
+            "created_at": "2026-08-20T03:00:00+00:00",
+            "updated_at": "2026-08-20T03:00:00+00:00",
+            "deleted": false,
+            "deleted_at": null,
+            "title": "Controle",
+            "note": "Moederrecord",
+            "data": {}
+          }
+        ]
+      }
+    }
+  }
+}
