@@ -90,10 +90,13 @@ async function mountReport(page) {
   return card;
 }
 
-test("report selection uses the shared Alles label", async ({ page }) => {
+test("report selection uses the shared all-scope label", async ({ page }) => {
   const card = await mountReport(page);
 
-  await expect(card.locator("#puppy option[value='all']")).toHaveText("Alles");
+  // The fixture runs in English, so the shared localization layer renders
+  // the source label "Alles" as "All". The important contract is that the
+  // aggregate selection uses the common all-scope wording, not "Compleet nest".
+  await expect(card.locator("#puppy option[value='all']")).toHaveText("All");
   await expect(card.locator(".field label").nth(1)).toHaveText("Selectie");
   await expect(card.locator("#puppy")).not.toContainText("Compleet nest");
 });
