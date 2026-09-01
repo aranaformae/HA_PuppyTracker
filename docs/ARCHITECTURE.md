@@ -13,8 +13,11 @@ The architecture separates:
 3. chronological dossier records;
 4. derived metrics and dossier follow-up actions;
 5. persistent generic recurring-care rules;
-6. notification delivery state;
-7. presentation through Home Assistant devices/entities and custom cards.
+6. persistent age-based litter care program definitions;
+7. derived care/reminder status and notification delivery state;
+8. presentation through Home Assistant devices/entities and custom cards.
+
+A central rule is that persistent scheduling definitions and historical facts are different data classes. A reminder or care program may say what should happen; a dossier record says what actually happened.
 
 ## Integration identity
 
@@ -51,9 +54,12 @@ PuppyTrackerStorage
 
 RecurringReminderStore
 └── reminders{}
+
+AgeBasedCareProgramStore
+└── programs{}
 ```
 
-The recurring reminder store is intentionally separate from the main dossier storage. Dossier records describe facts that happened; reminder definitions describe future scheduling rules.
+The recurring-reminder and age-based-care stores are intentionally separate from the main dossier storage. Dossier records describe facts that happened; scheduling definitions describe future rules. Derived reminder/care occurrences are projections and are not persisted as a second task database.
 
 ## Owner scopes
 
@@ -101,7 +107,7 @@ Records use a generic outer structure with type-specific payload data. Important
 - `updated_at`: last edit time;
 - `deleted_at`: soft-delete time.
 
-These values must not be conflated because timeline ordering and reminder completion depend on the real occurrence time.
+These values must not be conflated because timeline ordering, reports and reminder completion depend on the real occurrence time.
 
 Current record concepts include:
 
@@ -119,7 +125,7 @@ other
 
 Temperature is a structured dossier event. Its Celsius value belongs in record data rather than being encoded only into title/note text.
 
-The storage layer remains extensible for future validated snake_case record types.
+The storage layer remains extensible for future validated lowercase snake_case record types. Scheduling layers must validate record types at their persistence boundary rather than allowing invalid types to enter their own stores.
 
 ## Profile note versus dossier record
 
@@ -240,51 +246,167 @@ overdue
 
 `due_soon` currently represents the final 60 minutes before the deadline.
 
+### Recurring-reminder store integrity
+
+The reminder store uses conservative persistence semantics:
+
+- record types and schedule timestamps are validated during normalization;
+- unreadable/future definitions are preserved in quarantine instead of silently deleted;
+- unchanged records retain their existing `updated_at` values when loaded;
+- create/update/delete mutations roll back in-memory state if the Home Assistant store write fails.
+
+Diagnostics expose aggregate reminder and quarantine counts without exposing reminder contents.
+
+## Age-based litter care programs
+
+Age-based care programs schedule actions from each puppy's age. They are different from interval reminders because completion timing must never shift the age calendar.
+
+Authoritative implementation lives in:
+
+```text
+care_programs.py
+care_occurrences.py
+care_status.py
+care_results.py
+care_program_api.py
+care_notifications.py
+```
+
+The full contract is documented in [`CARE_PROGRAMS.md`](CARE_PROGRAMS.md).
+
+### Persistent definition, derived occurrence, dossier fact
+
+The model is:
+
+```text
+persistent care program definition
+        ↓
+derived occurrence per puppy and age day
+        ↓
+structured puppy dossier result
+```
+
+Only the program definition is stored in the dedicated care-program store. Concrete occurrences are re-derived from puppy `birth_time`, program revision and schedule fields. Completion/missed state is derived by exact dossier `care_occurrence_id` matching.
+
+### Schedule semantics
+
+Supported modes are:
+
+```text
+once
+range
+```
+
+A range is inclusive from `start_age_days` through `end_age_days` with `interval_days`. The optional `time_of_day` is Home Assistant local wall-clock time on the target age date. Target-date timezone/DST rules apply.
+
+A clocked same-day occurrence remains `upcoming` before its configured time, becomes `due_today` at that time and becomes `overdue` only after the scheduled local date/time has passed. An unclocked occurrence is due for its whole local calendar day.
+
+### Revision-aware occurrence identity
+
+Program definitions have a positive `revision`.
+
+Revision 1 keeps the original v0.17.0 identity:
+
+```text
+program_id:puppy_id:age_days
+```
+
+Later revisions use:
+
+```text
+program_id:rREVISION:puppy_id:age_days
+```
+
+This preserves historical v0.17.0 result matching while isolating genuinely changed protocols.
+
+Fields that define occurrence/result meaning include title, record type, schedule mode/ages/interval, local time and enabled result fields. Before results exist, changing identity fields increments the revision. Once any active result exists, identity-changing edits are rejected and a new program must be created instead. Operational `enabled`/notification toggles and presentation description remain editable because they do not redefine historical occurrences.
+
+### Result semantics
+
+A care result is a normal puppy dossier record. Its structured data includes the originating program/revision, exact occurrence ID, puppy age day, planned `care_scheduled_at`, status and configured result fields.
+
+`care_scheduled_at` is the planned schedule instant. `occurred_at` is the actual execution/registration instant. The latter must not be rewritten merely to make a late result look on time.
+
+A second active result for the same occurrence is rejected. Soft-deleted results no longer complete the occurrence.
+
+The result WebSocket endpoint re-derives the occurrence from authoritative backend state rather than trusting arbitrary schedule metadata from the client.
+
+### Missing source data
+
+An active puppy whose occurrence cannot be derived, for example because `birth_time` is missing, must not disappear silently. The API returns a stable reason code and Today/Attention presents a warning.
+
+### Care-program store integrity
+
+Age-based program persistence follows the same conservative pattern as recurring reminders:
+
+- invalid definitions are rejected at the storage boundary;
+- old definitions without revision migrate to revision 1;
+- unreadable/future definitions are quarantined rather than deleted;
+- unchanged timestamps are preserved during load;
+- failed writes roll in-memory state back.
+
+Diagnostics expose aggregate program and quarantine counts.
+
 ## Notification architecture
 
-Recurring reminder notifications are a delivery projection over reminder state, not part of reminder scheduling itself.
+Notification delivery is a projection over authoritative monitoring/reminder/care state. Delivery state must never become scheduling truth.
 
-The notification manager:
+The shared recurring notification coordinator:
 
-- reconciles reminder completion before evaluating status;
+- reconciles generic reminder completion before evaluating status;
 - checks periodically (currently every 10 minutes);
 - reacts to Puppy Tracker dashboard update signals;
-- creates Home Assistant persistent notifications for `due_soon`/`overdue` states when recurring-reminder delivery is enabled;
-- optionally sends the same content to configured `notify.*` entities;
-- deduplicates on reminder ID plus status/next-due state;
-- dismisses stale persistent notifications when a reminder is no longer actionable.
+- creates Home Assistant persistent notifications for actionable states;
+- optionally sends content to configured `notify.*` entities;
+- dismisses stale persistent notifications when an item is no longer actionable.
 
-Automatic recurring-reminder delivery is controlled by the independent `recurring_reminder_notifications_enabled` setting rather than the general `notifications_enabled` switch. The key is part of the official main-storage settings contract: it is present in `_default_settings()` and is persisted through `PuppyTrackerStorage.async_update_settings()`. Older stores that do not contain the key receive the default during normal `async_load()` migration without changing reminder data or the storage schema version.
+Generic recurring reminders and age-based care share the same coordinator lifecycle and shared `notification_delivery.py` helper rather than creating a second polling engine.
+
+### Generic reminder notification settings
+
+Automatic generic recurring-reminder delivery is controlled by the independent `recurring_reminder_notifications_enabled` setting rather than the general `notifications_enabled` switch. The key is part of the official main-storage settings contract and older stores receive the default during normal load migration without changing reminder data or the storage schema version.
 
 Notification controls are presented centrally through the options flow. Monitoring thresholds remain under monitoring settings; notification preferences contain the general Puppy Tracker notification toggle, recurring-reminder delivery toggle, recovery/session-complete preferences and shared `notify.*` targets.
 
-`notification_delivery.py` provides the shared `notify.*` delivery path used by automatic recurring reminders and explicit test notifications. Automatic reminder delivery remains best-effort so one unavailable target does not interrupt reminder reconciliation. Explicit tests use strict delivery so service/target failures are surfaced to the initiating options flow.
+### Age-based care notifications
+
+Age-based care delivery requires both the general Puppy Tracker notification setting and the program's own `notifications_enabled` setting.
+
+Only open `due_today` and `overdue` age-based occurrences are pushed. Clocked occurrences therefore do not notify before their local due time. Related puppy occurrences are grouped by program/age context instead of producing one push per puppy.
+
+Mobile care-delivery deduplication is currently runtime-only. An unresolved occurrence may be delivered again after integration/Home Assistant restart; reboot-persistent delivery deduplication is not currently an architectural guarantee.
+
+### Delivery helper and test notifications
+
+`notification_delivery.py` provides the shared `notify.*` delivery path. Automatic delivery remains best-effort so one unavailable target does not interrupt reconciliation. Explicit test notifications use strict delivery so service/target failures are surfaced to the initiating options flow.
 
 Dashboard due-state calculation must remain useful when notifications are disabled. Notification delivery must never be required for scheduling or completion.
 
-### Test notification contract
-
-The notification settings expose an explicit **Send test notification** action. Its purpose is to verify the configured delivery path without manipulating a real reminder.
-
 A test notification:
 
-- uses the same configured `notify.*` targets and shared delivery helper as real recurring-reminder delivery;
+- uses the configured targets and shared delivery helper;
 - is clearly identified as a test;
-- can be sent on demand without waiting for a reminder to become `due_soon` or `overdue`;
+- can be sent on demand without waiting for a reminder;
 - is allowed even when automatic recurring-reminder notifications are disabled;
-- bypasses normal reminder delivery deduplication so repeated manual tests are possible;
-- does not create or alter a reminder;
-- does not change `last_completed_at`, `last_completed_record_id`, `next_due_at` or any reminder schedule state;
-- does not mark a dossier action complete;
-- reports delivery/configuration errors back to the initiating UI/config flow rather than silently swallowing them.
-
-The dedicated recurring-reminder notification enable/disable preference and the test action are related but distinct. The enable toggle controls automatic reminder delivery; the explicit test action verifies the selected path on demand.
+- bypasses normal delivery deduplication;
+- does not create, complete or alter a reminder/action;
+- does not change schedule state;
+- reports delivery/configuration errors back to the initiating flow.
 
 ## Runtime state
 
-Per-config-entry state is held in typed `ConfigEntry.runtime_data` using `PuppyTrackerRuntimeData`. Persistent recurring reminders are represented by their own Home Assistant `Store` (`puppy_tracker_recurring_reminders`, version 1) and attached to runtime data for API/notification access.
+Per-config-entry state is held in typed `ConfigEntry.runtime_data` using `PuppyTrackerRuntimeData`.
 
-Global one-time registration flags may live in `hass.data` when they represent Home Assistant instance state rather than entry-owned domain data.
+Persistent rule stores attached to runtime data include:
+
+```text
+puppy_tracker_recurring_reminders  (Store version 1)
+puppy_tracker_care_programs        (Store version 1)
+```
+
+The main `PuppyTrackerStorage` remains authoritative for profiles, litters, measurements, dossier records and settings.
+
+Global one-time registration flags may live in `hass.data` when they represent Home Assistant instance state rather than entry-owned domain data. Ephemeral notification-delivery deduplication may also live in runtime/instance state but must not be mistaken for persistent scheduling data.
 
 ## Metrics layer
 
@@ -294,13 +416,17 @@ Weight calculations and monitoring status belong to shared domain logic, not sen
 
 Storage timestamps are timezone-aware. Ordering is based on actual instants, with deterministic tie-breakers where needed.
 
-User interfaces must preserve timestamp precision. Weight-only corrections must not modify the original measurement timestamp. Reminder fixed-time schedules must preserve local wall-clock intent.
+User interfaces must preserve timestamp precision. Weight-only corrections must not modify the original measurement timestamp.
+
+Generic fixed-time reminders and age-based care `time_of_day` values represent local wall-clock intent. They must use the intended Home Assistant/caller timezone and target-date DST rules rather than being reconstructed through an unrelated process timezone or a stale source-date UTC offset.
+
+Date-only dossier follow-up fields remain local calendar dates and must not shift by accidental UTC conversion.
 
 ## Frontend API
 
 Custom cards consume `puppy_tracker/*` WebSocket APIs rather than re-deriving domain relationships from Home Assistant entity names.
 
-The backend remains source of truth for monitoring state, effective measurements, dossier data, mother identity, recurring reminder definitions and derived status.
+The backend remains source of truth for monitoring state, effective measurements, dossier data, mother identity, recurring reminder definitions/status, care program definitions, care occurrence status and completion.
 
 Frontend compatibility layers may enrich presentation, but must not invent a second persistence model.
 
@@ -312,19 +438,23 @@ Current core element namespace includes:
 custom:puppy-tracker-card
 custom:puppy-tracker-overview-card
 custom:puppy-tracker-summary-card
+custom:puppy-tracker-today-card
 custom:puppy-tracker-attention-card
+custom:puppy-tracker-care-program-card
+custom:puppy-tracker-recurring-reminder-card
 custom:puppy-tracker-litter-card
 custom:puppy-tracker-report-card
 custom:puppy-tracker-dossier-card
 custom:puppy-tracker-quick-log-card
 custom:puppy-tracker-bulk-dossier-card
 custom:puppy-tracker-timeline-card
-custom:puppy-tracker-recurring-reminder-card
 ```
 
 Mother scope is expected on Dossier, Quick Log, Timeline, Attention, Report/export and Recurring Reminders where the workflow logically supports a single owner. Bulk Dossier remains puppy-oriented because its purpose is one event applied to multiple puppies.
 
 The recurring-reminder card must resolve the linked mother through the mother scope rather than requiring `litter.mother_id` in the ordinary litter payload.
+
+Today and Attention consume backend-derived age-based occurrence status. Recording a care result must refresh occurrences and render the refreshed state immediately; a completed row must not remain stale until another dashboard event.
 
 ## Export philosophy
 
@@ -332,45 +462,94 @@ The recurring-reminder card must resolve the linked mother through the mother sc
 - JSON is the complete technical backup/transfer format.
 - PDF is a user-facing report.
 - Mother dossier JSON export preserves persistent mother identity and can be filtered by litter context.
+- Care-result reporting reads structured dossier records, not notification state or a parallel result database.
 
-Recurring-reminder backup/restore compatibility should be treated explicitly because reminders are stored separately from the main Puppy Tracker database. New backup schema work must decide whether reminder definitions are portable and how owner IDs are remapped during partial imports rather than silently assuming main-storage semantics.
+Recurring-reminder and age-based-care program definitions are stored outside the main Puppy Tracker database. Their backup/restore compatibility must therefore be treated explicitly. A future backup version must define portability, validation and owner/litter/program ID remapping rather than silently assuming main-storage semantics.
 
-Adding a notification preference to the existing main `settings` dictionary does not by itself change the backup envelope: full backups already carry the settings dictionary as data, and normal storage loading backfills missing defaults. Changes to reminder definitions, owner identifiers or reminder-store portability remain separate compatibility decisions.
+Adding a normal preference to the existing main `settings` dictionary does not by itself change the backup envelope: full backups already carry that settings dictionary and normal storage loading backfills missing defaults. Changes to external scheduling stores remain a separate compatibility decision.
 
-## Soft deletion and integrity
+## Soft deletion, quarantine and integrity
 
 Measurement history and dossier records favour soft deletion. Historical data remains available for restore/audit/technical backup.
+
+External scheduling stores use quarantine for unreadable/future definitions instead of silently deleting them on load. Quarantine is preservation, not automatic repair: those definitions remain inactive until a compatible reader or explicit migration can understand them.
 
 Automatic integrity repair follows the rule:
 
 > Repair automatically only when the intended result is unambiguous.
 
-Duplicate IDs, ambiguous measurement branches and uncertain ownership must be reported rather than guessed.
+Duplicate IDs, ambiguous measurement branches, uncertain ownership and ambiguous external-store definitions must be reported/preserved rather than guessed.
+
+## Diagnostics
+
+Diagnostics must remain privacy-safe while exposing enough health information to diagnose storage/runtime problems.
+
+In addition to main storage counts/integrity information, scheduler diagnostics expose aggregate counts for:
+
+```text
+care programs
+quarantined care programs
+recurring reminders
+quarantined recurring reminders
+```
+
+Names, notes, result contents and notification targets are not exposed merely to report these health counts.
 
 ## Testing strategy
 
-Regression tests should protect data meaning and cross-surface contracts, including timezone ordering and precision, measurement correction chains, birth-weight synchronisation, monitoring metrics, dossier ownership/CRUD, mother identity resolution across cards, temperature structured-data rendering, upcoming action derivation, recurring reminder normalization, interval/fixed-time/once scheduling, fixed-time timezone behaviour, exact owner matching, notification settings persistence/default migration, notification deduplication, test-notification state isolation and error propagation, frontend module load order, export selection and runtime selection.
+Regression tests should protect data meaning and cross-surface contracts, including:
 
-Manual release testing should additionally cover HACS upgrade, browser refresh/cache behaviour, phone/tablet interaction, mother selection, reminder completion from real dossier logging, notification-off production testing, explicit test-notification delivery and restart persistence.
+- timezone ordering and timestamp precision;
+- measurement correction chains and birth-weight synchronisation;
+- monitoring metrics;
+- dossier ownership/CRUD and mother identity resolution;
+- temperature structured-data rendering;
+- upcoming action derivation;
+- recurring-reminder normalization, interval/fixed-time/once scheduling and exact owner matching;
+- reminder fixed-time timezone behaviour;
+- age-based once/range derivation, revision compatibility and protocol locking;
+- age-based local-time/DST and same-day before-due behaviour;
+- missing puppy source-data warnings;
+- dossier-backed care completion/duplicate prevention;
+- scheduling-store quarantine, timestamp stability and failed-write rollback;
+- notification settings/default migration, deduplication, state isolation and error propagation;
+- frontend module load order;
+- real browser care-result flow from row to dialog to WebSocket save to immediate row removal;
+- export selection, care PDF output and runtime selection;
+- diagnostics scheduler health counts.
+
+Manual release testing should additionally cover HACS upgrade, browser refresh/cache behaviour, phone/tablet interaction, mother selection, reminder completion from real dossier logging, age-based care completion, notification-off production testing, explicit test-notification delivery and restart behaviour.
 
 ## Future modules and extension rules
 
-The generic dossier envelope and recurring-reminder engine should support future workflows such as medication courses, feeding, veterinary follow-up, tests and milestones without creating parallel per-feature task engines.
+The generic dossier envelope, generic recurring-reminder engine and age-based program model should support future workflows such as medication courses, feeding, veterinary follow-up, tests and milestones without creating parallel per-feature task engines.
 
-New care features should prefer:
+New care features should prefer one of these established patterns:
 
 ```text
 structured dossier record
         +
-optional recurring reminder rule
+optional generic recurring reminder
         +
 derived attention/notification projection
 ```
 
-over feature-specific persistent reminder databases.
+or, when the schedule is tied to puppy age:
+
+```text
+age-based care program
+        +
+derived per-puppy occurrence
+        +
+structured dossier result
+        +
+derived attention/notification projection
+```
+
+over feature-specific persistent reminder/result databases.
 
 Type-specific schemas should be added only when the corresponding feature is implemented and tested.
 
 ## Pre-1.0 rule
 
-The pre-1.0 period is the time to correct naming and architecture. Once 1.0 is released, domain names, entity identities, storage contracts, owner-scope semantics, WebSocket message shapes and dashboard element names should be treated as compatibility-sensitive public interfaces.
+The pre-1.0 period is the time to correct naming and architecture. Once 1.0 is released, domain names, entity identities, storage contracts, owner-scope semantics, WebSocket message shapes, occurrence identity rules and dashboard element names should be treated as compatibility-sensitive public interfaces.
