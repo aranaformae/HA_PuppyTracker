@@ -9,6 +9,7 @@ from .session import SESSION_ACTIVE, new_session_state
 from .storage import PuppyTrackerStorage
 
 if TYPE_CHECKING:
+    from .attention_acknowledgements import AttentionAcknowledgementStore
     from .care_programs import AgeBasedCareProgramStore
     from .care_reminders import CareReminderStore
     from .notifications import PuppyNotificationManager
@@ -24,6 +25,7 @@ class PuppyTrackerRuntimeData:
     care_reminders: CareReminderStore | None = None
     recurring_reminders: RecurringReminderStore | None = None
     care_programs: AgeBasedCareProgramStore | None = None
+    attention_acknowledgements: AttentionAcknowledgementStore | None = None
     selected_litter_id: str | None = None
     selected_puppy_id: str | None = None
     weight_input: float = 0.0
