@@ -11,19 +11,20 @@ test("Today combines today's timeline and care items behind one inclusive scroll
 
   await page.evaluate(() => {
     const now = new Date();
-    const at = (dayOffset, hour) => new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate() + dayOffset,
+    const at = (dayOffset, hour) => new Date(Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() + dayOffset,
       hour,
       0,
       0,
       0,
-    ).toISOString();
+    )).toISOString();
 
     const hass = {
       locale: { language: "nl" },
       language: "nl",
+      config: { time_zone: "UTC" },
       states: {},
       connection: {
         subscribeMessage: async () => async () => {},
