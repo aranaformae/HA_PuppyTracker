@@ -18,6 +18,10 @@ function statusText(card, item) {
   }
   if (item?.status === "due_today") return t(card, "Vandaag", "Today");
   const days = Number(item?.days_until_due || 0);
+  if (days === 0) {
+    const clock = String(item?.time_of_day || "").trim();
+    return clock ? t(card, `Vandaag om ${clock}`, `Today at ${clock}`) : t(card, "Vandaag", "Today");
+  }
   if (days === 1) return t(card, "Morgen", "Tomorrow");
   return t(card, `Over ${days} dagen`, `In ${days} days`);
 }
