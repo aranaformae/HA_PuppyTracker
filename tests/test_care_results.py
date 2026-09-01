@@ -14,6 +14,7 @@ from custom_components.puppy_tracker.care_results import (
 def _program(**overrides):
     data = {
         "id": "program-ens",
+        "revision": 1,
         "litter_id": "litter-1",
         "title": "ENS",
         "record_type": "note",
@@ -27,6 +28,7 @@ def _occurrence(**overrides):
     data = {
         "id": "program-ens:pup-1:7",
         "program_id": "program-ens",
+        "program_revision": 1,
         "litter_id": "litter-1",
         "puppy_id": "pup-1",
         "title": "ENS",
@@ -60,6 +62,7 @@ def test_structured_result_becomes_puppy_dossier_payload() -> None:
     assert payload["occurred_at"] == "2026-09-07T09:12:00+02:00"
     assert payload["data"] == {
         "care_program_id": "program-ens",
+        "care_program_revision": 1,
         "care_occurrence_id": "program-ens:pup-1:7",
         "care_age_days": 7,
         "care_scheduled_at": "2026-09-07T09:00:00+02:00",
@@ -94,9 +97,11 @@ def test_score_must_be_numeric_when_enabled() -> None:
         normalize_care_result(_program(), {"score": "hoog"})
 
 
-def test_occurrence_must_match_program_and_litter() -> None:
+def test_occurrence_must_match_program_litter_and_revision() -> None:
     with pytest.raises(ValueError, match="does not belong"):
         care_result_record_payload(_program(), _occurrence(program_id="other"), {})
+    with pytest.raises(ValueError, match="revision does not match"):
+        care_result_record_payload(_program(revision=2), _occurrence(program_revision=1), {})
     with pytest.raises(ValueError, match="litter does not match"):
         care_result_record_payload(_program(), _occurrence(litter_id="other"), {})
 
@@ -126,4 +131,5 @@ def test_persistence_uses_existing_async_add_record_contract() -> None:
     assert litter_id == "litter-1"
     assert kwargs["puppy_id"] == "pup-1"
     assert kwargs["data"]["care_occurrence_id"] == "program-ens:pup-1:7"
+    assert kwargs["data"]["care_program_revision"] == 1
     assert kwargs["data"]["care_status"] == "completed"
