@@ -54,8 +54,10 @@ function patchLoad(proto) {
   const original = proto._loadData;
   if (typeof original !== "function") return;
   proto._loadData = async function (...args) {
+    const shouldRender = args[0] !== false;
     const result = await original.apply(this, args);
     await loadCare(this);
+    if (shouldRender) this._render();
     return result;
   };
   proto.__careLoadPatched = true;
