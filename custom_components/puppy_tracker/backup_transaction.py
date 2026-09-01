@@ -5,10 +5,15 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
-from .backup import BackupValidationError, CURRENT_SCHEMA_VERSION, async_apply_import
+from .backup import (
+    BackupValidationError,
+    SUPPORTED_SCHEMA_VERSIONS,
+    async_apply_import,
+)
 from .care_programs import AgeBasedCareProgramStore
 from .care_reminders import CareReminderStore
 from .integrity import inspect_and_repair_data
+from .mother_integrity import inspect_mother_data, merge_integrity_reports
 from .recurring_reminders import RecurringReminderStore
 from .storage import PuppyTrackerStorage
 
@@ -29,12 +34,22 @@ async def async_restore_storage_snapshot(
             "Storage rollback snapshot must be an object",
         )
     restored = deepcopy(snapshot)
-    if int(restored.get("schema_version", -1)) != CURRENT_SCHEMA_VERSION:
+    try:
+        schema_version = int(restored.get("schema_version"))
+    except (TypeError, ValueError) as err:
+        raise BackupValidationError(
+            "invalid_import_plan",
+            "Storage rollback snapshot has no valid schema",
+        ) from err
+    if schema_version not in SUPPORTED_SCHEMA_VERSIONS:
         raise BackupValidationError(
             "invalid_import_plan",
             "Storage rollback snapshot has an unsupported schema",
         )
-    _changed, report = inspect_and_repair_data(restored, repair=False)
+
+    _changed, base_report = inspect_and_repair_data(restored, repair=False)
+    _mother_changed, mother_report = inspect_mother_data(restored, repair=False)
+    report = merge_integrity_reports(base_report, mother_report)
     if report.get("unresolved_critical", 0):
         raise BackupValidationError(
             "invalid_import_plan",

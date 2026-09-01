@@ -13,13 +13,18 @@ from .care_programs import normalize_care_program_backup_data
 from .care_reminders import CARE_REMINDER_CATEGORIES, MAX_CARE_REMINDER_LEAD_DAYS
 from .const import DOMAIN
 from .integrity import inspect_and_repair_data
+from .mother_integrity import inspect_mother_data, merge_integrity_reports
+from .mother_schema import migrate_mother_scope_data
+from .mother_storage import MOTHER_SCHEMA_VERSION
 from .recurring_reminders import normalize_recurring_reminder_backup_data
 from .storage import PuppyTrackerStorage
 
 EXPORT_VERSION = 5
 LEGACY_EXPORT_VERSION = 4
 SCHEDULER_BACKUP_VERSION = 1
-CURRENT_SCHEMA_VERSION = 7
+LEGACY_SCHEMA_VERSION = 7
+CURRENT_SCHEMA_VERSION = MOTHER_SCHEMA_VERSION
+SUPPORTED_SCHEMA_VERSIONS = frozenset({LEGACY_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION})
 SUPPORTED_EXPORT_VERSIONS = frozenset({LEGACY_EXPORT_VERSION, EXPORT_VERSION})
 VALID_SCOPES = frozenset({"full", "litter", "puppy"})
 VALID_IMPORT_MODES = {
@@ -234,11 +239,18 @@ def build_export_document(
         raise ValueError(f"Unsupported export scope: {scope}")
 
     data = storage.get_data()
+    try:
+        schema_version = int(data.get("schema_version"))
+    except (TypeError, ValueError) as err:
+        raise ValueError("Storage schema version is missing or invalid") from err
+    if schema_version not in SUPPORTED_SCHEMA_VERSIONS:
+        raise ValueError(f"Unsupported storage schema for backup: {schema_version}")
+
     document: dict[str, Any] = {
         "export_version": EXPORT_VERSION,
         "exported_at": _now_iso(),
         "integration": DOMAIN,
-        "schema_version": data.get("schema_version"),
+        "schema_version": schema_version,
         "scope": scope,
     }
 
@@ -357,12 +369,13 @@ def parse_export_json(content: str) -> dict[str, Any]:
     except (TypeError, ValueError) as err:
         raise BackupValidationError("invalid_backup", "Missing storage schema version") from err
 
-    if schema_version != CURRENT_SCHEMA_VERSION:
+    if schema_version not in SUPPORTED_SCHEMA_VERSIONS:
+        supported = ", ".join(str(item) for item in sorted(SUPPORTED_SCHEMA_VERSIONS))
         raise BackupValidationError(
             "unsupported_schema_version",
             (
                 f"Backup schema {schema_version} is not supported by this restore workflow; "
-                f"expected schema {CURRENT_SCHEMA_VERSION}"
+                f"supported schemas are {supported}"
             ),
         )
 
@@ -377,7 +390,14 @@ def parse_export_json(content: str) -> dict[str, Any]:
             raise BackupValidationError("invalid_backup", "Full backup data is incomplete")
         if not isinstance(data.get("audit_log"), list):
             raise BackupValidationError("invalid_backup", "Full backup audit log is invalid")
-        if int(data.get("schema_version", -1)) != CURRENT_SCHEMA_VERSION:
+        try:
+            data_schema_version = int(data.get("schema_version"))
+        except (TypeError, ValueError) as err:
+            raise BackupValidationError(
+                "unsupported_schema_version",
+                "Full backup data has no valid storage schema",
+            ) from err
+        if data_schema_version != schema_version:
             raise BackupValidationError(
                 "unsupported_schema_version",
                 "Full backup data uses a different storage schema",
@@ -566,13 +586,30 @@ def _append_import_audit(
     )
 
 
-def _validate_candidate(candidate: dict[str, Any]) -> dict[str, Any]:
-    if int(candidate.get("schema_version", -1)) != CURRENT_SCHEMA_VERSION:
+def _normalize_candidate_schema(candidate: dict[str, Any]) -> None:
+    """Migrate supported restore candidates to the current mother-aware schema."""
+    try:
+        schema_version = int(candidate.get("schema_version"))
+    except (TypeError, ValueError) as err:
+        raise BackupValidationError(
+            "unsupported_schema_version",
+            "Restore candidate has no valid storage schema",
+        ) from err
+    if schema_version not in SUPPORTED_SCHEMA_VERSIONS:
         raise BackupValidationError(
             "unsupported_schema_version",
             "Restore candidate has an unsupported storage schema",
         )
-    _changed, report = inspect_and_repair_data(candidate, repair=False)
+
+    migrate_mother_scope_data(candidate)
+    candidate["schema_version"] = CURRENT_SCHEMA_VERSION
+
+
+def _validate_candidate(candidate: dict[str, Any]) -> dict[str, Any]:
+    _normalize_candidate_schema(candidate)
+    _changed, base_report = inspect_and_repair_data(candidate, repair=False)
+    _mother_changed, mother_report = inspect_mother_data(candidate, repair=False)
+    report = merge_integrity_reports(base_report, mother_report)
     if report.get("unresolved_critical", 0):
         raise BackupValidationError(
             "invalid_backup",
