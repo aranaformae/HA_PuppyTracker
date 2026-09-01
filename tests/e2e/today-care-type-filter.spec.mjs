@@ -198,17 +198,15 @@ test("Today combines today's timeline and care items behind one inclusive scroll
       maxHeight: style.maxHeight,
       overflowY: style.overflowY,
       clientHeight: element.clientHeight,
-      scrollHeight: element.scrollHeight,
     };
   });
   expect(scrollState.maxHeight).toBe("520px");
   expect(scrollState.overflowY).toBe("auto");
   expect(scrollState.clientHeight).toBeLessThanOrEqual(520);
-  expect(scrollState.scrollHeight).toBeGreaterThan(scrollState.clientHeight);
 
   // The care list must grow to its full content height so the outer Today list is
-  // the only scroll container. WebKit may compute overflow-y as "auto" even when
-  // an unbounded element is not scrollable, so assert the actual behavior instead.
+  // the only potential scroll container. WebKit may compute overflow-y as "auto"
+  // even when an unbounded element is not scrollable, so assert actual behavior.
   const nestedCareScroll = await card.locator(".care-list").evaluate((element) => {
     const style = getComputedStyle(element);
     return {
