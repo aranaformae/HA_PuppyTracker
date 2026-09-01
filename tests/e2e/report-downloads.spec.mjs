@@ -90,6 +90,14 @@ async function mountReport(page) {
   return card;
 }
 
+test("report selection uses the shared Alles label", async ({ page }) => {
+  const card = await mountReport(page);
+
+  await expect(card.locator("#puppy option[value='all']")).toHaveText("Alles");
+  await expect(card.locator(".field label").nth(1)).toHaveText("Selectie");
+  await expect(card.locator("#puppy")).not.toContainText("Compleet nest");
+});
+
 for (const [buttonId, format, filename] of [
   ["pdf", "pdf", "puppy-tracker-report.pdf"],
   ["csv", "csv", "puppy-tracker-report.csv"],
