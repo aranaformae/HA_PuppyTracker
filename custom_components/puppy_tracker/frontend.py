@@ -50,6 +50,9 @@ CARD_FILES = (
     # Apply one shared filter/acknowledgement layer after every Attention source
     # has rendered so weight, dossier, reminders and care use identical UX.
     "puppy-tracker-attention-qol.js",
+    # Make the existing care-result workflow explicit with a visible Complete
+    # action on Today and Attention rows without creating a second result path.
+    "puppy-tracker-care-direct-action.js",
     # Resolve the persistent reusable mother id via the mother-scope API instead
     # of assuming it exists in the regular litter payload.
     "puppy-tracker-recurring-mother-owner.js",
