@@ -76,12 +76,16 @@ def care_result_record_payload(
 ) -> dict[str, Any]:
     """Build the canonical dossier payload for one occurrence result."""
     program_id = str(program.get("id") or "").strip()
+    program_revision = int(program.get("revision") or 1)
     occurrence_id = str(occurrence.get("id") or "").strip()
+    occurrence_revision = int(occurrence.get("program_revision") or 1)
     litter_id = str(occurrence.get("litter_id") or "").strip()
     puppy_id = str(occurrence.get("puppy_id") or "").strip()
 
     if not program_id or occurrence.get("program_id") != program_id:
         raise ValueError("occurrence does not belong to care program")
+    if occurrence_revision != program_revision:
+        raise ValueError("occurrence revision does not match care program")
     if not occurrence_id:
         raise ValueError("occurrence id is required")
     if not litter_id or litter_id != str(program.get("litter_id") or "").strip():
@@ -92,6 +96,7 @@ def care_result_record_payload(
     normalized = normalize_care_result(program, result)
     structured_data = {
         "care_program_id": program_id,
+        "care_program_revision": program_revision,
         "care_occurrence_id": occurrence_id,
         "care_age_days": int(occurrence.get("age_days") or 0),
         "care_scheduled_at": occurrence.get("scheduled_at"),
