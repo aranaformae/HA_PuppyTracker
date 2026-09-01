@@ -14,15 +14,20 @@ from .runtime import PuppyTrackerRuntimeData
 from .storage import PuppyTrackerStorage
 
 
+def _runtime_data(entry: ConfigEntry) -> PuppyTrackerRuntimeData | None:
+    """Return typed runtime data for one config entry."""
+    runtime = entry.runtime_data
+    return runtime if isinstance(runtime, PuppyTrackerRuntimeData) else None
+
+
 def _runtime_storage(
     hass: HomeAssistant,
     entry: ConfigEntry,
 ) -> PuppyTrackerStorage | None:
     """Return storage for the config entry."""
-    runtime = entry.runtime_data
-    if not isinstance(runtime, PuppyTrackerRuntimeData):
-        return None
-    return runtime.storage
+    del hass
+    runtime = _runtime_data(entry)
+    return runtime.storage if runtime is not None else None
 
 
 def _storage_counts(data: dict[str, Any]) -> dict[str, int]:
@@ -85,13 +90,47 @@ def _storage_counts(data: dict[str, Any]) -> dict[str, int]:
     }
 
 
+def _scheduler_counts(runtime: PuppyTrackerRuntimeData) -> dict[str, int]:
+    """Return privacy-safe counts for separate scheduler stores."""
+    care_programs = runtime.care_programs
+    recurring = runtime.recurring_reminders
+
+    care_count = 0
+    quarantined_care = 0
+    if care_programs is not None:
+        get_programs = getattr(care_programs, "get_programs", None)
+        if callable(get_programs):
+            care_count = len(get_programs())
+        get_quarantined = getattr(care_programs, "get_quarantined_program_count", None)
+        if callable(get_quarantined):
+            quarantined_care = int(get_quarantined())
+
+    recurring_count = 0
+    quarantined_recurring = 0
+    if recurring is not None:
+        get_reminders = getattr(recurring, "get_reminders", None)
+        if callable(get_reminders):
+            recurring_count = len(get_reminders())
+        get_quarantined = getattr(recurring, "get_quarantined_reminder_count", None)
+        if callable(get_quarantined):
+            quarantined_recurring = int(get_quarantined())
+
+    return {
+        "care_programs": care_count,
+        "quarantined_care_programs": quarantined_care,
+        "recurring_reminders": recurring_count,
+        "quarantined_recurring_reminders": quarantined_recurring,
+    }
+
+
 async def async_get_config_entry_diagnostics(
     hass: HomeAssistant,
     entry: ConfigEntry,
 ) -> dict[str, Any]:
     """Return privacy-safe diagnostics for the config entry."""
+    runtime = _runtime_data(entry)
     storage = _runtime_storage(hass, entry)
-    if storage is None:
+    if storage is None or runtime is None:
         return {
             "integration_version": VERSION,
             "frontend_version": FRONTEND_VERSION,
@@ -111,6 +150,7 @@ async def async_get_config_entry_diagnostics(
         "storage_created_at": data.get("created_at"),
         "storage_updated_at": data.get("updated_at"),
         "counts": _storage_counts(data),
+        "schedulers": _scheduler_counts(runtime),
         "monitoring": {
             "min_daily_growth_percent": settings.get("min_daily_growth_percent"),
             "max_hours_between_weighings": settings.get("max_hours_between_weighings"),
