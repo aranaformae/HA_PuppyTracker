@@ -6,7 +6,7 @@ async function openFixture(page) {
   expect(await page.evaluate(() => window.__puppyTrackerModuleErrors)).toEqual([]);
 }
 
-test("Today care type chips inclusively control which care actions are visible", async ({ page }) => {
+test("Today care type chips inclusively control a bounded scrollable care list", async ({ page }) => {
   await openFixture(page);
 
   await page.evaluate(() => {
@@ -83,6 +83,19 @@ test("Today care type chips inclusively control which care actions are visible",
                 days_until_due: -1,
                 result_fields: [],
               },
+              ...Array.from({ length: 16 }, (_, index) => ({
+                id: `test-extra:p1:${index}`,
+                program_id: "test-extra",
+                litter_id: "l1",
+                puppy_id: "p1",
+                puppy_name: "Alice",
+                title: `Extra test ${index + 1}`,
+                record_type: "test",
+                age_days: 4 + index,
+                status: "upcoming",
+                days_until_due: Math.min(7, index + 1),
+                result_fields: [],
+              })),
             ],
             skipped: [],
           };
@@ -95,7 +108,6 @@ test("Today care type chips inclusively control which care actions are visible",
     card.setConfig({ title: "Vandaag", show_litter_selector: false });
     document.querySelector("#cards").appendChild(card);
     card.hass = hass;
-    window.__todayCareFilterCard = card;
   });
 
   const card = page.locator("puppy-tracker-today-card");
@@ -106,6 +118,7 @@ test("Today care type chips inclusively control which care actions are visible",
   const ensRow = card.locator('[data-care-occurrence="ens:p1:3"]');
   const vaccinationRow = card.locator('[data-care-occurrence="vaccination:p1:42"]');
   const dewormingRow = card.locator('[data-care-occurrence="deworming:p1:14"]');
+  const careList = card.locator(".care-list");
 
   await expect(card.locator(".care-summary")).toBeVisible();
   await expect(all).toContainText("Alles");
@@ -119,6 +132,20 @@ test("Today care type chips inclusively control which care actions are visible",
   await expect(ensRow).toBeVisible();
   await expect(vaccinationRow).toBeVisible();
   await expect(dewormingRow).toBeVisible();
+
+  const scrollState = await careList.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      maxHeight: style.maxHeight,
+      overflowY: style.overflowY,
+      clientHeight: element.clientHeight,
+      scrollHeight: element.scrollHeight,
+    };
+  });
+  expect(scrollState.maxHeight).toBe("520px");
+  expect(scrollState.overflowY).toBe("auto");
+  expect(scrollState.clientHeight).toBeLessThanOrEqual(520);
+  expect(scrollState.scrollHeight).toBeGreaterThan(scrollState.clientHeight);
 
   await vaccination.click();
   await expect(vaccination).not.toHaveClass(/active/);
