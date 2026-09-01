@@ -214,6 +214,16 @@ function createTimelineSection(card, events) {
   return section;
 }
 
+function forceSingleScrollContainer(careSummary) {
+  const careList = careSummary?.querySelector(".care-list");
+  if (!careList) return;
+  careList.style.setProperty("max-height", "none", "important");
+  careList.style.setProperty("overflow-y", "visible", "important");
+  careList.style.setProperty("overscroll-behavior", "auto", "important");
+  careList.style.setProperty("scrollbar-gutter", "auto", "important");
+  careList.style.setProperty("padding-right", "0px", "important");
+}
+
 function renderQol(card) {
   const root = card?.shadowRoot;
   const haCard = root?.querySelector("ha-card");
@@ -241,7 +251,10 @@ function renderQol(card) {
 
   const scroll = activity.querySelector(".today-items-scroll");
   if (timelineSection) scroll?.append(timelineSection);
-  if (careSummary) scroll?.append(careSummary);
+  if (careSummary) {
+    scroll?.append(careSummary);
+    forceSingleScrollContainer(careSummary);
+  }
   haCard.append(activity);
 
   let visibleTimeline = 0;
