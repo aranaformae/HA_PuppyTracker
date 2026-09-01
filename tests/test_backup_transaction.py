@@ -135,7 +135,7 @@ async def test_v5_full_restore_updates_all_stores(
     storage,
     install_litter,
 ) -> None:
-    plan, source_data, _before = _v5_plan(storage, install_litter)
+    plan, _source_data, _before = _v5_plan(storage, install_litter)
     care, programs, recurring = _runtime_stores(hass)
     storage._store.async_save = AsyncMock()
 
@@ -148,7 +148,7 @@ async def test_v5_full_restore_updates_all_stores(
     )
 
     assert result["replaces_all"] is True
-    assert storage.get_litters() == source_data["litters"]
+    assert storage.get_litters() == plan["candidate"]["litters"]
     assert care.get_backup_settings() == TARGET_CARE_SETTINGS
     assert care.get_states() == {}
     assert programs.get_backup_data() == _source_schedulers()["care_programs"]
