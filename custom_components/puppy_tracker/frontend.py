@@ -25,6 +25,9 @@ FRONTEND_URL = f"{FRONTEND_BASE_URL}/{FRONTEND_VERSION}"
 
 CARD_FILES = (
     "puppy-tracker-card.js",
+    # Reuse the selected puppy's current weight as the previous effective
+    # measurement and show the saved delta/percentage immediately after save.
+    "puppy-tracker-weighing-feedback.js",
     "puppy-tracker-overview-card.js",
     # Loaded directly after the overview card so structural integration updates
     # refresh its cached Home Assistant device/entity registries before history
