@@ -47,6 +47,9 @@ CARD_FILES = (
     "puppy-tracker-care-surfaces.js",
     # Never silently omit a puppy whose care schedule cannot be derived.
     "puppy-tracker-care-skipped-warning.js",
+    # Apply one shared filter/acknowledgement layer after every Attention source
+    # has rendered so weight, dossier, reminders and care use identical UX.
+    "puppy-tracker-attention-qol.js",
     # Resolve the persistent reusable mother id via the mother-scope API instead
     # of assuming it exists in the regular litter payload.
     "puppy-tracker-recurring-mother-owner.js",
