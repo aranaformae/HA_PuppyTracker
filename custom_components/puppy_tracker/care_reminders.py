@@ -35,6 +35,47 @@ def _default_data() -> dict[str, Any]:
     }
 
 
+def normalize_care_reminder_snapshot_data(data: Any) -> dict[str, Any]:
+    """Validate an exact same-version runtime snapshot for transactional rollback."""
+    if not isinstance(data, dict):
+        raise ValueError("Care reminder snapshot must be an object")
+    if set(data) - {"lead_days", "categories", "states"}:
+        raise ValueError("Care reminder snapshot contains unsupported fields")
+
+    try:
+        lead_days = int(data["lead_days"])
+    except (KeyError, TypeError, ValueError) as err:
+        raise ValueError("Care reminder snapshot lead_days is invalid") from err
+    if not 0 <= lead_days <= MAX_CARE_REMINDER_LEAD_DAYS:
+        raise ValueError(
+            f"Care reminder lead days must be between 0 and {MAX_CARE_REMINDER_LEAD_DAYS}"
+        )
+
+    categories = data.get("categories")
+    if not isinstance(categories, dict):
+        raise ValueError("Care reminder snapshot categories are invalid")
+    if any(category not in categories for category in CARE_REMINDER_CATEGORIES):
+        raise ValueError("Care reminder snapshot categories are incomplete")
+
+    states = data.get("states")
+    if not isinstance(states, dict):
+        raise ValueError("Care reminder snapshot states are invalid")
+    if any(not isinstance(value, dict) for value in states.values()):
+        raise ValueError("Care reminder snapshot contains invalid delivery state")
+
+    return {
+        "lead_days": lead_days,
+        "categories": {
+            category: bool(categories[category])
+            for category in CARE_REMINDER_CATEGORIES
+        },
+        "states": {
+            str(key): deepcopy(value)
+            for key, value in states.items()
+        },
+    }
+
+
 class CareReminderStore:
     """Store care reminder preferences and deduplication state."""
 
@@ -123,6 +164,25 @@ class CareReminderStore:
             "categories": self.get_categories(),
         }
 
+    def get_snapshot_data(self) -> dict[str, Any]:
+        """Return an exact runtime snapshot, including delivery state, for rollback."""
+        return deepcopy(self._data)
+
+    async def _async_replace_data(self, restored: dict[str, Any]) -> None:
+        """Replace store data and restore the previous snapshot if saving fails."""
+        async with self._lock:
+            before = deepcopy(self._data)
+            self._data = deepcopy(restored)
+            try:
+                await self._store.async_save(self._data)
+            except Exception:
+                self._data = before
+                try:
+                    await self._store.async_save(self._data)
+                except Exception:
+                    pass
+                raise
+
     async def async_restore_backup_settings(self, settings: dict[str, Any]) -> None:
         """Restore portable reminder preferences and reset delivery state."""
         if not isinstance(settings, dict):
@@ -151,19 +211,12 @@ class CareReminderStore:
             },
             "states": {},
         }
+        await self._async_replace_data(restored)
 
-        async with self._lock:
-            before = deepcopy(self._data)
-            self._data = restored
-            try:
-                await self._store.async_save(self._data)
-            except Exception:
-                self._data = before
-                try:
-                    await self._store.async_save(self._data)
-                except Exception:
-                    pass
-                raise
+    async def async_restore_snapshot_data(self, data: dict[str, Any]) -> None:
+        """Restore an exact same-version runtime snapshot for transaction rollback."""
+        restored = normalize_care_reminder_snapshot_data(data)
+        await self._async_replace_data(restored)
 
     async def async_set_lead_days(self, lead_days: int) -> None:
         """Set the first reminder lead time."""
