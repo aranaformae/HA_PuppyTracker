@@ -96,6 +96,7 @@ def derive_puppy_care_occurrences(
             "age_days": age_days,
             "scheduled_at": scheduled.isoformat(),
             "scheduled_date": scheduled.date().isoformat(),
+            "time_of_day": time_of_day,
             "notifications_enabled": bool(program.get("notifications_enabled", True)),
             "result_fields": deepcopy(result_fields),
         })
