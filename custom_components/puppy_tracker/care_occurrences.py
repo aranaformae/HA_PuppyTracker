@@ -54,6 +54,14 @@ def _scheduled_at(birth_time: datetime, age_days: int, time_of_day: str | None) 
     return target.replace(hour=hour, minute=minute, second=0, microsecond=0)
 
 
+def _occurrence_id(program_id: str, revision: int, puppy_id: str, age_days: int) -> str:
+    """Return a backward-compatible deterministic occurrence identity."""
+    if revision <= 1:
+        # v0.17.0 results already persist this format in dossier records.
+        return f"{program_id}:{puppy_id}:{age_days}"
+    return f"{program_id}:r{revision}:{puppy_id}:{age_days}"
+
+
 def derive_puppy_care_occurrences(
     program: dict[str, Any],
     puppy: dict[str, Any],
@@ -69,12 +77,15 @@ def derive_puppy_care_occurrences(
     program_id = str(program.get("id") or "").strip()
     litter_id = str(program.get("litter_id") or "").strip()
     puppy_id = str(puppy.get("id") or "").strip()
+    revision = int(program.get("revision") or 1)
     if not program_id:
         raise ValueError("program id is required")
     if not litter_id:
         raise ValueError("litter_id is required")
     if not puppy_id:
         raise ValueError("puppy id is required")
+    if revision < 1:
+        raise ValueError("program revision must be a positive integer")
 
     birth_time = _parse_birth_time(puppy.get("birth_time"))
     puppy_name = str(puppy.get("name") or "").strip() or None
@@ -85,8 +96,9 @@ def derive_puppy_care_occurrences(
     for age_days in care_program_age_days(program):
         scheduled = _scheduled_at(birth_time, age_days, time_of_day)
         occurrences.append({
-            "id": f"{program_id}:{puppy_id}:{age_days}",
+            "id": _occurrence_id(program_id, revision, puppy_id, age_days),
             "program_id": program_id,
+            "program_revision": revision,
             "litter_id": litter_id,
             "puppy_id": puppy_id,
             "puppy_name": puppy_name,
