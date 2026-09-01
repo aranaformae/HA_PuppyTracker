@@ -9,14 +9,18 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
+from .care_programs import normalize_care_program_backup_data
 from .care_reminders import CARE_REMINDER_CATEGORIES, MAX_CARE_REMINDER_LEAD_DAYS
 from .const import DOMAIN
 from .integrity import inspect_and_repair_data
+from .recurring_reminders import normalize_recurring_reminder_backup_data
 from .storage import PuppyTrackerStorage
 
-EXPORT_VERSION = 4
+EXPORT_VERSION = 5
+LEGACY_EXPORT_VERSION = 4
+SCHEDULER_BACKUP_VERSION = 1
 CURRENT_SCHEMA_VERSION = 7
-SUPPORTED_EXPORT_VERSIONS = frozenset({EXPORT_VERSION})
+SUPPORTED_EXPORT_VERSIONS = frozenset({LEGACY_EXPORT_VERSION, EXPORT_VERSION})
 VALID_SCOPES = frozenset({"full", "litter", "puppy"})
 VALID_IMPORT_MODES = {
     "full": frozenset({"replace_all", "merge_as_new"}),
@@ -115,6 +119,107 @@ def _validate_care_reminder_settings(settings: Any) -> dict[str, Any]:
     }
 
 
+def _validate_scheduler_container_ids(
+    snapshot: dict[str, Any],
+    *,
+    container_key: str,
+    label: str,
+) -> None:
+    """Reject active scheduler entries whose container key disagrees with id."""
+    container = snapshot.get(container_key)
+    if not isinstance(container, dict):
+        return
+    for key, value in container.items():
+        key_text = str(key)
+        if not isinstance(value, dict):
+            continue
+        if not key_text or str(value.get("id") or "") != key_text:
+            raise BackupValidationError(
+                "invalid_backup",
+                f"{label} backup identifier does not match its container key",
+            )
+
+
+def _validate_scheduler_backup(schedulers: Any) -> dict[str, Any]:
+    """Validate and normalize the versioned full-backup scheduler envelope."""
+    if not isinstance(schedulers, dict):
+        raise BackupValidationError(
+            "invalid_backup",
+            "Full backup scheduler data is missing or invalid",
+        )
+
+    allowed_keys = {"version", "care_programs", "recurring_reminders"}
+    if set(schedulers) - allowed_keys:
+        raise BackupValidationError(
+            "invalid_backup",
+            "Full backup scheduler data contains unsupported fields",
+        )
+
+    try:
+        version = int(schedulers.get("version"))
+    except (TypeError, ValueError) as err:
+        raise BackupValidationError(
+            "invalid_backup",
+            "Full backup scheduler version is missing or invalid",
+        ) from err
+    if version != SCHEDULER_BACKUP_VERSION:
+        raise BackupValidationError(
+            "unsupported_export_version",
+            f"Unsupported scheduler backup version: {version}",
+        )
+
+    care_programs = schedulers.get("care_programs")
+    recurring_reminders = schedulers.get("recurring_reminders")
+    if not isinstance(care_programs, dict) or not isinstance(recurring_reminders, dict):
+        raise BackupValidationError(
+            "invalid_backup",
+            "Full backup scheduler stores are incomplete",
+        )
+
+    _validate_scheduler_container_ids(
+        care_programs,
+        container_key="programs",
+        label="Care program",
+    )
+    _validate_scheduler_container_ids(
+        recurring_reminders,
+        container_key="reminders",
+        label="Recurring reminder",
+    )
+
+    try:
+        normalized_care_programs = normalize_care_program_backup_data(care_programs)
+        normalized_recurring_reminders = normalize_recurring_reminder_backup_data(
+            recurring_reminders
+        )
+    except ValueError as err:
+        raise BackupValidationError(
+            "invalid_backup",
+            f"Full backup scheduler data is invalid: {err}",
+        ) from err
+
+    return {
+        "version": SCHEDULER_BACKUP_VERSION,
+        "care_programs": normalized_care_programs,
+        "recurring_reminders": normalized_recurring_reminders,
+    }
+
+
+def _scheduler_backup_has_entries(schedulers: dict[str, Any]) -> bool:
+    """Return whether a scheduler envelope contains definitions or quarantine."""
+    care_programs = schedulers.get("care_programs", {})
+    recurring = schedulers.get("recurring_reminders", {})
+    return any(
+        bool(container.get(key))
+        for container, keys in (
+            (care_programs, ("programs", "quarantined_programs")),
+            (recurring, ("reminders", "quarantined_reminders")),
+        )
+        if isinstance(container, dict)
+        for key in keys
+    )
+
+
 def build_export_document(
     storage: PuppyTrackerStorage,
     *,
@@ -122,6 +227,7 @@ def build_export_document(
     litter_id: str | None = None,
     puppy_id: str | None = None,
     care_reminder_settings: dict[str, Any] | None = None,
+    scheduler_data: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build an authoritative JSON backup document."""
     if scope not in VALID_SCOPES:
@@ -139,11 +245,17 @@ def build_export_document(
     if scope == "full":
         if care_reminder_settings is None:
             raise ValueError("care_reminder_settings is required for a full backup")
+        if scheduler_data is None:
+            raise ValueError("scheduler_data is required for a full backup")
         document["data"] = data
         document["care_reminders"] = _validate_care_reminder_settings(
             care_reminder_settings
         )
+        document["schedulers"] = _validate_scheduler_backup(scheduler_data)
         return document
+
+    if scheduler_data is not None:
+        raise ValueError("scheduler_data is only valid for full backups")
 
     if not litter_id:
         raise ValueError("litter_id is required")
@@ -181,6 +293,7 @@ def serialize_export(
     litter_id: str | None = None,
     puppy_id: str | None = None,
     care_reminder_settings: dict[str, Any] | None = None,
+    scheduler_data: dict[str, Any] | None = None,
 ) -> tuple[str, str, str]:
     """Return filename, MIME type, and JSON text for one backup."""
     document = build_export_document(
@@ -189,6 +302,7 @@ def serialize_export(
         litter_id=litter_id,
         puppy_id=puppy_id,
         care_reminder_settings=care_reminder_settings,
+        scheduler_data=scheduler_data,
     )
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
 
@@ -271,8 +385,23 @@ def parse_export_json(content: str) -> dict[str, Any]:
         document["care_reminders"] = _validate_care_reminder_settings(
             document.get("care_reminders")
         )
+        if export_version == LEGACY_EXPORT_VERSION:
+            if "schedulers" in document:
+                raise BackupValidationError(
+                    "invalid_backup",
+                    "Version 4 full backups must not contain scheduler data",
+                )
+        else:
+            document["schedulers"] = _validate_scheduler_backup(
+                document.get("schedulers")
+            )
 
     elif scope == "litter":
+        if "schedulers" in document:
+            raise BackupValidationError(
+                "invalid_backup",
+                "Partial backups must not contain scheduler data",
+            )
         litter = document.get("litter")
         if not isinstance(litter, dict) or not litter.get("id"):
             raise BackupValidationError("invalid_backup", "Litter backup is incomplete")
@@ -282,6 +411,11 @@ def parse_export_json(content: str) -> dict[str, Any]:
             raise BackupValidationError("invalid_backup", "Litter audit log is invalid")
 
     else:
+        if "schedulers" in document:
+            raise BackupValidationError(
+                "invalid_backup",
+                "Partial backups must not contain scheduler data",
+            )
         source_litter = document.get("source_litter")
         puppy = document.get("puppy")
         if not isinstance(source_litter, dict) or not source_litter.get("id"):
@@ -412,6 +546,7 @@ def _append_import_audit(
     scope: str,
     mode: str,
     source_name: str,
+    source_export_version: int,
     target_litter_id: str | None = None,
     imported_puppy_id: str | None = None,
 ) -> None:
@@ -425,7 +560,7 @@ def _append_import_audit(
             "details": {
                 "mode": mode,
                 "source_name": source_name,
-                "export_version": EXPORT_VERSION,
+                "export_version": source_export_version,
             },
         }
     )
@@ -544,6 +679,7 @@ def prepare_import(
     base_updated_at = current.get("updated_at")
     candidate = deepcopy(current)
     description = describe_backup(document)
+    source_export_version = int(description["export_version"])
     result: dict[str, Any] = {
         **description,
         "mode": mode,
@@ -557,13 +693,25 @@ def prepare_import(
             candidate = source_data
             result["replaces_all"] = True
             result["care_reminders"] = deepcopy(document["care_reminders"])
+            if "schedulers" in document:
+                result["schedulers"] = deepcopy(document["schedulers"])
             _append_import_audit(
                 candidate,
                 scope=scope,
                 mode=mode,
                 source_name=description["source_name"],
+                source_export_version=source_export_version,
             )
         else:
+            schedulers = document.get("schedulers")
+            if isinstance(schedulers, dict) and _scheduler_backup_has_entries(schedulers):
+                raise BackupValidationError(
+                    "invalid_import_mode",
+                    (
+                        "Full backups containing scheduler definitions can only use replace_all "
+                        "until scheduler identifier remapping is supported"
+                    ),
+                )
             for source_litter_id, source_litter in source_data.get("litters", {}).items():
                 if not isinstance(source_litter, dict):
                     raise BackupValidationError("invalid_backup", "Invalid litter in full backup")
@@ -586,6 +734,7 @@ def prepare_import(
                 scope=scope,
                 mode=mode,
                 source_name=description["source_name"],
+                source_export_version=source_export_version,
             )
 
     elif scope == "litter":
@@ -605,6 +754,7 @@ def prepare_import(
                 scope=scope,
                 mode=mode,
                 source_name=description["source_name"],
+                source_export_version=source_export_version,
                 target_litter_id=new_litter_id,
             )
         else:
@@ -629,6 +779,7 @@ def prepare_import(
                 scope=scope,
                 mode=mode,
                 source_name=description["source_name"],
+                source_export_version=source_export_version,
                 target_litter_id=target_litter_id,
             )
 
@@ -670,6 +821,7 @@ def prepare_import(
             scope=scope,
             mode=mode,
             source_name=description["source_name"],
+            source_export_version=source_export_version,
             target_litter_id=destination_litter_id,
             imported_puppy_id=new_puppy_id,
         )

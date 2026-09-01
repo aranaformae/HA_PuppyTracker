@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 
 from custom_components.puppy_tracker import backup_http
@@ -39,3 +40,31 @@ def test_signed_export_url_is_absolute(monkeypatch) -> None:
     )
     assert not url.startswith("/api/")
     assert len(registered_views) == 3
+
+
+def test_full_download_includes_external_scheduler_store_snapshots(storage) -> None:
+    runtime = SimpleNamespace(
+        storage=storage,
+        care_reminders=SimpleNamespace(
+            get_backup_settings=lambda: {
+                "lead_days": 7,
+                "categories": {"vaccination": True, "deworming": True},
+            }
+        ),
+        care_programs=SimpleNamespace(
+            get_backup_data=lambda: {"programs": {}}
+        ),
+        recurring_reminders=SimpleNamespace(
+            get_backup_data=lambda: {"reminders": {}}
+        ),
+    )
+
+    response = backup_http._download_response(runtime, scope="full")
+    payload = json.loads(response.text)
+
+    assert payload["export_version"] == 5
+    assert payload["schedulers"] == {
+        "version": 1,
+        "care_programs": {"programs": {}},
+        "recurring_reminders": {"reminders": {}},
+    }
