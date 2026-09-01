@@ -81,7 +81,8 @@ def _scheduler_data() -> dict:
     }
 
 
-def test_v5_full_backup_round_trips_scheduler_snapshots(storage) -> None:
+def test_v5_full_backup_round_trips_scheduler_snapshots(storage, install_litter) -> None:
+    install_litter(measurements=[])
     schedulers = _scheduler_data()
     document = build_export_document(
         storage,
@@ -111,6 +112,51 @@ def test_v5_scheduler_active_key_must_match_internal_identifier(storage) -> None
         )
 
     assert err.value.code == "invalid_backup"
+
+
+def test_v5_full_backup_rejects_orphaned_scheduler_reference(
+    storage,
+    install_litter,
+) -> None:
+    install_litter(measurements=[])
+    schedulers = _scheduler_data()
+    schedulers["recurring_reminders"]["reminders"]["reminder-1"]["owner_id"] = (
+        "missing-puppy"
+    )
+
+    with pytest.raises(BackupValidationError) as err:
+        build_export_document(
+            storage,
+            scope="full",
+            care_reminder_settings=CARE_SETTINGS,
+            scheduler_data=schedulers,
+        )
+
+    assert err.value.code == "invalid_backup"
+    assert "outside litter litter-1" in str(err.value)
+
+
+def test_v5_replace_plan_rejects_orphaned_scheduler_reference(
+    storage,
+    install_litter,
+) -> None:
+    install_litter(measurements=[])
+    document = build_export_document(
+        storage,
+        scope="full",
+        care_reminder_settings=CARE_SETTINGS,
+        scheduler_data=_scheduler_data(),
+    )
+    document["schedulers"]["recurring_reminders"]["reminders"]["reminder-1"][
+        "owner_id"
+    ] = "missing-puppy"
+    parsed = parse_export_json(json.dumps(document))
+
+    with pytest.raises(BackupValidationError) as err:
+        prepare_import(storage, parsed, mode="replace_all")
+
+    assert err.value.code == "invalid_backup"
+    assert "outside litter litter-1" in str(err.value)
 
 
 def test_v5_full_backup_requires_versioned_scheduler_envelope() -> None:
