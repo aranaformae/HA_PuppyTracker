@@ -30,6 +30,10 @@ CARD_FILES = (
     # refresh its cached Home Assistant device/entity registries before history
     # is reconciled. This keeps imported/new puppies visible without a reload.
     "puppy-tracker-overview-registry-refresh.js",
+    # Treat 24h/3d/7d/etc. as chart zoom levels instead of destructive history
+    # filters. Older points stay horizontally reachable and the current instant
+    # remains explicitly marked with a now-line and return-to-now action.
+    "puppy-tracker-chart-time-navigation.js",
     # Keep graph lines, points and legend markers tied to each puppy's physical
     # collar color instead of assigning colors by series order.
     "puppy-tracker-collar-chart-colors.js",
