@@ -158,6 +158,41 @@ def normalize_care_program(
     }
 
 
+def normalize_care_program_backup_data(data: Any) -> dict[str, Any]:
+    """Validate one portable care-program store snapshot.
+
+    Active program definitions must be readable by this version. Quarantined
+    entries are intentionally opaque and preserved verbatim so a newer/future
+    definition is never destroyed merely by backup/restore.
+    """
+    if not isinstance(data, dict):
+        raise ValueError("Care program backup data must be an object")
+    programs = data.get("programs")
+    if not isinstance(programs, dict):
+        raise ValueError("Care program backup programs must be an object")
+    quarantined = data.get("quarantined_programs", {})
+    if not isinstance(quarantined, dict):
+        raise ValueError("Care program backup quarantine must be an object")
+
+    normalized: dict[str, dict[str, Any]] = {}
+    for key, value in programs.items():
+        program_id = str(key)
+        if not program_id or not isinstance(value, dict):
+            raise ValueError("Care program backup contains an invalid program")
+        item = normalize_care_program(value, program_id=program_id)
+        normalized[program_id] = item
+
+    normalized_quarantine = {str(key): deepcopy(value) for key, value in quarantined.items()}
+    overlap = set(normalized) & set(normalized_quarantine)
+    if overlap:
+        raise ValueError("Care program backup contains duplicate active/quarantined identifiers")
+
+    result: dict[str, Any] = {"programs": normalized}
+    if normalized_quarantine:
+        result["quarantined_programs"] = normalized_quarantine
+    return result
+
+
 class AgeBasedCareProgramStore:
     """Persistent storage for litter-specific age-based care programs."""
 
@@ -208,6 +243,26 @@ class AgeBasedCareProgramStore:
         """Return the number of preserved programs that could not be normalized."""
         value = self._data.get("quarantined_programs", {})
         return len(value) if isinstance(value, dict) else 0
+
+    def get_backup_data(self) -> dict[str, Any]:
+        """Return the complete portable store snapshot, including quarantine."""
+        return deepcopy(self._data)
+
+    async def async_restore_backup_data(self, data: dict[str, Any]) -> None:
+        """Atomically replace the portable store snapshot."""
+        restored = normalize_care_program_backup_data(data)
+        async with self._lock:
+            previous = deepcopy(self._data)
+            self._data = restored
+            try:
+                await self._store.async_save(self._data)
+            except Exception:
+                self._data = previous
+                try:
+                    await self._store.async_save(self._data)
+                except Exception:
+                    pass
+                raise
 
     async def async_create(self, data: dict[str, Any]) -> str:
         """Create one age-based care program."""
