@@ -235,15 +235,30 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for architectural contracts a
 
 ## Testing
 
+Install both the Python and frontend test dependencies once:
+
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements_test.txt
+npm ci
+npx playwright install chromium webkit
+```
+
+Run every local check, including Python tests, JavaScript syntax checks and all Playwright browser projects:
+
+```bash
+npm run test:all
+```
+
+The backend suite can still be run on its own with:
+
+```bash
 pytest
 ```
 
-CI additionally covers Home Assistant/HACS validation and frontend regression checks. Manual release testing should include a real HACS upgrade, affected cards, mother resolution, recurring-reminder scheduling/completion, age-based care program creation/completion, notification delivery, care-result PDF output and restart persistence.
+CI additionally covers Home Assistant/HACS validation. Manual release testing should include a real HACS upgrade, affected cards, mother resolution, recurring-reminder scheduling/completion, age-based care program creation/completion, notification delivery, care-result PDF output and restart persistence.
 
 ## Roadmap to 1.0
 

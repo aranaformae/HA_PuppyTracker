@@ -6,7 +6,8 @@
     "node": ">=22"
   },
   "scripts": {
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:all": "node scripts/test-all.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.62.1"

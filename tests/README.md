@@ -52,6 +52,8 @@ Install the test dependencies:
 ```bash
 python -m pip install --upgrade pip
 python -m pip install -r requirements_test.txt
+npm ci
+npx playwright install chromium webkit
 ```
 
 `requirements_test.txt` installs:
@@ -61,7 +63,17 @@ python -m pip install -r requirements_test.txt
 
 The Home Assistant pytest package provides the Home Assistant test harness and fixtures such as `hass` and `enable_custom_integrations`.
 
-## Run the complete suite
+## Run all local checks
+
+From the repository root, run the same functional checks locally as CI:
+
+```bash
+npm run test:all
+```
+
+This runs Python compilation, all backend tests, JavaScript syntax checks and all Chromium/WebKit Playwright projects. The Playwright web server is started automatically.
+
+## Run the backend suite only
 
 From the repository root:
 
