@@ -13,6 +13,7 @@ import {
 const TIMELINE_TYPES = [
   "weight",
   "note",
+  "temperature",
   "vaccination",
   "deworming",
   "medication",
@@ -25,6 +26,7 @@ const TIMELINE_TYPES = [
 const TYPE_META = {
   weight: { icon: "mdi:scale", en: "Weight", nl: "Gewicht" },
   note: { icon: "mdi:note-text-outline", en: "Note", nl: "Notitie" },
+  temperature: { icon: "mdi:thermometer", en: "Temperature", nl: "Temperatuur" },
   vaccination: { icon: "mdi:needle", en: "Vaccination", nl: "Vaccinatie" },
   deworming: { icon: "mdi:pill", en: "Deworming", nl: "Ontworming" },
   medication: { icon: "mdi:medical-bag", en: "Medication", nl: "Medicatie" },

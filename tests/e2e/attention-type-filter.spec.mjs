@@ -120,3 +120,86 @@ test("Attention chips hide deselected alert types without losing acknowledgement
   await expect(vaccinationRow.locator(":scope > .attention-ack-button")).toBeVisible();
   await expect(card.locator("#attention-type-filter")).toHaveCount(0);
 });
+
+test("Attention filters care-program-only rows and supports empty selections", async ({ page }) => {
+  await openFixture(page);
+
+  await page.evaluate(() => {
+    const card = document.createElement("puppy-tracker-attention-card");
+    card._hass = {
+      language: "nl",
+      locale: { language: "nl" },
+      callWS: async () => ({}),
+    };
+    card._selectedLitterId = "litter-1";
+    card._litters = [{ id: "litter-1", name: "Litter", active: true }];
+    card._data = {
+      litter: {
+        id: "litter-1",
+        name: "Litter",
+        summary: { dossier_actions: { actions: [] } },
+      },
+      puppies: [{
+        id: "pup-1",
+        name: "Blue",
+        active: true,
+        summary: {
+          needs_attention: false,
+          dossier_actions: { actions: [] },
+        },
+      }],
+    };
+    card.__careOccurrences = [
+      {
+        id: "ens:pup-1:3",
+        program_id: "ens",
+        litter_id: "litter-1",
+        puppy_id: "pup-1",
+        puppy_name: "Blue",
+        title: "ENS",
+        record_type: "test",
+        age_days: 3,
+        status: "due_today",
+        days_until_due: 0,
+        result_fields: [],
+      },
+      {
+        id: "temperature:pup-1:4",
+        program_id: "temperature",
+        litter_id: "litter-1",
+        puppy_id: "pup-1",
+        puppy_name: "Blue",
+        title: "Temperatuur",
+        record_type: "temperature",
+        age_days: 4,
+        status: "due_today",
+        days_until_due: 0,
+        result_fields: [],
+      },
+    ];
+    card.__attentionAcknowledgements = {};
+    card.setConfig({ title: "Aandacht", show_litter_selector: false });
+    document.querySelector("#cards").appendChild(card);
+    card._render();
+  });
+
+  const card = page.locator("puppy-tracker-attention-card");
+  const all = card.locator('[data-attention-filter-type="__all__"]');
+  const testType = card.locator('[data-attention-filter-type="test"]');
+  const temperature = card.locator('[data-attention-filter-type="temperature"]');
+  const testRow = card.locator('[data-attention-type="test"]');
+  const temperatureRow = card.locator('[data-attention-type="temperature"]');
+
+  await expect(testType).toBeVisible();
+  await expect(temperature).toBeVisible();
+  await expect(testRow).toBeVisible();
+  await expect(temperatureRow).toBeVisible();
+
+  await all.click();
+  await expect(all).not.toHaveClass(/active/);
+  await expect(testType).not.toHaveClass(/active/);
+  await expect(temperature).not.toHaveClass(/active/);
+  await expect(testRow).toBeHidden();
+  await expect(temperatureRow).toBeHidden();
+  await expect(card.getByText("Geen meldingen voor de geselecteerde types.", { exact: true })).toBeVisible();
+});

@@ -265,6 +265,10 @@ function renderQol(card) {
   });
 }
 
+function applyAttentionFilters(card) {
+  renderQol(card);
+}
+
 function patch() {
   const Card = customElements.get(TAG);
   const proto = Card?.prototype;
@@ -281,6 +285,9 @@ function patch() {
     const result = originalRender.apply(this, args);
     renderQol(this);
     return result;
+  };
+  proto.__applyAttentionFilters = function () {
+    applyAttentionFilters(this);
   };
   proto.__puppyTrackerAttentionQolPatched = true;
 }

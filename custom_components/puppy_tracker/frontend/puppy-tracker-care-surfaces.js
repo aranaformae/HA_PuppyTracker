@@ -196,6 +196,7 @@ function patchAttention() {
       list.appendChild(row);
     }
     wireCareRows(this);
+    this.__applyAttentionFilters?.();
     return result;
   };
   proto.__careSurfacePatched = true;

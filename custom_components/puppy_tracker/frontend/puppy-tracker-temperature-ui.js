@@ -169,10 +169,8 @@ function patchTimeline() {
   const Card = customElements.get(TIMELINE_TAG);
   if (!Card || Card.prototype.__puppyTrackerTemperatureTimelinePatched) return;
   const originalTimelineEvents = Card.prototype._timelineEvents;
-  const originalRender = Card.prototype._render;
 
   Card.prototype._timelineEvents = function (...args) {
-    this._selectedTypes?.add("temperature");
     const events = originalTimelineEvents.apply(this, args) || [];
     return events.map((event) => {
       if (event?.raw_type !== "temperature") return event;
@@ -190,30 +188,6 @@ function patchTimeline() {
         },
       };
     });
-  };
-
-  Card.prototype._render = function (...args) {
-    this._selectedTypes?.add("temperature");
-    const result = originalRender.apply(this, args);
-    const root = this.shadowRoot;
-    const filters = root?.querySelector(".filters");
-    if (filters && !root.querySelector('[data-filter-type="temperature"]')) {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = `chip ${this._selectedTypes?.has("temperature") ? "active" : ""}`;
-      button.dataset.filterType = "temperature";
-      button.innerHTML = `<ha-icon icon="mdi:thermometer"></ha-icon>${temperatureLabel(this)}`;
-      button.addEventListener("click", () => {
-        if (this._selectedTypes?.has("temperature")) this._selectedTypes.delete("temperature");
-        else this._selectedTypes?.add("temperature");
-        this._render();
-      });
-      filters.append(button);
-    }
-    root?.querySelectorAll('.timeline-item[data-event-type="temperature"] .rail ha-icon').forEach((icon) => {
-      icon.setAttribute("icon", "mdi:thermometer");
-    });
-    return result;
   };
 
   Card.prototype.__puppyTrackerTemperatureTimelinePatched = true;

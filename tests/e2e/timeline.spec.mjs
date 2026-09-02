@@ -226,6 +226,19 @@ async function mountTimeline(page, config = {}) {
             }],
             records: [
               {
+                id: "temperature-1",
+                type: "temperature",
+                scope: "puppy",
+                litter_id: "litter-1",
+                puppy_id: "puppy-1",
+                occurred_at: "2026-08-31T03:30:00Z",
+                created_at: "2026-08-31T03:30:00Z",
+                deleted: false,
+                title: "Temperatuur",
+                note: "Rustig",
+                data: { temperature_c: 38.4 },
+              },
+              {
                 id: "note-new",
                 type: "note",
                 scope: "puppy",
@@ -392,10 +405,11 @@ test("combines litter, puppy and weight history in newest-first order", async ({
 
   expect(titles.slice(0, 4)).toEqual([
     "Gewicht",
+    "Temperatuur",
     "Rustig geslapen",
     "Gewicht",
-    "Nestcontrole",
   ]);
+  await expect(card.locator(".event-title", { hasText: "Nestcontrole" })).toBeVisible();
   await expect(card.locator(".event-title", { hasText: "Puppyvaccinatie" })).toBeVisible();
   await expect(card.locator(".event-title", { hasText: "Ogen open" })).toBeVisible();
 });
@@ -414,7 +428,9 @@ test("switches between litter and puppy scope without losing filters", async ({ 
 test("filters event types and date range", async ({ page }) => {
   const card = await mountTimeline(page, { default_scope: "puppy", puppy_id: "puppy-1" });
 
-  for (const type of ["note", "vaccination", "deworming", "medication", "test", "vet_visit", "milestone", "other"]) {
+  await expect(card.locator('[data-filter-type="temperature"]')).toBeVisible();
+
+  for (const type of ["note", "temperature", "vaccination", "deworming", "medication", "test", "vet_visit", "milestone", "other"]) {
     if ((await card.locator(`[data-filter-type="${type}"]`).getAttribute("class"))?.includes("active")) {
       await card.locator(`[data-filter-type="${type}"]`).click();
     }
@@ -425,6 +441,10 @@ test("filters event types and date range", async ({ page }) => {
   await card.locator('[data-filter-type="weight"]').click();
   await expect(card.locator(".timeline-item")).toHaveCount(0);
   await expect(card.getByText("Geen tijdlijnitems binnen deze filters.", { exact: true })).toBeVisible();
+
+  await card.locator('[data-filter-type="temperature"]').click();
+  await expect(card.locator(".timeline-item")).toHaveCount(1);
+  await expect(card.locator(".timeline-item").first()).toHaveAttribute("data-event-type", "temperature");
 
   await card.locator('[data-filter-type="note"]').click();
   await card.locator("#from-date").fill("2026-08-31");
