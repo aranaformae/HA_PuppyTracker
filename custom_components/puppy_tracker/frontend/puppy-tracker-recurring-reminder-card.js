@@ -147,6 +147,7 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
       fixed_times: (item.fixed_times || ["08:00", "14:00", "20:00"]).join(", "),
       due_at: dtLocal(item.due_at),
       enabled: item.enabled !== false,
+      notification_lead_minutes: item.notification_lead_minutes ?? "",
     };
   }
 
@@ -167,6 +168,9 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
       fixed_times: String(root.getElementById("rem-times")?.value || "").split(",").map((v) => v.trim()).filter(Boolean),
       due_at: root.getElementById("rem-due")?.value ? new Date(root.getElementById("rem-due").value).toISOString() : undefined,
       enabled: Boolean(root.getElementById("rem-enabled")?.checked),
+      notification_lead_minutes: root.getElementById("rem-lead-minutes")?.value === ""
+        ? null
+        : Number(root.getElementById("rem-lead-minutes")?.value || 0),
     };
   }
 
@@ -217,7 +221,7 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
     const list = this._items.length ? `<div class="list">${this._items.map((item) => `
       <div class="item ${escapeHtml(item.status || "")}">
         <div class="ico"><ha-icon icon="${item.record_type === "temperature" ? "mdi:thermometer" : "mdi:bell-ring-outline"}"></ha-icon></div>
-        <div class="main"><strong>${escapeHtml(item.title)}</strong><div>${escapeHtml(item.owner_name || "")} · ${escapeHtml(scheduleText(this, item))}</div></div>
+        <div class="main"><strong>${escapeHtml(item.title)}</strong><div>${escapeHtml(item.owner_name || "")} · ${escapeHtml(scheduleText(this, item))}${item.notification_lead_minutes != null ? ` · ${escapeHtml(t(this, `${item.notification_lead_minutes} min vooraf`, `${item.notification_lead_minutes} min before`))}` : ""}</div></div>
         <div class="due">${escapeHtml(statusText(this, item))}</div>
         <button class="icon-button edit" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t(this, "Aanpassen", "Edit"))}"><ha-icon icon="mdi:pencil-outline"></ha-icon></button>
       </div>`).join("")}</div>` : `<div class="empty">${escapeHtml(t(this, "Nog geen terugkerende herinneringen.", "No recurring reminders yet."))}</div>`;
@@ -239,6 +243,7 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
         <label class="mode interval">${escapeHtml(t(this, "Interval (minuten)", "Interval (minutes)"))}<input id="rem-interval" type="number" min="1" value="${escapeHtml(String(draft.interval_minutes))}"></label>
         <label class="mode fixed_times">${escapeHtml(t(this, "Tijden (komma gescheiden)", "Times (comma separated)"))}<input id="rem-times" value="${escapeHtml(draft.fixed_times)}"></label>
         <label class="mode once">${escapeHtml(t(this, "Datum en tijd", "Date and time"))}<input id="rem-due" type="datetime-local" value="${escapeHtml(draft.due_at)}"></label>
+        <label>${escapeHtml(t(this, "Melding vooraf (min)", "Notify before (min)"))}<input id="rem-lead-minutes" type="number" min="0" max="10080" step="5" value="${escapeHtml(String(draft.notification_lead_minutes))}" placeholder="${escapeHtml(t(this, "Integratie standaard", "Integration default"))}"></label>
         <label class="check"><input id="rem-enabled" type="checkbox" ${draft.enabled ? "checked" : ""}> ${escapeHtml(t(this, "Actief", "Enabled"))}</label>
         <div class="editor-actions">
           ${this._editing ? `<button class="danger" id="delete-reminder">${escapeHtml(t(this,"Verwijderen","Delete"))}</button>` : ""}

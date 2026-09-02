@@ -110,6 +110,7 @@ def derive_puppy_care_occurrences(
             "scheduled_date": scheduled.date().isoformat(),
             "time_of_day": time_of_day,
             "notifications_enabled": bool(program.get("notifications_enabled", True)),
+            "notification_lead_minutes": program.get("notification_lead_minutes"),
             "result_fields": deepcopy(result_fields),
         })
     return occurrences

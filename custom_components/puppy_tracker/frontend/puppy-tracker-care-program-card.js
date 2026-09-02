@@ -132,6 +132,7 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
       time_of_day: item.time_of_day || "09:00",
       enabled: item.enabled !== false,
       notifications_enabled: item.notifications_enabled !== false,
+      notification_lead_minutes: item.notification_lead_minutes ?? "",
       result_fields: item.result_fields || ["result", "note"],
     };
   }
@@ -152,6 +153,9 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
       time_of_day: root.getElementById("care-time")?.value || null,
       enabled: Boolean(root.getElementById("care-enabled")?.checked),
       notifications_enabled: Boolean(root.getElementById("care-notifications")?.checked),
+      notification_lead_minutes: root.getElementById("care-lead-minutes")?.value === ""
+        ? null
+        : Number(root.getElementById("care-lead-minutes")?.value || 0),
       result_fields: fields,
     };
   }
@@ -220,7 +224,7 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
             <div class="main">
               <strong>${escapeHtml(item.title || "")}</strong>
               <div>${escapeHtml(scheduleText(this, item))}${item.time_of_day ? ` · ${escapeHtml(item.time_of_day)}` : ""}</div>
-              <div class="meta">${escapeHtml(recordTypeLabel(this, item.record_type))}${item.notifications_enabled === false ? ` · ${escapeHtml(t(this, "meldingen uit", "notifications off"))}` : ""}</div>
+              <div class="meta">${escapeHtml(recordTypeLabel(this, item.record_type))}${item.notifications_enabled === false ? ` · ${escapeHtml(t(this, "meldingen uit", "notifications off"))}` : ""}${item.notification_lead_minutes != null ? ` · ${escapeHtml(t(this, `${item.notification_lead_minutes} min vooraf`, `${item.notification_lead_minutes} min before`))}` : ""}</div>
             </div>
             ${isAdmin ? `<button class="icon-button edit" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t(this, "Aanpassen", "Edit"))}"><ha-icon icon="mdi:pencil-outline"></ha-icon></button>` : ""}
           </div>`).join("")}</div>`
@@ -240,6 +244,7 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
           <label class="range-field">${escapeHtml(t(this, "Einde (dagen)", "End (days)"))}<input id="care-end" type="number" min="0" max="3650" value="${escapeHtml(String(draft.end_age_days))}"></label>
           <label class="range-field">${escapeHtml(t(this, "Elke ... dagen", "Every ... days"))}<input id="care-interval" type="number" min="1" max="3650" value="${escapeHtml(String(draft.interval_days))}"></label>
           <label>${escapeHtml(t(this, "Tijdstip", "Time"))}<input id="care-time" type="time" value="${escapeHtml(draft.time_of_day)}"></label>
+          <label>${escapeHtml(t(this, "Melding vooraf (min)", "Notify before (min)"))}<input id="care-lead-minutes" type="number" min="0" max="10080" step="5" value="${escapeHtml(String(draft.notification_lead_minutes))}" placeholder="${escapeHtml(t(this, "Integratie standaard", "Integration default"))}"></label>
         </div>
         <div class="result-title">${escapeHtml(t(this, "Resultaatvelden", "Result fields"))}</div>
         <div class="checks">

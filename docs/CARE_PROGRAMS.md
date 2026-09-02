@@ -80,7 +80,7 @@ time_of_day
 result_fields
 ```
 
-Changing one of these fields before any result exists increments the program revision. Operational toggles such as `enabled` and `notifications_enabled`, and presentation-only `description`, do not change occurrence identity.
+Changing one of these fields before any result exists increments the program revision. Operational toggles such as `enabled`, `notifications_enabled` and `notification_lead_minutes`, and presentation-only `description`, do not change occurrence identity.
 
 ### Protocol lock after results exist
 
@@ -143,7 +143,9 @@ If an occurrence cannot be derived for a puppy, for example because `birth_time`
 
 Care notifications share the existing recurring-notification coordinator and shared `notify.*` delivery helper. There is no second polling/lifecycle engine.
 
-Only open `due_today` and `overdue` occurrences are actionable for care delivery. A same-day occurrence with a configured future clock time is still `upcoming` and must not notify early.
+Open `due_soon`, `due_today` and `overdue` occurrences are actionable for care delivery. A same-day occurrence with a configured future clock time remains `upcoming` until it enters the configured lead-time window.
+
+Clocked upcoming occurrences become `due_soon` when their scheduled local time falls inside the configured notification lead-time window. Each program may define its own `notification_lead_minutes`; an empty value uses the integration-wide default from notification preferences. A value of 0 waits until the exact due time, while larger values allow earlier persistent/mobile reminders.
 
 Delivery respects the general Puppy Tracker notification setting and each care program's own notification setting.
 
@@ -199,5 +201,6 @@ Regression coverage protects at least:
 - Today/Attention presentation contracts;
 - browser E2E from open care row through result dialog, WebSocket save and immediate row removal;
 - notification grouping and deduplication;
+- notification lead-time fallback and per-program overrides;
 - PDF care-result output and report-period filtering;
 - diagnostics scheduler/quarantine counts.

@@ -20,6 +20,7 @@ SCHEDULE_TYPES = {"once", "range"}
 RESULT_FIELDS = {"result", "score", "note"}
 DEFAULT_RESULT_FIELDS = ["result", "note"]
 MAX_AGE_DAYS = 3650
+MAX_NOTIFICATION_LEAD_MINUTES = 10080
 # These fields define what a scheduled occurrence means. Once results exist,
 # changing them would make old completion records ambiguous. Presentation-only
 # description and operational enabled/notification toggles are intentionally
@@ -87,6 +88,21 @@ def _normalize_revision(value: Any) -> int:
     return revision
 
 
+def normalize_notification_lead_minutes(value: Any) -> int | None:
+    """Return an optional notification lead time in whole minutes."""
+    if value in (None, ""):
+        return None
+    try:
+        minutes = int(value)
+    except (TypeError, ValueError) as err:
+        raise ValueError("notification_lead_minutes must be a whole number") from err
+    if not 0 <= minutes <= MAX_NOTIFICATION_LEAD_MINUTES:
+        raise ValueError(
+            f"notification_lead_minutes must be between 0 and {MAX_NOTIFICATION_LEAD_MINUTES}"
+        )
+    return minutes
+
+
 def care_program_identity_changed(
     current: dict[str, Any], candidate: dict[str, Any]
 ) -> bool:
@@ -152,6 +168,9 @@ def normalize_care_program(
         "interval_days": interval_days,
         "time_of_day": time_of_day,
         "notifications_enabled": bool(data.get("notifications_enabled", True)),
+        "notification_lead_minutes": normalize_notification_lead_minutes(
+            data.get("notification_lead_minutes")
+        ),
         "result_fields": result_fields,
         "created_at": str(data.get("created_at") or now),
         "updated_at": str(updated_at or data.get("updated_at") or now),

@@ -8,7 +8,7 @@ The suite is intended to protect the parts of the integration where a regression
 
 ## What is tested
 
-The current suite covers eight main areas.
+The current suite covers the main backend, frontend contract and browser flows.
 
 | Test file | Coverage |
 | --- | --- |
@@ -20,8 +20,12 @@ The current suite covers eight main areas.
 | `test_records.py` | Profile-note migration, dossier record CRUD, owner scopes, sorting and integrity checks |
 | `test_upcoming.py` | Derived vaccination/deworming follow-ups, due-state classification, filtering and sorting |
 | `test_runtime_selection.py` | Typed runtime selection, explicit defaults and archived-selection fallback behavior |
+| `test_recurring_reminders.py` | Recurring reminder normalization, owner matching, schedule modes, due status and notification lead-time overrides |
+| `test_care_programs.py` / `test_care_occurrences.py` / `test_care_results.py` | Age-based care program validation, deterministic occurrences, result recording and protocol locking |
+| `test_age_based_care_notifications.py` / `test_notification_settings_storage.py` | Notification settings, default lead-time fallback, care-program overrides, grouping and delivery contracts |
+| `tests/e2e/*.spec.mjs` | Browser coverage for Lovelace cards across Chromium and WebKit projects |
 
-These are regression tests for the integration's Python backend. They are **not** browser or end-to-end tests for the Lovelace cards, Safari/iPadOS, HACS installation, or the Home Assistant Companion App.
+The Python tests protect backend behavior and static frontend contracts. Playwright covers Lovelace-card browser behavior across the configured Chromium/WebKit desktop, iPhone and iPad projects. HACS installation and Home Assistant Companion App push behavior still require manual release testing.
 
 ## Requirements
 

@@ -102,7 +102,7 @@ def _skip_reason_code(reason: str) -> str:
 PROGRAM_FIELDS = {
     "litter_id", "enabled", "title", "description", "record_type",
     "schedule_type", "start_age_days", "end_age_days", "interval_days",
-    "time_of_day", "notifications_enabled", "result_fields",
+    "time_of_day", "notifications_enabled", "notification_lead_minutes", "result_fields",
 }
 
 
@@ -230,6 +230,7 @@ async def websocket_record_care_occurrence(hass, connection, msg) -> None:
     vol.Optional("interval_days", default=1): vol.Coerce(int),
     vol.Optional("time_of_day"): vol.Any(str, None),
     vol.Optional("notifications_enabled", default=True): bool,
+    vol.Optional("notification_lead_minutes"): vol.Any(vol.Coerce(int), None),
     vol.Optional("result_fields"): [vol.In(("result", "score", "note"))],
 })
 @websocket_api.async_response
@@ -264,6 +265,7 @@ async def websocket_create_care_program(hass, connection, msg) -> None:
     vol.Optional("interval_days"): vol.Coerce(int),
     vol.Optional("time_of_day"): vol.Any(str, None),
     vol.Optional("notifications_enabled"): bool,
+    vol.Optional("notification_lead_minutes"): vol.Any(vol.Coerce(int), None),
     vol.Optional("result_fields"): [vol.In(("result", "score", "note"))],
 })
 @websocket_api.async_response

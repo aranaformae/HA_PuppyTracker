@@ -11,9 +11,13 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .api import _runtime_data, _runtime_storage
-from .const import DOMAIN, SIGNAL_DASHBOARD_UPDATE
+from .const import DEFAULT_NOTIFICATION_LEAD_MINUTES, DOMAIN, SIGNAL_DASHBOARD_UPDATE
 from .mother_storage import MotherScopeStorage
-from .recurring_reminders import RecurringReminderStore, reminder_matches_record, reminder_status
+from .recurring_reminders import (
+    RecurringReminderStore,
+    reminder_matches_record,
+    reminder_status,
+)
 from .time_utils import timestamp_sort_key
 
 DATA_API_REGISTERED = f"{DOMAIN}_recurring_reminder_api_registered"
@@ -116,12 +120,22 @@ async def websocket_list_reminders(hass, connection, msg) -> None:
     if store is None or storage is None:
         return
     await async_reconcile_recurring_reminders(hass, litter_id=msg.get("litter_id"))
+    settings = storage.get_settings()
+    default_lead_minutes = int(
+        settings.get("notification_lead_minutes", DEFAULT_NOTIFICATION_LEAD_MINUTES)
+    )
     items = []
     for reminder in store.get_reminders(litter_id=msg.get("litter_id")):
-        item = reminder_status(reminder)
+        item = reminder_status(reminder, notification_lead_minutes=default_lead_minutes)
         item["owner_name"] = _owner_label(storage, reminder)
         items.append(item)
-    items.sort(key=lambda item: (item.get("next_due_at") is None, str(item.get("next_due_at") or ""), str(item.get("title") or "")))
+    items.sort(
+        key=lambda item: (
+            item.get("next_due_at") is None,
+            str(item.get("next_due_at") or ""),
+            str(item.get("title") or ""),
+        )
+    )
     connection.send_result(msg["id"], {"reminders": items})
 
 
@@ -140,6 +154,7 @@ async def websocket_list_reminders(hass, connection, msg) -> None:
     vol.Optional("start_at"): str,
     vol.Optional("due_at"): str,
     vol.Optional("enabled", default=True): bool,
+    vol.Optional("notification_lead_minutes"): vol.Any(vol.Coerce(int), None),
 })
 @websocket_api.async_response
 async def websocket_create_reminder(hass, connection, msg) -> None:
@@ -178,6 +193,7 @@ async def websocket_create_reminder(hass, connection, msg) -> None:
     vol.Optional("start_at"): str,
     vol.Optional("due_at"): str,
     vol.Optional("enabled"): bool,
+    vol.Optional("notification_lead_minutes"): vol.Any(vol.Coerce(int), None),
 })
 @websocket_api.async_response
 async def websocket_update_reminder(hass, connection, msg) -> None:

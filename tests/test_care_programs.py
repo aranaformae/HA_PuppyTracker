@@ -84,10 +84,12 @@ def test_program_is_litter_specific_and_notifications_are_configurable() -> None
         "end_age_days": 49,
         "interval_days": 7,
         "notifications_enabled": False,
+        "notification_lead_minutes": 90,
     })
 
     assert program["litter_id"] == "litter-42"
     assert program["notifications_enabled"] is False
+    assert program["notification_lead_minutes"] == 90
     assert program["enabled"] is True
 
 
@@ -140,6 +142,15 @@ def test_program_rejects_unknown_result_fields_invalid_clock_and_record_type() -
             "record_type": "Not Valid",
             "schedule_type": "once",
             "start_age_days": 3,
+        })
+
+    with pytest.raises(ValueError, match="notification_lead_minutes"):
+        normalize_care_program({
+            "litter_id": "litter-1",
+            "title": "Invalid lead",
+            "schedule_type": "once",
+            "start_age_days": 3,
+            "notification_lead_minutes": -1,
         })
 
 

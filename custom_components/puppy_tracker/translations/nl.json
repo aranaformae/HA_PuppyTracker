@@ -224,6 +224,7 @@
         "data": {
           "notifications_enabled": "Gewichts- en aandachtsmeldingen",
           "recurring_reminder_notifications_enabled": "Meldingen voor terugkerende herinneringen",
+          "notification_lead_minutes": "Standaard herinneringstijd vooraf",
           "notify_recovery": "Herstelmeldingen",
           "notify_session_complete": "Melding na voltooide weegsessie",
           "notify_entities": "Pushmeldingen naar"
@@ -231,6 +232,7 @@
         "data_description": {
           "notifications_enabled": "Maak Home Assistant-meldingen wanneer een actieve puppy naar een aandachtstatus verandert.",
           "recurring_reminder_notifications_enabled": "Stuur automatisch een melding wanneer een terugkerende herinnering bijna vervalt of te laat is.",
+          "notification_lead_minutes": "Fallbacktijd in minuten voor een geplande herinnering. Wordt gebruikt als een zorgprogramma of terugkerende herinnering geen eigen waarde heeft.",
           "notify_recovery": "Stuur één herstelmelding wanneer een puppy weer een normale status heeft.",
           "notify_session_complete": "Stuur één melding wanneer een volledige weegsessie is afgerond.",
           "notify_entities": "Optionele notify-entiteiten, bijvoorbeeld je telefoon. Waar van toepassing blijven ook blijvende Home Assistant-meldingen beschikbaar."

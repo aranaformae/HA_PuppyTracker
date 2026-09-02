@@ -109,6 +109,21 @@ def test_fixed_times_and_one_time_schedules() -> None:
     assert status["status"] == "overdue"
 
 
+def test_reminder_status_uses_default_and_item_notification_lead_minutes() -> None:
+    reminder = normalize_reminder(_reminder_data(interval_minutes=240, start_at="2026-08-31T08:00:00+02:00"))
+    now = datetime(2026, 8, 31, 11, 30, tzinfo=ZoneInfo("Europe/Amsterdam"))
+
+    assert reminder_status(reminder, now=now, notification_lead_minutes=20)["status"] == "upcoming"
+    assert reminder_status(reminder, now=now, notification_lead_minutes=30)["status"] == "due_soon"
+
+    override = normalize_reminder({
+        **_reminder_data(interval_minutes=240, start_at="2026-08-31T08:00:00+02:00"),
+        "notification_lead_minutes": 10,
+    })
+    assert override["notification_lead_minutes"] == 10
+    assert reminder_status(override, now=now, notification_lead_minutes=60)["status"] == "upcoming"
+
+
 def test_reminder_rejects_invalid_record_type_and_timestamps() -> None:
     with pytest.raises(ValueError, match="lowercase snake_case"):
         normalize_reminder(_reminder_data(record_type="Not Valid"))
@@ -118,6 +133,8 @@ def test_reminder_rejects_invalid_record_type_and_timestamps() -> None:
         normalize_reminder(_reminder_data(last_completed_at="not-a-date"))
     with pytest.raises(ValueError, match="due_at"):
         normalize_reminder(_reminder_data(due_at="not-a-date"))
+    with pytest.raises(ValueError, match="notification_lead_minutes"):
+        normalize_reminder(_reminder_data(notification_lead_minutes=-1))
 
 
 def test_normalization_preserves_existing_updated_at() -> None:
@@ -187,4 +204,7 @@ def test_frontend_exposes_reminder_card_and_all_owner_scopes() -> None:
     assert 'scope: "mother"' in source
     assert 'scope: "puppy"' in source
     assert '"interval", "fixed_times", "once"' in api
+    assert '"notification_lead_minutes"' in api
+    assert 'notification_lead_minutes:' in source
+    assert 'rem-lead-minutes' in source
     assert 'async_reconcile_recurring_reminders' in api

@@ -25,6 +25,7 @@ from .const import (
     DEFAULT_MAX_HOURS_BETWEEN_WEIGHINGS,
     DEFAULT_MIN_DAILY_GROWTH_PERCENT,
     DEFAULT_NOTIFICATIONS_ENABLED,
+    DEFAULT_NOTIFICATION_LEAD_MINUTES,
     DEFAULT_NOTIFY_RECOVERY,
     DEFAULT_NOTIFY_SESSION_COMPLETE,
     DEFAULT_NOTIFY_ENTITIES,
@@ -50,6 +51,7 @@ def _default_settings() -> dict[str, Any]:
         "notify_recovery": DEFAULT_NOTIFY_RECOVERY,
         "notify_session_complete": DEFAULT_NOTIFY_SESSION_COMPLETE,
         "notify_entities": list(DEFAULT_NOTIFY_ENTITIES),
+        "notification_lead_minutes": DEFAULT_NOTIFICATION_LEAD_MINUTES,
     }
 
 
@@ -771,6 +773,7 @@ class PuppyTrackerStorage:
         notify_recovery: bool,
         notify_session_complete: bool,
         notify_entities: list[str] | None = None,
+        notification_lead_minutes: int | None = None,
     ) -> None:
         """Update monitoring settings."""
 
@@ -806,6 +809,17 @@ class PuppyTrackerStorage:
                     {},
                 )
             )
+            lead_minutes = int(
+                before.get(
+                    "notification_lead_minutes", DEFAULT_NOTIFICATION_LEAD_MINUTES
+                )
+                if notification_lead_minutes is None
+                else notification_lead_minutes
+            )
+            if not 0 <= lead_minutes <= 10080:
+                raise ValueError(
+                    "Notification lead time must be between 0 and 10080 minutes"
+                )
 
             settings = {
                 "min_daily_growth_percent": min_growth,
@@ -822,6 +836,7 @@ class PuppyTrackerStorage:
                     for entity_id in (notify_entities or [])
                     if str(entity_id).startswith("notify.")
                 ],
+                "notification_lead_minutes": lead_minutes,
             }
 
             self._data["settings"] = settings

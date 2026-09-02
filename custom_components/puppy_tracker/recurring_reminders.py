@@ -12,7 +12,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN
+from .care_programs import normalize_notification_lead_minutes
+from .const import DEFAULT_NOTIFICATION_LEAD_MINUTES, DOMAIN
 from .records import validate_record_type
 
 STORE_KEY = f"{DOMAIN}_recurring_reminders"
@@ -134,6 +135,9 @@ def normalize_reminder(
         "schedule_mode": mode,
         "interval_minutes": interval_minutes,
         "fixed_times": fixed_times,
+        "notification_lead_minutes": normalize_notification_lead_minutes(
+            data.get("notification_lead_minutes")
+        ),
         "start_at": _iso(start_at),
         "due_at": _iso(due_at),
         "last_completed_at": _iso(last_completed_at),
@@ -233,21 +237,43 @@ def next_due_at(reminder: dict[str, Any], *, now: datetime | None = None) -> dat
     return None
 
 
-def reminder_status(reminder: dict[str, Any], *, now: datetime | None = None) -> dict[str, Any]:
+def reminder_status(
+    reminder: dict[str, Any],
+    *,
+    now: datetime | None = None,
+    notification_lead_minutes: int = DEFAULT_NOTIFICATION_LEAD_MINUTES,
+) -> dict[str, Any]:
     """Return derived due status for dashboard/API consumers."""
     now = now or dt_util.now()
     due = next_due_at(reminder, now=now)
     if due is None:
         status = "completed" if reminder.get("schedule_mode") == "once" else "disabled"
-        return {**deepcopy(reminder), "next_due_at": None, "status": status, "minutes_until_due": None}
+        return {
+            **deepcopy(reminder),
+            "next_due_at": None,
+            "status": status,
+            "minutes_until_due": None,
+        }
     minutes = int((due - now).total_seconds() // 60)
+    lead_minutes = int(
+        reminder.get("notification_lead_minutes")
+        if reminder.get("notification_lead_minutes") is not None
+        else notification_lead_minutes
+    )
+    if not 0 <= lead_minutes <= 10080:
+        lead_minutes = DEFAULT_NOTIFICATION_LEAD_MINUTES
     if minutes < 0:
         status = "overdue"
-    elif minutes <= 60:
+    elif minutes <= lead_minutes:
         status = "due_soon"
     else:
         status = "upcoming"
-    return {**deepcopy(reminder), "next_due_at": due.isoformat(), "status": status, "minutes_until_due": minutes}
+    return {
+        **deepcopy(reminder),
+        "next_due_at": due.isoformat(),
+        "status": status,
+        "minutes_until_due": minutes,
+    }
 
 
 class RecurringReminderStore:

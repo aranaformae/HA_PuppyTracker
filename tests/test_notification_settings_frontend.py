@@ -20,6 +20,7 @@ def test_options_flow_uses_central_notification_settings_mixin() -> None:
     assert "async_step_test_notification" in flow
     assert '"recurring_reminder_notifications_enabled"' in flow
     assert '"notifications_enabled"' in flow
+    assert '"notification_lead_minutes"' in flow
     assert '"notify_recovery"' in flow
     assert '"notify_session_complete"' in flow
     assert '"notify_entities"' in flow

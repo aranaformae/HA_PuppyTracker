@@ -18,6 +18,7 @@ from homeassistant.helpers.event import async_track_time_interval
 from .care_notifications import async_check_care_notifications, async_clear_care_notifications
 from .const import (
     DEFAULT_NOTIFY_ENTITIES,
+    DEFAULT_NOTIFICATION_LEAD_MINUTES,
     DEFAULT_RECURRING_REMINDER_NOTIFICATIONS_ENABLED,
     DOMAIN,
     SIGNAL_DASHBOARD_UPDATE,
@@ -84,9 +85,18 @@ class RecurringReminderNotificationManager:
                 notify_entities = normalize_notify_entities(
                     settings.get("notify_entities", DEFAULT_NOTIFY_ENTITIES)
                 )
+                default_lead_minutes = int(
+                    settings.get(
+                        "notification_lead_minutes",
+                        DEFAULT_NOTIFICATION_LEAD_MINUTES,
+                    )
+                )
                 active: set[str] = set()
                 for reminder in store.get_reminders():
-                    item = reminder_status(reminder)
+                    item = reminder_status(
+                        reminder,
+                        notification_lead_minutes=default_lead_minutes,
+                    )
                     reminder_id = str(item["id"])
                     if not notifications_enabled or item.get("status") not in {"due_soon", "overdue"}:
                         async_dismiss_persistent_notification(self.hass, self._notification_id(reminder_id))

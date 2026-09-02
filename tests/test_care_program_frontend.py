@@ -28,6 +28,8 @@ def test_care_program_card_exposes_structured_result_configuration() -> None:
 
     assert '"result", "score", "note"' in source
     assert 'notifications_enabled:' in source
+    assert 'notification_lead_minutes:' in source
+    assert 'care-lead-minutes' in source
     assert 'care-result-result' in source
     assert 'care-result-score' in source
     assert 'care-result-note' in source

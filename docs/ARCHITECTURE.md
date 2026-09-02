@@ -173,6 +173,7 @@ match_title
 schedule_mode
 interval_minutes
 fixed_times
+notification_lead_minutes
 start_at
 due_at
 last_completed_at
@@ -244,7 +245,7 @@ due_soon
 overdue
 ```
 
-`due_soon` currently represents the final 60 minutes before the deadline.
+`due_soon` represents the configured notification lead-time window before the deadline. A reminder-level `notification_lead_minutes` value overrides the integration default; an empty value uses the global fallback from main storage settings. Valid lead times are 0 through 10080 minutes.
 
 ### Recurring-reminder store integrity
 
@@ -366,13 +367,15 @@ Generic recurring reminders and age-based care share the same coordinator lifecy
 
 Automatic generic recurring-reminder delivery is controlled by the independent `recurring_reminder_notifications_enabled` setting rather than the general `notifications_enabled` switch. The key is part of the official main-storage settings contract and older stores receive the default during normal load migration without changing reminder data or the storage schema version.
 
-Notification controls are presented centrally through the options flow. Monitoring thresholds remain under monitoring settings; notification preferences contain the general Puppy Tracker notification toggle, recurring-reminder delivery toggle, recovery/session-complete preferences and shared `notify.*` targets.
+Notification controls are presented centrally through the options flow. Monitoring thresholds remain under monitoring settings; notification preferences contain the general Puppy Tracker notification toggle, the default notification lead time, recurring-reminder delivery toggle, recovery/session-complete preferences and shared `notify.*` targets.
+
+The default `notification_lead_minutes` setting is part of the main-storage settings contract and is backfilled for older stores without a schema-version bump. Scheduler definitions can optionally carry their own `notification_lead_minutes`; `None` means the integration default applies.
 
 ### Age-based care notifications
 
 Age-based care delivery requires both the general Puppy Tracker notification setting and the program's own `notifications_enabled` setting.
 
-Only open `due_today` and `overdue` age-based occurrences are pushed. Clocked occurrences therefore do not notify before their local due time. Related puppy occurrences are grouped by program/age context instead of producing one push per puppy.
+Open `due_soon`, `due_today` and `overdue` age-based occurrences are actionable for care delivery. Clocked upcoming occurrences enter `due_soon` when their scheduled local time falls inside the program-specific lead time, or the integration default when the program value is empty. Related puppy occurrences are grouped by program/age context instead of producing one push per puppy.
 
 Mobile care-delivery deduplication is currently runtime-only. An unresolved occurrence may be delivered again after integration/Home Assistant restart; reboot-persistent delivery deduplication is not currently an architectural guarantee.
 
@@ -464,7 +467,7 @@ Today and Attention consume backend-derived age-based occurrence status. Recordi
 - Mother dossier JSON export preserves persistent mother identity and can be filtered by litter context.
 - Care-result reporting reads structured dossier records, not notification state or a parallel result database.
 
-Recurring-reminder and age-based-care program definitions are stored outside the main Puppy Tracker database. Their backup/restore compatibility must therefore be treated explicitly. A future backup version must define portability, validation and owner/litter/program ID remapping rather than silently assuming main-storage semantics.
+Recurring-reminder and age-based-care program definitions are stored outside the main Puppy Tracker database. Their backup/restore compatibility must therefore be treated explicitly. Backup format v5 carries these scheduler-store snapshots with their optional notification lead-time overrides, while older backups rely on normalization/backfilled defaults.
 
 Adding a normal preference to the existing main `settings` dictionary does not by itself change the backup envelope: full backups already carry that settings dictionary and normal storage loading backfills missing defaults. Changes to external scheduling stores remain a separate compatibility decision.
 

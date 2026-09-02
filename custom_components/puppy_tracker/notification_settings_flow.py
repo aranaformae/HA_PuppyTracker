@@ -17,6 +17,7 @@ from .const import (
     DEFAULT_MAX_HOURS_BETWEEN_WEIGHINGS,
     DEFAULT_MIN_DAILY_GROWTH_PERCENT,
     DEFAULT_NOTIFICATIONS_ENABLED,
+    DEFAULT_NOTIFICATION_LEAD_MINUTES,
     DEFAULT_NOTIFY_ENTITIES,
     DEFAULT_NOTIFY_RECOVERY,
     DEFAULT_NOTIFY_SESSION_COMPLETE,
@@ -91,6 +92,12 @@ class NotificationSettingsMixin:
                     ),
                     notify_entities=list(
                         settings.get("notify_entities", list(DEFAULT_NOTIFY_ENTITIES))
+                    ),
+                    notification_lead_minutes=int(
+                        settings.get(
+                            "notification_lead_minutes",
+                            DEFAULT_NOTIFICATION_LEAD_MINUTES,
+                        )
                     ),
                 )
                 async_dispatcher_send(self.hass, SIGNAL_UPDATE, None)
@@ -208,6 +215,9 @@ class NotificationSettingsMixin:
                         user_input["notify_session_complete"]
                     ),
                     notify_entities=notify_entities,
+                    notification_lead_minutes=int(
+                        user_input["notification_lead_minutes"]
+                    ),
                 )
                 async_dispatcher_send(self.hass, SIGNAL_UPDATE, None)
                 async_dispatcher_send(self.hass, SIGNAL_DASHBOARD_UPDATE)
@@ -236,6 +246,21 @@ class NotificationSettingsMixin:
                             DEFAULT_RECURRING_REMINDER_NOTIFICATIONS_ENABLED,
                         ),
                     ): selector.BooleanSelector(),
+                    vol.Required(
+                        "notification_lead_minutes",
+                        default=settings.get(
+                            "notification_lead_minutes",
+                            DEFAULT_NOTIFICATION_LEAD_MINUTES,
+                        ),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0,
+                            max=10080,
+                            step=5,
+                            unit_of_measurement=UnitOfTime.MINUTES,
+                            mode=selector.NumberSelectorMode.BOX,
+                        )
+                    ),
                     vol.Required(
                         "notify_recovery",
                         default=settings.get("notify_recovery", DEFAULT_NOTIFY_RECOVERY),

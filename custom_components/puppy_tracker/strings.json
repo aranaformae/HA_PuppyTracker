@@ -224,6 +224,7 @@
         "data": {
           "notifications_enabled": "Weight and attention notifications",
           "recurring_reminder_notifications_enabled": "Recurring reminder notifications",
+          "notification_lead_minutes": "Default reminder lead time",
           "notify_recovery": "Recovery notifications",
           "notify_session_complete": "Completed weighing session notifications",
           "notify_entities": "Push notification targets"
@@ -231,6 +232,7 @@
         "data_description": {
           "notifications_enabled": "Create Home Assistant notifications when an active puppy changes into an attention state.",
           "recurring_reminder_notifications_enabled": "Automatically notify when a recurring reminder becomes due soon or overdue.",
+          "notification_lead_minutes": "Fallback time in minutes before a scheduled reminder. Used when a care program or recurring reminder leaves its own value empty.",
           "notify_recovery": "Send a one-time recovery message when a puppy returns to normal.",
           "notify_session_complete": "Send one notification after a weighing session is fully completed.",
           "notify_entities": "Optional notify entities, for example your phone. Persistent Home Assistant notifications are still used where supported."

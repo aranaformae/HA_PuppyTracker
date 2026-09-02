@@ -2,7 +2,7 @@
 
 Puppy Tracker is a custom Home Assistant integration for managing litters, mother dogs and individual puppies. Weight tracking remains a first-class module, while the integration also provides chronological dossiers, temperature logging, recurring care reminders, age-based care programs, timeline views and safe backup/restore.
 
-> **Development status:** pre-1.0. The current development line is **0.17.x** on the stable `puppy_tracker` integration domain. Breaking changes are still possible before 1.0.
+> **Development status:** pre-1.0. The current development line is **0.20.x** on the stable `puppy_tracker` integration domain. Breaking changes are still possible before 1.0.
 
 ## Highlights
 
@@ -21,7 +21,7 @@ Puppy Tracker is a custom Home Assistant integration for managing litters, mothe
 - Structured care-program results stored in the puppy dossier and included in PDF reports.
 - Attention and Today integration for due and overdue care.
 - Home Assistant persistent/mobile notifications with deduplication.
-- Central notification preferences, an independent recurring-reminder delivery toggle and an explicit test-notification action.
+- Central notification preferences, configurable reminder lead times, an independent recurring-reminder delivery toggle and an explicit test-notification action.
 - CSV, JSON and direct PDF reporting/export plus validated backup/restore.
 - Built-in Lovelace cards automatically served and registered by the integration.
 
@@ -74,7 +74,7 @@ Weight measurements remain separate because they require correction chains, birt
 
 Recurring reminders are generic care rules. They are deliberately not hard-coded to temperature or medication.
 
-Each reminder has an **owner** (whole litter, mother dog or individual puppy), an action title, a dossier record type that completes the action, an optional exact title match, a schedule, enabled state and derived completion/due information.
+Each reminder has an **owner** (whole litter, mother dog or individual puppy), an action title, a dossier record type that completes the action, an optional exact title match, a schedule, enabled state, optional notification lead-time override and derived completion/due information.
 
 ### Schedule modes
 
@@ -113,15 +113,17 @@ The backend derives a deterministic occurrence for every active puppy and schedu
 
 Today and Attention show open care occurrences as upcoming, due today or overdue. Selecting an occurrence allows it to be recorded as **completed** or **missed**, with optional structured result, score and note fields according to the program configuration. The result is stored as a normal puppy dossier record; occurrence state is not a second results database.
 
-Care notifications use the shared Puppy Tracker notification coordinator and `notify.*` delivery path. Only open due-today/overdue occurrences are actionable, delivery respects both the global notification setting and the program notification setting, and related puppy actions are grouped to avoid one push per puppy.
+Care notifications use the shared Puppy Tracker notification coordinator and `notify.*` delivery path. Open due-soon, due-today and overdue occurrences are actionable, delivery respects both the global notification setting and the program notification setting, and related puppy actions are grouped to avoid one push per puppy.
 
 ## Notifications and production testing
 
-Recurring reminders become `due_soon` during the final hour before their deadline and `overdue` after it. The Attention card can show these states independently of notification delivery.
+Recurring reminders and clocked age-based care occurrences become `due_soon` within their configured notification lead time and `overdue` after they pass their deadline. The Attention card can show these states independently of notification delivery.
 
-Notification controls are centralized under **Puppy Tracker → Configure → Notifications**. **Notification preferences** contains the existing Puppy Tracker notification controls, the shared configured `notify.*` targets and an independent **recurring reminder notifications** toggle. Disabling recurring-reminder delivery does not disable reminder scheduling, completion or Attention-card state, and it does not require disabling the other Puppy Tracker notification paths.
+Notification controls are centralized under **Puppy Tracker → Configure → Notifications**. **Notification preferences** contains the existing Puppy Tracker notification controls, the default notification lead time, the shared configured `notify.*` targets and an independent **recurring reminder notifications** toggle. Disabling recurring-reminder delivery does not disable reminder scheduling, completion or Attention-card state, and it does not require disabling the other Puppy Tracker notification paths.
 
 When recurring-reminder notifications are enabled, Home Assistant persistent notifications can be created for due-soon/overdue reminders and configured `notify.*` targets can receive the same reminder. Delivery state is deduplicated so the same status/deadline is not intentionally sent repeatedly.
+
+The default lead time is used when a recurring reminder or age-based care program leaves its own **Notify before / Melding vooraf** value empty. Per-item lead times accept 0 through 10080 minutes, so individual protocols can be silent until the exact due time or notify earlier than the integration default.
 
 **Send test notification** exercises the currently configured notification path on demand. The test remains available independently of the automatic recurring-reminder toggle, is clearly identified as a test and does not create, complete, postpone or otherwise mutate a recurring reminder, dossier entry or reminder-delivery deduplication state. Push/configuration failures are surfaced to the initiating options flow instead of being treated as a successful test.
 
