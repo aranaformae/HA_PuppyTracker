@@ -1452,6 +1452,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
         "first_day_excess_weight_loss",
         "loss",
         "stale",
+        "possible_input_error",
       ].includes(code)
     ) {
       return "danger";

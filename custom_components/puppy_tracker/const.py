@@ -26,6 +26,9 @@ FIRST_DAY_MAX_WEIGHT_LOSS_PERCENT = 10.0
 # Minimum interval before growth is extrapolated to 24 hours.
 MIN_GROWTH_SAMPLE_HOURS = 6.0
 
+# Large isolated jumps are data-quality hints, not medical conclusions.
+SUSPICIOUS_SINGLE_WEIGHT_CHANGE_PERCENT = 25.0
+
 # Per-litter growth analysis overrides. ``None`` means use the integration
 # default; breed and size metadata are intentionally descriptive only for now.
 DEFAULT_LITTER_GROWTH_ANALYSIS = {

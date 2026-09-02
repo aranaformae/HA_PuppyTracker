@@ -193,7 +193,7 @@ Growth-analysis settings are managed per nest through **Manage litter**. Each ne
 
 ## Monitoring
 
-Weight monitoring can flag no measurement, overdue weighing, excessive first-day loss, later weight loss and low normalised daily growth. These indicators are monitoring aids, not veterinary diagnoses.
+Weight monitoring can flag no measurement, overdue weighing, excessive first-day loss, later weight loss, low normalised daily growth and a possible isolated input anomaly. These indicators are monitoring aids, not veterinary diagnoses; a possible anomaly should be checked against the original puppy and scale reading.
 
 ## Reports, backup and restore
 

@@ -76,6 +76,28 @@ def test_growth_analysis_reports_trend_and_litter_threshold(
     assert result["min_daily_growth_percent"] == 5.0
 
 
+def test_growth_analysis_flags_a_sudden_isolated_weight_change(
+    monkeypatch,
+    storage,
+    install_litter,
+    make_measurement,
+) -> None:
+    _set_now(monkeypatch)
+    litter_id, puppy_id = install_litter(
+        measurements=[
+            make_measurement("a", 400, "2026-08-28T10:00:00+00:00"),
+            make_measurement("b", 420, "2026-08-29T10:00:00+00:00"),
+            make_measurement("c", 700, "2026-08-30T10:00:00+00:00"),
+        ]
+    )
+
+    result = metrics.growth_analysis(storage, litter_id, puppy_id)
+
+    assert result["status_code"] == "possible_input_error"
+    assert result["data_quality"] == "review"
+    assert result["anomaly"]["code"] == "sudden_weight_change"
+
+
 def test_status_without_measurement_requires_attention(
     monkeypatch,
     storage,

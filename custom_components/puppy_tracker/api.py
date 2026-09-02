@@ -152,6 +152,7 @@ def _puppy_summary(
                 "trend": "Onvoldoende data",
                 "data_quality": "none",
                 "measurement_count": 0,
+                "anomaly": None,
             },
         }
 

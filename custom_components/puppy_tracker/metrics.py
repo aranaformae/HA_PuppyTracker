@@ -15,6 +15,7 @@ from .const import (
     FIRST_DAY_GRACE_HOURS,
     FIRST_DAY_MAX_WEIGHT_LOSS_PERCENT,
     MIN_GROWTH_SAMPLE_HOURS,
+    SUSPICIOUS_SINGLE_WEIGHT_CHANGE_PERCENT,
 )
 from .measurements import measurement_datetime
 from .storage import PuppyTrackerStorage
@@ -249,10 +250,22 @@ def growth_analysis(
         "min_daily_growth_percent": settings["min_daily_growth_percent"],
         "expected_adult_weight_min_grams": settings["expected_adult_weight_min_grams"],
         "expected_adult_weight_max_grams": settings["expected_adult_weight_max_grams"],
+        "anomaly": None,
     }
 
     if not series:
         return result
+
+    if len(series) >= 3:
+        previous_weight = finite_number(series[-2][1].get("weight"))
+        if current is not None and previous_weight is not None and previous_weight > 0:
+            change_percent = (current - previous_weight) / previous_weight * 100
+            if abs(change_percent) >= SUSPICIOUS_SINGLE_WEIGHT_CHANGE_PERCENT:
+                result["anomaly"] = {
+                    "code": "sudden_weight_change",
+                    "change_percent": round(change_percent, 2),
+                    "message": "Controleer de laatste meting",
+                }
 
     if len(series) >= 2:
         result["data_quality"] = "good" if len(series) >= 3 else "limited"
@@ -301,6 +314,15 @@ def growth_analysis(
         result.update({"status_code": "below_threshold", "status": "Onder nestdrempel"})
     elif growth is not None:
         result.update({"status_code": "on_track", "status": "Binnen nestinstelling"})
+
+    if result["anomaly"] is not None:
+        result.update(
+            {
+                "status_code": "possible_input_error",
+                "status": "Controleer laatste meting",
+                "data_quality": "review",
+            }
+        )
 
     return result
 

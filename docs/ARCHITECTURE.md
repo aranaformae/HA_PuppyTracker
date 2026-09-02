@@ -105,6 +105,11 @@ The initial configuration envelope supports minimum daily growth, maximum time
 between weighings, monitoring age, first-day maximum loss, an optional expected
 adult-weight range and descriptive `breed_profile`/`size_class` metadata.
 
+The derived `growth_analysis` summary also compares the latest change with the
+recent series. A sufficiently large isolated jump is returned as a data-quality
+hint (`possible_input_error`), so the UI can ask for a scale/input check without
+pretending to diagnose the puppy.
+
 Breed metadata is not a clinical model. In particular, Labradoodle is not treated
 as one universal growth curve; `australian_labradoodle` and its miniature/medium/
 standard size classes are only labels for later analysis unless validated data is
