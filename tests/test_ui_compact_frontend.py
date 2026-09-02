@@ -26,13 +26,14 @@ def test_compact_module_loads_after_affected_cards() -> None:
 def test_dossier_timeline_can_be_hidden_and_management_is_card_level() -> None:
     source = _source()
 
-    assert 'card.__timelineItemsVisible = false' in source
+    assert 'card.__timelineItemsVisible = card._config?.show_timeline_items === true' in source
     assert 'toggle-timeline-items' in source
     assert 'card.__dossierManageMode = false' in source
     assert 'manage-items-button' in source
     assert 'actions.hidden = !card.__dossierManageMode' in source
     assert 'Items aanpassen' in source
     assert 'Bewerken klaar' in source
+    assert 'dossierVisibleRecordCount(card, timeline)' in source
 
 
 def test_overview_chart_is_moved_after_summary() -> None:

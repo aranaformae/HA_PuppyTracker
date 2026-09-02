@@ -279,6 +279,7 @@ class PuppyTrackerTimelineCard extends HTMLElement {
       default_scope: "litter",
       max_items: 250,
       show_history_toggle: true,
+      show_timeline_items: false,
     };
   }
 
@@ -301,6 +302,7 @@ class PuppyTrackerTimelineCard extends HTMLElement {
         },
         { name: "max_items", selector: { number: { min: 25, max: 500, step: 25, mode: "box" } } },
         { name: "show_history_toggle", selector: { boolean: {} } },
+        { name: "show_timeline_items", selector: { boolean: {} } },
       ],
     };
   }
@@ -312,6 +314,7 @@ class PuppyTrackerTimelineCard extends HTMLElement {
       default_scope: "litter",
       max_items: 250,
       show_history_toggle: true,
+      show_timeline_items: false,
       ...config,
     };
     this._selectedLitterId = config.litter_id || this._selectedLitterId;

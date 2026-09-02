@@ -28,11 +28,17 @@ function compactDossier(card) {
     .timeline-card-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
     .timeline-card-actions .manage-items-button{min-height:40px;padding:0 14px;border:1px solid var(--primary-color);border-radius:10px;background:var(--primary-color);color:var(--text-primary-color,#fff);font-weight:650;box-shadow:var(--ha-card-box-shadow,none)}
     .timeline-card-actions .manage-items-button.active{background:var(--primary-color);border-color:var(--primary-color);color:var(--text-primary-color,#fff)}
+    .dossier-timeline-toggle-footer{padding:8px 0 0}
+    .dossier-timeline-toggle-footer button{width:100%;min-height:48px;border:0;border-radius:12px;background:var(--primary-color);color:var(--text-primary-color,#fff);font:inherit;font-weight:650;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer}
+    .dossier-timeline-toggle-footer button.secondary{background:var(--secondary-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color)}
   `);
 
   const timeline = root.querySelector(".timeline");
   const head = root.querySelector(".timeline-head");
-  if (typeof card.__timelineItemsVisible !== "boolean") card.__timelineItemsVisible = false;
+  const cardElement = root.querySelector("ha-card");
+  if (typeof card.__timelineItemsVisible !== "boolean") {
+    card.__timelineItemsVisible = card._config?.show_timeline_items === true;
+  }
   if (typeof card.__dossierManageMode !== "boolean") card.__dossierManageMode = false;
 
   // Keep item management reachable even when the active owner/filter has no records.
@@ -58,26 +64,27 @@ function compactDossier(card) {
     };
   }
 
-  if (timeline && head) {
-    timeline.hidden = !card.__timelineItemsVisible;
-    let actionWrap = root.querySelector(".timeline-card-actions");
-    if (!actionWrap) {
-      actionWrap = document.createElement("div");
-      actionWrap.className = "timeline-card-actions";
-      head.append(actionWrap);
+  if (head && cardElement) {
+    if (timeline) timeline.hidden = !card.__timelineItemsVisible;
+    root.querySelector(".timeline-card-actions")?.remove();
+    let footer = root.querySelector(".dossier-timeline-toggle-footer");
+    if (!footer) {
+      footer = document.createElement("div");
+      footer.className = "dossier-timeline-toggle-footer";
+      cardElement.append(footer);
     }
-
     let toggle = root.getElementById("toggle-timeline-items");
     if (!toggle) {
       toggle = document.createElement("button");
       toggle.id = "toggle-timeline-items";
-      toggle.className = "text-button timeline-visibility-toggle";
-      actionWrap.append(toggle);
+      toggle.type = "button";
+      footer.append(toggle);
     }
-    const count = timeline.querySelectorAll(".record").length;
-    toggle.textContent = card.__timelineItemsVisible
-      ? buttonLabel(card, "Verberg tijdlijnitems", "Hide timeline items")
-      : buttonLabel(card, `Toon tijdlijnitems (${count})`, `Show timeline items (${count})`);
+    const count = dossierVisibleRecordCount(card, timeline);
+    toggle.classList.toggle("secondary", card.__timelineItemsVisible);
+    toggle.innerHTML = card.__timelineItemsVisible
+      ? `<ha-icon icon="mdi:chevron-up"></ha-icon><span>${buttonLabel(card, "Verberg tijdlijnitems", "Hide timeline items")}</span>`
+      : `<ha-icon icon="mdi:chevron-down"></ha-icon><span>${buttonLabel(card, `Toon tijdlijnitems (${count})`, `Show timeline items (${count})`)}</span>`;
     toggle.setAttribute("aria-expanded", card.__timelineItemsVisible ? "true" : "false");
     toggle.onclick = () => {
       card.__timelineItemsVisible = !card.__timelineItemsVisible;
@@ -91,6 +98,17 @@ function compactDossier(card) {
     actions.hidden = !card.__dossierManageMode;
     record.querySelector(".record-manage-toggle")?.remove();
   });
+}
+
+function dossierVisibleRecordCount(card, timeline) {
+  if (timeline) return timeline.querySelectorAll(".record").length;
+  const records = card?._recordData?.records || [];
+  const types = records.map((record) => record?.type || "other");
+  const available = [...new Set(types)];
+  const selected = typeof card?._selectedCategoryFilters === "function"
+    ? card._selectedCategoryFilters(available)
+    : new Set(available);
+  return types.filter((type) => selected.has(type)).length;
 }
 
 function compactTimeline(card) {
@@ -108,7 +126,9 @@ function compactTimeline(card) {
     .timeline-toggle-footer button.secondary{background:var(--secondary-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color)}
   `);
 
-  if (typeof card.__timelineItemsVisible !== "boolean") card.__timelineItemsVisible = false;
+  if (typeof card.__timelineItemsVisible !== "boolean") {
+    card.__timelineItemsVisible = card._config?.show_timeline_items === true;
+  }
   timeline.hidden = !card.__timelineItemsVisible;
   timeline.classList.toggle("timeline-scroll", card.__timelineItemsVisible);
 

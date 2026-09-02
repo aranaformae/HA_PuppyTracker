@@ -153,6 +153,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
       title: "",
       show_litter_selector: true,
       show_profile_note: true,
+      show_timeline_items: false,
     };
   }
 
@@ -162,6 +163,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
         { name: "title", selector: { text: {} } },
         { name: "show_litter_selector", selector: { boolean: {} } },
         { name: "show_profile_note", selector: { boolean: {} } },
+        { name: "show_timeline_items", selector: { boolean: {} } },
       ],
     };
   }
@@ -171,6 +173,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
       title: "",
       show_litter_selector: true,
       show_profile_note: true,
+      show_timeline_items: false,
       ...config,
     };
     this._selectedLitterId = config.litter_id || this._selectedLitterId;

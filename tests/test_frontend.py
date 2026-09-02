@@ -7,6 +7,8 @@ from custom_components.puppy_tracker.frontend import CARD_FILES, FRONTEND_URL, _
 LOCALIZATION_BRIDGE = "puppy-tracker-localization-bridge.js"
 OVERVIEW_CARD = "puppy-tracker-overview-card.js"
 OVERVIEW_REGISTRY_REFRESH = "puppy-tracker-overview-registry-refresh.js"
+DOSSIER_CARD = "puppy-tracker-dossier-card.js"
+TIMELINE_CARD = "puppy-tracker-timeline-card.js"
 LEGACY_LOCALIZED_CARDS = (
     "puppy-tracker-card",
     "puppy-tracker-overview-card",
@@ -68,3 +70,13 @@ def test_localization_bridge_covers_all_legacy_cards() -> None:
 
     for card_type in LEGACY_LOCALIZED_CARDS:
         assert f'"{card_type}"' in source
+
+
+def test_timeline_visibility_is_configurable_per_card() -> None:
+    """Both dossier and timeline cards expose the timeline item default as config."""
+    frontend = Path(__file__).parents[1] / "custom_components" / "puppy_tracker" / "frontend"
+
+    for filename in (DOSSIER_CARD, TIMELINE_CARD):
+        source = (frontend / filename).read_text(encoding="utf-8")
+        assert "show_timeline_items: false" in source
+        assert '{ name: "show_timeline_items", selector: { boolean: {} } }' in source
