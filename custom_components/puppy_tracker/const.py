@@ -32,6 +32,7 @@ SUSTAINED_WEIGHT_LOSS_MEASUREMENTS = 2
 SUSTAINED_LOW_GROWTH_SAMPLES = 2
 LITTER_GROWTH_CONTEXT_TOLERANCE_PERCENT = 2.0
 DEFAULT_GROWTH_MILESTONES_PERCENT = (200, 400)
+DEFAULT_DOUBLE_WEIGHT_REFERENCE_DAYS = 14
 
 # Per-litter growth analysis overrides. ``None`` means use the integration
 # default; breed and size metadata are intentionally descriptive only for now.

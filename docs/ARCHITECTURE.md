@@ -153,6 +153,14 @@ recorded `birth_weight`, returning the absolute difference, percentage of birth
 weight and a boolean `regained` value. It is a factual milestone for the
 overview and deliberately has no age-based deadline or breed-specific meaning.
 
+`growth_milestones` contains the configured birth-weight percentage targets,
+their target grams, actual first crossing timestamps and an optional
+`estimated_at` timestamp. Estimates use only the current normalized positive
+growth rate and are omitted when growth is zero, negative or unavailable. The
+200% target carries a fixed 14-day reference deadline from `birth_time` as a
+monitoring aid; it is not a clinical rule and does not replace the normal
+monitoring statuses.
+
 Breed metadata is not a clinical model. In particular, Labradoodle is not treated
 as one universal growth curve; `australian_labradoodle` and its miniature/medium/
 standard size classes are only labels for later analysis unless validated data is

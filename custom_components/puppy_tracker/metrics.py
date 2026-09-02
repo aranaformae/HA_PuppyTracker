@@ -10,6 +10,7 @@ from homeassistant.util import dt as dt_util
 from .const import (
     DEFAULT_LITTER_GROWTH_ANALYSIS,
     DEFAULT_GROWTH_MONITORING_DAYS,
+    DEFAULT_DOUBLE_WEIGHT_REFERENCE_DAYS,
     DEFAULT_MAX_HOURS_BETWEEN_WEIGHINGS,
     DEFAULT_MIN_DAILY_GROWTH_PERCENT,
     FIRST_DAY_GRACE_HOURS,
@@ -292,6 +293,8 @@ def _growth_milestones(
     series: list[tuple[datetime, dict[str, Any]]],
     birth_weight: float | None,
     milestone_percentages: Any,
+    daily_growth_grams: float | None,
+    birth_time: datetime | None,
 ) -> dict[str, Any] | None:
     """Return configured birth-weight milestones and their first crossing."""
     if birth_weight is None or birth_weight <= 0 or not isinstance(milestone_percentages, (list, tuple)):
@@ -307,11 +310,26 @@ def _growth_milestones(
              if (weight := finite_number(measurement.get("weight"))) is not None and weight >= target_weight),
             None,
         )
+        estimated_at = None
+        latest_weight = finite_number(series[-1][1].get("weight")) if series else None
+        if reached_at is None and latest_weight is not None and daily_growth_grams is not None and daily_growth_grams > 0:
+            remaining = target_weight - latest_weight
+            if remaining > 0:
+                estimated_at = (series[-1][0] + timedelta(days=remaining / daily_growth_grams)).isoformat()
+        reference_deadline = None
+        on_schedule = None
+        if int(target_percent) == 200 and birth_time is not None:
+            reference_deadline = (birth_time + timedelta(days=DEFAULT_DOUBLE_WEIGHT_REFERENCE_DAYS)).isoformat()
+            comparison_time = reached_at or estimated_at
+            on_schedule = comparison_time is not None and parse_timestamp(comparison_time) <= parse_timestamp(reference_deadline)
         milestones.append({
             "target_percent": int(target_percent),
             "target_weight": round(target_weight, 1),
             "reached": reached_at is not None,
             "reached_at": reached_at,
+            "estimated_at": estimated_at,
+            "reference_deadline": reference_deadline,
+            "on_schedule": on_schedule,
         })
     if not milestones:
         return None
@@ -483,6 +501,8 @@ def growth_analysis(
             series,
             birth_weight,
             settings.get("growth_milestones_percent"),
+            growth["daily_change_grams"] if growth else None,
+            birth_datetime(storage, litter_id, puppy_id),
         ),
         "daily_growth_percent": growth["daily_change_percent"] if growth else None,
         "daily_growth_grams": growth["daily_change_grams"] if growth else None,
