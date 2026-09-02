@@ -1721,13 +1721,21 @@ class PuppyTrackerOverviewCard extends HTMLElement {
       ? `
         <div class="milestone-list">
           <strong>Groeimijlpalen</strong>
-          ${milestones.map((milestone) => `
+          ${milestones.map((milestone) => {
+            const progress = Number.isFinite(selected?.weight) && milestone.target_weight > 0
+              ? Math.min(100, Math.max(0, selected.weight / milestone.target_weight * 100))
+              : 0;
+            return `
             <div class="milestone-row ${milestone.reached ? "reached" : "pending"}">
-              <span>${this._escape(`${milestone.target_percent / 100}x geboortegewicht`)}</span>
+              <div>
+                <span>${this._escape(`${milestone.target_percent / 100}x geboortegewicht`)}</span>
+                <span class="milestone-progress" role="progressbar" aria-label="Voortgang naar mijlpaal" aria-valuenow="${progress.toFixed(0)}" aria-valuemin="0" aria-valuemax="100"><span style="width: ${progress.toFixed(1)}%"></span></span>
+              </div>
               <span>${this._formatNumber(milestone.target_weight, "g")}</span>
               <span>${this._escape(milestone.reached ? `Bereikt ${this._formatDateTime(milestone.reached_at)}` : milestone.estimated_at ? `Geschat ${this._formatDateTime(milestone.estimated_at)}` : "Nog niet te schatten")}</span>
             </div>
-          `).join("")}
+          `;
+          }).join("")}
         </div>
       `
       : "";
@@ -2428,6 +2436,16 @@ class PuppyTrackerOverviewCard extends HTMLElement {
         .milestone-row.reached { border-left-color: var(--success-color, #4caf50); }
         .milestone-row.pending { border-left-color: var(--warning-color, #ff9800); }
         .milestone-row > span:last-child { color: var(--secondary-text-color); text-align: right; }
+        .milestone-progress {
+          display: block;
+          height: 4px;
+          margin-top: 5px;
+          border-radius: 999px;
+          background: var(--divider-color);
+          overflow: hidden;
+        }
+        .milestone-progress > span { display: block; height: 100%; background: var(--primary-color); }
+        .milestone-row.reached .milestone-progress > span { background: var(--success-color, #4caf50); }
 
         .detail-panel,
         .chart-panel {

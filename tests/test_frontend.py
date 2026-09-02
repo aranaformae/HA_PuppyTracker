@@ -137,3 +137,4 @@ def test_overview_renders_litter_weight_comparison() -> None:
     assert "visibleMilestones" in source
     assert "projectedMilestone" in source
     assert "milestone-projection" in source
+    assert "milestone-progress" in source
