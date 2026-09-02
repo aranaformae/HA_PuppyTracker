@@ -95,3 +95,18 @@ def test_attention_today_filter_is_configurable() -> None:
 
     assert "show_today_only: false" in source
     assert '{ name: "show_today_only", selector: { boolean: {} } }' in source
+
+
+def test_dossier_and_timeline_expose_configurable_default_scopes() -> None:
+    """Dossier and timeline cards support the same persisted scope choices."""
+    frontend = Path(__file__).parents[1] / "custom_components" / "puppy_tracker" / "frontend"
+    dossier = (frontend / DOSSIER_CARD).read_text(encoding="utf-8")
+    timeline = (frontend / TIMELINE_CARD).read_text(encoding="utf-8")
+
+    for source in (dossier, timeline):
+        assert 'name: "default_scope"' in source
+        assert 'config.default_scope' in source
+    assert '{ value: "all", label: "Alles" }' in dossier
+    assert '{ value: "mother", label: "Moederhond" }' in dossier
+    assert '{ value: "all", label: "Alles" }' in timeline
+    assert '{ value: "mother", label: "Mother" }' in timeline

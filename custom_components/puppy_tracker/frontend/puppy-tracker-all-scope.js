@@ -8,6 +8,7 @@ import {
 const TIMELINE_TAG = "puppy-tracker-timeline-card";
 const DOSSIER_TAG = "puppy-tracker-dossier-card";
 const ALL_VALUE = "__all__";
+const MOTHER_VALUE = "__mother__";
 
 function copy(card, nl, en) {
   return languageForHass(card?._hass) === "en" ? en : nl;
@@ -190,6 +191,26 @@ function patchDossierAllScope() {
   const originalRender = Card.prototype._render;
 
   Card.prototype._loadLitterAndRecords = async function (render = true) {
+    if (this.__motherSelected) {
+      if (!this._hass || !this._selectedLitterId) {
+        this._litterData = null;
+        this._recordData = null;
+        if (render) this._render();
+        return;
+      }
+
+      this._litterData = await fetchLitterData(this._hass, this._selectedLitterId);
+      const motherRecords = await fetchMotherRecords(this, false);
+      const ownerName = motherRecords?.owner?.name || this._litterData?.litter?.mother || copy(this, "Moederhond", "Mother");
+      this._selectedPuppyId = null;
+      this._recordData = {
+        records: sortNewestFirst((motherRecords?.records || []).map((record) => decorateRecord(record, "mother", ownerName))),
+        actions: { actions: [] },
+        can_manage_records: false,
+      };
+      if (render) this._render();
+      return;
+    }
     if (!this.__allSelected) return originalLoad.call(this, render);
     if (!this._hass || !this._selectedLitterId) {
       this._litterData = null;
@@ -233,8 +254,29 @@ function patchDossierAllScope() {
   };
 
   Card.prototype._selectOwner = async function (value) {
+    if (value === MOTHER_VALUE) {
+      this.__allSelected = false;
+      this.__motherSelected = true;
+      this._selectedPuppyId = null;
+      this._editor = null;
+      this._profileEditing = false;
+      this._status = "";
+      this._loading = true;
+      this._render();
+      try {
+        await this._loadLitterAndRecords(false);
+        this._error = "";
+      } catch (error) {
+        this._error = error?.message || copy(this, "Moederdossier kon niet worden geladen.", "Mother dossier could not be loaded.");
+      } finally {
+        this._loading = false;
+        this._render();
+      }
+      return;
+    }
     if (value !== ALL_VALUE) {
       this.__allSelected = false;
+      this.__motherSelected = false;
       return originalSelectOwner.call(this, value);
     }
 
@@ -274,6 +316,21 @@ function patchDossierAllScope() {
       option.value = ALL_VALUE;
       option.textContent = copy(this, "Alles (nest + moeder + pups)", "All (litter + mother + puppies)");
       select.insertBefore(option, select.options[0] || null);
+    }
+
+    let motherOption = Array.from(select.options).find((item) => item.value === MOTHER_VALUE);
+    const motherName = this._litterData?.litter?.mother;
+    if (!motherOption && motherName) {
+      motherOption = document.createElement("option");
+      motherOption.value = MOTHER_VALUE;
+      motherOption.textContent = `${copy(this, "Moederhond", "Mother")} · ${motherName}`;
+      select.insertBefore(motherOption, select.options[1] || null);
+    }
+
+    if (this.__motherSelected) {
+      select.value = MOTHER_VALUE;
+      const subtitle = root.querySelector(".subtitle");
+      if (subtitle) subtitle.textContent = copy(this, "Alle dossieritems van de moederhond", "All dossier items for the mother");
     }
 
     if (this.__allSelected) {

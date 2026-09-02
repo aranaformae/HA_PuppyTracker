@@ -183,6 +183,15 @@ The card lets you select the whole litter, the linked mother dog or an active pu
 
 **Timeline** is a derived view over authoritative weight and dossier data. It can show litter, mother and puppy dossier history plus effective puppy weight measurements, with filtering and compact/collapsible presentation.
 
+The **Dossier** and **Timeline** cards support a configurable initial owner scope through `default_scope`. Valid values are `all`, `litter`, `mother` and `puppy`; the normal scope selector remains available after loading. For example:
+
+```yaml
+type: custom:puppy-tracker-dossier-card
+default_scope: mother
+```
+
+When `puppy_id` is configured, it takes precedence and the card opens on that puppy. `all` combines litter and mother records where the card supports that view. Quick Log remains an action form for one explicitly selected owner, so it does not use an aggregate default scope.
+
 Timeline, Today and Attention expose type/category chips for the items they display. The chips use the same inclusive selection model across cards: **All** selects every available type, while clearing every chip intentionally shows no matching items. Temperature and age-based care entries are included in the available types when those entries exist. Attention and Today keep long lists usable with a scrollable area capped at 520px; Timeline can be configured with `show_timeline_items` to start with its item list shown or hidden while retaining the toggle.
 
 **Today and Attention** consume backend-derived care occurrence state. Open age-based care actions can be completed or marked missed from these surfaces, with configured result/score/note fields stored in the puppy dossier.

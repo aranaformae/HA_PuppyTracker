@@ -293,7 +293,9 @@ class PuppyTrackerTimelineCard extends HTMLElement {
           selector: {
             select: {
               options: [
+                { value: "all", label: "Alles" },
                 { value: "litter", label: "Litter" },
+                { value: "mother", label: "Mother" },
                 { value: "puppy", label: "Puppy" },
               ],
               mode: "dropdown",
@@ -318,7 +320,11 @@ class PuppyTrackerTimelineCard extends HTMLElement {
       ...config,
     };
     this._selectedLitterId = config.litter_id || this._selectedLitterId;
-    this._scope = config.puppy_id ? "puppy" : (config.default_scope === "puppy" ? "puppy" : "litter");
+    this._scope = config.puppy_id
+      ? "puppy"
+      : (["all", "litter", "mother", "puppy"].includes(config.default_scope)
+        ? config.default_scope
+        : "litter");
     this._selectedPuppyId = config.puppy_id || this._selectedPuppyId;
     this._render();
   }

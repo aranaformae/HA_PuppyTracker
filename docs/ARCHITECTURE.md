@@ -476,6 +476,19 @@ Mother scope is expected on Dossier, Quick Log, Timeline, Attention, Report/expo
 
 The recurring-reminder card must resolve the linked mother through the mother scope rather than requiring `litter.mother_id` in the ordinary litter payload.
 
+### Configurable initial card scope
+
+Dossier and Timeline accept a presentation-only `default_scope` card option with
+the values `all`, `litter`, `mother` and `puppy`. The option controls the scope
+used during the initial load; the interactive scope selector remains available
+and changing it does not change persisted data. A configured `puppy_id` takes
+precedence over `default_scope` and selects that puppy directly. The aggregate
+`all` view combines litter and mother records where supported, while a
+mother-scoped dossier view is read-only because it is a history surface rather
+than an editing operation. Quick Log deliberately keeps an explicit single
+owner selection because applying an aggregate default to a new log entry could
+store the action under the wrong owner.
+
 Today and Attention consume backend-derived age-based occurrence status. Recording a care result must refresh occurrences and render the refreshed state immediately; a completed row must not remain stale until another dashboard event.
 
 ### Shared category filtering and list presentation
