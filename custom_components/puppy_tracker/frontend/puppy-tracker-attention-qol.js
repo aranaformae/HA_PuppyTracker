@@ -203,6 +203,7 @@ function renderQol(card) {
     const matches = selectedTypes.has(row.dataset.attentionType);
     row.hidden = !matches;
     row.classList.toggle("attention-filter-hidden", !matches);
+    row.style.display = matches ? "" : "none";
     if (!matches) continue;
     const attentionId = row.dataset.attentionId;
     const acknowledged = Boolean(acknowledgements[attentionId]);
