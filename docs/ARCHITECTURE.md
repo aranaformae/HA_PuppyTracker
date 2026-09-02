@@ -125,6 +125,11 @@ from the canonical single-step monitoring status: one temporary decrease can be
 shown as a normal weight-loss status, while the overview can still identify a
 repeated downward pattern for manual review.
 
+The summary also marks `sustained_low_growth` after two consecutive normalized
+growth periods fall below the active per-litter minimum, but only while growth
+monitoring is active for the puppy. This avoids turning a single noisy interval
+or an age outside the configured monitoring window into a persistent warning.
+
 When at least two puppies have a usable normalized daily-growth sample, the
 summary also exposes `litter_growth_comparison`. It uses the median daily-growth
 percentage, descending tempo rank and the difference in percentage points from

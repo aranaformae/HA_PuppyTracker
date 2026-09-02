@@ -29,6 +29,7 @@ MIN_GROWTH_SAMPLE_HOURS = 6.0
 # Large isolated jumps are data-quality hints, not medical conclusions.
 SUSPICIOUS_SINGLE_WEIGHT_CHANGE_PERCENT = 25.0
 SUSTAINED_WEIGHT_LOSS_MEASUREMENTS = 2
+SUSTAINED_LOW_GROWTH_SAMPLES = 2
 LITTER_GROWTH_CONTEXT_TOLERANCE_PERCENT = 2.0
 
 # Per-litter growth analysis overrides. ``None`` means use the integration

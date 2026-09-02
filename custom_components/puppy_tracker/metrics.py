@@ -18,6 +18,7 @@ from .const import (
     MIN_GROWTH_SAMPLE_HOURS,
     SUSPICIOUS_SINGLE_WEIGHT_CHANGE_PERCENT,
     SUSTAINED_WEIGHT_LOSS_MEASUREMENTS,
+    SUSTAINED_LOW_GROWTH_SAMPLES,
 )
 from .measurements import measurement_datetime
 from .storage import PuppyTrackerStorage
@@ -146,6 +147,33 @@ def _weight_pattern(series: list[tuple[datetime, dict[str, Any]]]) -> dict[str, 
     return {
         "consecutive_loss_measurements": consecutive_loss,
         "sustained_loss": consecutive_loss >= SUSTAINED_WEIGHT_LOSS_MEASUREMENTS,
+    }
+
+
+def _growth_pattern(
+    series: list[tuple[datetime, dict[str, Any]]],
+    minimum_percent: float,
+) -> dict[str, Any]:
+    """Describe consecutive normalized growth periods below the litter threshold."""
+    growth_values: list[float] = []
+    for (previous_time, previous), (current_time, current) in zip(series, series[1:]):
+        previous_weight = finite_number(previous.get("weight"))
+        current_weight_value = finite_number(current.get("weight"))
+        interval_hours = (current_time - previous_time).total_seconds() / 3600
+        if previous_weight is None or current_weight_value is None or previous_weight <= 0 or interval_hours <= 0:
+            continue
+        growth_values.append((current_weight_value - previous_weight) / previous_weight * 100 * 24 / interval_hours)
+
+    consecutive_low = 0
+    for value in reversed(growth_values):
+        if value < minimum_percent:
+            consecutive_low += 1
+        else:
+            break
+
+    return {
+        "consecutive_low_growth_samples": consecutive_low,
+        "sustained_low_growth": consecutive_low >= SUSTAINED_LOW_GROWTH_SAMPLES,
     }
 
 
@@ -367,6 +395,7 @@ def growth_analysis(
         "litter_comparison": _litter_weight_comparison(storage, litter_id, puppy_id),
         "litter_growth_comparison": _litter_growth_comparison(storage, litter_id, puppy_id),
         "weight_pattern": _weight_pattern(series),
+        "growth_pattern": _growth_pattern(series, float(settings["min_daily_growth_percent"])),
         "anomaly": None,
     }
 
@@ -445,6 +474,14 @@ def growth_analysis(
             {
                 "status_code": "sustained_weight_loss",
                 "status": "Aanhoudend gewichtsverlies",
+                "data_quality": "review",
+            }
+        )
+    elif result["growth_pattern"]["sustained_low_growth"] and status.get("growth_check_active"):
+        result.update(
+            {
+                "status_code": "sustained_low_growth",
+                "status": "Aanhoudend lage groei",
                 "data_quality": "review",
             }
         )

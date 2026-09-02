@@ -1443,7 +1443,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
   _statusClass(code) {
     if (code === "ok" || code === "on_track") return "ok";
     if (code === "first_24h" || code === "insufficient_data") return "info";
-    if (code === "low_growth" || code === "below_threshold") return "warning";
+    if (code === "low_growth" || code === "below_threshold" || code === "sustained_low_growth") return "warning";
     if (
       [
         "weight_loss",
@@ -1732,6 +1732,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
             <div><span>Datakwaliteit</span><strong>${this._escape(selected.analysis?.data_quality || "none")}</strong></div>
             <div><span>Nestdrempel</span><strong>${this._formatNumber(selected.analysis?.min_daily_growth_percent, "%", true)}</strong></div>
             <div><span>Gewichtspatroon</span><strong>${this._escape(selected.analysis?.weight_pattern?.sustained_loss ? "Aanhoudende daling" : "Geen aanhoudende daling")}</strong></div>
+            <div><span>Groeipatroon</span><strong>${this._escape(selected.analysis?.growth_pattern?.sustained_low_growth ? "Aanhoudend lage groei" : "Geen aanhoudend lage groei")}</strong></div>
             <div><span>Nestpositie</span><strong>${this._escape(this._litterComparisonLabel(selected.analysis?.litter_comparison))}</strong></div>
             <div><span>Afwijking mediaan</span><strong>${this._formatNumber(selected.analysis?.litter_comparison?.delta_percent, "%", true)}</strong></div>
             <div><span>Nesttempo</span><strong>${this._escape(this._litterGrowthLabel(selected.analysis?.litter_growth_comparison))}</strong></div>
