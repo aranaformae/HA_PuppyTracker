@@ -100,6 +100,22 @@ test("overview card exposes basic and advanced analysis visibility controls", as
   expect(result.config).toEqual({ analysis: false, milestones: false, annotations: false });
 });
 
+test("litter card exposes a compact detail visibility control", async ({ page }) => {
+  await openFixture(page);
+  const result = await page.evaluate(() => {
+    const constructor = customElements.get("puppy-tracker-litter-card");
+    const schema = constructor?.getConfigForm?.()?.schema || [];
+    const card = document.createElement("puppy-tracker-litter-card");
+    card.setConfig({ show_details: false });
+    document.querySelector("#cards").appendChild(card);
+    return {
+      option: schema.find((item) => item.name === "show_details")?.name,
+      config: card._config.show_details,
+    };
+  });
+  expect(result).toEqual({ option: "show_details", config: false });
+});
+
 test("Attention keeps unacknowledged alerts visible and acknowledged alerts collapsed", async ({ page }) => {
   await openFixture(page);
 

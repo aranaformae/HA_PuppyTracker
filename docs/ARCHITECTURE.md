@@ -534,6 +534,8 @@ Mother scope is expected on Dossier, Quick Log, Timeline, Attention, Report/expo
 
 The recurring-reminder card must resolve the linked mother through the mother scope rather than requiring `litter.mother_id` in the ordinary litter payload.
 
+Presentation density is configured per Lovelace card instance. The Overview card exposes independent switches for advanced analysis, growth milestones and chart annotations. The Litter card uses `show_details` to control secondary growth columns and expandable per-puppy metadata; all of these options default to the current detailed presentation for backward compatibility.
+
 ### Configurable initial card scope
 
 Dossier and Timeline accept a presentation-only `default_scope` card option with

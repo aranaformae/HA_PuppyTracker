@@ -10,6 +10,7 @@ OVERVIEW_REGISTRY_REFRESH = "puppy-tracker-overview-registry-refresh.js"
 DOSSIER_CARD = "puppy-tracker-dossier-card.js"
 TIMELINE_CARD = "puppy-tracker-timeline-card.js"
 ATTENTION_CARD = "puppy-tracker-attention-card.js"
+LITTER_CARD = "puppy-tracker-litter-card.js"
 LEGACY_LOCALIZED_CARDS = (
     "puppy-tracker-card",
     "puppy-tracker-overview-card",
@@ -157,3 +158,18 @@ def test_overview_exposes_basic_and_advanced_visibility_options() -> None:
     ):
         assert f"{option}: true" in source
         assert f'name: "{option}"' in source
+
+
+def test_litter_card_exposes_basic_and_advanced_detail_option() -> None:
+    """The litter overview can hide secondary columns and expanded details."""
+    source = (
+        Path(__file__).parents[1]
+        / "custom_components"
+        / "puppy_tracker"
+        / "frontend"
+        / LITTER_CARD
+    ).read_text(encoding="utf-8")
+
+    assert "show_details: true" in source
+    assert '{ name: "show_details", selector: { boolean: {} } }' in source
+    assert "detailsEnabled" in source
