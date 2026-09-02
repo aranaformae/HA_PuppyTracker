@@ -235,9 +235,21 @@ test("Today combines today's timeline and care items behind one inclusive scroll
   await expect(vaccinationCare).toBeVisible();
   await expect(dewormingCare).toBeVisible();
 
+  await note.click();
+  await vaccination.click();
+  await deworming.click();
+  await expect(all).not.toHaveClass(/active/);
+  await expect(noteTimeline).toBeHidden();
+  await expect(vaccinationCare).toBeHidden();
+  await expect(dewormingCare).toBeHidden();
+  await expect(card.locator(".today-empty")).toBeVisible();
+
   await all.click();
   await expect(all).toHaveClass(/active/);
   await expect(weight).toHaveClass(/active/);
+  await expect(note).toHaveClass(/active/);
+  await expect(vaccination).toHaveClass(/active/);
+  await expect(deworming).toHaveClass(/active/);
   await expect(testType).toHaveClass(/active/);
   await expect(weightTimeline).toBeVisible();
   await expect(testTimeline).toBeVisible();

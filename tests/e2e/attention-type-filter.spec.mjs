@@ -98,11 +98,12 @@ test("Attention chips hide deselected alert types without losing acknowledgement
   await expect(vaccinationRow).toBeVisible();
   await expect(vaccinationRow.locator(":scope > .attention-ack-button")).toBeVisible();
 
-  // The last selected type cannot be disabled, matching Timeline behavior.
   await vaccination.click();
-  await expect(vaccination).toHaveClass(/active/);
-  await expect(vaccinationRow).toBeVisible();
-  await expect(vaccinationRow.locator(":scope > .attention-ack-button")).toBeVisible();
+  await expect(vaccination).not.toHaveClass(/active/);
+  await expect(all).not.toHaveClass(/active/);
+  await expect(weightRow).toBeHidden();
+  await expect(vaccinationRow).toBeHidden();
+  await expect(testRow).toBeHidden();
 
   await all.click();
   await expect(all).toHaveClass(/active/);

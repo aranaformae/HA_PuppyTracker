@@ -502,10 +502,10 @@ class PuppyTrackerTimelineCard extends HTMLElement {
 
   _toggleType(type) {
     if (type === "__all__") {
-      this._selectedTypes = new Set(TIMELINE_TYPES);
+      const allSelected = TIMELINE_TYPES.every((item) => this._selectedTypes.has(item));
+      this._selectedTypes = allSelected ? new Set() : new Set(TIMELINE_TYPES);
     } else if (this._selectedTypes.has(type)) {
       this._selectedTypes.delete(type);
-      if (!this._selectedTypes.size) this._selectedTypes.add(type);
     } else {
       this._selectedTypes.add(type);
     }

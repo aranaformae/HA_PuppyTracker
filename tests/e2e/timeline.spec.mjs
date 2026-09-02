@@ -422,6 +422,10 @@ test("filters event types and date range", async ({ page }) => {
   await expect(card.locator(".timeline-item")).toHaveCount(1);
   await expect(card.locator(".timeline-item").first()).toHaveAttribute("data-event-type", "weight");
 
+  await card.locator('[data-filter-type="weight"]').click();
+  await expect(card.locator(".timeline-item")).toHaveCount(0);
+  await expect(card.getByText("Geen tijdlijnitems binnen deze filters.", { exact: true })).toBeVisible();
+
   await card.locator('[data-filter-type="note"]').click();
   await card.locator("#from-date").fill("2026-08-31");
   await card.locator("#to-date").fill("2026-08-31");

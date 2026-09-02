@@ -168,10 +168,11 @@ function selectedTypesFor(card, types) {
     && previousAvailable.every((type) => selected.has(type));
   selected = new Set([...selected].filter((type) => available.includes(type)));
 
-  if (!previousAvailable.length || previouslyAllSelected) {
+  const explicitlySelected = card.__todayTypeFilters instanceof Set
+    || card.__todayCareTypeFilters instanceof Set;
+  if (!explicitlySelected || (!previousAvailable.length && !explicitlySelected) || previouslyAllSelected) {
     for (const type of available) selected.add(type);
   }
-  if (!selected.size && available.length) selected = new Set(available);
 
   card.__todayTypeFilters = selected;
   card.__todayAvailableTypes = [...available];
@@ -183,9 +184,10 @@ function selectedTypesFor(card, types) {
 function toggleType(card, type, types) {
   const selected = selectedTypesFor(card, types);
   if (type === "__all__") {
-    card.__todayTypeFilters = new Set(types);
+    const allSelected = types.length > 0 && types.every((item) => selected.has(item));
+    card.__todayTypeFilters = allSelected ? new Set() : new Set(types);
   } else if (selected.has(type)) {
-    if (selected.size > 1) selected.delete(type);
+    selected.delete(type);
     card.__todayTypeFilters = selected;
   } else {
     selected.add(type);
