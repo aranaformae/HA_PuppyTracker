@@ -19,7 +19,7 @@ Puppy Tracker is a custom Home Assistant integration for managing litters, mothe
 - Generic recurring reminders for a whole litter, mother dog or individual puppy.
 - Age-based litter care programs with deterministic per-puppy occurrences, including one-time ages and fixed age ranges such as ENS/ESI.
 - Structured care-program results stored in the puppy dossier and included in PDF reports.
-- Attention and Today integration for due and overdue care.
+- Attention and Today integration for upcoming, due-soon, due-today and overdue care.
 - Home Assistant persistent/mobile notifications with deduplication.
 - Central notification preferences, configurable reminder lead times, an independent recurring-reminder delivery toggle and an explicit test-notification action.
 - CSV, JSON and direct PDF reporting/export plus validated backup/restore.
@@ -155,6 +155,7 @@ Puppy Tracker automatically registers its frontend modules. A full browser refre
 | Weighing Station | `custom:puppy-tracker-card` | Register weights and weighing sessions |
 | Overview | `custom:puppy-tracker-overview-card` | Weight/growth overview and charts |
 | Summary | `custom:puppy-tracker-summary-card` | Compact litter summary |
+| Today | `custom:puppy-tracker-today-card` | Daily weighing progress and today’s care activity |
 | Attention | `custom:puppy-tracker-attention-card` | Weight, recurring-reminder and age-based care attention |
 | Litter | `custom:puppy-tracker-litter-card` | Puppy/litter overview |
 | Report | `custom:puppy-tracker-report-card` | Reports and CSV/JSON/PDF export, including care-program results |
@@ -180,6 +181,8 @@ The card lets you select the whole litter, the linked mother dog or an active pu
 **Quick Log** supports litter, mother and puppy ownership and common structured actions. Temperature is stored as a real `temperature` dossier record with a Celsius value rather than only free text.
 
 **Timeline** is a derived view over authoritative weight and dossier data. It can show litter, mother and puppy dossier history plus effective puppy weight measurements, with filtering and compact/collapsible presentation.
+
+Timeline, Today and Attention expose type/category chips for the items they display. The chips use the same inclusive selection model across cards: **All** selects every available type, while clearing every chip intentionally shows no matching items. Temperature and age-based care entries are included in the available types when those entries exist. Attention and Today keep long lists usable with a scrollable area capped at 520px; Timeline can be configured with `show_timeline_items` to start with its item list shown or hidden while retaining the toggle.
 
 **Today and Attention** consume backend-derived care occurrence state. Open age-based care actions can be completed or marked missed from these surfaces, with configured result/score/note fields stored in the puppy dossier.
 
@@ -224,6 +227,7 @@ custom_components/puppy_tracker/
 ├── pdf_export.py
 └── frontend/
     ├── puppy-tracker-dossier-card.js
+    ├── puppy-tracker-today-card.js
     ├── puppy-tracker-quick-log-card.js
     ├── puppy-tracker-timeline-card.js
     ├── puppy-tracker-attention-card.js

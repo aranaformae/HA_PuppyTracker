@@ -459,6 +459,22 @@ The recurring-reminder card must resolve the linked mother through the mother sc
 
 Today and Attention consume backend-derived age-based occurrence status. Recording a care result must refresh occurrences and render the refreshed state immediately; a completed row must not remain stale until another dashboard event.
 
+### Shared category filtering and list presentation
+
+The Timeline, Today and Attention surfaces use type/category chips as a presentation
+filter over the already-derived backend data. The filter is inclusive: selecting
+`All` selects every type currently available on that surface, and clearing every
+type is a valid state that renders no matching items. The filter must not delete,
+acknowledge, complete or otherwise mutate records or occurrences. Temperature and
+age-based care types must be offered when present, so they cannot disappear merely
+because they are not part of an older static type list.
+
+Attention keeps open and acknowledged items in independently scrollable lists with
+a maximum height of 520px. Today applies the same maximum to its combined activity
+area. Timeline retains its category filters even when timeline items are configured
+to start hidden; `show_timeline_items` controls the initial presentation only and
+does not remove the control or change the underlying data.
+
 ## Export philosophy
 
 - CSV is an analysis-friendly view of effective measurement data.
