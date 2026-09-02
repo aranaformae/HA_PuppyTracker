@@ -31,6 +31,7 @@ from .const import (
     DEFAULT_NOTIFY_ENTITIES,
     DEFAULT_RECURRING_REMINDER_NOTIFICATIONS_ENABLED,
     DEFAULT_LITTER_GROWTH_ANALYSIS,
+    DEFAULT_GROWTH_MILESTONES_PERCENT,
     STORAGE_KEY,
     STORAGE_VERSION,
 )
@@ -76,6 +77,20 @@ def _normalize_litter_growth_analysis(value: Any) -> dict[str, Any]:
     result = deepcopy(DEFAULT_LITTER_GROWTH_ANALYSIS)
     result["breed_profile"] = str(raw.get("breed_profile") or "unknown").strip() or "unknown"
     result["size_class"] = str(raw.get("size_class") or "unknown").strip() or "unknown"
+    raw_milestones = raw.get("growth_milestones_percent")
+    if raw_milestones in (None, ""):
+        result["growth_milestones_percent"] = list(DEFAULT_GROWTH_MILESTONES_PERCENT)
+    else:
+        values = raw_milestones.split(",") if isinstance(raw_milestones, str) else raw_milestones
+        if not isinstance(values, (list, tuple)):
+            raise ValueError("Invalid litter growth setting: growth_milestones_percent")
+        try:
+            milestones = sorted({int(float(value)) for value in values if str(value).strip()})
+        except (TypeError, ValueError) as err:
+            raise ValueError("Invalid litter growth setting: growth_milestones_percent") from err
+        if not milestones or any(value < 100 or value > 10000 for value in milestones):
+            raise ValueError("Invalid litter growth setting: growth_milestones_percent")
+        result["growth_milestones_percent"] = milestones
 
     ranges = {
         "min_daily_growth_percent": (0.0, 20.0),

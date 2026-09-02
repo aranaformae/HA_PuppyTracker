@@ -285,6 +285,26 @@ def test_growth_analysis_reports_birth_weight_recovery(
     }
 
 
+def test_growth_analysis_reports_configured_growth_milestones(
+    monkeypatch,
+    storage,
+    install_litter,
+    make_measurement,
+) -> None:
+    _set_now(monkeypatch)
+    litter_id, puppy_id = install_litter(
+        measurements=[make_measurement("latest", 800, "2026-08-30T10:00:00+00:00")],
+        puppy_overrides={"birth_weight": 400.0},
+        litter_overrides={"growth_analysis": {"growth_milestones_percent": [200, 400]}},
+    )
+
+    result = metrics.growth_analysis(storage, litter_id, puppy_id)
+
+    assert result["growth_milestones"]["milestones"][0]["reached"] is True
+    assert result["growth_milestones"]["milestones"][1]["target_weight"] == 1600.0
+    assert result["growth_milestones"]["next"]["target_percent"] == 400
+
+
 def test_status_without_measurement_requires_attention(
     monkeypatch,
     storage,

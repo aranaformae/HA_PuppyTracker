@@ -21,6 +21,7 @@ from homeassistant.helpers import selector
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .const import (
+    DEFAULT_GROWTH_MILESTONES_PERCENT,
     DEFAULT_GROWTH_MONITORING_DAYS,
     DEFAULT_MAX_HOURS_BETWEEN_WEIGHINGS,
     DEFAULT_MIN_DAILY_GROWTH_PERCENT,
@@ -71,6 +72,11 @@ class PuppyTrackerConfigFlow(
                 title="Puppy Tracker",
                 data={},
             )
+
+        fields[vol.Optional(
+            "growth_milestones_percent",
+            default=", ".join(str(value) for value in growth.get("growth_milestones_percent", DEFAULT_GROWTH_MILESTONES_PERCENT)),
+        )] = selector.TextSelector()
 
         return self.async_show_form(
             step_id="user"
@@ -291,6 +297,7 @@ class PuppyTrackerOptionsFlow(
                             "first_day_max_weight_loss_percent": user_input.get("first_day_max_weight_loss_percent"),
                             "expected_adult_weight_min_grams": user_input.get("expected_adult_weight_min_grams"),
                             "expected_adult_weight_max_grams": user_input.get("expected_adult_weight_max_grams"),
+                            "growth_milestones_percent": user_input.get("growth_milestones_percent"),
                         },
                     )
 

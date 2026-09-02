@@ -129,6 +129,7 @@
           "first_day_max_weight_loss_percent": "Override maximaal verlies op dag één (%)",
           "expected_adult_weight_min_grams": "Verwacht volwassen minimum (g)",
           "expected_adult_weight_max_grams": "Verwacht volwassen maximum (g)",
+          "growth_milestones_percent": "Groeimijlpalen (% van geboortegewicht, komma-gescheiden)",
           "action": "Actie"
         },
         "data_description": {
@@ -144,6 +145,7 @@
           "first_day_max_weight_loss_percent": "Laat leeg om de huidige algemene grens voor dag één te gebruiken.",
           "expected_adult_weight_min_grams": "Optionele schatting op basis van ouderdieren/fokker; laat leeg als deze onbekend is.",
           "expected_adult_weight_max_grams": "Optionele schatting op basis van ouderdieren/fokker; laat leeg als deze onbekend is.",
+          "growth_milestones_percent": "Bijvoorbeeld 200, 400 voor 2x en 4x geboortegewicht. Laat leeg voor 200, 400.",
           "action": "Kies wat je met dit nest wilt doen"
         }
       },

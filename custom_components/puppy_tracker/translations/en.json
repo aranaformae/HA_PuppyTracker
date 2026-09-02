@@ -64,6 +64,7 @@
           "first_day_max_weight_loss_percent": "Maximum day-one loss override (%)",
           "expected_adult_weight_min_grams": "Expected adult minimum (g)",
           "expected_adult_weight_max_grams": "Expected adult maximum (g)",
+          "growth_milestones_percent": "Growth milestones (% of birth weight, comma-separated)",
           "action": "Action"
         },
         "data_description": {
@@ -79,6 +80,7 @@
           "first_day_max_weight_loss_percent": "Leave empty to use the current general day-one limit.",
           "expected_adult_weight_min_grams": "Optional parent/breeder-based estimate; leave empty when unknown.",
           "expected_adult_weight_max_grams": "Optional parent/breeder-based estimate; leave empty when unknown.",
+          "growth_milestones_percent": "For example 200, 400 for 2x and 4x birth weight. Leave empty for 200, 400.",
           "action": "Choose what you want to do with this litter"
         }
       },

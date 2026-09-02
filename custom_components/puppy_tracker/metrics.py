@@ -288,6 +288,39 @@ def _measurement_cadence(series: list[tuple[datetime, dict[str, Any]]]) -> dict[
     }
 
 
+def _growth_milestones(
+    series: list[tuple[datetime, dict[str, Any]]],
+    birth_weight: float | None,
+    milestone_percentages: Any,
+) -> dict[str, Any] | None:
+    """Return configured birth-weight milestones and their first crossing."""
+    if birth_weight is None or birth_weight <= 0 or not isinstance(milestone_percentages, (list, tuple)):
+        return None
+    milestones: list[dict[str, Any]] = []
+    for percentage in milestone_percentages:
+        target_percent = finite_number(percentage)
+        if target_percent is None:
+            continue
+        target_weight = birth_weight * target_percent / 100
+        reached_at = next(
+            (measured_at.isoformat() for measured_at, measurement in series
+             if (weight := finite_number(measurement.get("weight"))) is not None and weight >= target_weight),
+            None,
+        )
+        milestones.append({
+            "target_percent": int(target_percent),
+            "target_weight": round(target_weight, 1),
+            "reached": reached_at is not None,
+            "reached_at": reached_at,
+        })
+    if not milestones:
+        return None
+    return {
+        "milestones": milestones,
+        "next": next((item for item in milestones if not item["reached"]), None),
+    }
+
+
 def birth_datetime(
     storage: PuppyTrackerStorage,
     litter_id: str,
@@ -446,6 +479,11 @@ def growth_analysis(
         "measurement_cadence": _measurement_cadence(series),
         "current_weight": current,
         "birth_weight_recovery": birth_recovery,
+        "growth_milestones": _growth_milestones(
+            series,
+            birth_weight,
+            settings.get("growth_milestones_percent"),
+        ),
         "daily_growth_percent": growth["daily_change_percent"] if growth else None,
         "daily_growth_grams": growth["daily_change_grams"] if growth else None,
         "hours_since_weighing": status.get("hours_since_weighing"),
