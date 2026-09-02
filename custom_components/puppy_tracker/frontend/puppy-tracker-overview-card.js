@@ -1740,6 +1740,8 @@ class PuppyTrackerOverviewCard extends HTMLElement {
             <div><span>Spreiding groeitempo</span><strong>${this._formatNumber(selected.analysis?.growth_variability?.range_percentage_points, "%-punt", true)}</strong></div>
             <div><span>Mediaan meetinterval</span><strong>${this._formatNumber(selected.analysis?.measurement_cadence?.median_interval_hours, "uur")}</strong></div>
             <div><span>Grootste meetgat</span><strong>${this._formatNumber(selected.analysis?.measurement_cadence?.longest_interval_hours, "uur")}</strong></div>
+            <div><span>Geboortegewicht hersteld</span><strong>${this._escape(selected.analysis?.birth_weight_recovery?.regained ? "Ja" : "Nee")}</strong></div>
+            <div><span>Verschil geboortegewicht</span><strong>${this._formatNumber(selected.analysis?.birth_weight_recovery?.difference_grams, "g", true)}</strong></div>
           </div>
         </div>
       `

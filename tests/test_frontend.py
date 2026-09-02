@@ -129,3 +129,5 @@ def test_overview_renders_litter_weight_comparison() -> None:
     assert "Nesttempo" in source
     assert "growth_variability" in source
     assert "Spreiding groeitempo" in source
+    assert "birth_weight_recovery" in source
+    assert "Geboortegewicht hersteld" in source

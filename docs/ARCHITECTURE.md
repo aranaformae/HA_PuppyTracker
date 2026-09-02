@@ -148,6 +148,11 @@ series, including the median, shortest, longest and latest interval. It is
 reported as context for interpreting growth and data quality; it does not alter
 the canonical due-weighing calculation.
 
+`birth_weight_recovery` compares the latest effective weight with the puppy's
+recorded `birth_weight`, returning the absolute difference, percentage of birth
+weight and a boolean `regained` value. It is a factual milestone for the
+overview and deliberately has no age-based deadline or breed-specific meaning.
+
 Breed metadata is not a clinical model. In particular, Labradoodle is not treated
 as one universal growth curve; `australian_labradoodle` and its miniature/medium/
 standard size classes are only labels for later analysis unless validated data is

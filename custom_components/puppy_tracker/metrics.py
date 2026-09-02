@@ -425,6 +425,16 @@ def growth_analysis(
     growth = daily_growth_data(storage, litter_id, puppy_id)
     status = calculate_puppy_status(storage, litter_id, puppy_id)
     current = finite_number(series[-1][1].get("weight")) if series else None
+    puppy = storage.get_puppy(litter_id, puppy_id) or {}
+    birth_weight = finite_number(puppy.get("birth_weight"))
+    birth_recovery = None
+    if current is not None and birth_weight is not None and birth_weight > 0:
+        birth_recovery = {
+            "birth_weight": birth_weight,
+            "difference_grams": round(current - birth_weight, 1),
+            "percent_of_birth_weight": round(current / birth_weight * 100, 2),
+            "regained": current >= birth_weight,
+        }
 
     result: dict[str, Any] = {
         "status_code": "no_measurement" if not series else "insufficient_data",
@@ -435,6 +445,7 @@ def growth_analysis(
         "measurement_count": len(series),
         "measurement_cadence": _measurement_cadence(series),
         "current_weight": current,
+        "birth_weight_recovery": birth_recovery,
         "daily_growth_percent": growth["daily_change_percent"] if growth else None,
         "daily_growth_grams": growth["daily_change_grams"] if growth else None,
         "hours_since_weighing": status.get("hours_since_weighing"),

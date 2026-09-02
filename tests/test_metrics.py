@@ -263,6 +263,28 @@ def test_growth_analysis_reports_measurement_cadence(
     }
 
 
+def test_growth_analysis_reports_birth_weight_recovery(
+    monkeypatch,
+    storage,
+    install_litter,
+    make_measurement,
+) -> None:
+    _set_now(monkeypatch)
+    litter_id, puppy_id = install_litter(
+        measurements=[make_measurement("latest", 440, "2026-08-30T10:00:00+00:00")],
+        puppy_overrides={"birth_weight": 400.0},
+    )
+
+    result = metrics.growth_analysis(storage, litter_id, puppy_id)
+
+    assert result["birth_weight_recovery"] == {
+        "birth_weight": 400.0,
+        "difference_grams": 40.0,
+        "percent_of_birth_weight": 110.0,
+        "regained": True,
+    }
+
+
 def test_status_without_measurement_requires_attention(
     monkeypatch,
     storage,
