@@ -17,6 +17,7 @@ test("Attention chips hide deselected alert types without losing acknowledgement
       callWS: async () => ({}),
     };
     card._selectedLitterId = "litter-1";
+    card._litters = [{ id: "litter-1", name: "Litter", active: true }];
     card._data = {
       litter: {
         id: "litter-1",
