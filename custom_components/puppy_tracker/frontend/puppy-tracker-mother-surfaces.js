@@ -48,7 +48,9 @@ function patchQuickLog() {
   };
 
   Card.prototype._saveQuickLog = async function () {
-    if (!this.__motherSelected) return originalSave.call(this);
+    const selectedOwner = this.shadowRoot?.getElementById("owner-select")?.value;
+    const motherSelected = this.__motherSelected || selectedOwner === MOTHER_VALUE;
+    if (!motherSelected) return originalSave.call(this);
     if (!this._draft || !this._hass || !this._selectedLitterId || this._saving) return;
 
     this._captureDraft();
