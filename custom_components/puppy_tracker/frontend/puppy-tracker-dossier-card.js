@@ -31,6 +31,20 @@ function humanizeKey(value) {
   return text ? text.charAt(0).toUpperCase() + text.slice(1) : "";
 }
 
+const INTERNAL_DATA_KEYS = new Set([
+  "care_program_id",
+  "care_program_revision",
+  "care_occurrence_id",
+  "care_age_days",
+  "care_scheduled_at",
+  "care_status",
+  "care_data",
+  "reference_id",
+  "reference_type",
+  "source_id",
+  "source_type",
+]);
+
 function displayDataValue(value, hass = null) {
   if (value === null || value === undefined || value === "") return "";
   if (typeof value === "boolean") return value ? localize(hass, "yes") : localize(hass, "no");
@@ -440,11 +454,50 @@ class PuppyTrackerDossierCard extends HTMLElement {
     }
 
     for (const [key, raw] of Object.entries(data)) {
-      if (renderedKeys.has(key) || raw === null || raw === undefined || raw === "") continue;
+      if (
+        renderedKeys.has(key)
+        || INTERNAL_DATA_KEYS.has(key)
+        || raw === null
+        || raw === undefined
+        || raw === ""
+      ) continue;
       rows.push(`<div class="record-data-row"><span>${escapeHtml(humanizeKey(key))}</span><strong>${escapeHtml(displayDataValue(raw, this._hass))}</strong></div>`);
     }
 
     return rows.length ? `<div class="record-data">${rows.join("")}</div>` : "";
+  }
+
+  _selectedCategoryFilters(availableTypes) {
+    if (!(this.__dossierCategoryFilters instanceof Set)) return new Set(availableTypes);
+    return new Set([...this.__dossierCategoryFilters].filter((type) => availableTypes.includes(type)));
+  }
+
+  _renderCategoryFilters(availableTypes, selectedTypes) {
+    if (!availableTypes.length) return "";
+    const allSelected = availableTypes.length > 0 && availableTypes.every((type) => selectedTypes.has(type));
+    const allLabel = localize(this._hass, "all") || "Alles";
+    const groupLabel = languageForHass(this._hass) === "en" ? "Timeline categories" : "Tijdlijncategorieen";
+    const chips = [
+      `<button type="button" class="category-filter ${allSelected ? "active" : ""}" data-dossier-category="__all__" aria-pressed="${allSelected ? "true" : "false"}">${escapeHtml(allLabel)}</button>`,
+      ...availableTypes.map((type) => {
+        const active = selectedTypes.has(type);
+        return `<button type="button" class="category-filter ${active ? "active" : ""}" data-dossier-category="${escapeHtml(type)}" aria-pressed="${active ? "true" : "false"}"><ha-icon icon="${escapeHtml(iconForType(type))}"></ha-icon>${escapeHtml(humanizeType(type, this._hass))}</button>`;
+      }),
+    ].join("");
+    return `<div class="category-filters" role="group" aria-label="${escapeHtml(groupLabel)}">${chips}</div>`;
+  }
+
+  _toggleCategoryFilter(type, availableTypes) {
+    const current = this._selectedCategoryFilters(availableTypes);
+    if (type === "__all__") {
+      const allSelected = availableTypes.length > 0 && availableTypes.every((item) => current.has(item));
+      this.__dossierCategoryFilters = allSelected ? new Set() : new Set(availableTypes);
+    } else {
+      if (current.has(type)) current.delete(type);
+      else current.add(type);
+      this.__dossierCategoryFilters = current;
+    }
+    this._render();
   }
 
   async _saveRecord() {
@@ -712,6 +765,11 @@ class PuppyTrackerDossierCard extends HTMLElement {
     const puppies = this._litterData?.puppies || [];
     const records = this._recordData?.records || [];
     const activeRecordCount = records.filter((item) => !item.deleted).length;
+    const availableCategoryTypes = [...new Set(records.map((record) => record?.type || "other"))].sort((a, b) =>
+      humanizeType(a, this._hass).localeCompare(humanizeType(b, this._hass))
+    );
+    const selectedCategoryTypes = this._selectedCategoryFilters(availableCategoryTypes);
+    const visibleRecords = records.filter((record) => selectedCategoryTypes.has(record?.type || "other"));
     const ownerName = this._selectedPuppy?.name || litter?.name || localize(this._hass, "litter");
     const activeRecordLabel = activeRecordCount === 1
       ? localize(this._hass, "activeEntry")
@@ -735,7 +793,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
           .panel{border:1px solid var(--divider-color);border-radius:14px;padding:13px;margin:12px 0;background:color-mix(in srgb,var(--card-background-color) 96%,var(--primary-color) 4%)}.panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:9px}.panel-title{font-weight:650;font-size:15px}.hint{font-size:11px;color:var(--secondary-text-color);margin-top:2px}.profile-text{white-space:pre-wrap;line-height:1.45;font-size:14px}.empty{padding:24px 12px;text-align:center;color:var(--secondary-text-color);font-size:13px}.empty.compact{padding:4px 0;text-align:left}
           .followup-count{min-width:28px;height:28px;padding:0 8px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:var(--secondary-background-color);font-size:12px;font-weight:650}.followup-summary{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 9px}.summary-chip{font-size:10px;padding:3px 7px;border-radius:999px;background:var(--secondary-background-color);color:var(--secondary-text-color)}.summary-chip.danger{color:var(--error-color);background:color-mix(in srgb,var(--error-color) 9%,transparent)}.summary-chip.warning{color:var(--warning-color,var(--primary-color));background:color-mix(in srgb,var(--warning-color,var(--primary-color)) 9%,transparent)}.followup-list{display:grid;gap:7px}.followup-row{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:9px;align-items:center;padding:8px 9px;border:1px solid var(--divider-color);border-radius:11px}.followup-icon{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--secondary-background-color);color:var(--primary-color)}.followup-icon ha-icon{--mdc-icon-size:18px}.followup-main{display:flex;flex-direction:column;gap:2px;min-width:0}.followup-main strong{font-size:13px;overflow-wrap:anywhere}.followup-main span{font-size:11px;color:var(--secondary-text-color);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.followup-date{display:flex;flex-direction:column;align-items:flex-end;gap:1px;white-space:nowrap}.followup-date strong{font-size:12px}.followup-date span{font-size:10px;color:var(--secondary-text-color)}.followup-row.danger{border-color:color-mix(in srgb,var(--error-color) 38%,var(--divider-color));background:color-mix(in srgb,var(--error-color) 7%,transparent)}.followup-row.danger .followup-date span{color:var(--error-color);font-weight:650}.followup-row.warning{border-color:color-mix(in srgb,var(--warning-color,var(--primary-color)) 32%,var(--divider-color))}.followup-row.warning .followup-date span{color:var(--warning-color,var(--primary-color));font-weight:650}
           .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}label{display:block;font-size:12px;color:var(--secondary-text-color);margin-bottom:10px}label input,label select,label textarea{margin-top:5px;color:var(--primary-text-color)}.optional{font-weight:400;opacity:.75}.required{font-weight:600;color:var(--error-color);font-size:10px}.form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}.typed-section{margin:2px 0 12px;padding-top:10px;border-top:1px solid var(--divider-color)}.typed-title{font-size:12px;font-weight:650;color:var(--secondary-text-color);margin-bottom:8px}.typed-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}.typed-field.wide{grid-column:1/-1}
-          .timeline-head{display:flex;justify-content:space-between;align-items:end;gap:10px;margin:16px 0 8px}.timeline-title{font-size:16px;font-weight:650}.timeline-sub{font-size:11px;color:var(--secondary-text-color);margin-top:2px}.toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--secondary-text-color);cursor:pointer}.toggle input{width:16px;min-height:16px;margin:0;padding:0}
+          .timeline-head{display:flex;justify-content:space-between;align-items:end;gap:10px;margin:16px 0 8px}.timeline-title{font-size:16px;font-weight:650}.timeline-sub{font-size:11px;color:var(--secondary-text-color);margin-top:2px}.toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--secondary-text-color);cursor:pointer}.toggle input{width:16px;min-height:16px;margin:0;padding:0}.category-filters{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 8px}.category-filter{min-height:32px;padding:0 9px;border-radius:999px;font-size:12px;background:var(--secondary-background-color)}.category-filter ha-icon{--mdc-icon-size:16px}.category-filter.active{background:var(--primary-color);border-color:var(--primary-color);color:var(--text-primary-color,#fff)}
           .timeline{display:flex;flex-direction:column}.record{position:relative;display:grid;grid-template-columns:38px minmax(0,1fr);gap:10px;padding:12px 0}.record:not(:last-child){border-bottom:1px solid var(--divider-color)}.record.deleted{opacity:.62}.record-icon{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--secondary-background-color);color:var(--primary-color)}.record-icon ha-icon{--mdc-icon-size:20px}.record-body{min-width:0}.record-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.record-heading{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}.record-heading strong{font-size:14px}.record time{font-size:11px;color:var(--secondary-text-color);white-space:nowrap}.type-badge,.deleted-badge{font-size:10px;padding:2px 6px;border-radius:999px;background:var(--secondary-background-color);color:var(--secondary-text-color)}.deleted-badge{color:var(--error-color)}.record-data{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 14px;margin-top:7px;padding:8px 10px;border-radius:10px;background:var(--secondary-background-color)}.record-data-row{min-width:0;display:flex;flex-direction:column;gap:1px}.record-data-row span{font-size:10px;color:var(--secondary-text-color)}.record-data-row strong{font-size:12px;font-weight:550;overflow-wrap:anywhere}.record-note{margin-top:6px;white-space:pre-wrap;line-height:1.42;font-size:13px}.record-actions{display:flex;gap:2px;margin-top:6px;flex-wrap:wrap}
           .message{font-size:12px;margin:8px 0;padding:8px 10px;border-radius:10px;background:var(--secondary-background-color)}.error{color:var(--error-color);background:color-mix(in srgb,var(--error-color) 10%,transparent)}.status{color:var(--secondary-text-color)}
           @container dossier-card (max-width:620px){.top{flex-direction:column}.selectors{width:100%;justify-content:stretch}.selectors select{max-width:none;flex:1}.toolbar{align-items:flex-end}.owner{flex:1;flex-direction:column;align-items:stretch;gap:3px}.owner select{min-width:0}.tools{flex:0 0 auto}.form-grid,.typed-grid{grid-template-columns:1fr}.typed-field.wide{grid-column:auto}.record-data{grid-template-columns:1fr}.record-top{flex-direction:column;gap:3px}.record time{white-space:normal}.followup-row{grid-template-columns:32px minmax(0,1fr)}.followup-date{grid-column:2;align-items:flex-start;flex-direction:row;gap:6px}}
@@ -760,7 +818,8 @@ class PuppyTrackerDossierCard extends HTMLElement {
           <div><div class="timeline-title">${escapeHtml(localize(this._hass, "timeline"))}</div><div class="timeline-sub">${escapeHtml(ownerName)} · ${activeRecordCount} ${escapeHtml(activeRecordLabel)}</div></div>
           ${this._canManage ? `<label class="toggle"><input id="show-deleted" type="checkbox" ${this._showDeleted ? "checked" : ""}> ${escapeHtml(localize(this._hass, "showDeleted"))}</label>` : ""}
         </div>
-        ${this._loading ? `<div class="empty">${escapeHtml(localize(this._hass, "loading"))}</div>` : records.length ? `<div class="timeline">${records.map((record) => this._renderRecord(record)).join("")}</div>` : `<div class="empty">${escapeHtml(localize(this._hass, "noDossierItems", { owner: ownerName }))}${this._canManage ? escapeHtml(localize(this._hass, "noDossierItemsCanAdd")) : ""}</div>`}
+        ${this._renderCategoryFilters(availableCategoryTypes, selectedCategoryTypes)}
+        ${this._loading ? `<div class="empty">${escapeHtml(localize(this._hass, "loading"))}</div>` : records.length ? (visibleRecords.length ? `<div class="timeline">${visibleRecords.map((record) => this._renderRecord(record)).join("")}</div>` : `<div class="empty">${escapeHtml(localize(this._hass, "noDossierItemsInCategories"))}</div>`) : `<div class="empty">${escapeHtml(localize(this._hass, "noDossierItems", { owner: ownerName }))}${this._canManage ? escapeHtml(localize(this._hass, "noDossierItemsCanAdd")) : ""}</div>`}
       </ha-card>`;
 
     this.shadowRoot.getElementById("litter-select")?.addEventListener("change", (event) => this._selectLitter(event.target.value));
@@ -810,21 +869,25 @@ class PuppyTrackerDossierCard extends HTMLElement {
       }
     });
 
+    this.shadowRoot.querySelectorAll("[data-dossier-category]").forEach((button) => {
+      button.addEventListener("click", () => this._toggleCategoryFilter(button.dataset.dossierCategory, availableCategoryTypes));
+    });
+
     for (const button of this.shadowRoot.querySelectorAll(".edit-record")) {
       button.addEventListener("click", () => {
-        const record = records.find((item) => item.id === button.dataset.id);
+        const record = visibleRecords.find((item) => item.id === button.dataset.id);
         if (record) this._startEdit(record);
       });
     }
     for (const button of this.shadowRoot.querySelectorAll(".delete-record")) {
       button.addEventListener("click", () => {
-        const record = records.find((item) => item.id === button.dataset.id);
+        const record = visibleRecords.find((item) => item.id === button.dataset.id);
         if (record) this._deleteRecord(record);
       });
     }
     for (const button of this.shadowRoot.querySelectorAll(".restore-record")) {
       button.addEventListener("click", () => {
-        const record = records.find((item) => item.id === button.dataset.id);
+        const record = visibleRecords.find((item) => item.id === button.dataset.id);
         if (record) this._restoreRecord(record);
       });
     }

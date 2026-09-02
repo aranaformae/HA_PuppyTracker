@@ -210,6 +210,93 @@ test("dossier create, edit, delete and restore flow", async ({ page }) => {
   );
 });
 
+test("dossier hides internal care program identifiers", async ({ page }) => {
+  const card = await mountDossier(page);
+
+  await card.evaluate((element) => {
+    element._recordData.records = [
+      {
+        id: "care-record",
+        type: "test",
+        scope: "puppy",
+        litter_id: "l1",
+        puppy_id: "p1",
+        occurred_at: "2026-09-01T17:47:00Z",
+        title: "ENS",
+        note: "good",
+        deleted: false,
+        data: {
+          test_name: "Neurological stimulation",
+          result: "Good",
+          care_program_id: "2251b89c-0f0d-47e0-bcba-abe69e91e773",
+          care_program_revision: 1,
+          care_occurrence_id: "2251b89c-0f0d-47e0-bcba-abe69e91e773:80e0aa7d-b101-40e5-926c-e44798a85ceb:3",
+          care_age_days: 3,
+          care_scheduled_at: "2026-09-02T14:00:00+02:00",
+          care_status: "completed",
+          care_data: {},
+          reference_id: "internal-ref",
+        },
+      },
+    ];
+    element._render();
+  });
+
+  await expect(card.getByText("ENS", { exact: true })).toBeVisible();
+  await expect(card.getByText("Neurological stimulation", { exact: true })).toBeVisible();
+  await expect(card.getByText("Good", { exact: true })).toBeVisible();
+  await expect(card.getByText("Care program id", { exact: true })).toHaveCount(0);
+  await expect(card.getByText("Care occurrence id", { exact: true })).toHaveCount(0);
+  await expect(card.getByText("2251b89c-0f0d-47e0-bcba-abe69e91e773", { exact: true })).toHaveCount(0);
+  await expect(card.getByText("internal-ref", { exact: true })).toHaveCount(0);
+});
+
+test("dossier category filters can be cleared completely", async ({ page }) => {
+  const card = await mountDossier(page);
+
+  await card.evaluate((element) => {
+    element._recordData.records = [
+      {
+        id: "note-record",
+        type: "note",
+        scope: "puppy",
+        litter_id: "l1",
+        puppy_id: "p1",
+        occurred_at: "2026-09-01T08:00:00Z",
+        title: "Morning note",
+        note: "",
+        deleted: false,
+        data: {},
+      },
+      {
+        id: "vet-record",
+        type: "vet_visit",
+        scope: "puppy",
+        litter_id: "l1",
+        puppy_id: "p1",
+        occurred_at: "2026-09-01T09:00:00Z",
+        title: "Vet check",
+        note: "",
+        deleted: false,
+        data: {},
+      },
+    ];
+    element._render();
+  });
+
+  await expect(card.locator("[data-dossier-category]")).toHaveCount(3);
+  await expect(card.getByText("Morning note", { exact: true })).toBeVisible();
+  await expect(card.getByText("Vet check", { exact: true })).toBeVisible();
+
+  await card.locator('[data-dossier-category="__all__"]').click();
+  await expect(card.locator(".record")).toHaveCount(0);
+  await expect(card.getByText("No dossier items within the selected categories.", { exact: true })).toBeVisible();
+
+  await card.locator('[data-dossier-category="note"]').click();
+  await expect(card.getByText("Morning note", { exact: true })).toBeVisible();
+  await expect(card.getByText("Vet check", { exact: true })).toHaveCount(0);
+});
+
 test("live updates do not reset an active dossier form", async ({ page }) => {
   const card = await mountDossier(page);
 
