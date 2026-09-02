@@ -67,6 +67,39 @@ test("overview chart uses each puppy collar color for line point and legend", as
   expect(result.hasOverrideStyle).toBe(true);
 });
 
+test("overview card exposes basic and advanced analysis visibility controls", async ({ page }) => {
+  await openFixture(page);
+
+  const result = await page.evaluate(() => {
+    const constructor = customElements.get("puppy-tracker-overview-card");
+    const schema = constructor?.getConfigForm?.()?.schema || [];
+    const card = document.createElement("puppy-tracker-overview-card");
+    card.setConfig({
+      show_advanced_analysis: false,
+      show_growth_milestones: false,
+      show_milestone_chart_annotations: false,
+    });
+    document.querySelector("#cards").appendChild(card);
+    return {
+      options: schema
+        .filter((item) => item.name.startsWith("show_"))
+        .map((item) => item.name),
+      config: {
+        analysis: card._config.show_advanced_analysis,
+        milestones: card._config.show_growth_milestones,
+        annotations: card._config.show_milestone_chart_annotations,
+      },
+    };
+  });
+
+  expect(result.options).toEqual(expect.arrayContaining([
+    "show_advanced_analysis",
+    "show_growth_milestones",
+    "show_milestone_chart_annotations",
+  ]));
+  expect(result.config).toEqual({ analysis: false, milestones: false, annotations: false });
+});
+
 test("Attention keeps unacknowledged alerts visible and acknowledged alerts collapsed", async ({ page }) => {
   await openFixture(page);
 
