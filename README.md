@@ -10,6 +10,7 @@ Puppy Tracker is a custom Home Assistant integration for managing litters, mothe
 - Stable UUID-based identities and persistent `.storage` data.
 - Dedicated litter, mother and puppy devices.
 - Specialised weight tracking with correction history, growth metrics and weighing sessions.
+- Per-litter growth-analysis overrides with global fallback; breed and size metadata are stored for future analysis and are not treated as veterinary diagnoses.
 - Generic chronological dossier records for litter, mother and puppy scopes.
 - Structured records for notes, temperature, vaccinations, tests, deworming, medication, vet visits, milestones and other events.
 - Quick Log for frequent day-to-day entries, including mother-dog and temperature logging.
@@ -187,6 +188,8 @@ Timeline, Today and Attention expose type/category chips for the items they disp
 **Today and Attention** consume backend-derived care occurrence state. Open age-based care actions can be completed or marked missed from these surfaces, with configured result/score/note fields stored in the puppy dossier.
 
 **Mother scope** is first-class and reusable across litters. Mother records can be logged/viewed through Dossier, Quick Log and Timeline; mother actions can appear on Attention; mother JSON dossier export is available through Report & export; and a mother receives a Home Assistant device.
+
+Growth-analysis settings are managed per nest through **Manage litter**. Each nest can override the minimum daily growth, weighing interval, monitoring age, first-day loss limit and an optional expected adult-weight range. Empty overrides use the global monitoring settings. Breed profile and size class (including Labradoodle and Australian Labradoodle) are descriptive metadata in this first phase; they do not activate a fixed breed curve.
 
 ## Monitoring
 

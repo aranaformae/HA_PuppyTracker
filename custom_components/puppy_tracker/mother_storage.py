@@ -181,6 +181,7 @@ class MotherScopeStorage(PuppyTrackerStorage):
         birth_date: str | None,
         mother: str | None,
         father: str | None,
+        growth_analysis: dict[str, Any] | None = None,
     ) -> None:
         await super().async_update_litter(
             litter_id,
@@ -188,6 +189,7 @@ class MotherScopeStorage(PuppyTrackerStorage):
             birth_date=birth_date,
             mother=mother,
             father=father,
+            growth_analysis=growth_analysis,
         )
         await self._link_litter_mother(litter_id, mother)
 

@@ -30,6 +30,7 @@ from .const import (
     DEFAULT_NOTIFY_SESSION_COMPLETE,
     DEFAULT_NOTIFY_ENTITIES,
     DEFAULT_RECURRING_REMINDER_NOTIFICATIONS_ENABLED,
+    DEFAULT_LITTER_GROWTH_ANALYSIS,
     STORAGE_KEY,
     STORAGE_VERSION,
 )
@@ -67,6 +68,41 @@ def _empty_data() -> dict[str, Any]:
         "litters": {},
         "audit_log": [],
     }
+
+
+def _normalize_litter_growth_analysis(value: Any) -> dict[str, Any]:
+    """Return a safe per-litter growth-analysis override mapping."""
+    raw = value if isinstance(value, dict) else {}
+    result = deepcopy(DEFAULT_LITTER_GROWTH_ANALYSIS)
+    result["breed_profile"] = str(raw.get("breed_profile") or "unknown").strip() or "unknown"
+    result["size_class"] = str(raw.get("size_class") or "unknown").strip() or "unknown"
+
+    ranges = {
+        "min_daily_growth_percent": (0.0, 20.0),
+        "max_hours_between_weighings": (1.0, 168.0),
+        "growth_monitoring_days": (1.0, 56.0),
+        "first_day_max_weight_loss_percent": (0.0, 50.0),
+        "expected_adult_weight_min_grams": (1.0, 100000.0),
+        "expected_adult_weight_max_grams": (1.0, 100000.0),
+    }
+    for key, (minimum, maximum) in ranges.items():
+        raw_value = raw.get(key)
+        if raw_value in (None, ""):
+            result[key] = None
+            continue
+        try:
+            number = float(raw_value)
+        except (TypeError, ValueError) as err:
+            raise ValueError(f"Invalid litter growth setting: {key}") from err
+        if not minimum <= number <= maximum:
+            raise ValueError(f"Invalid litter growth setting: {key}")
+        result[key] = int(number) if key.endswith(("days", "grams")) else number
+
+    minimum_weight = result["expected_adult_weight_min_grams"]
+    maximum_weight = result["expected_adult_weight_max_grams"]
+    if minimum_weight is not None and maximum_weight is not None and minimum_weight > maximum_weight:
+        raise ValueError("Expected adult minimum weight cannot exceed maximum weight")
+    return result
 
 
 class PuppyTrackerStorage:
@@ -137,6 +173,11 @@ class PuppyTrackerStorage:
         if "settings" not in self._data:
             self._data["settings"] = {}
             changed = True
+
+        for litter in self._data.get("litters", {}).values():
+            if isinstance(litter, dict) and "growth_analysis" not in litter:
+                litter["growth_analysis"] = deepcopy(DEFAULT_LITTER_GROWTH_ANALYSIS)
+                changed = True
 
         settings = self._data["settings"]
         defaults = _default_settings()
@@ -876,6 +917,7 @@ class PuppyTrackerStorage:
                 "puppies": {},
                 "records": [],
                 "last_completed_session": None,
+                "growth_analysis": deepcopy(DEFAULT_LITTER_GROWTH_ANALYSIS),
             }
 
             self._add_audit_entry(
@@ -901,6 +943,7 @@ class PuppyTrackerStorage:
         birth_date: str | None,
         mother: str | None,
         father: str | None,
+        growth_analysis: dict[str, Any] | None = None,
     ) -> None:
         """Update litter details."""
 
@@ -915,6 +958,7 @@ class PuppyTrackerStorage:
                 "mother": litter.get("mother"),
                 "father": litter.get("father"),
                 "active": litter.get("active", True),
+                "growth_analysis": deepcopy(litter.get("growth_analysis", {})),
             }
 
             now = _now_iso()
@@ -923,6 +967,9 @@ class PuppyTrackerStorage:
             litter["birth_date"] = birth_date
             litter["mother"] = mother
             litter["father"] = father
+            litter["growth_analysis"] = _normalize_litter_growth_analysis(
+                growth_analysis if growth_analysis is not None else litter.get("growth_analysis")
+            )
             litter["updated_at"] = now
 
             self._add_audit_entry(

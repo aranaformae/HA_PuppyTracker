@@ -13,7 +13,7 @@ The current suite covers the main backend, frontend contract and browser flows.
 | Test file | Coverage |
 | --- | --- |
 | `test_measurements_and_time.py` | Timezone-safe ordering, timestamp normalization, active/deleted/superseded measurements and deterministic sorting |
-| `test_metrics.py` | Current/previous weight, weight change, normalized 24-hour growth and monitoring status |
+| `test_metrics.py` | Current/previous weight, weight change, normalized 24-hour growth, monitoring status and per-litter threshold fallback |
 | `test_storage_corrections.py` | Non-destructive correction chains, delete/restore behavior and birth-weight synchronization |
 | `test_integrity.py` | Safe integrity repairs, duplicate IDs, dangling references and ambiguous correction branches |
 | `test_exports.py` | CSV filtering, complete JSON history and direct PDF generation |

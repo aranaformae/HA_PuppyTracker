@@ -155,6 +155,51 @@ def test_low_growth_is_flagged_during_monitoring_period(
     assert result["daily_growth_percent"] == 2.5
 
 
+def test_litter_growth_override_replaces_global_minimum(
+    monkeypatch,
+    storage,
+    install_litter,
+    make_measurement,
+) -> None:
+    _set_now(monkeypatch)
+    litter_id, puppy_id = install_litter(
+        measurements=[
+            make_measurement("old", 400, "2026-08-29T11:00:00+00:00"),
+            make_measurement("latest", 410, "2026-08-30T11:00:00+00:00"),
+        ],
+        litter_overrides={
+            "growth_analysis": {"min_daily_growth_percent": 1.0}
+        },
+        puppy_overrides={"birth_time": "2026-08-28T10:00:00+00:00"},
+    )
+
+    result = metrics.calculate_puppy_status(storage, litter_id, puppy_id)
+
+    assert result["status_code"] == "ok"
+    assert result["min_daily_growth_percent"] == 1.0
+
+
+def test_empty_litter_growth_override_uses_global_setting(
+    monkeypatch,
+    storage,
+    install_litter,
+    make_measurement,
+) -> None:
+    _set_now(monkeypatch)
+    litter_id, puppy_id = install_litter(
+        measurements=[
+            make_measurement("old", 400, "2026-08-29T11:00:00+00:00"),
+            make_measurement("latest", 410, "2026-08-30T11:00:00+00:00"),
+        ],
+        litter_overrides={"growth_analysis": {}},
+    )
+
+    result = metrics.calculate_puppy_status(storage, litter_id, puppy_id)
+
+    assert result["status_code"] == "low_growth"
+    assert result["min_daily_growth_percent"] == 5.0
+
+
 def test_stale_weighing_is_flagged_before_growth_rules(
     monkeypatch,
     storage,

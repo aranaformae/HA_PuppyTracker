@@ -345,6 +345,7 @@ def _litter_payload(
             "created_at": litter.get("created_at"),
             "updated_at": litter.get("updated_at"),
             "last_completed_session": deepcopy(litter.get("last_completed_session")),
+            "growth_analysis": deepcopy(litter.get("growth_analysis", {})),
             "records": storage.get_records(litter_id, newest_first=True),
             "summary": litter_summary,
         },
@@ -633,6 +634,7 @@ def websocket_get_litters(
                 "birth_date": litter.get("birth_date"),
                 "mother": litter.get("mother"),
                 "father": litter.get("father"),
+                "growth_analysis": litter.get("growth_analysis", {}),
                 "active": litter.get("active", True),
                 "summary": _litter_summary(
                     storage,

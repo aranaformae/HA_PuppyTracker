@@ -282,6 +282,16 @@ class PuppyTrackerOptionsFlow(
                         father=user_input.get(
                             "father"
                         ),
+                        growth_analysis={
+                            "breed_profile": user_input.get("breed_profile") or "unknown",
+                            "size_class": user_input.get("size_class") or "unknown",
+                            "min_daily_growth_percent": user_input.get("min_daily_growth_percent"),
+                            "max_hours_between_weighings": user_input.get("max_hours_between_weighings"),
+                            "growth_monitoring_days": user_input.get("growth_monitoring_days"),
+                            "first_day_max_weight_loss_percent": user_input.get("first_day_max_weight_loss_percent"),
+                            "expected_adult_weight_min_grams": user_input.get("expected_adult_weight_min_grams"),
+                            "expected_adult_weight_max_grams": user_input.get("expected_adult_weight_max_grams"),
+                        },
                     )
 
                     async_sync_devices(
@@ -399,6 +409,40 @@ class PuppyTrackerOptionsFlow(
                 or "",
             )
         ] = selector.TextSelector()
+
+        growth = litter.get("growth_analysis") or {}
+        fields[
+            vol.Optional("breed_profile", default=growth.get("breed_profile", "unknown"))
+        ] = selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=["unknown", "labradoodle", "australian_labradoodle"]
+            )
+        )
+        fields[
+            vol.Optional("size_class", default=growth.get("size_class", "unknown"))
+        ] = selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=["unknown", "miniature", "medium", "standard"]
+            )
+        )
+        for key, minimum, maximum, step in (
+            ("min_daily_growth_percent", 0, 20, 0.1),
+            ("max_hours_between_weighings", 1, 168, 1),
+            ("growth_monitoring_days", 1, 56, 1),
+            ("first_day_max_weight_loss_percent", 0, 50, 0.1),
+            ("expected_adult_weight_min_grams", 1, 100000, 1),
+            ("expected_adult_weight_max_grams", 1, 100000, 1),
+        ):
+            fields[vol.Optional(key, default=growth.get(key))] = (
+                selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=minimum,
+                        max=maximum,
+                        step=step,
+                        mode=selector.NumberSelectorMode.BOX,
+                    )
+                )
+            )
 
         action_translation_key = (
             "active_item_action"

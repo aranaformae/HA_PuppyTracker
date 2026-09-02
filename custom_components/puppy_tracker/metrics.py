@@ -8,6 +8,7 @@ from typing import Any
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    DEFAULT_LITTER_GROWTH_ANALYSIS,
     DEFAULT_GROWTH_MONITORING_DAYS,
     DEFAULT_MAX_HOURS_BETWEEN_WEIGHINGS,
     DEFAULT_MIN_DAILY_GROWTH_PERCENT,
@@ -30,6 +31,35 @@ def finite_number(value: Any) -> float | None:
     if result != result or result in (float("inf"), float("-inf")):
         return None
 
+    return result
+
+
+def effective_growth_settings(
+    storage: PuppyTrackerStorage,
+    litter_id: str,
+) -> dict[str, Any]:
+    """Merge per-litter growth overrides with the integration defaults."""
+    litter = storage.get_litter(litter_id) or {}
+    overrides = litter.get("growth_analysis") or {}
+    global_settings = storage.get_settings()
+    result = dict(DEFAULT_LITTER_GROWTH_ANALYSIS)
+    result.update(
+        {
+            "min_daily_growth_percent": global_settings.get(
+                "min_daily_growth_percent", DEFAULT_MIN_DAILY_GROWTH_PERCENT
+            ),
+            "max_hours_between_weighings": global_settings.get(
+                "max_hours_between_weighings", DEFAULT_MAX_HOURS_BETWEEN_WEIGHINGS
+            ),
+            "growth_monitoring_days": global_settings.get(
+                "growth_monitoring_days", DEFAULT_GROWTH_MONITORING_DAYS
+            ),
+            "first_day_max_weight_loss_percent": FIRST_DAY_MAX_WEIGHT_LOSS_PERCENT,
+        }
+    )
+    for key in result:
+        if overrides.get(key) is not None:
+            result[key] = overrides[key]
     return result
 
 
@@ -208,20 +238,11 @@ def calculate_puppy_status(
     puppy_id: str,
 ) -> dict[str, Any]:
     """Return the canonical monitoring status for one puppy."""
-    settings = storage.get_settings()
+    settings = effective_growth_settings(storage, litter_id)
 
-    min_growth = float(
-        settings.get("min_daily_growth_percent", DEFAULT_MIN_DAILY_GROWTH_PERCENT)
-    )
-    max_hours = float(
-        settings.get(
-            "max_hours_between_weighings",
-            DEFAULT_MAX_HOURS_BETWEEN_WEIGHINGS,
-        )
-    )
-    monitoring_days = int(
-        settings.get("growth_monitoring_days", DEFAULT_GROWTH_MONITORING_DAYS)
-    )
+    min_growth = float(settings["min_daily_growth_percent"])
+    max_hours = float(settings["max_hours_between_weighings"])
+    monitoring_days = int(settings["growth_monitoring_days"])
 
     result: dict[str, Any] = {
         "status": "Geen meting",
@@ -276,7 +297,7 @@ def calculate_puppy_status(
             change = (current - birth_weight) / birth_weight * 100
             result["first_day_weight_change_percent"] = round(change, 2)
 
-            if change < -FIRST_DAY_MAX_WEIGHT_LOSS_PERCENT:
+            if change < -float(settings["first_day_max_weight_loss_percent"]):
                 result.update(
                     {
                         "status": "Aandacht",

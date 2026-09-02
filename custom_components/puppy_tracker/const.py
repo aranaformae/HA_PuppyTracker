@@ -26,6 +26,19 @@ FIRST_DAY_MAX_WEIGHT_LOSS_PERCENT = 10.0
 # Minimum interval before growth is extrapolated to 24 hours.
 MIN_GROWTH_SAMPLE_HOURS = 6.0
 
+# Per-litter growth analysis overrides. ``None`` means use the integration
+# default; breed and size metadata are intentionally descriptive only for now.
+DEFAULT_LITTER_GROWTH_ANALYSIS = {
+    "breed_profile": "unknown",
+    "size_class": "unknown",
+    "min_daily_growth_percent": None,
+    "max_hours_between_weighings": None,
+    "growth_monitoring_days": None,
+    "first_day_max_weight_loss_percent": None,
+    "expected_adult_weight_min_grams": None,
+    "expected_adult_weight_max_grams": None,
+}
+
 # Duplicate weighing protection.
 DUPLICATE_WEIGHING_WINDOW_SECONDS = 120
 DUPLICATE_CONFIRMATION_SECONDS = 30

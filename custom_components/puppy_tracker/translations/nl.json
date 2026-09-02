@@ -121,6 +121,14 @@
           "birth_date": "Geboortedatum",
           "mother": "Moeder",
           "father": "Vader",
+          "breed_profile": "Rasprofiel",
+          "size_class": "Maatklasse",
+          "min_daily_growth_percent": "Override minimale dagelijkse groei (%)",
+          "max_hours_between_weighings": "Override maximale tijd tussen wegingen (uur)",
+          "growth_monitoring_days": "Override leeftijd groeibewaking (dagen)",
+          "first_day_max_weight_loss_percent": "Override maximaal verlies op dag één (%)",
+          "expected_adult_weight_min_grams": "Verwacht volwassen minimum (g)",
+          "expected_adult_weight_max_grams": "Verwacht volwassen maximum (g)",
           "action": "Actie"
         },
         "data_description": {
@@ -128,6 +136,14 @@
           "birth_date": "Geboortedatum van het nest",
           "mother": "Naam van de moederhond",
           "father": "Naam van de vaderhond",
+          "breed_profile": "Beschrijvend rasprofiel voor toekomstige groeianalyse. Er wordt geen rasspecifieke diagnose of curve toegepast.",
+          "size_class": "Optionele maatklasse voor toekomstige groeianalyse.",
+          "min_daily_growth_percent": "Laat leeg om de algemene integratie-instelling te gebruiken.",
+          "max_hours_between_weighings": "Laat leeg om de algemene integratie-instelling te gebruiken.",
+          "growth_monitoring_days": "Laat leeg om de algemene integratie-instelling te gebruiken.",
+          "first_day_max_weight_loss_percent": "Laat leeg om de huidige algemene grens voor dag één te gebruiken.",
+          "expected_adult_weight_min_grams": "Optionele schatting op basis van ouderdieren/fokker; laat leeg als deze onbekend is.",
+          "expected_adult_weight_max_grams": "Optionele schatting op basis van ouderdieren/fokker; laat leeg als deze onbekend is.",
           "action": "Kies wat je met dit nest wilt doen"
         }
       },

@@ -57,6 +57,14 @@ def test_historical_fixture_catalog_covers_every_supported_schema() -> None:
 
 
 @pytest.mark.asyncio
+async def test_new_litters_start_with_growth_analysis_defaults(storage) -> None:
+    litter_id = await storage.async_create_litter("New litter")
+
+    assert storage.get_litter(litter_id)["growth_analysis"]["size_class"] == "unknown"
+    assert storage.get_litter(litter_id)["growth_analysis"]["min_daily_growth_percent"] is None
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("source_schema", HISTORICAL_SCHEMAS)
 async def test_every_historical_schema_migrates_to_current_without_identity_loss(
     hass,

@@ -56,6 +56,14 @@
           "birth_date": "Birth date",
           "mother": "Mother",
           "father": "Father",
+          "breed_profile": "Breed profile",
+          "size_class": "Size class",
+          "min_daily_growth_percent": "Minimum daily growth override (%)",
+          "max_hours_between_weighings": "Maximum weighing interval override (hours)",
+          "growth_monitoring_days": "Growth monitoring age override (days)",
+          "first_day_max_weight_loss_percent": "Maximum day-one loss override (%)",
+          "expected_adult_weight_min_grams": "Expected adult minimum (g)",
+          "expected_adult_weight_max_grams": "Expected adult maximum (g)",
           "action": "Action"
         },
         "data_description": {
@@ -63,6 +71,14 @@
           "birth_date": "Birth date of the litter",
           "mother": "Name of the mother",
           "father": "Name of the father",
+          "breed_profile": "Descriptive breed profile used for future growth analysis. It does not apply a breed-specific diagnosis or curve.",
+          "size_class": "Optional size class for future growth analysis.",
+          "min_daily_growth_percent": "Leave empty to use the integration monitoring setting.",
+          "max_hours_between_weighings": "Leave empty to use the integration monitoring setting.",
+          "growth_monitoring_days": "Leave empty to use the integration monitoring setting.",
+          "first_day_max_weight_loss_percent": "Leave empty to use the current general day-one limit.",
+          "expected_adult_weight_min_grams": "Optional parent/breeder-based estimate; leave empty when unknown.",
+          "expected_adult_weight_max_grams": "Optional parent/breeder-based estimate; leave empty when unknown.",
           "action": "Choose what you want to do with this litter"
         }
       },

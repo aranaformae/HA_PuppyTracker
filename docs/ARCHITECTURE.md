@@ -96,6 +96,20 @@ Weight measurements are time-series data with behaviour generic dossier records 
 - frequent updates;
 - monitoring thresholds.
 
+### Per-litter growth analysis configuration
+
+Growth monitoring has global defaults, with optional per-litter overrides stored in
+the litter record under `growth_analysis`. Missing or empty overrides resolve to
+the global integration settings, preserving the behaviour of existing litters.
+The initial configuration envelope supports minimum daily growth, maximum time
+between weighings, monitoring age, first-day maximum loss, an optional expected
+adult-weight range and descriptive `breed_profile`/`size_class` metadata.
+
+Breed metadata is not a clinical model. In particular, Labradoodle is not treated
+as one universal growth curve; `australian_labradoodle` and its miniature/medium/
+standard size classes are only labels for later analysis unless validated data is
+added explicitly.
+
 The Timeline may display weight events beside dossier records, but authoritative weight data remains in `measurements[]`.
 
 ## Dossier record envelope
