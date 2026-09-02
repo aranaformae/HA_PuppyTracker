@@ -150,19 +150,25 @@ def _weight_pattern(series: list[tuple[datetime, dict[str, Any]]]) -> dict[str, 
     }
 
 
-def _growth_pattern(
-    series: list[tuple[datetime, dict[str, Any]]],
-    minimum_percent: float,
-) -> dict[str, Any]:
-    """Describe consecutive normalized growth periods below the litter threshold."""
-    growth_values: list[float] = []
+def _normalized_growth_values(series: list[tuple[datetime, dict[str, Any]]]) -> list[float]:
+    """Return valid interval growth values normalized to a 24-hour period."""
+    values: list[float] = []
     for (previous_time, previous), (current_time, current) in zip(series, series[1:]):
         previous_weight = finite_number(previous.get("weight"))
         current_weight_value = finite_number(current.get("weight"))
         interval_hours = (current_time - previous_time).total_seconds() / 3600
         if previous_weight is None or current_weight_value is None or previous_weight <= 0 or interval_hours <= 0:
             continue
-        growth_values.append((current_weight_value - previous_weight) / previous_weight * 100 * 24 / interval_hours)
+        values.append((current_weight_value - previous_weight) / previous_weight * 100 * 24 / interval_hours)
+    return values
+
+
+def _growth_pattern(
+    series: list[tuple[datetime, dict[str, Any]]],
+    minimum_percent: float,
+) -> dict[str, Any]:
+    """Describe consecutive normalized growth periods below the litter threshold."""
+    growth_values = _normalized_growth_values(series)
 
     consecutive_low = 0
     for value in reversed(growth_values):
@@ -174,6 +180,27 @@ def _growth_pattern(
     return {
         "consecutive_low_growth_samples": consecutive_low,
         "sustained_low_growth": consecutive_low >= SUSTAINED_LOW_GROWTH_SAMPLES,
+    }
+
+
+def _growth_variability(series: list[tuple[datetime, dict[str, Any]]]) -> dict[str, Any] | None:
+    """Summarize spread in normalized growth intervals for the overview."""
+    values = _normalized_growth_values(series)
+    if len(values) < 3:
+        return None
+
+    ordered = sorted(values)
+    middle = len(ordered) // 2
+    median = ordered[middle] if len(ordered) % 2 else (ordered[middle - 1] + ordered[middle]) / 2
+    deviations = sorted(abs(value - median) for value in values)
+    deviation_middle = len(deviations) // 2
+    mad = deviations[deviation_middle] if len(deviations) % 2 else (deviations[deviation_middle - 1] + deviations[deviation_middle]) / 2
+    return {
+        "sample_count": len(values),
+        "minimum_daily_growth_percent": round(min(values), 2),
+        "maximum_daily_growth_percent": round(max(values), 2),
+        "range_percentage_points": round(max(values) - min(values), 2),
+        "median_absolute_deviation": round(mad, 2),
     }
 
 
@@ -396,6 +423,7 @@ def growth_analysis(
         "litter_growth_comparison": _litter_growth_comparison(storage, litter_id, puppy_id),
         "weight_pattern": _weight_pattern(series),
         "growth_pattern": _growth_pattern(series, float(settings["min_daily_growth_percent"])),
+        "growth_variability": _growth_variability(series),
         "anomaly": None,
     }
 

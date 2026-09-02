@@ -210,6 +210,33 @@ def test_growth_analysis_flags_sustained_low_growth(
     assert result["growth_pattern"]["consecutive_low_growth_samples"] == 2
 
 
+def test_growth_analysis_reports_growth_variability(
+    monkeypatch,
+    storage,
+    install_litter,
+    make_measurement,
+) -> None:
+    _set_now(monkeypatch)
+    litter_id, puppy_id = install_litter(
+        measurements=[
+            make_measurement("a", 400, "2026-08-27T10:00:00+00:00"),
+            make_measurement("b", 410, "2026-08-28T10:00:00+00:00"),
+            make_measurement("c", 430, "2026-08-29T10:00:00+00:00"),
+            make_measurement("d", 440, "2026-08-30T10:00:00+00:00"),
+        ]
+    )
+
+    result = metrics.growth_analysis(storage, litter_id, puppy_id)
+
+    assert result["growth_variability"] == {
+        "sample_count": 3,
+        "minimum_daily_growth_percent": 2.33,
+        "maximum_daily_growth_percent": 4.88,
+        "range_percentage_points": 2.55,
+        "median_absolute_deviation": 0.17,
+    }
+
+
 def test_status_without_measurement_requires_attention(
     monkeypatch,
     storage,

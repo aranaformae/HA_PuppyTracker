@@ -1737,6 +1737,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
             <div><span>Afwijking mediaan</span><strong>${this._formatNumber(selected.analysis?.litter_comparison?.delta_percent, "%", true)}</strong></div>
             <div><span>Nesttempo</span><strong>${this._escape(this._litterGrowthLabel(selected.analysis?.litter_growth_comparison))}</strong></div>
             <div><span>Afwijking nesttempo</span><strong>${this._formatNumber(selected.analysis?.litter_growth_comparison?.delta_percentage_points, "%", true)}</strong></div>
+            <div><span>Spreiding groeitempo</span><strong>${this._formatNumber(selected.analysis?.growth_variability?.range_percentage_points, "%-punt", true)}</strong></div>
           </div>
         </div>
       `

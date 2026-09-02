@@ -137,6 +137,12 @@ that median. A two-point context tolerance labels the result as below, near or
 above the nest tempo. This is a relative monitoring aid and is not a breed
 standard, adult-weight prediction or medical threshold.
 
+For puppies with at least three valid growth intervals, `growth_variability`
+reports the minimum and maximum normalized daily growth, their spread in
+percentage points and the median absolute deviation. These are descriptive
+quality/context values; no universal cutoff is used because weighing cadence,
+scale precision and neonatal circumstances can materially affect the spread.
+
 Breed metadata is not a clinical model. In particular, Labradoodle is not treated
 as one universal growth curve; `australian_labradoodle` and its miniature/medium/
 standard size classes are only labels for later analysis unless validated data is
