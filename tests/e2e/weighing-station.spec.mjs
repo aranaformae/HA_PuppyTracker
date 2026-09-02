@@ -226,8 +226,9 @@ test("shows the selected puppy collar color prominently", async ({ page }) => {
   await expect(indicator).toContainText("Alice");
   await expect(collar).toBeVisible();
   await expect(collar).toHaveCSS("background-color", "rgb(229, 57, 53)");
-  await expect(nextIndicator).toContainText("Alice");
-  await expect(nextCollar).toHaveCSS("background-color", "rgb(229, 57, 53)");
+  await expect(nextIndicator).toContainText("Next puppy");
+  await expect(nextIndicator).toContainText("Bob");
+  await expect(nextCollar).toHaveCSS("background-color", "rgb(30, 136, 229)");
 
   await page.locator("puppy-tracker-card #puppy-select").selectOption("Bob (Blue)");
   await notifyHassUpdate(page);
@@ -238,6 +239,7 @@ test("shows the selected puppy collar color prominently", async ({ page }) => {
 
   await page.locator("puppy-tracker-card #weight-input").blur();
   await notifyHassUpdate(page, { entityId: "sensor.pt_next", state: "Bob" });
+  await expect(nextIndicator).toContainText("Weigh now");
   await expect(nextIndicator).toContainText("Bob");
   await expect(nextCollar).toHaveCSS("background-color", "rgb(30, 136, 229)");
 });

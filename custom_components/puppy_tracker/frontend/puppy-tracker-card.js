@@ -528,6 +528,35 @@ class PuppyTrackerCard extends HTMLElement {
     return Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 0;
   }
 
+  _rowForLabel(rows, label) {
+    const text = String(label || "").trim();
+    if (!text) return null;
+    return rows.find((row) =>
+      row.name === text ||
+      row.option === text ||
+      row.option.startsWith(`${text} (`)
+    ) || null;
+  }
+
+  _nextDistinctRow(rows, remainingState, selectedRow, backendNextRow) {
+    if (backendNextRow && backendNextRow !== selectedRow) return backendNextRow;
+
+    const remainingLabels = String(remainingState?.state || "")
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean);
+    const remainingRows = remainingLabels
+      .map((label) => this._rowForLabel(rows, label))
+      .filter(Boolean);
+    const selectedIndex = selectedRow ? remainingRows.indexOf(selectedRow) : -1;
+
+    if (selectedIndex >= 0) {
+      return remainingRows.slice(selectedIndex + 1).find((row) => row !== selectedRow) || null;
+    }
+
+    return remainingRows.find((row) => row !== selectedRow) || null;
+  }
+
   async _select(entityId, option) {
     if (!this._hass) return;
 
@@ -695,12 +724,13 @@ class PuppyTrackerCard extends HTMLElement {
     const selectedRow = rows.find((row) => row.selected) || null;
     const selectedRowIndex = selectedRow ? rows.indexOf(selectedRow) : -1;
     const nextPuppyLabel = String(nextState?.state || "").trim();
-    const nextRow = rows.find((row) =>
-      row.name === nextPuppyLabel ||
-      row.option === nextPuppyLabel ||
-      row.option.startsWith(`${nextPuppyLabel} (`)
-    ) || null;
-    const nextRowIndex = nextRow ? rows.indexOf(nextRow) : -1;
+    const backendNextRow = this._rowForLabel(rows, nextPuppyLabel);
+    const nextDistinctRow = this._nextDistinctRow(rows, remainingState, selectedRow, backendNextRow);
+    const bottomIndicatorRow = nextDistinctRow || selectedRow || backendNextRow;
+    const bottomIndicatorMode = nextDistinctRow ? "next" : "current";
+    const bottomIndicatorLabel = bottomIndicatorMode === "next" ? "Volgende pup" : "Nu te wegen";
+    const bottomIndicatorAriaLabel = `${bottomIndicatorLabel}: ${bottomIndicatorRow?.name || ""}`;
+    const bottomIndicatorIndex = bottomIndicatorRow ? rows.indexOf(bottomIndicatorRow) : -1;
     const currentPuppyIndicator = selectedRow
       ? `
         <div class="current-puppy" id="current-puppy-indicator" role="status" aria-label="Nu geselecteerd: ${this._escape(selectedRow.name)}">
@@ -709,11 +739,11 @@ class PuppyTrackerCard extends HTMLElement {
         </div>
       `
       : "";
-    const nextPuppyIndicator = nextRow
+    const nextPuppyIndicator = bottomIndicatorRow
       ? `
-        <div class="next-puppy" id="next-puppy-indicator" role="status" aria-label="Volgende pup: ${this._escape(nextRow.name)}">
-          <span class="next-puppy-collar" id="next-puppy-collar" style="background-color:${this._escape(collarColor(nextRow.collar, nextRowIndex))}"></span>
-          <span class="next-puppy-label"><small>Volgende pup</small><strong>${this._escape(nextRow.name)}</strong></span>
+        <div class="next-puppy" id="next-puppy-indicator" role="status" aria-label="${this._escape(bottomIndicatorAriaLabel)}">
+          <span class="next-puppy-collar" id="next-puppy-collar" style="background-color:${this._escape(collarColor(bottomIndicatorRow.collar, bottomIndicatorIndex))}"></span>
+          <span class="next-puppy-label"><small>${this._escape(bottomIndicatorLabel)}</small><strong>${this._escape(bottomIndicatorRow.name)}</strong></span>
         </div>
       `
       : "";
@@ -814,8 +844,8 @@ class PuppyTrackerCard extends HTMLElement {
             <strong>${this._escape(remainingState?.state || "Geen")}</strong>
           </div>
           <div>
-            <span class="label">Volgende pup</span>
-            <strong>${this._escape(nextState?.state || "Geen")}</strong>
+            <span class="label">${this._escape(bottomIndicatorLabel)}</span>
+            <strong>${this._escape(bottomIndicatorRow?.name || nextState?.state || "Geen")}</strong>
           </div>
           <div>
             <span class="label">Laatst gewogen</span>

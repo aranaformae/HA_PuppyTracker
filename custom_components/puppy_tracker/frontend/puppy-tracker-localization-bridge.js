@@ -150,6 +150,7 @@ const EXACT_EN = new Map([
   ["Voer een geldige datum en tijd in.", "Enter a valid date and time."],
   ["Voer eerst een geldig gewicht in.", "Enter a valid weight first."],
   ["Volgende pup", "Next puppy"],
+  ["Nu te wegen", "Weigh now"],
   ["Volledige JSON-backup gedownload.", "Complete JSON backup downloaded."],
   ["Voltooid", "Completed"],
   ["Voortgang", "Progress"],
