@@ -98,6 +98,37 @@ def test_growth_analysis_flags_a_sudden_isolated_weight_change(
     assert result["anomaly"]["code"] == "sudden_weight_change"
 
 
+def test_growth_analysis_compares_current_weight_with_litter_median(
+    monkeypatch,
+    storage,
+    install_litter,
+    make_measurement,
+) -> None:
+    _set_now(monkeypatch)
+    litter_id, puppy_id = install_litter(
+        measurements=[make_measurement("selected", 500, "2026-08-30T10:00:00+00:00")],
+    )
+    selected = storage.get_puppy(litter_id, puppy_id)
+    assert selected is not None
+    for extra_id, weight, name in (("puppy-2", 400, "Pup 2"), ("puppy-3", 450, "Pup 3")):
+        storage._data["litters"][litter_id]["puppies"][extra_id] = {
+            **selected,
+            "id": extra_id,
+            "name": name,
+            "measurements": [make_measurement(extra_id, weight, "2026-08-30T10:00:00+00:00")],
+        }
+
+    result = metrics.growth_analysis(storage, litter_id, puppy_id)
+
+    assert result["litter_comparison"] == {
+        "sample_size": 3,
+        "rank": 1,
+        "median_weight": 450.0,
+        "delta_percent": 11.11,
+        "position_code": "above_median",
+    }
+
+
 def test_status_without_measurement_requires_attention(
     monkeypatch,
     storage,

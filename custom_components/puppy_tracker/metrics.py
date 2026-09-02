@@ -35,6 +35,54 @@ def finite_number(value: Any) -> float | None:
     return result
 
 
+def _litter_weight_comparison(
+    storage: PuppyTrackerStorage,
+    litter_id: str,
+    puppy_id: str,
+) -> dict[str, Any] | None:
+    """Compare a puppy's current weight with the measured pups in its litter."""
+    litter = storage.get_litter(litter_id) or {}
+    puppies = litter.get("puppies") or []
+    measured: list[tuple[str, float]] = []
+    for candidate_key, puppy in (puppies.items() if isinstance(puppies, dict) else []):
+        candidate_id = str(puppy.get("id") or candidate_key or "")
+        if not candidate_id:
+            continue
+        weight = current_weight(storage, litter_id, candidate_id)
+        if weight is not None and weight > 0:
+            measured.append((candidate_id, weight))
+
+    selected = next((weight for candidate_id, weight in measured if candidate_id == puppy_id), None)
+    if selected is None or len(measured) < 2:
+        return None
+
+    ordered = sorted(weight for _candidate_id, weight in measured)
+    middle = len(ordered) // 2
+    median = (
+        ordered[middle]
+        if len(ordered) % 2
+        else (ordered[middle - 1] + ordered[middle]) / 2
+    )
+    rank = 1 + sum(weight > selected for _candidate_id, weight in measured)
+    delta_percent = (selected - median) / median * 100 if median > 0 else None
+    if delta_percent is None:
+        position_code = "unknown"
+    elif delta_percent <= -10:
+        position_code = "below_median"
+    elif delta_percent >= 10:
+        position_code = "above_median"
+    else:
+        position_code = "near_median"
+
+    return {
+        "sample_size": len(measured),
+        "rank": rank,
+        "median_weight": round(median, 1),
+        "delta_percent": round(delta_percent, 2) if delta_percent is not None else None,
+        "position_code": position_code,
+    }
+
+
 def effective_growth_settings(
     storage: PuppyTrackerStorage,
     litter_id: str,
@@ -250,6 +298,7 @@ def growth_analysis(
         "min_daily_growth_percent": settings["min_daily_growth_percent"],
         "expected_adult_weight_min_grams": settings["expected_adult_weight_min_grams"],
         "expected_adult_weight_max_grams": settings["expected_adult_weight_max_grams"],
+        "litter_comparison": _litter_weight_comparison(storage, litter_id, puppy_id),
         "anomaly": None,
     }
 

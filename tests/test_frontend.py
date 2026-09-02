@@ -110,3 +110,18 @@ def test_dossier_and_timeline_expose_configurable_default_scopes() -> None:
     assert '{ value: "mother", label: "Moederhond" }' in dossier
     assert '{ value: "all", label: "Alles" }' in timeline
     assert '{ value: "mother", label: "Mother" }' in timeline
+
+
+def test_overview_renders_litter_weight_comparison() -> None:
+    """The overview card exposes the relative weight context from the backend."""
+    source = (
+        Path(__file__).parents[1]
+        / "custom_components"
+        / "puppy_tracker"
+        / "frontend"
+        / "puppy-tracker-overview-card.js"
+    ).read_text(encoding="utf-8")
+
+    assert "litter_comparison" in source
+    assert "Nestpositie" in source
+    assert "Afwijking mediaan" in source

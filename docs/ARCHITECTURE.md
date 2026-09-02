@@ -110,6 +110,15 @@ recent series. A sufficiently large isolated jump is returned as a data-quality
 hint (`possible_input_error`), so the UI can ask for a scale/input check without
 pretending to diagnose the puppy.
 
+When at least two active puppies in a litter have a current measurement, the
+summary also includes `litter_comparison`: measured sample size, descending
+weight rank, litter median, percentage difference from that median and a coarse
+`below_median`/`near_median`/`above_median` position. The comparison is a
+contextual within-litter signal only. It does not account for sex, birth order,
+parent size, breed curve or veterinary condition, and it must not be presented
+as a diagnosis. A current measurement is required for every puppy included in
+the comparison; missing or stale historical values are not substituted.
+
 Breed metadata is not a clinical model. In particular, Labradoodle is not treated
 as one universal growth curve; `australian_labradoodle` and its miniature/medium/
 standard size classes are only labels for later analysis unless validated data is

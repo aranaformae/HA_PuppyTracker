@@ -1460,6 +1460,14 @@ class PuppyTrackerOverviewCard extends HTMLElement {
     return "neutral";
   }
 
+  _litterComparisonLabel(comparison) {
+    if (!comparison) return "Onvoldoende nestdata";
+    if (comparison.position_code === "below_median") return "Onder nestmediaan";
+    if (comparison.position_code === "above_median") return "Boven nestmediaan";
+    if (comparison.position_code === "near_median") return "Rond nestmediaan";
+    return "Onbekend";
+  }
+
   _summary(rows) {
     const weights = rows.map((row) => row.weight).filter(Number.isFinite);
     const attention = rows.filter((row) => row.statusCode !== "ok" && row.statusCode !== "first_24h");
@@ -1715,6 +1723,8 @@ class PuppyTrackerOverviewCard extends HTMLElement {
             <div><span>Trend</span><strong>${this._escape(selected.analysis?.trend || "Onvoldoende data")}</strong></div>
             <div><span>Datakwaliteit</span><strong>${this._escape(selected.analysis?.data_quality || "none")}</strong></div>
             <div><span>Nestdrempel</span><strong>${this._formatNumber(selected.analysis?.min_daily_growth_percent, "%", true)}</strong></div>
+            <div><span>Nestpositie</span><strong>${this._escape(this._litterComparisonLabel(selected.analysis?.litter_comparison))}</strong></div>
+            <div><span>Afwijking mediaan</span><strong>${this._formatNumber(selected.analysis?.litter_comparison?.delta_percent, "%", true)}</strong></div>
           </div>
         </div>
       `
