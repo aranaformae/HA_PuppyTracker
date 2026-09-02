@@ -259,6 +259,42 @@ test("dossier hides internal care program identifiers", async ({ page }) => {
   await expect(card.getByText("internal-ref", { exact: true })).toHaveCount(0);
 });
 
+test("dossier localizes temperature record labels", async ({ page }) => {
+  const card = await mountDossier(page);
+
+  await card.evaluate((element) => {
+    element._hass.language = "nl";
+    element._hass.locale = { language: "nl" };
+    element._recordData.records = [
+      {
+        id: "temperature-record",
+        type: "temperature",
+        scope: "puppy",
+        litter_id: "l1",
+        puppy_id: "p1",
+        occurred_at: "2026-09-01T17:47:00Z",
+        title: "Temperatuur notitie",
+        note: "",
+        deleted: false,
+        data: {
+          temperature_c: 38.4,
+          method: "rectaal",
+          observation: "rustig",
+        },
+      },
+    ];
+    element._render();
+  });
+
+  await expect(card.getByText("Temperatuur notitie", { exact: true })).toBeVisible();
+  await expect(card.locator(".type-badge").getByText("Temperatuur", { exact: true })).toBeVisible();
+  await expect(card.getByText("Temperatuur (°C)", { exact: true })).toBeVisible();
+  await expect(card.getByText("Meetmethode / locatie", { exact: true })).toBeVisible();
+  await expect(card.getByText("Observatie / notitie", { exact: true })).toBeVisible();
+  await expect(card.getByText("temperature", { exact: true })).toHaveCount(0);
+  await expect(card.getByText("Temperature", { exact: true })).toHaveCount(0);
+});
+
 test("dossier category filters can be cleared completely", async ({ page }) => {
   const card = await mountDossier(page);
 

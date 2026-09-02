@@ -48,6 +48,7 @@ const INTERNAL_DATA_KEYS = new Set([
 const DATA_LABEL_KEYS = {
   care_result: "careResult",
   care_score: "careScore",
+  temperature: "temperature",
 };
 
 function displayDataValue(value, hass = null) {
@@ -64,7 +65,9 @@ function displayDataValue(value, hass = null) {
 }
 
 function dataLabel(hass, key) {
-  return DATA_LABEL_KEYS[key] ? localize(hass, DATA_LABEL_KEYS[key]) : humanizeKey(key);
+  if (DATA_LABEL_KEYS[key]) return localize(hass, DATA_LABEL_KEYS[key]);
+  const schemaField = Object.values(TYPE_FIELDS).flat().find((field) => field.key === key);
+  return schemaField ? fieldLabel(hass, schemaField) : humanizeKey(key);
 }
 
 function formatDateOnly(value, hass = null) {
