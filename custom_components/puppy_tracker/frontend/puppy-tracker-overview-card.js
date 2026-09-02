@@ -1469,6 +1469,13 @@ class PuppyTrackerOverviewCard extends HTMLElement {
     return "Onbekend";
   }
 
+  _litterGrowthLabel(comparison) {
+    if (!comparison) return "Onvoldoende nesttempo-data";
+    if (comparison.position_code === "below_median") return "Onder nesttempo";
+    if (comparison.position_code === "above_median") return "Boven nesttempo";
+    return "Rond nesttempo";
+  }
+
   _summary(rows) {
     const weights = rows.map((row) => row.weight).filter(Number.isFinite);
     const attention = rows.filter((row) => row.statusCode !== "ok" && row.statusCode !== "first_24h");
@@ -1727,6 +1734,8 @@ class PuppyTrackerOverviewCard extends HTMLElement {
             <div><span>Gewichtspatroon</span><strong>${this._escape(selected.analysis?.weight_pattern?.sustained_loss ? "Aanhoudende daling" : "Geen aanhoudende daling")}</strong></div>
             <div><span>Nestpositie</span><strong>${this._escape(this._litterComparisonLabel(selected.analysis?.litter_comparison))}</strong></div>
             <div><span>Afwijking mediaan</span><strong>${this._formatNumber(selected.analysis?.litter_comparison?.delta_percent, "%", true)}</strong></div>
+            <div><span>Nesttempo</span><strong>${this._escape(this._litterGrowthLabel(selected.analysis?.litter_growth_comparison))}</strong></div>
+            <div><span>Afwijking nesttempo</span><strong>${this._formatNumber(selected.analysis?.litter_growth_comparison?.delta_percentage_points, "%", true)}</strong></div>
           </div>
         </div>
       `

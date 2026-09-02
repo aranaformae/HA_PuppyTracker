@@ -153,6 +153,42 @@ def test_growth_analysis_flags_sustained_weight_loss(
     }
 
 
+def test_growth_analysis_compares_daily_growth_with_litter_tempo(
+    monkeypatch,
+    storage,
+    install_litter,
+    make_measurement,
+) -> None:
+    _set_now(monkeypatch)
+    litter_id, puppy_id = install_litter(
+        measurements=[
+            make_measurement("selected-old", 400, "2026-08-29T10:00:00+00:00"),
+            make_measurement("selected-new", 420, "2026-08-30T10:00:00+00:00"),
+        ]
+    )
+    selected = storage.get_puppy(litter_id, puppy_id)
+    assert selected is not None
+    for extra_id, weights in (("puppy-2", (400, 430)), ("puppy-3", (400, 425))):
+        storage._data["litters"][litter_id]["puppies"][extra_id] = {
+            **selected,
+            "id": extra_id,
+            "measurements": [
+                make_measurement(f"{extra_id}-old", weights[0], "2026-08-29T10:00:00+00:00"),
+                make_measurement(f"{extra_id}-new", weights[1], "2026-08-30T10:00:00+00:00"),
+            ],
+        }
+
+    result = metrics.growth_analysis(storage, litter_id, puppy_id)
+
+    assert result["litter_growth_comparison"] == {
+        "sample_size": 3,
+        "rank": 3,
+        "median_daily_growth_percent": 6.25,
+        "delta_percentage_points": -1.25,
+        "position_code": "near_median",
+    }
+
+
 def test_status_without_measurement_requires_attention(
     monkeypatch,
     storage,

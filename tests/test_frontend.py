@@ -125,3 +125,5 @@ def test_overview_renders_litter_weight_comparison() -> None:
     assert "litter_comparison" in source
     assert "Nestpositie" in source
     assert "Afwijking mediaan" in source
+    assert "litter_growth_comparison" in source
+    assert "Nesttempo" in source

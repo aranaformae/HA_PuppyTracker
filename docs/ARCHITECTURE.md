@@ -125,6 +125,13 @@ from the canonical single-step monitoring status: one temporary decrease can be
 shown as a normal weight-loss status, while the overview can still identify a
 repeated downward pattern for manual review.
 
+When at least two puppies have a usable normalized daily-growth sample, the
+summary also exposes `litter_growth_comparison`. It uses the median daily-growth
+percentage, descending tempo rank and the difference in percentage points from
+that median. A two-point context tolerance labels the result as below, near or
+above the nest tempo. This is a relative monitoring aid and is not a breed
+standard, adult-weight prediction or medical threshold.
+
 Breed metadata is not a clinical model. In particular, Labradoodle is not treated
 as one universal growth curve; `australian_labradoodle` and its miniature/medium/
 standard size classes are only labels for later analysis unless validated data is

@@ -14,6 +14,7 @@ from .const import (
     DEFAULT_MIN_DAILY_GROWTH_PERCENT,
     FIRST_DAY_GRACE_HOURS,
     FIRST_DAY_MAX_WEIGHT_LOSS_PERCENT,
+    LITTER_GROWTH_CONTEXT_TOLERANCE_PERCENT,
     MIN_GROWTH_SAMPLE_HOURS,
     SUSPICIOUS_SINGLE_WEIGHT_CHANGE_PERCENT,
     SUSTAINED_WEIGHT_LOSS_MEASUREMENTS,
@@ -80,6 +81,47 @@ def _litter_weight_comparison(
         "rank": rank,
         "median_weight": round(median, 1),
         "delta_percent": round(delta_percent, 2) if delta_percent is not None else None,
+        "position_code": position_code,
+    }
+
+
+def _litter_growth_comparison(
+    storage: PuppyTrackerStorage,
+    litter_id: str,
+    puppy_id: str,
+) -> dict[str, Any] | None:
+    """Compare normalized daily growth with the other measured pups."""
+    litter = storage.get_litter(litter_id) or {}
+    puppies = litter.get("puppies") or {}
+    measured: list[tuple[str, float]] = []
+    for candidate_key, puppy in (puppies.items() if isinstance(puppies, dict) else []):
+        candidate_id = str(puppy.get("id") or candidate_key or "")
+        growth = daily_growth_data(storage, litter_id, candidate_id) if candidate_id else None
+        value = finite_number(growth.get("daily_change_percent")) if growth else None
+        if value is not None:
+            measured.append((candidate_id, value))
+
+    selected = next((value for candidate_id, value in measured if candidate_id == puppy_id), None)
+    if selected is None or len(measured) < 2:
+        return None
+
+    ordered = sorted(value for _candidate_id, value in measured)
+    middle = len(ordered) // 2
+    median = ordered[middle] if len(ordered) % 2 else (ordered[middle - 1] + ordered[middle]) / 2
+    rank = 1 + sum(value > selected for _candidate_id, value in measured)
+    delta = selected - median
+    if delta <= -LITTER_GROWTH_CONTEXT_TOLERANCE_PERCENT:
+        position_code = "below_median"
+    elif delta >= LITTER_GROWTH_CONTEXT_TOLERANCE_PERCENT:
+        position_code = "above_median"
+    else:
+        position_code = "near_median"
+
+    return {
+        "sample_size": len(measured),
+        "rank": rank,
+        "median_daily_growth_percent": round(median, 2),
+        "delta_percentage_points": round(delta, 2),
         "position_code": position_code,
     }
 
@@ -323,6 +365,7 @@ def growth_analysis(
         "expected_adult_weight_min_grams": settings["expected_adult_weight_min_grams"],
         "expected_adult_weight_max_grams": settings["expected_adult_weight_max_grams"],
         "litter_comparison": _litter_weight_comparison(storage, litter_id, puppy_id),
+        "litter_growth_comparison": _litter_growth_comparison(storage, litter_id, puppy_id),
         "weight_pattern": _weight_pattern(series),
         "anomaly": None,
     }
