@@ -39,6 +39,13 @@ def test_attention_and_today_are_both_patched() -> None:
     assert "patchAttention();" in source
 
 
+def test_attention_can_limit_care_items_to_today() -> None:
+    source = (FRONTEND / "puppy-tracker-care-surfaces.js").read_text()
+    assert "function isTodayItem(item)" in source
+    assert 'item?.status === "due_today" || Number(item?.days_until_due) === 0' in source
+    assert "this._config?.show_today_only !== true || isTodayItem(item)" in source
+
+
 def test_open_care_rows_launch_structured_result_entry() -> None:
     source = (FRONTEND / "puppy-tracker-care-surfaces.js").read_text()
     assert "function openResultEditor(card, item)" in source

@@ -203,3 +203,70 @@ test("Attention filters care-program-only rows and supports empty selections", a
   await expect(temperatureRow).toBeHidden();
   await expect(card.getByText("Geen meldingen voor de geselecteerde types.", { exact: true })).toBeVisible();
 });
+
+test("Attention can limit care program rows to today", async ({ page }) => {
+  await openFixture(page);
+
+  await page.evaluate(() => {
+    const card = document.createElement("puppy-tracker-attention-card");
+    card._hass = {
+      language: "nl",
+      locale: { language: "nl" },
+      callWS: async () => ({}),
+    };
+    card._selectedLitterId = "litter-1";
+    card._litters = [{ id: "litter-1", name: "Litter", active: true }];
+    card._data = {
+      litter: {
+        id: "litter-1",
+        name: "Litter",
+        summary: { dossier_actions: { actions: [] } },
+      },
+      puppies: [{
+        id: "pup-1",
+        name: "Blue",
+        active: true,
+        summary: {
+          needs_attention: false,
+          dossier_actions: { actions: [] },
+        },
+      }],
+    };
+    card.__careOccurrences = [
+      {
+        id: "today:pup-1:3",
+        program_id: "today",
+        litter_id: "litter-1",
+        puppy_id: "pup-1",
+        puppy_name: "Blue",
+        title: "Vandaag prik",
+        record_type: "vaccination",
+        age_days: 3,
+        status: "due_today",
+        days_until_due: 0,
+        result_fields: [],
+      },
+      {
+        id: "future:pup-1:5",
+        program_id: "future",
+        litter_id: "litter-1",
+        puppy_id: "pup-1",
+        puppy_name: "Blue",
+        title: "Toekomst prik",
+        record_type: "vaccination",
+        age_days: 5,
+        status: "upcoming",
+        days_until_due: 2,
+        result_fields: [],
+      },
+    ];
+    card.__attentionAcknowledgements = {};
+    card.setConfig({ title: "Aandacht", show_litter_selector: false, show_today_only: true });
+    document.querySelector("#cards").appendChild(card);
+    card._render();
+  });
+
+  const card = page.locator("puppy-tracker-attention-card");
+  await expect(card.getByText("Vandaag prik")).toBeVisible();
+  await expect(card.getByText("Toekomst prik")).toHaveCount(0);
+});

@@ -9,6 +9,7 @@ OVERVIEW_CARD = "puppy-tracker-overview-card.js"
 OVERVIEW_REGISTRY_REFRESH = "puppy-tracker-overview-registry-refresh.js"
 DOSSIER_CARD = "puppy-tracker-dossier-card.js"
 TIMELINE_CARD = "puppy-tracker-timeline-card.js"
+ATTENTION_CARD = "puppy-tracker-attention-card.js"
 LEGACY_LOCALIZED_CARDS = (
     "puppy-tracker-card",
     "puppy-tracker-overview-card",
@@ -80,3 +81,17 @@ def test_timeline_visibility_is_configurable_per_card() -> None:
         source = (frontend / filename).read_text(encoding="utf-8")
         assert "show_timeline_items: false" in source
         assert '{ name: "show_timeline_items", selector: { boolean: {} } }' in source
+
+
+def test_attention_today_filter_is_configurable() -> None:
+    """The attention card can limit care-program rows to today's items."""
+    source = (
+        Path(__file__).parents[1]
+        / "custom_components"
+        / "puppy_tracker"
+        / "frontend"
+        / ATTENTION_CARD
+    ).read_text(encoding="utf-8")
+
+    assert "show_today_only: false" in source
+    assert '{ name: "show_today_only", selector: { boolean: {} } }' in source

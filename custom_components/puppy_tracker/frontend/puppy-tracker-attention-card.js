@@ -67,7 +67,7 @@ class PuppyTrackerAttentionCard extends HTMLElement {
   }
 
   static getStubConfig() {
-    return { title: "", show_litter_selector: true, navigate_path: "" };
+    return { title: "", show_litter_selector: true, show_today_only: false, navigate_path: "" };
   }
 
   static getConfigForm() {
@@ -75,13 +75,14 @@ class PuppyTrackerAttentionCard extends HTMLElement {
       schema: [
         { name: "title", selector: { text: {} } },
         { name: "show_litter_selector", selector: { boolean: {} } },
+        { name: "show_today_only", selector: { boolean: {} } },
         { name: "navigate_path", selector: { text: {} } },
       ],
     };
   }
 
   setConfig(config) {
-    this._config = { title: "", show_litter_selector: true, navigate_path: "", ...config };
+    this._config = { title: "", show_litter_selector: true, show_today_only: false, navigate_path: "", ...config };
     this._selectedLitterId = config.litter_id || this._selectedLitterId;
     this._render();
   }

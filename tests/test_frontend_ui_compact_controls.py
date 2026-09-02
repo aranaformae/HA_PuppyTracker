@@ -35,3 +35,15 @@ def test_dossier_timeline_toggle_matches_timeline_card_button():
     assert 'const count = dossierVisibleRecordCount(card, timeline)' in text
     assert 'mdi:chevron-up' in text
     assert 'mdi:chevron-down' in text
+
+
+def test_attention_list_has_bounded_scroll_area():
+    attention = (
+        ROOT
+        / "custom_components"
+        / "puppy_tracker"
+        / "frontend"
+        / "puppy-tracker-attention-qol.js"
+    ).read_text(encoding="utf-8")
+    assert ".list{max-height:520px;overflow-y:auto" in attention
+    assert ".attention-ack-list{display:grid;gap:8px;margin-top:6px;max-height:520px;overflow-y:auto" in attention
