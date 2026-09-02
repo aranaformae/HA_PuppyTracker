@@ -28,6 +28,7 @@ MIN_GROWTH_SAMPLE_HOURS = 6.0
 
 # Large isolated jumps are data-quality hints, not medical conclusions.
 SUSPICIOUS_SINGLE_WEIGHT_CHANGE_PERCENT = 25.0
+SUSTAINED_WEIGHT_LOSS_MEASUREMENTS = 2
 
 # Per-litter growth analysis overrides. ``None`` means use the integration
 # default; breed and size metadata are intentionally descriptive only for now.

@@ -16,6 +16,7 @@ from .const import (
     FIRST_DAY_MAX_WEIGHT_LOSS_PERCENT,
     MIN_GROWTH_SAMPLE_HOURS,
     SUSPICIOUS_SINGLE_WEIGHT_CHANGE_PERCENT,
+    SUSTAINED_WEIGHT_LOSS_MEASUREMENTS,
 )
 from .measurements import measurement_datetime
 from .storage import PuppyTrackerStorage
@@ -80,6 +81,29 @@ def _litter_weight_comparison(
         "median_weight": round(median, 1),
         "delta_percent": round(delta_percent, 2) if delta_percent is not None else None,
         "position_code": position_code,
+    }
+
+
+def _weight_pattern(series: list[tuple[datetime, dict[str, Any]]]) -> dict[str, Any]:
+    """Describe consecutive changes without treating one drop as a diagnosis."""
+    changes: list[float] = []
+    for (_previous_time, previous), (_current_time, current) in zip(series, series[1:]):
+        previous_weight = finite_number(previous.get("weight"))
+        current_weight_value = finite_number(current.get("weight"))
+        if previous_weight is None or current_weight_value is None:
+            continue
+        changes.append(round(current_weight_value - previous_weight, 1))
+
+    consecutive_loss = 0
+    for change in reversed(changes):
+        if change < 0:
+            consecutive_loss += 1
+        else:
+            break
+
+    return {
+        "consecutive_loss_measurements": consecutive_loss,
+        "sustained_loss": consecutive_loss >= SUSTAINED_WEIGHT_LOSS_MEASUREMENTS,
     }
 
 
@@ -299,6 +323,7 @@ def growth_analysis(
         "expected_adult_weight_min_grams": settings["expected_adult_weight_min_grams"],
         "expected_adult_weight_max_grams": settings["expected_adult_weight_max_grams"],
         "litter_comparison": _litter_weight_comparison(storage, litter_id, puppy_id),
+        "weight_pattern": _weight_pattern(series),
         "anomaly": None,
     }
 
@@ -369,6 +394,14 @@ def growth_analysis(
             {
                 "status_code": "possible_input_error",
                 "status": "Controleer laatste meting",
+                "data_quality": "review",
+            }
+        )
+    elif result["weight_pattern"]["sustained_loss"]:
+        result.update(
+            {
+                "status_code": "sustained_weight_loss",
+                "status": "Aanhoudend gewichtsverlies",
                 "data_quality": "review",
             }
         )

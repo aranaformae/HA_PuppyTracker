@@ -129,6 +129,30 @@ def test_growth_analysis_compares_current_weight_with_litter_median(
     }
 
 
+def test_growth_analysis_flags_sustained_weight_loss(
+    monkeypatch,
+    storage,
+    install_litter,
+    make_measurement,
+) -> None:
+    _set_now(monkeypatch)
+    litter_id, puppy_id = install_litter(
+        measurements=[
+            make_measurement("a", 500, "2026-08-28T10:00:00+00:00"),
+            make_measurement("b", 490, "2026-08-29T10:00:00+00:00"),
+            make_measurement("c", 480, "2026-08-30T10:00:00+00:00"),
+        ]
+    )
+
+    result = metrics.growth_analysis(storage, litter_id, puppy_id)
+
+    assert result["status_code"] == "sustained_weight_loss"
+    assert result["weight_pattern"] == {
+        "consecutive_loss_measurements": 2,
+        "sustained_loss": True,
+    }
+
+
 def test_status_without_measurement_requires_attention(
     monkeypatch,
     storage,

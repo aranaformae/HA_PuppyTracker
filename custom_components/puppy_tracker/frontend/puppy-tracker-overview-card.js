@@ -1453,6 +1453,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
         "loss",
         "stale",
         "possible_input_error",
+        "sustained_weight_loss",
       ].includes(code)
     ) {
       return "danger";
@@ -1723,6 +1724,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
             <div><span>Trend</span><strong>${this._escape(selected.analysis?.trend || "Onvoldoende data")}</strong></div>
             <div><span>Datakwaliteit</span><strong>${this._escape(selected.analysis?.data_quality || "none")}</strong></div>
             <div><span>Nestdrempel</span><strong>${this._formatNumber(selected.analysis?.min_daily_growth_percent, "%", true)}</strong></div>
+            <div><span>Gewichtspatroon</span><strong>${this._escape(selected.analysis?.weight_pattern?.sustained_loss ? "Aanhoudende daling" : "Geen aanhoudende daling")}</strong></div>
             <div><span>Nestpositie</span><strong>${this._escape(this._litterComparisonLabel(selected.analysis?.litter_comparison))}</strong></div>
             <div><span>Afwijking mediaan</span><strong>${this._formatNumber(selected.analysis?.litter_comparison?.delta_percent, "%", true)}</strong></div>
           </div>

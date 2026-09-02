@@ -119,6 +119,12 @@ parent size, breed curve or veterinary condition, and it must not be presented
 as a diagnosis. A current measurement is required for every puppy included in
 the comparison; missing or stale historical values are not substituted.
 
+The same summary includes `weight_pattern`, which marks `sustained_loss` after
+two consecutive negative measurement changes. This is deliberately separate
+from the canonical single-step monitoring status: one temporary decrease can be
+shown as a normal weight-loss status, while the overview can still identify a
+repeated downward pattern for manual review.
+
 Breed metadata is not a clinical model. In particular, Labradoodle is not treated
 as one universal growth curve; `australian_labradoodle` and its miniature/medium/
 standard size classes are only labels for later analysis unless validated data is
