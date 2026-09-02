@@ -133,3 +133,5 @@ def test_overview_renders_litter_weight_comparison() -> None:
     assert "Geboortegewicht hersteld" in source
     assert "Groeimijlpalen" in source
     assert "Geschat" in source
+    assert "milestone-line" in source
+    assert "visibleMilestones" in source

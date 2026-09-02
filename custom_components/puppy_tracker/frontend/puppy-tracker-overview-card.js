@@ -1339,6 +1339,16 @@ class PuppyTrackerOverviewCard extends HTMLElement {
     });
 
     const unit = series[0]?.unit || "";
+    const selectedRow = rows.find((row) => row.puppyId === this._selectedPuppyId);
+    const visibleMilestones = this._metric === "weight"
+      ? (selectedRow?.analysis?.growth_milestones?.milestones || []).filter(
+          (milestone) => milestone.reached && milestone.target_weight >= minValue && milestone.target_weight <= maxValue
+        )
+      : [];
+    const milestoneLines = visibleMilestones.map((milestone) => `
+      <line class="milestone-line" x1="${left}" x2="${width - right}" y1="${y(milestone.target_weight).toFixed(1)}" y2="${y(milestone.target_weight).toFixed(1)}"></line>
+      <text class="milestone-label" x="${width - right - 4}" y="${(y(milestone.target_weight) - 4).toFixed(1)}" text-anchor="end">${this._escape(`${milestone.target_percent / 100}x`)}</text>
+    `).join("");
 
     const lines = series
       .map((item) => {
@@ -1388,6 +1398,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
                 )}</text>`
             )
             .join("")}
+          ${milestoneLines}
           ${xTicks
             .map(
               (tick) => `
@@ -2449,6 +2460,9 @@ class PuppyTrackerOverviewCard extends HTMLElement {
         }
 
         .grid-line.vertical { opacity: .35; }
+
+        .milestone-line { stroke: var(--primary-color); stroke-width: 1.5; stroke-dasharray: 6 4; opacity: .7; }
+        .milestone-label { fill: var(--primary-color); font-size: 10px; font-weight: 700; }
 
         .axis-label,
         .unit-label {
