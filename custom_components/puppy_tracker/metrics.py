@@ -266,6 +266,28 @@ def measurement_series(
     return result
 
 
+def _measurement_cadence(series: list[tuple[datetime, dict[str, Any]]]) -> dict[str, Any] | None:
+    """Summarize the timing regularity of the effective measurement series."""
+    intervals = [
+        (current_time - previous_time).total_seconds() / 3600
+        for (previous_time, _previous), (current_time, _current) in zip(series, series[1:])
+        if current_time > previous_time
+    ]
+    if not intervals:
+        return None
+
+    ordered = sorted(intervals)
+    middle = len(ordered) // 2
+    median = ordered[middle] if len(ordered) % 2 else (ordered[middle - 1] + ordered[middle]) / 2
+    return {
+        "interval_count": len(intervals),
+        "median_interval_hours": round(median, 2),
+        "shortest_interval_hours": round(min(intervals), 2),
+        "longest_interval_hours": round(max(intervals), 2),
+        "last_interval_hours": round(intervals[-1], 2),
+    }
+
+
 def birth_datetime(
     storage: PuppyTrackerStorage,
     litter_id: str,
@@ -411,6 +433,7 @@ def growth_analysis(
         "trend": "Onvoldoende data",
         "data_quality": "none" if not series else "limited",
         "measurement_count": len(series),
+        "measurement_cadence": _measurement_cadence(series),
         "current_weight": current,
         "daily_growth_percent": growth["daily_change_percent"] if growth else None,
         "daily_growth_grams": growth["daily_change_grams"] if growth else None,

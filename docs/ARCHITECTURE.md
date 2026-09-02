@@ -143,6 +143,11 @@ percentage points and the median absolute deviation. These are descriptive
 quality/context values; no universal cutoff is used because weighing cadence,
 scale precision and neonatal circumstances can materially affect the spread.
 
+`measurement_cadence` describes the valid timestamp intervals in the effective
+series, including the median, shortest, longest and latest interval. It is
+reported as context for interpreting growth and data quality; it does not alter
+the canonical due-weighing calculation.
+
 Breed metadata is not a clinical model. In particular, Labradoodle is not treated
 as one universal growth curve; `australian_labradoodle` and its miniature/medium/
 standard size classes are only labels for later analysis unless validated data is

@@ -1738,6 +1738,8 @@ class PuppyTrackerOverviewCard extends HTMLElement {
             <div><span>Nesttempo</span><strong>${this._escape(this._litterGrowthLabel(selected.analysis?.litter_growth_comparison))}</strong></div>
             <div><span>Afwijking nesttempo</span><strong>${this._formatNumber(selected.analysis?.litter_growth_comparison?.delta_percentage_points, "%", true)}</strong></div>
             <div><span>Spreiding groeitempo</span><strong>${this._formatNumber(selected.analysis?.growth_variability?.range_percentage_points, "%-punt", true)}</strong></div>
+            <div><span>Mediaan meetinterval</span><strong>${this._formatNumber(selected.analysis?.measurement_cadence?.median_interval_hours, "uur")}</strong></div>
+            <div><span>Grootste meetgat</span><strong>${this._formatNumber(selected.analysis?.measurement_cadence?.longest_interval_hours, "uur")}</strong></div>
           </div>
         </div>
       `

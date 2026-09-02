@@ -237,6 +237,32 @@ def test_growth_analysis_reports_growth_variability(
     }
 
 
+def test_growth_analysis_reports_measurement_cadence(
+    monkeypatch,
+    storage,
+    install_litter,
+    make_measurement,
+) -> None:
+    _set_now(monkeypatch)
+    litter_id, puppy_id = install_litter(
+        measurements=[
+            make_measurement("a", 400, "2026-08-28T10:00:00+00:00"),
+            make_measurement("b", 410, "2026-08-29T10:00:00+00:00"),
+            make_measurement("c", 420, "2026-08-31T10:00:00+00:00"),
+        ]
+    )
+
+    result = metrics.growth_analysis(storage, litter_id, puppy_id)
+
+    assert result["measurement_cadence"] == {
+        "interval_count": 2,
+        "median_interval_hours": 36.0,
+        "shortest_interval_hours": 24.0,
+        "longest_interval_hours": 48.0,
+        "last_interval_hours": 48.0,
+    }
+
+
 def test_status_without_measurement_requires_attention(
     monkeypatch,
     storage,
