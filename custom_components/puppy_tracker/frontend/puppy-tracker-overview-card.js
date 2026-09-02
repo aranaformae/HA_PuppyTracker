@@ -461,6 +461,10 @@ class PuppyTrackerOverviewCard extends HTMLElement {
 
         const statusState = this._state(entityIds.status);
         const statusCode = statusState?.attributes?.status_code || "unknown";
+        const historyPuppy = (this._history?.puppies || []).find(
+          (item) => item?.id === puppyId
+        );
+        const analysis = historyPuppy?.summary?.growth_analysis || {};
 
         return {
           device,
@@ -480,6 +484,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
           growthBirth: this._numericState(entityIds.growthBirth),
           growth24: this._numericState(entityIds.growth24),
           lastWeighed: this._stateValue(entityIds.lastWeighed, ""),
+          analysis,
         };
       })
       .filter(Boolean);
@@ -1436,15 +1441,17 @@ class PuppyTrackerOverviewCard extends HTMLElement {
   }
 
   _statusClass(code) {
-    if (code === "ok") return "ok";
-    if (code === "first_24h") return "info";
-    if (code === "low_growth") return "warning";
+    if (code === "ok" || code === "on_track") return "ok";
+    if (code === "first_24h" || code === "insufficient_data") return "info";
+    if (code === "low_growth" || code === "below_threshold") return "warning";
     if (
       [
         "weight_loss",
         "weigh_due",
         "no_measurement",
         "first_day_excess_weight_loss",
+        "loss",
+        "stale",
       ].includes(code)
     ) {
       return "danger";
@@ -1653,6 +1660,11 @@ class PuppyTrackerOverviewCard extends HTMLElement {
                     <div><span>24 uur</span><strong>${this._formatNumber(row.growth24, "%", true)}</strong></div>
                     <div><span>Sinds geboorte</span><strong>${this._formatNumber(row.growthBirth, "%", true)}</strong></div>
                   </div>
+                  <div class="growth-analysis ${this._statusClass(row.analysis?.status_code)}">
+                    <span>Analyse</span>
+                    <strong>${this._escape(row.analysis?.status || "Onvoldoende data")}</strong>
+                    <small>${this._escape(row.analysis?.trend || "Onvoldoende data")}</small>
+                  </div>
                 </button>
               `
             )
@@ -1696,6 +1708,12 @@ class PuppyTrackerOverviewCard extends HTMLElement {
             <div><span>Groei 24 uur</span><strong>${this._formatNumber(selected.growth24, "%", true)}</strong></div>
             <div><span>Totale groei</span><strong>${this._formatNumber(selected.growthBirth, "%", true)}</strong></div>
             <div><span>Laatste weging</span><strong>${this._escape(this._formatDateTime(selected.lastWeighed))}</strong></div>
+          </div>
+          <div class="analysis-panel ${this._statusClass(selected.analysis?.status_code)}">
+            <div><span>Groeianalyse</span><strong>${this._escape(selected.analysis?.status || "Onvoldoende data")}</strong></div>
+            <div><span>Trend</span><strong>${this._escape(selected.analysis?.trend || "Onvoldoende data")}</strong></div>
+            <div><span>Datakwaliteit</span><strong>${this._escape(selected.analysis?.data_quality || "none")}</strong></div>
+            <div><span>Nestdrempel</span><strong>${this._formatNumber(selected.analysis?.min_daily_growth_percent, "%", true)}</strong></div>
           </div>
         </div>
       `
@@ -2278,6 +2296,44 @@ class PuppyTrackerOverviewCard extends HTMLElement {
           overflow-wrap: anywhere;
         }
 
+        .growth-analysis {
+          display: grid;
+          grid-template-columns: auto 1fr auto;
+          gap: 7px;
+          align-items: baseline;
+          margin-top: 10px;
+          padding-top: 8px;
+          border-top: 1px solid var(--divider-color);
+          font-size: 11px;
+        }
+
+        .growth-analysis span,
+        .growth-analysis small { color: var(--secondary-text-color); }
+        .growth-analysis strong { font-size: 12px; }
+        .growth-analysis.ok strong { color: var(--success-color, #4caf50); }
+        .growth-analysis.warning strong { color: var(--warning-color, #ff9800); }
+        .growth-analysis.danger strong { color: var(--error-color, #db4437); }
+
+        .analysis-panel {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 7px;
+          margin-top: 10px;
+        }
+
+        .analysis-panel > div {
+          min-width: 0;
+          padding: 10px;
+          border-left: 3px solid var(--divider-color);
+          background: var(--secondary-background-color);
+        }
+
+        .analysis-panel.ok > div { border-left-color: var(--success-color, #4caf50); }
+        .analysis-panel.warning > div { border-left-color: var(--warning-color, #ff9800); }
+        .analysis-panel.danger > div { border-left-color: var(--error-color, #db4437); }
+        .analysis-panel span { display: block; color: var(--secondary-text-color); font-size: 11px; margin-bottom: 3px; }
+        .analysis-panel strong { display: block; font-size: 13px; overflow-wrap: anywhere; }
+
         .detail-panel,
         .chart-panel {
           margin-top: 15px;
@@ -2722,6 +2778,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
           .summary-grid > div:last-child { grid-column: span 2; }
           .puppy-grid { grid-template-columns: 1fr; }
           .detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          .analysis-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
           .measurement-panel-header { flex-direction: column; }
           .measurement-counts { justify-content: flex-start; }
           .measurement-edit-form { grid-template-columns: 1fr; }
@@ -2736,6 +2793,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
           .card { padding: 14px; }
           .toolbar { grid-template-columns: 1fr; }
           .puppy-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+          .growth-analysis { grid-template-columns: 1fr; gap: 2px; }
           .status-pill { max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
           .chart-tooltip b { margin-left: 0; }
           .current-measurement { flex-direction: column; gap: 7px; }

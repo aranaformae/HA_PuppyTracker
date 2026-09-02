@@ -50,6 +50,32 @@ def test_daily_growth_is_normalized_to_24_hours(
     assert result["daily_change_percent"] == 10
 
 
+def test_growth_analysis_reports_trend_and_litter_threshold(
+    monkeypatch,
+    storage,
+    install_litter,
+    make_measurement,
+) -> None:
+    _set_now(monkeypatch)
+    litter_id, puppy_id = install_litter(
+        measurements=[
+            make_measurement("a", 400, "2026-08-28T10:00:00+00:00"),
+            make_measurement("b", 420, "2026-08-29T10:00:00+00:00"),
+            make_measurement("c", 450, "2026-08-30T10:00:00+00:00"),
+        ],
+        litter_overrides={
+            "growth_analysis": {"min_daily_growth_percent": 5.0}
+        },
+    )
+
+    result = metrics.growth_analysis(storage, litter_id, puppy_id)
+
+    assert result["status_code"] == "on_track"
+    assert result["trend_code"] == "rising"
+    assert result["measurement_count"] == 3
+    assert result["min_daily_growth_percent"] == 5.0
+
+
 def test_status_without_measurement_requires_attention(
     monkeypatch,
     storage,

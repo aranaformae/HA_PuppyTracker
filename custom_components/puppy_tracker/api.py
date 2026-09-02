@@ -145,6 +145,14 @@ def _puppy_summary(
             "hours_since_weighing": None,
             "first_day_weight_change_percent": None,
             "growth_check_active": False,
+            "growth_analysis": {
+                "status_code": "unknown",
+                "status": "Onbekend",
+                "trend_code": "insufficient_data",
+                "trend": "Onvoldoende data",
+                "data_quality": "none",
+                "measurement_count": 0,
+            },
         }
 
     try:

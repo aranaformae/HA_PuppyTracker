@@ -222,6 +222,89 @@ def daily_growth_data(
     }
 
 
+def growth_analysis(
+    storage: PuppyTrackerStorage,
+    litter_id: str,
+    puppy_id: str,
+) -> dict[str, Any]:
+    """Return a compact, non-clinical growth analysis for one puppy."""
+    settings = effective_growth_settings(storage, litter_id)
+    series = measurement_series(storage, litter_id, puppy_id)
+    growth = daily_growth_data(storage, litter_id, puppy_id)
+    status = calculate_puppy_status(storage, litter_id, puppy_id)
+    current = finite_number(series[-1][1].get("weight")) if series else None
+
+    result: dict[str, Any] = {
+        "status_code": "no_measurement" if not series else "insufficient_data",
+        "status": "Geen meting" if not series else "Meer data nodig",
+        "trend_code": "insufficient_data",
+        "trend": "Onvoldoende data",
+        "data_quality": "none" if not series else "limited",
+        "measurement_count": len(series),
+        "current_weight": current,
+        "daily_growth_percent": growth["daily_change_percent"] if growth else None,
+        "daily_growth_grams": growth["daily_change_grams"] if growth else None,
+        "hours_since_weighing": status.get("hours_since_weighing"),
+        "growth_check_active": bool(status.get("growth_check_active")),
+        "min_daily_growth_percent": settings["min_daily_growth_percent"],
+        "expected_adult_weight_min_grams": settings["expected_adult_weight_min_grams"],
+        "expected_adult_weight_max_grams": settings["expected_adult_weight_max_grams"],
+    }
+
+    if not series:
+        return result
+
+    if len(series) >= 2:
+        result["data_quality"] = "good" if len(series) >= 3 else "limited"
+
+        deltas: list[float] = []
+        for (previous_time, previous), (current_time, current_item) in zip(
+            series,
+            series[1:],
+        ):
+            previous_weight = finite_number(previous.get("weight"))
+            current_weight = finite_number(current_item.get("weight"))
+            interval_hours = (current_time - previous_time).total_seconds() / 3600
+            if (
+                previous_weight is not None
+                and current_weight is not None
+                and previous_weight > 0
+                and interval_hours > 0
+            ):
+                deltas.append((current_weight - previous_weight) * 24 / interval_hours)
+
+        if len(deltas) >= 2:
+            recent = sum(deltas[-2:]) / 2
+            earlier_values = deltas[:-2] or deltas[:1]
+            earlier = sum(earlier_values) / len(earlier_values)
+            difference = recent - earlier
+            if difference > 1:
+                result.update({"trend_code": "rising", "trend": "Stijgend"})
+            elif difference < -1:
+                result.update({"trend_code": "falling", "trend": "Dalend"})
+            else:
+                result.update({"trend_code": "stable", "trend": "Stabiel"})
+        elif deltas:
+            result.update({"trend_code": "stable", "trend": "Eerste trend"})
+
+    if status.get("status_code") in {"weigh_due", "no_measurement"}:
+        result.update(
+            {
+                "status_code": "stale",
+                "status": "Weging nodig",
+                "data_quality": "stale",
+            }
+        )
+    elif status.get("status_code") in {"weight_loss", "first_day_excess_weight_loss"}:
+        result.update({"status_code": "loss", "status": "Gewichtsverlies"})
+    elif status.get("status_code") == "low_growth":
+        result.update({"status_code": "below_threshold", "status": "Onder nestdrempel"})
+    elif growth is not None:
+        result.update({"status_code": "on_track", "status": "Binnen nestinstelling"})
+
+    return result
+
+
 def last_weighed(
     storage: PuppyTrackerStorage,
     litter_id: str,
@@ -404,4 +487,5 @@ def calculate_puppy_metrics(
             "first_day_weight_change_percent"
         ),
         "growth_check_active": bool(status.get("growth_check_active", False)),
+        "growth_analysis": growth_analysis(storage, litter_id, puppy_id),
     }
