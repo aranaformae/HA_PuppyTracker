@@ -214,6 +214,8 @@ test("dossier hides internal care program identifiers", async ({ page }) => {
   const card = await mountDossier(page);
 
   await card.evaluate((element) => {
+    element._hass.language = "nl";
+    element._hass.locale = { language: "nl" };
     element._recordData.records = [
       {
         id: "care-record",
@@ -234,6 +236,8 @@ test("dossier hides internal care program identifiers", async ({ page }) => {
           care_age_days: 3,
           care_scheduled_at: "2026-09-02T14:00:00+02:00",
           care_status: "completed",
+          care_result: "Rustig",
+          care_score: 4,
           care_data: {},
           reference_id: "internal-ref",
         },
@@ -245,8 +249,12 @@ test("dossier hides internal care program identifiers", async ({ page }) => {
   await expect(card.getByText("ENS", { exact: true })).toBeVisible();
   await expect(card.getByText("Neurological stimulation", { exact: true })).toBeVisible();
   await expect(card.getByText("Good", { exact: true })).toBeVisible();
+  await expect(card.getByText("Resultaat", { exact: true })).toBeVisible();
+  await expect(card.getByText("Rustig", { exact: true })).toBeVisible();
+  await expect(card.getByText("Score", { exact: true })).toBeVisible();
   await expect(card.getByText("Care program id", { exact: true })).toHaveCount(0);
   await expect(card.getByText("Care occurrence id", { exact: true })).toHaveCount(0);
+  await expect(card.getByText("Care result", { exact: true })).toHaveCount(0);
   await expect(card.getByText("2251b89c-0f0d-47e0-bcba-abe69e91e773", { exact: true })).toHaveCount(0);
   await expect(card.getByText("internal-ref", { exact: true })).toHaveCount(0);
 });

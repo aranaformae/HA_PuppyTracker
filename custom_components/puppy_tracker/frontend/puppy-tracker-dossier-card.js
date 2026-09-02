@@ -45,6 +45,11 @@ const INTERNAL_DATA_KEYS = new Set([
   "source_type",
 ]);
 
+const DATA_LABEL_KEYS = {
+  care_result: "careResult",
+  care_score: "careScore",
+};
+
 function displayDataValue(value, hass = null) {
   if (value === null || value === undefined || value === "") return "";
   if (typeof value === "boolean") return value ? localize(hass, "yes") : localize(hass, "no");
@@ -56,6 +61,10 @@ function displayDataValue(value, hass = null) {
     }
   }
   return String(value);
+}
+
+function dataLabel(hass, key) {
+  return DATA_LABEL_KEYS[key] ? localize(hass, DATA_LABEL_KEYS[key]) : humanizeKey(key);
 }
 
 function formatDateOnly(value, hass = null) {
@@ -461,7 +470,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
         || raw === undefined
         || raw === ""
       ) continue;
-      rows.push(`<div class="record-data-row"><span>${escapeHtml(humanizeKey(key))}</span><strong>${escapeHtml(displayDataValue(raw, this._hass))}</strong></div>`);
+      rows.push(`<div class="record-data-row"><span>${escapeHtml(dataLabel(this._hass, key))}</span><strong>${escapeHtml(displayDataValue(raw, this._hass))}</strong></div>`);
     }
 
     return rows.length ? `<div class="record-data">${rows.join("")}</div>` : "";
