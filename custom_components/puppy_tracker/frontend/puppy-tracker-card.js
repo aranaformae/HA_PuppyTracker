@@ -1,4 +1,6 @@
 // Puppy Tracker Card v1.3.1
+import { collarColor } from "./puppy-tracker-collar-chart-colors.js";
+
 class PuppyTrackerCard extends HTMLElement {
   constructor() {
     super();
@@ -681,6 +683,16 @@ class PuppyTrackerCard extends HTMLElement {
     }
 
     const rows = this._config.show_puppies === false ? [] : this._puppyRows(station);
+    const selectedRow = rows.find((row) => row.selected) || null;
+    const selectedRowIndex = selectedRow ? rows.indexOf(selectedRow) : -1;
+    const currentPuppyIndicator = selectedRow
+      ? `
+        <div class="current-puppy" id="current-puppy-indicator" role="status" aria-label="Nu wegen: ${this._escape(selectedRow.name)}">
+          <span class="current-puppy-collar" id="current-puppy-collar" style="background-color:${this._escape(collarColor(selectedRow.collar, selectedRowIndex))}"></span>
+          <span class="current-puppy-label"><small>Nu wegen</small><strong>${this._escape(selectedRow.name)}</strong></span>
+        </div>
+      `
+      : "";
     const percentage = this._progress(station);
 
     const status = sessionState?.state || "Niet gestart";
@@ -794,9 +806,12 @@ class PuppyTrackerCard extends HTMLElement {
           <div class="eyebrow">Puppy Tracker</div>
           <h2>${this._escape(this._config.title || "Puppy weegstation")}</h2>
         </div>
-        <span class="session-badge ${isActive ? "active" : isComplete ? "complete" : "idle"}">
-          ${this._escape(status)}
-        </span>
+        <div class="header-status">
+          ${currentPuppyIndicator}
+          <span class="session-badge ${isActive ? "active" : isComplete ? "complete" : "idle"}">
+            ${this._escape(status)}
+          </span>
+        </div>
       </div>
 
       <div class="progress-wrap">
@@ -1032,6 +1047,56 @@ class PuppyTrackerCard extends HTMLElement {
           justify-content: space-between;
           gap: 12px;
           margin-bottom: 16px;
+        }
+
+        .header-status {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 10px;
+          flex: 0 0 auto;
+        }
+
+        .current-puppy {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          min-height: 44px;
+          padding: 4px 10px 4px 5px;
+          border: 1px solid var(--divider-color);
+          border-radius: 24px;
+          background: var(--secondary-background-color);
+        }
+
+        .current-puppy-collar {
+          display: block;
+          width: 34px;
+          height: 34px;
+          flex: 0 0 auto;
+          border: 2px solid var(--primary-text-color);
+          border-radius: 50%;
+          box-shadow: 0 0 0 2px var(--card-background-color, #fff);
+        }
+
+        .current-puppy-label {
+          display: flex;
+          flex-direction: column;
+          gap: 1px;
+          min-width: 0;
+        }
+
+        .current-puppy-label small {
+          color: var(--secondary-text-color);
+          font-size: 10px;
+          line-height: 1;
+        }
+
+        .current-puppy-label strong {
+          max-width: 120px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          font-size: 13px;
         }
 
         .eyebrow {
@@ -1423,6 +1488,12 @@ class PuppyTrackerCard extends HTMLElement {
           .selectors,
           .weight-entry {
             grid-template-columns: 1fr;
+          }
+
+          .header-status {
+            align-items: flex-end;
+            flex-direction: column;
+            gap: 6px;
           }
 
           .session-grid {

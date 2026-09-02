@@ -215,6 +215,23 @@ async function notifyHassUpdate(page, mutate = null) {
   }, mutate);
 }
 
+test("shows the selected puppy collar color prominently", async ({ page }) => {
+  await mountWeighingStation(page);
+
+  const indicator = page.locator("puppy-tracker-card #current-puppy-indicator");
+  const collar = page.locator("puppy-tracker-card #current-puppy-collar");
+
+  await expect(indicator).toContainText("Alice");
+  await expect(collar).toBeVisible();
+  await expect(collar).toHaveCSS("background-color", "rgb(229, 57, 53)");
+
+  await page.locator("puppy-tracker-card #puppy-select").selectOption("Bob (Blue)");
+  await notifyHassUpdate(page);
+
+  await expect(indicator).toContainText("Bob");
+  await expect(collar).toHaveCSS("background-color", "rgb(30, 136, 229)");
+});
+
 test("litter and puppy selectors keep the chosen values", async ({ page }) => {
   await mountWeighingStation(page);
 

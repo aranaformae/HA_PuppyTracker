@@ -1,8 +1,7 @@
 // Keep puppy chart series visually tied to the physical collar color.
 // collar_color is intentionally free text, so common Dutch/English names are
 // normalized here while valid CSS colors (for example #2196f3) are accepted.
-(() => {
-  const CARD_TAG = "puppy-tracker-overview-card";
+const CARD_TAG = "puppy-tracker-overview-card";
 
   const NAMED_COLORS = [
     [["lichtblauw", "lightblue", "skyblue"], "#42a5f5"],
@@ -38,7 +37,7 @@
 
   const fallbackColor = (index) => `hsl(${index * 63 + 205} 68% 52%)`;
 
-  const collarColor = (value, index) => {
+export function collarColor(value, index) {
     const normalized = normalize(value);
     if (!normalized) return fallbackColor(index);
 
@@ -55,7 +54,9 @@
 
     if (globalThis.CSS?.supports?.("color", normalized)) return normalized;
     return fallbackColor(index);
-  };
+}
+
+(() => {
 
   const applyPatch = () => {
     const CardClass = customElements.get(CARD_TAG);
