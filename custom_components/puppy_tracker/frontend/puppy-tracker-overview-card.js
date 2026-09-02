@@ -51,6 +51,9 @@ class PuppyTrackerOverviewCard extends HTMLElement {
       default_metric: "weight",
       show_summary: true,
       show_puppy_cards: true,
+      show_advanced_analysis: true,
+      show_growth_milestones: true,
+      show_milestone_chart_annotations: true,
     };
   }
 
@@ -89,6 +92,9 @@ class PuppyTrackerOverviewCard extends HTMLElement {
         },
         { name: "show_summary", selector: { boolean: {} } },
         { name: "show_puppy_cards", selector: { boolean: {} } },
+        { name: "show_advanced_analysis", selector: { boolean: {} } },
+        { name: "show_growth_milestones", selector: { boolean: {} } },
+        { name: "show_milestone_chart_annotations", selector: { boolean: {} } },
       ],
     };
   }
@@ -100,6 +106,9 @@ class PuppyTrackerOverviewCard extends HTMLElement {
       default_metric: "weight",
       show_summary: true,
       show_puppy_cards: true,
+      show_advanced_analysis: true,
+      show_growth_milestones: true,
+      show_milestone_chart_annotations: true,
       ...config,
     };
 
@@ -1295,7 +1304,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
     const selectedRow = rows.find((row) => row.puppyId === this._selectedPuppyId);
     const nextMilestone = selectedRow?.analysis?.growth_milestones?.next;
     const estimatedMilestoneTime = Date.parse(nextMilestone?.estimated_at || "");
-    const projectedMilestone = this._metric === "weight"
+    const projectedMilestone = this._config.show_milestone_chart_annotations !== false && this._metric === "weight"
       && Number.isFinite(estimatedMilestoneTime)
       && estimatedMilestoneTime > Date.now()
       && estimatedMilestoneTime <= Date.now() + 30 * 24 * 3600 * 1000
@@ -1350,7 +1359,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
     });
 
     const unit = series[0]?.unit || "";
-    const visibleMilestones = this._metric === "weight"
+    const visibleMilestones = this._config.show_milestone_chart_annotations !== false && this._metric === "weight"
       ? (selectedRow?.analysis?.growth_milestones?.milestones || []).filter(
           (milestone) => milestone.reached && milestone.target_weight >= minValue && milestone.target_weight <= maxValue
         )
@@ -1717,7 +1726,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
       : `<div class="empty small">Geen actieve pups gevonden in dit nest.</div>`;
 
     const milestones = selected?.analysis?.growth_milestones?.milestones || [];
-    const milestoneHtml = milestones.length
+    const milestoneHtml = this._config.show_growth_milestones !== false && milestones.length
       ? `
         <div class="milestone-list">
           <strong>Groeimijlpalen</strong>
@@ -1776,7 +1785,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
             <div><span>Totale groei</span><strong>${this._formatNumber(selected.growthBirth, "%", true)}</strong></div>
             <div><span>Laatste weging</span><strong>${this._escape(this._formatDateTime(selected.lastWeighed))}</strong></div>
           </div>
-          <div class="analysis-panel ${this._statusClass(selected.analysis?.status_code)}">
+          ${this._config.show_advanced_analysis !== false ? `<div class="analysis-panel ${this._statusClass(selected.analysis?.status_code)}">
             <div><span>Groeianalyse</span><strong>${this._escape(selected.analysis?.status || "Onvoldoende data")}</strong></div>
             <div><span>Trend</span><strong>${this._escape(selected.analysis?.trend || "Onvoldoende data")}</strong></div>
             <div><span>Datakwaliteit</span><strong>${this._escape(selected.analysis?.data_quality || "none")}</strong></div>
@@ -1795,7 +1804,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
             <div><span>Volgende groeimijlpaal</span><strong>${this._escape(selected.analysis?.growth_milestones?.next ? `${selected.analysis.growth_milestones.next.target_percent / 100}x (${selected.analysis.growth_milestones.next.target_weight} g)` : "Alle ingesteld")}</strong></div>
             <div><span>Geschatte datum volgende</span><strong>${this._escape(this._formatDateTime(selected.analysis?.growth_milestones?.next?.estimated_at))}</strong></div>
             <div><span>Verdubbeling binnen ${selected.analysis?.double_weight_reference_days || 14} dagen</span><strong>${this._escape(selected.analysis?.growth_milestones?.milestones?.find((item) => item.target_percent === 200)?.on_schedule === true ? "Op schema" : selected.analysis?.growth_milestones?.milestones?.find((item) => item.target_percent === 200)?.on_schedule === false ? "Niet op schema" : "Nog niet te schatten")}</strong></div>
-          </div>
+          </div>` : ""}
           ${milestoneHtml}
         </div>
       `

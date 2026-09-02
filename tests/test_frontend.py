@@ -138,3 +138,22 @@ def test_overview_renders_litter_weight_comparison() -> None:
     assert "projectedMilestone" in source
     assert "milestone-projection" in source
     assert "milestone-progress" in source
+
+
+def test_overview_exposes_basic_and_advanced_visibility_options() -> None:
+    """Overview visibility can be tailored per Lovelace card instance."""
+    source = (
+        Path(__file__).parents[1]
+        / "custom_components"
+        / "puppy_tracker"
+        / "frontend"
+        / "puppy-tracker-overview-card.js"
+    ).read_text(encoding="utf-8")
+
+    for option in (
+        "show_advanced_analysis",
+        "show_growth_milestones",
+        "show_milestone_chart_annotations",
+    ):
+        assert f"{option}: true" in source
+        assert f'name: "{option}"' in source

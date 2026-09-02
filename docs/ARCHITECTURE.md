@@ -168,6 +168,13 @@ added explicitly.
 
 The Timeline may display weight events beside dossier records, but authoritative weight data remains in `measurements[]`.
 
+The Overview card keeps analysis data available independently of presentation.
+Per-card options `show_advanced_analysis`, `show_growth_milestones` and
+`show_milestone_chart_annotations` control detail panels, milestone progress
+rows and chart annotations respectively. They default to enabled for backward
+compatibility, and are presentation-only options that do not affect metrics,
+storage or other card instances.
+
 ## Dossier record envelope
 
 Records use a generic outer structure with type-specific payload data. Important timestamp semantics remain:
