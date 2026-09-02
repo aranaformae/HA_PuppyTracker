@@ -295,6 +295,7 @@ def _growth_milestones(
     milestone_percentages: Any,
     daily_growth_grams: float | None,
     birth_time: datetime | None,
+    double_weight_reference_days: int,
 ) -> dict[str, Any] | None:
     """Return configured birth-weight milestones and their first crossing."""
     if birth_weight is None or birth_weight <= 0 or not isinstance(milestone_percentages, (list, tuple)):
@@ -319,7 +320,7 @@ def _growth_milestones(
         reference_deadline = None
         on_schedule = None
         if int(target_percent) == 200 and birth_time is not None:
-            reference_deadline = (birth_time + timedelta(days=DEFAULT_DOUBLE_WEIGHT_REFERENCE_DAYS)).isoformat()
+            reference_deadline = (birth_time + timedelta(days=double_weight_reference_days)).isoformat()
             comparison_time = reached_at or estimated_at
             on_schedule = comparison_time is not None and parse_timestamp(comparison_time) <= parse_timestamp(reference_deadline)
         milestones.append({
@@ -503,7 +504,9 @@ def growth_analysis(
             settings.get("growth_milestones_percent"),
             growth["daily_change_grams"] if growth else None,
             birth_datetime(storage, litter_id, puppy_id),
+            int(settings.get("double_weight_reference_days", DEFAULT_DOUBLE_WEIGHT_REFERENCE_DAYS)),
         ),
+        "double_weight_reference_days": int(settings.get("double_weight_reference_days", DEFAULT_DOUBLE_WEIGHT_REFERENCE_DAYS)),
         "daily_growth_percent": growth["daily_change_percent"] if growth else None,
         "daily_growth_grams": growth["daily_change_grams"] if growth else None,
         "hours_since_weighing": status.get("hours_since_weighing"),

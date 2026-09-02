@@ -65,6 +65,7 @@
           "expected_adult_weight_min_grams": "Expected adult minimum (g)",
           "expected_adult_weight_max_grams": "Expected adult maximum (g)",
           "growth_milestones_percent": "Growth milestones (% of birth weight, comma-separated)",
+          "double_weight_reference_days": "Double birth weight reference (days)",
           "action": "Action"
         },
         "data_description": {
@@ -81,6 +82,7 @@
           "expected_adult_weight_min_grams": "Optional parent/breeder-based estimate; leave empty when unknown.",
           "expected_adult_weight_max_grams": "Optional parent/breeder-based estimate; leave empty when unknown.",
           "growth_milestones_percent": "For example 200, 400 for 2x and 4x birth weight. Leave empty for 200, 400.",
+          "double_weight_reference_days": "Reference period for the 2x milestone; leave empty for 14 days.",
           "action": "Choose what you want to do with this litter"
         }
       },

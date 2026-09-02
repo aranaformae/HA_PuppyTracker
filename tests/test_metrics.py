@@ -321,14 +321,14 @@ def test_growth_analysis_estimates_milestone_dates_and_double_weight_reference(
             "birth_weight": 400.0,
             "birth_time": "2026-09-01T00:00:00+00:00",
         },
-        litter_overrides={"growth_analysis": {"growth_milestones_percent": [200, 400]}},
+        litter_overrides={"growth_analysis": {"growth_milestones_percent": [200, 400], "double_weight_reference_days": 10}},
     )
 
     result = metrics.growth_analysis(storage, litter_id, puppy_id)
 
     doubling = result["growth_milestones"]["milestones"][0]
     assert doubling["estimated_at"] == "2026-09-03T10:00:00+00:00"
-    assert doubling["reference_deadline"] == "2026-09-15T00:00:00+00:00"
+    assert doubling["reference_deadline"] == "2026-09-11T00:00:00+00:00"
     assert doubling["on_schedule"] is True
     assert result["growth_milestones"]["next"]["target_percent"] == 200
 

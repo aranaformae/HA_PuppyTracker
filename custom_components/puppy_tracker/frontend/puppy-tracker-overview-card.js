@@ -1786,7 +1786,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
             <div><span>Verschil geboortegewicht</span><strong>${this._formatNumber(selected.analysis?.birth_weight_recovery?.difference_grams, "g", true)}</strong></div>
             <div><span>Volgende groeimijlpaal</span><strong>${this._escape(selected.analysis?.growth_milestones?.next ? `${selected.analysis.growth_milestones.next.target_percent / 100}x (${selected.analysis.growth_milestones.next.target_weight} g)` : "Alle ingesteld")}</strong></div>
             <div><span>Geschatte datum volgende</span><strong>${this._escape(this._formatDateTime(selected.analysis?.growth_milestones?.next?.estimated_at))}</strong></div>
-            <div><span>Verdubbeling binnen 14 dagen</span><strong>${this._escape(selected.analysis?.growth_milestones?.milestones?.find((item) => item.target_percent === 200)?.on_schedule === true ? "Op schema" : selected.analysis?.growth_milestones?.milestones?.find((item) => item.target_percent === 200)?.on_schedule === false ? "Niet op schema" : "Nog niet te schatten")}</strong></div>
+            <div><span>Verdubbeling binnen ${selected.analysis?.double_weight_reference_days || 14} dagen</span><strong>${this._escape(selected.analysis?.growth_milestones?.milestones?.find((item) => item.target_percent === 200)?.on_schedule === true ? "Op schema" : selected.analysis?.growth_milestones?.milestones?.find((item) => item.target_percent === 200)?.on_schedule === false ? "Niet op schema" : "Nog niet te schatten")}</strong></div>
           </div>
           ${milestoneHtml}
         </div>

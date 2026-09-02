@@ -46,6 +46,7 @@ DEFAULT_LITTER_GROWTH_ANALYSIS = {
     "expected_adult_weight_min_grams": None,
     "expected_adult_weight_max_grams": None,
     "growth_milestones_percent": list(DEFAULT_GROWTH_MILESTONES_PERCENT),
+    "double_weight_reference_days": DEFAULT_DOUBLE_WEIGHT_REFERENCE_DAYS,
 }
 
 # Duplicate weighing protection.

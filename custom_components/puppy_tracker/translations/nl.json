@@ -130,6 +130,7 @@
           "expected_adult_weight_min_grams": "Verwacht volwassen minimum (g)",
           "expected_adult_weight_max_grams": "Verwacht volwassen maximum (g)",
           "growth_milestones_percent": "Groeimijlpalen (% van geboortegewicht, komma-gescheiden)",
+          "double_weight_reference_days": "Referentie verdubbeling geboortegewicht (dagen)",
           "action": "Actie"
         },
         "data_description": {
@@ -146,6 +147,7 @@
           "expected_adult_weight_min_grams": "Optionele schatting op basis van ouderdieren/fokker; laat leeg als deze onbekend is.",
           "expected_adult_weight_max_grams": "Optionele schatting op basis van ouderdieren/fokker; laat leeg als deze onbekend is.",
           "growth_milestones_percent": "Bijvoorbeeld 200, 400 voor 2x en 4x geboortegewicht. Laat leeg voor 200, 400.",
+          "double_weight_reference_days": "Referentieperiode voor de 2x mijlpaal; laat leeg voor 14 dagen.",
           "action": "Kies wat je met dit nest wilt doen"
         }
       },

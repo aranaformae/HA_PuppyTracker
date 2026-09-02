@@ -22,6 +22,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .const import (
     DEFAULT_GROWTH_MILESTONES_PERCENT,
+    DEFAULT_DOUBLE_WEIGHT_REFERENCE_DAYS,
     DEFAULT_GROWTH_MONITORING_DAYS,
     DEFAULT_MAX_HOURS_BETWEEN_WEIGHINGS,
     DEFAULT_MIN_DAILY_GROWTH_PERCENT,
@@ -77,6 +78,12 @@ class PuppyTrackerConfigFlow(
             "growth_milestones_percent",
             default=", ".join(str(value) for value in growth.get("growth_milestones_percent", DEFAULT_GROWTH_MILESTONES_PERCENT)),
         )] = selector.TextSelector()
+        fields[vol.Optional(
+            "double_weight_reference_days",
+            default=growth.get("double_weight_reference_days", DEFAULT_DOUBLE_WEIGHT_REFERENCE_DAYS),
+        )] = selector.NumberSelector(
+            selector.NumberSelectorConfig(min=1, max=56, step=1, mode=selector.NumberSelectorMode.BOX)
+        )
 
         return self.async_show_form(
             step_id="user"
@@ -298,6 +305,7 @@ class PuppyTrackerOptionsFlow(
                             "expected_adult_weight_min_grams": user_input.get("expected_adult_weight_min_grams"),
                             "expected_adult_weight_max_grams": user_input.get("expected_adult_weight_max_grams"),
                             "growth_milestones_percent": user_input.get("growth_milestones_percent"),
+                            "double_weight_reference_days": user_input.get("double_weight_reference_days"),
                         },
                     )
 

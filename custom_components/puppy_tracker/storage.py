@@ -21,6 +21,7 @@ from .records import (
 from .time_utils import normalize_timestamp
 
 from .const import (
+    DEFAULT_DOUBLE_WEIGHT_REFERENCE_DAYS,
     DEFAULT_GROWTH_MONITORING_DAYS,
     DEFAULT_MAX_HOURS_BETWEEN_WEIGHINGS,
     DEFAULT_MIN_DAILY_GROWTH_PERCENT,
@@ -90,7 +91,18 @@ def _normalize_litter_growth_analysis(value: Any) -> dict[str, Any]:
             raise ValueError("Invalid litter growth setting: growth_milestones_percent") from err
         if not milestones or any(value < 100 or value > 10000 for value in milestones):
             raise ValueError("Invalid litter growth setting: growth_milestones_percent")
-        result["growth_milestones_percent"] = milestones
+    result["growth_milestones_percent"] = milestones
+    raw_reference_days = raw.get("double_weight_reference_days")
+    if raw_reference_days in (None, ""):
+        result["double_weight_reference_days"] = DEFAULT_DOUBLE_WEIGHT_REFERENCE_DAYS
+    else:
+        try:
+            reference_days = int(float(raw_reference_days))
+        except (TypeError, ValueError) as err:
+            raise ValueError("Invalid litter growth setting: double_weight_reference_days") from err
+        if not 1 <= reference_days <= 56:
+            raise ValueError("Invalid litter growth setting: double_weight_reference_days")
+        result["double_weight_reference_days"] = reference_days
 
     ranges = {
         "min_daily_growth_percent": (0.0, 20.0),
