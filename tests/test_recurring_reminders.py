@@ -204,7 +204,7 @@ def test_frontend_exposes_reminder_card_and_all_owner_scopes() -> None:
     assert 'scope: "mother"' in source
     assert 'scope: "puppy"' in source
     assert '"interval", "fixed_times", "once"' in api
-    assert '"notification_lead_minutes"' in api
+    assert api.count('vol.Optional("notification_lead_minutes")') == 2
     assert 'notification_lead_minutes:' in source
     assert 'rem-lead-minutes' in source
     assert 'async_reconcile_recurring_reminders' in api

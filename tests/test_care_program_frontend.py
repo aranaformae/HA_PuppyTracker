@@ -34,6 +34,9 @@ def test_care_program_card_exposes_structured_result_configuration() -> None:
     assert 'care-result-score' in source
     assert 'care-result-note' in source
 
+    api = (ROOT / "custom_components" / "puppy_tracker" / "care_program_api.py").read_text(encoding="utf-8")
+    assert api.count('vol.Optional("notification_lead_minutes")') == 2
+
 
 def test_care_program_mutations_are_hidden_for_non_admin_users() -> None:
     source = (FRONTEND / "puppy-tracker-care-program-card.js").read_text(encoding="utf-8")
