@@ -1690,6 +1690,22 @@ class PuppyTrackerOverviewCard extends HTMLElement {
       `
       : `<div class="empty small">Geen actieve pups gevonden in dit nest.</div>`;
 
+    const milestones = selected?.analysis?.growth_milestones?.milestones || [];
+    const milestoneHtml = milestones.length
+      ? `
+        <div class="milestone-list">
+          <strong>Groeimijlpalen</strong>
+          ${milestones.map((milestone) => `
+            <div class="milestone-row ${milestone.reached ? "reached" : "pending"}">
+              <span>${this._escape(`${milestone.target_percent / 100}x geboortegewicht`)}</span>
+              <span>${this._formatNumber(milestone.target_weight, "g")}</span>
+              <span>${this._escape(milestone.reached ? `Bereikt ${this._formatDateTime(milestone.reached_at)}` : milestone.estimated_at ? `Geschat ${this._formatDateTime(milestone.estimated_at)}` : "Nog niet te schatten")}</span>
+            </div>
+          `).join("")}
+        </div>
+      `
+      : "";
+
     const selectedDetails = selected
       ? `
         <div class="detail-panel">
@@ -1746,6 +1762,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
             <div><span>Geschatte datum volgende</span><strong>${this._escape(this._formatDateTime(selected.analysis?.growth_milestones?.next?.estimated_at))}</strong></div>
             <div><span>Verdubbeling binnen 14 dagen</span><strong>${this._escape(selected.analysis?.growth_milestones?.milestones?.find((item) => item.target_percent === 200)?.on_schedule === true ? "Op schema" : selected.analysis?.growth_milestones?.milestones?.find((item) => item.target_percent === 200)?.on_schedule === false ? "Niet op schema" : "Nog niet te schatten")}</strong></div>
           </div>
+          ${milestoneHtml}
         </div>
       `
       : "";
@@ -2365,6 +2382,27 @@ class PuppyTrackerOverviewCard extends HTMLElement {
         .analysis-panel span { display: block; color: var(--secondary-text-color); font-size: 11px; margin-bottom: 3px; }
         .analysis-panel strong { display: block; font-size: 13px; overflow-wrap: anywhere; }
 
+        .milestone-list {
+          display: grid;
+          gap: 6px;
+          margin-top: 10px;
+        }
+
+        .milestone-row {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.2fr);
+          gap: 8px;
+          align-items: center;
+          padding: 8px 10px;
+          border-left: 3px solid var(--divider-color);
+          background: var(--secondary-background-color);
+          font-size: 12px;
+        }
+
+        .milestone-row.reached { border-left-color: var(--success-color, #4caf50); }
+        .milestone-row.pending { border-left-color: var(--warning-color, #ff9800); }
+        .milestone-row > span:last-child { color: var(--secondary-text-color); text-align: right; }
+
         .detail-panel,
         .chart-panel {
           margin-top: 15px;
@@ -2810,6 +2848,8 @@ class PuppyTrackerOverviewCard extends HTMLElement {
           .puppy-grid { grid-template-columns: 1fr; }
           .detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
           .analysis-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          .milestone-row { grid-template-columns: 1fr auto; }
+          .milestone-row > span:last-child { grid-column: 1 / -1; text-align: left; }
           .measurement-panel-header { flex-direction: column; }
           .measurement-counts { justify-content: flex-start; }
           .measurement-edit-form { grid-template-columns: 1fr; }
