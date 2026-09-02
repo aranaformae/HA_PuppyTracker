@@ -5,8 +5,11 @@ async function openFixture(page) {
   await page.waitForFunction(() => window.__puppyTrackerReady === true);
 }
 
-async function mountDossier(page) {
+async function mountDossier(page, { compact = false } = {}) {
   await openFixture(page);
+  if (compact) {
+    await page.evaluate(() => import("/custom_components/puppy_tracker/frontend/puppy-tracker-ui-compact.js"));
+  }
 
   await page.evaluate(() => {
     const now = new Date().toISOString();
@@ -151,6 +154,17 @@ async function mountDossier(page) {
   await expect(card.locator("#add-record")).toBeVisible();
   return card;
 }
+
+test("dossier item management stays available without matching records", async ({ page }) => {
+  const card = await mountDossier(page, { compact: true });
+
+  await expect(card.locator("#toggle-dossier-manage")).toBeVisible();
+  await card.locator("#owner-select").selectOption("__litter__");
+  await expect(card.locator("#toggle-dossier-manage")).toBeVisible();
+
+  await card.locator("#toggle-dossier-manage").click();
+  await expect(card.locator("#toggle-dossier-manage")).toHaveText("Done editing");
+});
 
 test("dossier create, edit, delete and restore flow", async ({ page }) => {
   page.on("dialog", (dialog) => dialog.accept());

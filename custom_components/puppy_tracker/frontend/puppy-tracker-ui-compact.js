@@ -26,43 +26,45 @@ function compactDossier(card) {
   ensureStyle(root, "puppy-tracker-dossier-compact-style", `
     .timeline[hidden],.record-actions[hidden]{display:none!important}
     .timeline-card-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
-    .timeline-card-actions .manage-items-button{min-height:36px;padding:0 12px;border:1px solid var(--divider-color);border-radius:10px;background:var(--secondary-background-color);color:var(--primary-text-color);font-weight:600}
+    .timeline-card-actions .manage-items-button{min-height:40px;padding:0 14px;border:1px solid var(--primary-color);border-radius:10px;background:var(--primary-color);color:var(--text-primary-color,#fff);font-weight:650;box-shadow:var(--ha-card-box-shadow,none)}
     .timeline-card-actions .manage-items-button.active{background:var(--primary-color);border-color:var(--primary-color);color:var(--text-primary-color,#fff)}
   `);
 
   const timeline = root.querySelector(".timeline");
   const head = root.querySelector(".timeline-head");
-  if (timeline && head) {
-    if (typeof card.__timelineItemsVisible !== "boolean") card.__timelineItemsVisible = false;
-    if (typeof card.__dossierManageMode !== "boolean") card.__dossierManageMode = false;
-    timeline.hidden = !card.__timelineItemsVisible;
+  if (typeof card.__timelineItemsVisible !== "boolean") card.__timelineItemsVisible = false;
+  if (typeof card.__dossierManageMode !== "boolean") card.__dossierManageMode = false;
 
+  // Keep item management reachable even when the active owner/filter has no records.
+  const managementHost = root.querySelector(".tools") || head;
+  if (managementHost && card._canManage) {
+    let manageToggle = root.getElementById("toggle-dossier-manage");
+    if (!manageToggle) {
+      manageToggle = document.createElement("button");
+      manageToggle.id = "toggle-dossier-manage";
+      manageToggle.type = "button";
+      manageToggle.className = "manage-items-button";
+      managementHost.append(manageToggle);
+    }
+    manageToggle.textContent = card.__dossierManageMode
+      ? buttonLabel(card, "Bewerken klaar", "Done editing")
+      : buttonLabel(card, "Items aanpassen", "Edit items");
+    manageToggle.classList.toggle("active", card.__dossierManageMode);
+    manageToggle.setAttribute("aria-pressed", card.__dossierManageMode ? "true" : "false");
+    manageToggle.onclick = () => {
+      card.__dossierManageMode = !card.__dossierManageMode;
+      if (card.__dossierManageMode) card.__timelineItemsVisible = true;
+      compactDossier(card);
+    };
+  }
+
+  if (timeline && head) {
+    timeline.hidden = !card.__timelineItemsVisible;
     let actionWrap = root.querySelector(".timeline-card-actions");
     if (!actionWrap) {
       actionWrap = document.createElement("div");
       actionWrap.className = "timeline-card-actions";
       head.append(actionWrap);
-    }
-
-    let manageToggle = root.getElementById("toggle-dossier-manage");
-    if (!manageToggle && card._canManage) {
-      manageToggle = document.createElement("button");
-      manageToggle.id = "toggle-dossier-manage";
-      manageToggle.type = "button";
-      manageToggle.className = "manage-items-button";
-      actionWrap.append(manageToggle);
-    }
-    if (manageToggle) {
-      manageToggle.textContent = card.__dossierManageMode
-        ? buttonLabel(card, "Bewerken klaar", "Done editing")
-        : buttonLabel(card, "Items aanpassen", "Edit items");
-      manageToggle.classList.toggle("active", card.__dossierManageMode);
-      manageToggle.setAttribute("aria-pressed", card.__dossierManageMode ? "true" : "false");
-      manageToggle.onclick = () => {
-        card.__dossierManageMode = !card.__dossierManageMode;
-        if (card.__dossierManageMode) card.__timelineItemsVisible = true;
-        compactDossier(card);
-      };
     }
 
     let toggle = root.getElementById("toggle-timeline-items");
