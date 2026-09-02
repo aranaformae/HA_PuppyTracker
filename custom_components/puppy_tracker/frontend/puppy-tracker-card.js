@@ -513,6 +513,15 @@ class PuppyTrackerCard extends HTMLElement {
     return `${value > 0 ? "+" : ""}${value}%`;
   }
 
+  _focusWeightInput() {
+    window.requestAnimationFrame(() => {
+      window.queueMicrotask(() => {
+        const input = this.shadowRoot?.querySelector("#weight-input");
+        if (input && !input.disabled) input.focus();
+      });
+    });
+  }
+
   _progress(station) {
     const progressState = this._state(station?.ids?.progress);
     const value = Number(progressState?.attributes?.percentage);
@@ -685,11 +694,26 @@ class PuppyTrackerCard extends HTMLElement {
     const rows = this._config.show_puppies === false ? [] : this._puppyRows(station);
     const selectedRow = rows.find((row) => row.selected) || null;
     const selectedRowIndex = selectedRow ? rows.indexOf(selectedRow) : -1;
+    const nextPuppyLabel = String(nextState?.state || "").trim();
+    const nextRow = rows.find((row) =>
+      row.name === nextPuppyLabel ||
+      row.option === nextPuppyLabel ||
+      row.option.startsWith(`${nextPuppyLabel} (`)
+    ) || null;
+    const nextRowIndex = nextRow ? rows.indexOf(nextRow) : -1;
     const currentPuppyIndicator = selectedRow
       ? `
-        <div class="current-puppy" id="current-puppy-indicator" role="status" aria-label="Nu wegen: ${this._escape(selectedRow.name)}">
+        <div class="current-puppy" id="current-puppy-indicator" role="status" aria-label="Nu geselecteerd: ${this._escape(selectedRow.name)}">
           <span class="current-puppy-collar" id="current-puppy-collar" style="background-color:${this._escape(collarColor(selectedRow.collar, selectedRowIndex))}"></span>
-          <span class="current-puppy-label"><small>Nu wegen</small><strong>${this._escape(selectedRow.name)}</strong></span>
+          <span class="current-puppy-label"><small>Nu geselecteerd</small><strong>${this._escape(selectedRow.name)}</strong></span>
+        </div>
+      `
+      : "";
+    const nextPuppyIndicator = nextRow
+      ? `
+        <div class="next-puppy" id="next-puppy-indicator" role="status" aria-label="Volgende pup: ${this._escape(nextRow.name)}">
+          <span class="next-puppy-collar" id="next-puppy-collar" style="background-color:${this._escape(collarColor(nextRow.collar, nextRowIndex))}"></span>
+          <span class="next-puppy-label"><small>Volgende pup</small><strong>${this._escape(nextRow.name)}</strong></span>
         </div>
       `
       : "";
@@ -870,6 +894,7 @@ class PuppyTrackerCard extends HTMLElement {
       }
 
       ${puppyRows}
+      ${nextPuppyIndicator}
     `);
 
     this._bindEvents(station);
@@ -943,6 +968,7 @@ class PuppyTrackerCard extends HTMLElement {
 
       this._select(station.ids.puppy, option).then(() => {
         this._endInteraction(0);
+        this._focusWeightInput();
       });
     });
 
@@ -1014,7 +1040,10 @@ class PuppyTrackerCard extends HTMLElement {
         this._interactionActive = false;
         this._renderPending = false;
         this._scheduleRender(true);
-        this._select(station.ids.puppy, option).then(() => this._endInteraction(0));
+        this._select(station.ids.puppy, option).then(() => {
+          this._endInteraction(0);
+          this._focusWeightInput();
+        });
       });
     });
   }
@@ -1097,6 +1126,44 @@ class PuppyTrackerCard extends HTMLElement {
           text-overflow: ellipsis;
           white-space: nowrap;
           font-size: 13px;
+        }
+
+        .next-puppy {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-top: 16px;
+          padding: 11px 12px;
+          border-top: 1px solid var(--divider-color);
+          background: var(--secondary-background-color);
+        }
+
+        .next-puppy-collar {
+          display: block;
+          width: 28px;
+          height: 28px;
+          flex: 0 0 auto;
+          border: 2px solid var(--primary-text-color);
+          border-radius: 50%;
+        }
+
+        .next-puppy-label {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          min-width: 0;
+        }
+
+        .next-puppy-label small {
+          color: var(--secondary-text-color);
+          font-size: 11px;
+        }
+
+        .next-puppy-label strong {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          font-size: 14px;
         }
 
         .eyebrow {
