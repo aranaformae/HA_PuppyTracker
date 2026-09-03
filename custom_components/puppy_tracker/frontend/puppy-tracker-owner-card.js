@@ -1,23 +1,95 @@
+const ownerEscape = (value) => String(value || "").replace(/[&<>\"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[char]));
+
 class PuppyTrackerOwnerCard extends HTMLElement {
-  setConfig(config) { this._config = { title: "Baasje beheren", ...config }; this._owners = []; this._litters = []; this._puppies = []; this._selectedPuppy = ""; this._editing = null; this._status = ""; this._loaded = false; this._loading = false; this._load(); }
+  setConfig(config) {
+    this._config = { title: "Baasje beheren", ...config };
+    this._owners = []; this._litters = []; this._puppies = [];
+    this._selectedPuppy = ""; this._selectedLitter = ""; this._editing = null;
+    this._expandedOwnerId = null; this._status = ""; this._loaded = false; this._loading = false;
+    this._load();
+  }
+
   set hass(value) { this._hass = value; if (this._config && !this._loaded && !this._loading) this._load(); }
-  async _load(force = false) { if (!this._hass || this._loading || (this._loaded && !force)) return; this._loading = true; try { const result = await this._hass.callWS({ type: "puppy_tracker/owners/list" }); const litters = await this._hass.callWS({ type: "puppy_tracker/litters" }); this._owners = result.owners || []; this._litters = litters.litters || []; if (!this._selectedLitter && this._litters[0]) this._selectedLitter = this._litters[0].id; const data = this._selectedLitter ? await this._hass.callWS({ type: "puppy_tracker/data", litter_id: this._selectedLitter }) : {}; this._puppies = data.puppies || []; this._loaded = true; this._render(); } catch (error) { this._status = error.message; this._render(); } finally { this._loading = false; } }
-  async _link() { const puppy = this._puppies.find((item) => item.id === this._selectedPuppy); if (!puppy) return; const owner_ids = [...this.querySelectorAll("input[name=linked_owner]:checked")].map((input) => input.value); try { await this._hass.callWS({ type: "puppy_tracker/owners/link", litter_id: this._selectedLitter, puppy_id: puppy.id, owner_ids }); this._status = "Koppeling opgeslagen"; await this._load(true); } catch (error) { this._status = error.message; this._render(); } }
-  async _save(form) { const data = Object.fromEntries(new FormData(form).entries()); if (this._editing) data.owner_id = this._editing; try { await this._hass.callWS({ type: "puppy_tracker/owners/save", ...data }); this._editing = null; this._status = "Opgeslagen"; await this._load(true); } catch (error) { this._status = error.message; this._render(); } }
-  async _delete(id) { if (!confirm("Dit baasje verwijderen?")) return; try { await this._hass.callWS({ type: "puppy_tracker/owners/delete", owner_id: id }); await this._load(true); } catch (error) { this._status = error.message; this._render(); } }
+
+  async _load(force = false) {
+    if (!this._hass || this._loading || (this._loaded && !force)) return;
+    this._loading = true;
+    try {
+      const [ownerResult, litterResult] = await Promise.all([
+        this._hass.callWS({ type: "puppy_tracker/owners/list" }),
+        this._hass.callWS({ type: "puppy_tracker/litters" }),
+      ]);
+      this._owners = ownerResult.owners || []; this._litters = litterResult.litters || [];
+      if (!this._selectedLitter && this._litters[0]) this._selectedLitter = this._litters[0].id;
+      const data = this._selectedLitter ? await this._hass.callWS({ type: "puppy_tracker/data", litter_id: this._selectedLitter }) : {};
+      this._puppies = data.puppies || []; this._loaded = true; this._render();
+    } catch (error) { this._status = error.message; this._render(); }
+    finally { this._loading = false; }
+  }
+
+  async _save(form) {
+    const data = Object.fromEntries(new FormData(form).entries()); if (this._editing) data.owner_id = this._editing;
+    try { await this._hass.callWS({ type: "puppy_tracker/owners/save", ...data }); this._editing = null; this._status = "Opgeslagen"; await this._load(true); }
+    catch (error) { this._status = error.message; this._render(); }
+  }
+
+  async _delete(id) {
+    if (!confirm("Dit baasje verwijderen?")) return;
+    try { await this._hass.callWS({ type: "puppy_tracker/owners/delete", owner_id: id }); this._expandedOwnerId = null; await this._load(true); }
+    catch (error) { this._status = error.message; this._render(); }
+  }
+
+  async _link() {
+    const puppy = this._puppies.find((item) => item.id === this._selectedPuppy); if (!puppy) return;
+    const owner_ids = [...this.querySelectorAll("input[name=linked_owner]:checked")].map((input) => input.value);
+    try { await this._hass.callWS({ type: "puppy_tracker/owners/link", litter_id: this._selectedLitter, puppy_id: puppy.id, owner_ids }); this._status = "Koppeling opgeslagen"; await this._load(true); }
+    catch (error) { this._status = error.message; this._render(); }
+  }
+
   _render() {
     const selected = this._owners.find((owner) => owner.id === this._editing) || {};
-    const litterOptions = this._litters.map((litter) => `<option value="${litter.id}" ${litter.id === this._selectedLitter ? "selected" : ""}>${litter.name || "Nest"}</option>`).join(""); const puppy = this._puppies.find((item) => item.id === this._selectedPuppy) || this._puppies[0]; if (!this._selectedPuppy && puppy) this._selectedPuppy = puppy.id; const puppyOptions = this._puppies.map((item) => `<option value="${item.id}" ${item.id === this._selectedPuppy ? "selected" : ""}>${item.name || "Pup"}</option>`).join(""); const linked = new Set(puppy?.owner_ids || []);
-    this.innerHTML = `<ha-card><style>ha-card{padding:16px}.title{font-size:18px;font-weight:600;margin-bottom:4px}.sub{font-size:12px;color:var(--secondary-text-color);margin-bottom:12px}.form,.link-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.form input,.form textarea,.link-form select{box-sizing:border-box;width:100%;min-height:42px;border:1px solid var(--divider-color);border-radius:9px;background:var(--card-background-color);color:var(--primary-text-color);padding:9px;font:inherit}.form textarea{min-height:70px;grid-column:1/-1}.actions{display:flex;gap:8px;margin-top:10px}.actions button{min-height:40px;border:0;border-radius:9px;padding:0 13px;cursor:pointer;background:var(--primary-color);color:var(--text-primary-color,#fff);font-weight:600}.actions .secondary{background:var(--secondary-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color)}.list{display:grid;gap:7px;margin-top:16px}.owner{display:flex;justify-content:space-between;gap:8px;align-items:center;border-top:1px solid var(--divider-color);padding-top:9px}.owner small{display:block;color:var(--secondary-text-color);margin-top:2px}.owner-actions{display:flex;gap:5px}.owner-actions button{border:1px solid var(--divider-color);background:var(--secondary-background-color);color:var(--primary-text-color);border-radius:8px;padding:7px;cursor:pointer}.status{font-size:12px;color:var(--secondary-text-color);margin-top:8px}.link{border-top:1px solid var(--divider-color);margin-top:16px;padding-top:12px}.checks{grid-column:1/-1;display:grid;gap:6px}.checks label{display:flex;gap:7px;align-items:center}@media(max-width:430px){.form,.link-form{grid-template-columns:1fr}.form textarea,.checks{grid-column:auto}.owner{align-items:flex-start}.owner-actions{flex-direction:column}}</style><div class="title">${this._config.title}</div><div class="sub">Contactpersonen voor koppeling aan een pup</div><form class="form"><input name="name" required placeholder="Naam" value="${selected.name || ""}"><input name="email" type="email" placeholder="E-mail" value="${selected.email || ""}"><input name="phone" placeholder="Telefoon" value="${selected.phone || ""}"><input name="address" placeholder="Adres" value="${selected.address || ""}"><textarea name="notes" placeholder="Notities">${selected.notes || ""}</textarea><div class="actions"><button type="submit">${this._editing ? "Bijwerken" : "Baasje toevoegen"}</button>${this._editing ? '<button type="button" class="secondary" id="cancel">Annuleren</button>' : ""}</div></form><div class="link"><strong>Baasje koppelen aan pup</strong><div class="link-form"><select id="link-litter">${litterOptions}</select><select id="link-puppy">${puppyOptions}</select><div class="checks">${this._owners.map((owner) => `<label><input type="checkbox" name="linked_owner" value="${owner.id}" ${linked.has(owner.id) ? "checked" : ""}>${owner.name}</label>`).join("")}</div></div><div class="actions"><button type="button" id="link-save">Koppeling opslaan</button></div></div><div class="list">${this._owners.map((owner) => `<div class="owner"><div><strong>${owner.name}</strong><small>${[owner.email, owner.phone].filter(Boolean).join(" · ") || "Geen contactgegevens"}</small></div><div class="owner-actions"><button data-edit="${owner.id}" title="Bewerken">✎</button><button data-delete="${owner.id}" title="Verwijderen">×</button></div></div>`).join("")}</div><div class="status">${this._status}</div></ha-card>`;
+    const puppy = this._puppies.find((item) => item.id === this._selectedPuppy) || this._puppies[0];
+    if (!this._selectedPuppy && puppy) this._selectedPuppy = puppy.id;
+    const linked = new Set(puppy?.owner_ids || []);
+    const litterOptions = this._litters.map((litter) => `<option value="${ownerEscape(litter.id)}" ${litter.id === this._selectedLitter ? "selected" : ""}>${ownerEscape(litter.name || "Nest")}</option>`).join("");
+    const puppyOptions = this._puppies.map((item) => `<option value="${ownerEscape(item.id)}" ${item.id === this._selectedPuppy ? "selected" : ""}>${ownerEscape(item.name || "Pup")}</option>`).join("");
+    const owners = this._owners.map((owner) => {
+      const expanded = owner.id === this._expandedOwnerId;
+      const detail = expanded ? `<div class="owner-detail"><div><span>Naam</span>${ownerEscape(owner.name)}</div><div><span>Rol</span>${ownerEscape(owner.role || "owner")}</div><div><span>Status</span>${ownerEscape(owner.placement_status || "interested")}</div><div><span>Geplaatst op</span>${ownerEscape(owner.placement_date || "—")}</div><div><span>Betaling</span>${ownerEscape(owner.payment_status || "none")}</div><div><span>Betaald op</span>${ownerEscape(owner.payment_date || "—")}</div><div><span>E-mail</span>${ownerEscape(owner.email || "—")}</div><div><span>Telefoon</span>${ownerEscape(owner.phone || "—")}</div><div><span>Adres</span>${ownerEscape(owner.address || "—")}</div><div><span>Notities</span>${ownerEscape(owner.notes || "—")}</div></div>` : "";
+      return `<div class="owner" data-owner="${ownerEscape(owner.id)}" role="button" tabindex="0" aria-expanded="${expanded}"><div><strong>${ownerEscape(owner.name)}</strong><small>${ownerEscape([owner.email, owner.phone].filter(Boolean).join(" · ") || "Geen contactgegevens")}</small></div><div class="owner-actions"><button data-edit="${ownerEscape(owner.id)}" title="Bewerken">✎</button><button data-delete="${ownerEscape(owner.id)}" title="Verwijderen">×</button></div>${detail}</div>`;
+    }).join("");
+    this.innerHTML = `<ha-card><style>ha-card{padding:16px}.title{font-size:18px;font-weight:600;margin-bottom:4px}.sub{font-size:12px;color:var(--secondary-text-color);margin-bottom:12px}.form,.link-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.form input,.form textarea,.link-form select{box-sizing:border-box;width:100%;min-height:42px;border:1px solid var(--divider-color);border-radius:9px;background:var(--card-background-color);color:var(--primary-text-color);padding:9px;font:inherit}.form textarea{min-height:70px;grid-column:1/-1}.actions{display:flex;gap:8px;margin-top:10px}.actions button{min-height:40px;border:0;border-radius:9px;padding:0 13px;cursor:pointer;background:var(--primary-color);color:var(--text-primary-color,#fff);font-weight:600}.actions .secondary{background:var(--secondary-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color)}.list{display:grid;gap:7px;margin-top:16px}.owner{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;align-items:center;border-top:1px solid var(--divider-color);padding-top:9px;cursor:pointer}.owner small{display:block;color:var(--secondary-text-color);margin-top:2px}.owner-actions{display:flex;gap:5px}.owner-actions button{border:1px solid var(--divider-color);background:var(--secondary-background-color);color:var(--primary-text-color);border-radius:8px;padding:7px;cursor:pointer}.owner-detail{flex:1 0 100%;background:var(--secondary-background-color);border-radius:8px;padding:10px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;font-size:13px}.owner-detail span{display:block;color:var(--secondary-text-color);font-size:11px;margin-bottom:2px}.status{font-size:12px;color:var(--secondary-text-color);margin-top:8px}.link{border-top:1px solid var(--divider-color);margin-top:16px;padding-top:12px}.checks{grid-column:1/-1;display:grid;gap:6px}.checks label{display:flex;gap:7px;align-items:center}@media(max-width:430px){.form,.link-form,.owner-detail{grid-template-columns:1fr}.form textarea,.checks{grid-column:auto}.owner{align-items:flex-start}.owner-actions{flex-direction:column}}</style><div class="title">${ownerEscape(this._config.title)}</div><div class="sub">Contactpersonen voor koppeling aan een pup</div><form class="form"><input name="name" required placeholder="Naam" value="${ownerEscape(selected.name)}"><input name="email" type="email" placeholder="E-mail" value="${ownerEscape(selected.email)}"><input name="phone" placeholder="Telefoon" value="${ownerEscape(selected.phone)}"><input name="address" placeholder="Adres" value="${ownerEscape(selected.address)}"><textarea name="notes" placeholder="Notities">${ownerEscape(selected.notes)}</textarea><div class="actions"><button type="submit">${this._editing ? "Bijwerken" : "Baasje toevoegen"}</button>${this._editing ? '<button type="button" class="secondary" id="cancel">Annuleren</button>' : ""}</div></form><div class="link"><strong>Baasje koppelen aan pup</strong><div class="link-form"><select id="link-litter">${litterOptions}</select><select id="link-puppy">${puppyOptions}</select><div class="checks">${this._owners.map((owner) => `<label><input type="checkbox" name="linked_owner" value="${ownerEscape(owner.id)}" ${linked.has(owner.id) ? "checked" : ""}>${ownerEscape(owner.name)}</label>`).join("")}</div></div><div class="actions"><button type="button" id="link-save">Koppeling opslaan</button></div></div><div class="list">${owners}</div><div class="status">${ownerEscape(this._status)}</div></ha-card>`;
+    const card = this.querySelector("ha-card");
+    card.style.display = "flex";
+    card.style.flexDirection = "column";
+    this.querySelector(".list").style.order = "2";
+    this.querySelector(".link").style.order = "3";
+    this.querySelector(".status").style.order = "4";
+    const form = this.querySelector("form");
+    const addSelect = (name, label, options, value) => {
+      const select = document.createElement("select");
+      select.name = name;
+      select.setAttribute("aria-label", label);
+      options.forEach(([optionValue, optionLabel]) => { const option = new Option(optionLabel, optionValue); option.selected = optionValue === value; select.add(option); });
+      form.insertBefore(select, form.querySelector("textarea"));
+    };
+    addSelect("role", "Rol", [["owner", "Eigenaar"], ["co_owner", "Mede-eigenaar"], ["breeder", "Fokker"], ["veterinarian", "Dierenarts"], ["contact", "Contactpersoon"]], selected.role || "owner");
+    addSelect("placement_status", "Plaatsingsstatus", [["interested", "Interesse"], ["option", "Optie"], ["reserved", "Gereserveerd"], ["sold", "Verkocht"], ["placed", "Geplaatst"]], selected.placement_status || "interested");
+    addSelect("payment_status", "Betalingsstatus", [["none", "Geen"], ["registration_fee", "Inschrijfgeld"], ["deposit", "Aanbetaling"], ["full", "Volledig"]], selected.payment_status || "none");
+    const placementDate = document.createElement("input"); placementDate.type = "date"; placementDate.name = "placement_date"; placementDate.value = selected.placement_date || ""; placementDate.setAttribute("aria-label", "Plaatsingsdatum"); form.insertBefore(placementDate, form.querySelector("textarea"));
+    const paymentDate = document.createElement("input"); paymentDate.type = "date"; paymentDate.name = "payment_date"; paymentDate.value = selected.payment_date || ""; paymentDate.setAttribute("aria-label", "Betaaldatum"); form.insertBefore(paymentDate, form.querySelector("textarea"));
     this.querySelector("form").addEventListener("submit", (event) => { event.preventDefault(); this._save(event.currentTarget); });
     this.querySelector("#cancel")?.addEventListener("click", () => { this._editing = null; this._status = ""; this._render(); });
-    this.querySelectorAll("[data-edit]").forEach((button) => button.addEventListener("click", () => { this._editing = button.dataset.edit; this._render(); }));
-    this.querySelectorAll("[data-delete]").forEach((button) => button.addEventListener("click", () => this._delete(button.dataset.delete)));
+    this.querySelectorAll("[data-owner]").forEach((row) => row.addEventListener("click", () => { this._expandedOwnerId = this._expandedOwnerId === row.dataset.owner ? null : row.dataset.owner; this._render(); }));
+    this.querySelectorAll("[data-owner]").forEach((row) => row.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); row.click(); } }));
+    this.querySelectorAll("[data-edit]").forEach((button) => button.addEventListener("click", (event) => { event.stopPropagation(); this._editing = button.dataset.edit; this._render(); }));
+    this.querySelectorAll("[data-delete]").forEach((button) => button.addEventListener("click", (event) => { event.stopPropagation(); this._delete(button.dataset.delete); }));
     this.querySelector("#link-litter")?.addEventListener("change", async (event) => { this._selectedLitter = event.target.value; this._selectedPuppy = ""; await this._load(true); });
     this.querySelector("#link-puppy")?.addEventListener("change", (event) => { this._selectedPuppy = event.target.value; this._render(); });
     this.querySelector("#link-save")?.addEventListener("click", () => this._link());
   }
 }
+
 if (!customElements.get("puppy-tracker-owner-card")) customElements.define("puppy-tracker-owner-card", PuppyTrackerOwnerCard);
 window.customCards = window.customCards || [];
 if (!window.customCards.some((card) => card.type === "puppy-tracker-owner-card")) window.customCards.push({ type: "puppy-tracker-owner-card", name: "Puppy Tracker Owners", description: "Beheer baasjes en contactpersonen." });

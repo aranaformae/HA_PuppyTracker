@@ -16,6 +16,9 @@ from .const import DOMAIN
 STORE_KEY = f"{DOMAIN}_owners"
 STORE_VERSION = 1
 OWNER_FIELDS = ("name", "email", "phone", "address", "notes")
+OWNER_ROLES = ("owner", "co_owner", "breeder", "veterinarian", "contact")
+PLACEMENT_STATUSES = ("interested", "option", "reserved", "sold", "placed")
+PAYMENT_STATUSES = ("none", "registration_fee", "deposit", "full")
 
 
 def _now() -> str:
@@ -28,10 +31,30 @@ def _normalize(data: dict[str, Any], *, owner_id: str | None = None, existing: d
     name = str(source.get("name") or "").strip()
     if not name:
         raise ValueError("name is required")
+    role = str(source.get("role") or "owner").strip()
+    status = str(source.get("placement_status") or "interested").strip()
+    if role not in OWNER_ROLES:
+        raise ValueError("unsupported owner role")
+    if status not in PLACEMENT_STATUSES:
+        raise ValueError("unsupported placement status")
+    payment_status = str(source.get("payment_status") or "none").strip()
+    if payment_status not in PAYMENT_STATUSES:
+        raise ValueError("unsupported payment status")
+    placement_date = str(source.get("placement_date") or "").strip() or None
+    if placement_date:
+        try:
+            datetime.fromisoformat(placement_date)
+        except ValueError as err:
+            raise ValueError("placement_date must be an ISO date") from err
     now = _now()
     return {
         "id": owner_id or str(source.get("id") or uuid4()),
         **{field: str(source.get(field) or "").strip() or None for field in OWNER_FIELDS},
+        "role": role,
+        "placement_status": status,
+        "placement_date": placement_date,
+        "payment_status": payment_status,
+        "payment_date": str(source.get("payment_date") or "").strip() or None,
         "created_at": (existing or {}).get("created_at") or now,
         "updated_at": now,
     }

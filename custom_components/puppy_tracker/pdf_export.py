@@ -489,11 +489,16 @@ def build_pdf_export(
                 owner_rows.append([
                     str(puppy.get("name") or "Puppy"),
                     ", ".join(str(owner.get("name") or "—") for owner in linked),
+                    ", ".join(str(owner.get("role") or "owner") for owner in linked),
+                    ", ".join(str(owner.get("placement_status") or "interested") for owner in linked),
+                    ", ".join(str(owner.get("placement_date") or "—") for owner in linked),
+                    ", ".join(str(owner.get("payment_status") or "none") for owner in linked),
+                    ", ".join(str(owner.get("payment_date") or "—") for owner in linked),
                     "; ".join(str(owner.get("email") or owner.get("phone") or "—") for owner in linked),
                 ])
         if owner_rows:
             report.heading("Baasjegegevens", level=2)
-            report.table(["Pup", "Baasje(s)", "Contact"], owner_rows, [90, 190, 195], font_size=8)
+            report.table(["Pup", "Baasje(s)", "Rol", "Status", "Geplaatst", "Betaling", "Betaald", "Contact"], owner_rows, [55, 90, 55, 55, 55, 55, 55, 85], font_size=6.5)
 
     warnings: list[str] = []
     summary_rows: list[list[str]] = []
