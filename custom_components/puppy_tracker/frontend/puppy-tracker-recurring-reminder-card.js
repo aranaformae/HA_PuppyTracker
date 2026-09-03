@@ -181,6 +181,26 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
       this._render();
       return;
     }
+    if (data.schedule_mode === "interval" && (!Number.isInteger(data.interval_minutes) || data.interval_minutes < 1)) {
+      this._error = t(this, "Vul een geldig interval in.", "Enter a valid interval.");
+      this._render();
+      return;
+    }
+    if (data.schedule_mode === "fixed_times" && (!data.fixed_times.length || data.fixed_times.some((value) => !/^([01]\d|2[0-3]):[0-5]\d$/.test(value)))) {
+      this._error = t(this, "Gebruik geldige tijden in HH:MM-notatie.", "Use valid times in HH:MM format.");
+      this._render();
+      return;
+    }
+    if (data.schedule_mode === "once" && !data.due_at) {
+      this._error = t(this, "Kies een datum en tijd.", "Choose a date and time.");
+      this._render();
+      return;
+    }
+    if (data.notification_lead_minutes != null && (!Number.isInteger(data.notification_lead_minutes) || data.notification_lead_minutes < 0 || data.notification_lead_minutes > 10080)) {
+      this._error = t(this, "De meldingstijd moet tussen 0 en 10080 minuten liggen.", "Notification lead time must be between 0 and 10080 minutes.");
+      this._render();
+      return;
+    }
     this._saving = true;
     this._render();
     try {
@@ -201,12 +221,17 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
   }
 
   async _delete(id) {
-    if (!id) return;
+    if (!id || this._saving) return;
+    this._saving = true;
+    this._error = "";
+    this._render();
     try {
       await this._hass.callWS({ type: "puppy_tracker/recurring_reminder/delete", reminder_id: id });
       await this._loadCurrent();
     } catch (error) {
       this._error = error?.message || t(this, "Herinnering kon niet worden verwijderd.", "Reminder could not be deleted.");
+    } finally {
+      this._saving = false;
       this._render();
     }
   }
@@ -246,8 +271,8 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
         <label>${escapeHtml(t(this, "Melding vooraf (min)", "Notify before (min)"))}<input id="rem-lead-minutes" type="number" min="0" max="10080" step="5" value="${escapeHtml(String(draft.notification_lead_minutes))}" placeholder="${escapeHtml(t(this, "Integratie standaard", "Integration default"))}"></label>
         <label class="check"><input id="rem-enabled" type="checkbox" ${draft.enabled ? "checked" : ""}> ${escapeHtml(t(this, "Actief", "Enabled"))}</label>
         <div class="editor-actions">
-          ${this._editing ? `<button class="danger" id="delete-reminder">${escapeHtml(t(this,"Verwijderen","Delete"))}</button>` : ""}
-          <span></span><button id="cancel-reminder">${escapeHtml(t(this,"Annuleren","Cancel"))}</button>
+          ${this._editing ? `<button class="danger" id="delete-reminder" ${this._saving ? "disabled" : ""}>${escapeHtml(t(this,"Verwijderen","Delete"))}</button>` : ""}
+          <span></span><button id="cancel-reminder" ${this._saving ? "disabled" : ""}>${escapeHtml(t(this,"Annuleren","Cancel"))}</button>
           <button class="primary" id="save-reminder" ${this._saving ? "disabled" : ""}>${escapeHtml(t(this,"Opslaan","Save"))}</button>
         </div>
       </div>` : "";

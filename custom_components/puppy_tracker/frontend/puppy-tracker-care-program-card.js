@@ -167,8 +167,28 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
       this._render();
       return;
     }
+    if (!Number.isInteger(data.start_age_days) || data.start_age_days < 0 || data.start_age_days > 3650) {
+      this._error = t(this, "De startleeftijd moet tussen 0 en 3650 dagen liggen.", "Start age must be between 0 and 3650 days.");
+      this._render();
+      return;
+    }
     if (data.schedule_type === "range" && data.end_age_days < data.start_age_days) {
       this._error = t(this, "De eindleeftijd moet gelijk aan of later zijn dan de startleeftijd.", "End age must be equal to or later than start age.");
+      this._render();
+      return;
+    }
+    if (data.schedule_type === "range" && (!Number.isInteger(data.end_age_days) || data.end_age_days > 3650 || data.interval_days < 1)) {
+      this._error = t(this, "Controleer eindleeftijd en herhalingsinterval.", "Check the end age and repeat interval.");
+      this._render();
+      return;
+    }
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(data.time_of_day || ""))) {
+      this._error = t(this, "Vul een geldig tijdstip in.", "Enter a valid time.");
+      this._render();
+      return;
+    }
+    if (data.notification_lead_minutes != null && (!Number.isInteger(data.notification_lead_minutes) || data.notification_lead_minutes < 0 || data.notification_lead_minutes > 10080)) {
+      this._error = t(this, "De meldingstijd moet tussen 0 en 10080 minuten liggen.", "Notification lead time must be between 0 and 10080 minutes.");
       this._render();
       return;
     }

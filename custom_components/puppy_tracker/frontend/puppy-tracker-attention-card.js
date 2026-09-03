@@ -6,6 +6,8 @@ import {
   fireNavigate,
   languageForHass,
   localize,
+  loadCardState,
+  saveCardState,
   selectDefaultLitter,
   statusIcon,
   statusTone,
@@ -64,6 +66,8 @@ class PuppyTrackerAttentionCard extends HTMLElement {
     this._subscriptionPending = false;
     this._refreshing = false;
     this._refreshAgain = false;
+    this._state = loadCardState(this, { litterId: null });
+    this._selectedLitterId = this._state.litterId || null;
   }
 
   static getStubConfig() {
@@ -258,6 +262,7 @@ class PuppyTrackerAttentionCard extends HTMLElement {
 
     this.shadowRoot.getElementById("litter-select")?.addEventListener("change", async (event) => {
       this._selectedLitterId = event.target.value;
+      saveCardState(this, { ...this._state, litterId: this._selectedLitterId });
       await this._loadData();
     });
     if (this._config.navigate_path) {

@@ -6,6 +6,8 @@ import {
   fetchRecords,
   formatDateTime,
   languageForHass,
+  loadCardState,
+  saveCardState,
   selectDefaultLitter,
   subscribeUpdates,
 } from "./puppy-tracker-card-common.js";
@@ -270,6 +272,12 @@ class PuppyTrackerTimelineCard extends HTMLElement {
     this._subscriptionPending = false;
     this._refreshing = false;
     this._refreshAgain = false;
+    this._state = loadCardState(this, { scope: "litter", from: "", to: "", showHistory: false, types: TIMELINE_TYPES });
+    this._scope = this._state.scope || "litter";
+    this._from = this._state.from || "";
+    this._to = this._state.to || "";
+    this._showHistory = Boolean(this._state.showHistory);
+    this._selectedTypes = new Set(Array.isArray(this._state.types) ? this._state.types.filter((type) => TIMELINE_TYPES.includes(type)) : TIMELINE_TYPES);
   }
 
   static getStubConfig() {
@@ -322,9 +330,9 @@ class PuppyTrackerTimelineCard extends HTMLElement {
     this._selectedLitterId = config.litter_id || this._selectedLitterId;
     this._scope = config.puppy_id
       ? "puppy"
-      : (["all", "litter", "mother", "puppy"].includes(config.default_scope)
+      : (Object.hasOwn(config, "default_scope") && ["all", "litter", "mother", "puppy"].includes(config.default_scope)
         ? config.default_scope
-        : "litter");
+        : (this._state.scope || "litter"));
     this._selectedPuppyId = config.puppy_id || this._selectedPuppyId;
     this._render();
   }
@@ -462,6 +470,7 @@ class PuppyTrackerTimelineCard extends HTMLElement {
   async _selectLitter(value) {
     this._selectedLitterId = value;
     this._selectedPuppyId = null;
+    this._persistState();
     this._loading = true;
     this._render();
     try {
@@ -483,6 +492,7 @@ class PuppyTrackerTimelineCard extends HTMLElement {
       this._scope = "puppy";
       this._selectedPuppyId = value;
     }
+    this._persistState();
     this._loading = true;
     this._render();
     try {
@@ -498,6 +508,7 @@ class PuppyTrackerTimelineCard extends HTMLElement {
 
   async _toggleHistory(enabled) {
     this._showHistory = Boolean(enabled) && this._canManageHistory;
+    this._persistState();
     this._loading = true;
     this._render();
     try {
@@ -520,6 +531,26 @@ class PuppyTrackerTimelineCard extends HTMLElement {
     } else {
       this._selectedTypes.add(type);
     }
+    this._persistState();
+    this._render();
+  }
+
+  _persistState() {
+    saveCardState(this, {
+      ...this._state,
+      scope: this._scope,
+      from: this._from,
+      to: this._to,
+      showHistory: this._showHistory,
+      types: [...this._selectedTypes],
+    });
+  }
+
+  _clearFilters() {
+    this._selectedTypes = new Set(TIMELINE_TYPES);
+    this._from = "";
+    this._to = "";
+    this._persistState();
     this._render();
   }
 
@@ -594,17 +625,21 @@ class PuppyTrackerTimelineCard extends HTMLElement {
     });
     this.shadowRoot?.getElementById("from-date")?.addEventListener("change", (event) => {
       this._from = event.target.value || "";
+      this._persistState();
       this._render();
     });
     this.shadowRoot?.getElementById("to-date")?.addEventListener("change", (event) => {
       this._to = event.target.value || "";
+      this._persistState();
       this._render();
     });
     this.shadowRoot?.getElementById("clear-dates")?.addEventListener("click", () => {
       this._from = "";
       this._to = "";
+      this._persistState();
       this._render();
     });
+    this.shadowRoot?.getElementById("clear-filters")?.addEventListener("click", () => this._clearFilters());
     this.shadowRoot?.querySelectorAll("[data-filter-type]").forEach((button) => {
       button.addEventListener("click", () => this._toggleType(button.dataset.filterType));
     });
@@ -645,7 +680,7 @@ class PuppyTrackerTimelineCard extends HTMLElement {
     } else if (this._error) {
       content = `<div class="state error">${escapeHtml(this._error)}</div>`;
     } else if (!visible.length) {
-      content = `<div class="state">${escapeHtml(text(this._hass, "noItems"))}</div>`;
+      content = `<div class="state"><div>${escapeHtml(text(this._hass, "noItems"))}</div><button class="text-button" id="clear-filters">${escapeHtml(text(this._hass, "clearFilters"))}</button></div>`;
     } else {
       content = visible.map((event) => this._renderEvent(event)).join("");
     }

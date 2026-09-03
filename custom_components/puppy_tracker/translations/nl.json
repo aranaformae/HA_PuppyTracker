@@ -74,7 +74,7 @@
       },
       "import_data": {
         "title": "Puppy Tracker-data importeren / herstellen",
-        "description": "Upload een Puppy Tracker JSON-back-up. Er wordt niets gewijzigd voordat validatie, voorvertoning en expliciete bevestiging zijn afgerond.",
+        "description": "Upload een Puppy Tracker JSON-back-up. Er wordt niets gewijzigd voordat validatie, voorvertoning en expliciete bevestiging zijn afgerond. Exporteer eerst een actuele volledige back-up als je alle data wilt vervangen.",
         "data": {
           "backup_file": "JSON-back-upbestand"
         }

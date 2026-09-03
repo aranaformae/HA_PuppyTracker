@@ -1,5 +1,27 @@
 export const DOMAIN = "puppy_tracker";
 
+const CARD_STATE_PREFIX = "puppy_tracker.card_state.";
+
+export function loadCardState(card, defaults = {}) {
+  const key = `${CARD_STATE_PREFIX}${card?.tagName?.toLowerCase() || "card"}`;
+  try {
+    const stored = window.localStorage?.getItem(key);
+    const parsed = stored ? JSON.parse(stored) : {};
+    return parsed && typeof parsed === "object" ? { ...defaults, ...parsed } : { ...defaults };
+  } catch (_error) {
+    return { ...defaults };
+  }
+}
+
+export function saveCardState(card, state) {
+  const key = `${CARD_STATE_PREFIX}${card?.tagName?.toLowerCase() || "card"}`;
+  try {
+    window.localStorage?.setItem(key, JSON.stringify(state));
+  } catch (_error) {
+    // Private browsing and storage quotas must not affect card operation.
+  }
+}
+
 const CARD_TRANSLATIONS = {
   en: {
     add: "Add",
@@ -75,6 +97,7 @@ const CARD_TRANSLATIONS = {
     noDossierItemsCanAdd: " Add the first item.",
     noDossierItemsInCategories: "No dossier items within the selected categories.",
     noItemsToShow: "No items to show.",
+    clearFilters: "Clear filters",
     noLitter: "No litter",
     noProfileNote: "No profile note yet.",
     noProfileNoteCanAdd: " Tap the pencil to add one.",
@@ -214,6 +237,7 @@ const CARD_TRANSLATIONS = {
     noDossierItemsCanAdd: " Voeg de eerste vermelding toe.",
     noDossierItemsInCategories: "Geen dossieritems binnen de geselecteerde categorieen.",
     noItemsToShow: "Geen items om te tonen.",
+    clearFilters: "Filters wissen",
     noLitter: "Geen nest",
     noProfileNote: "Nog geen profielnotitie.",
     noProfileNoteCanAdd: " Tik op het potlood om er een toe te voegen.",

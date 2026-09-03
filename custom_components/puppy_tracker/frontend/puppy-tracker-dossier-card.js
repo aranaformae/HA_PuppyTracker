@@ -7,9 +7,11 @@ import {
   fetchRecords,
   formatDateTime,
   languageForHass,
+  loadCardState,
   localize,
   restoreDossierRecord,
   selectDefaultLitter,
+  saveCardState,
   subscribeUpdates,
   updateDossierRecord,
   updateProfileNote,
@@ -146,6 +148,11 @@ class PuppyTrackerDossierCard extends HTMLElement {
     this._refreshDeferred = false;
     this._editor = null;
     this._profileEditing = false;
+    this._state = loadCardState(this, { owner: "__litter__", showDeleted: false, categories: null });
+    this._showDeleted = Boolean(this._state.showDeleted);
+    this.__dossierCategoryFilters = Array.isArray(this._state.categories)
+      ? new Set(this._state.categories)
+      : null;
   }
 
   static getStubConfig() {
@@ -193,12 +200,12 @@ class PuppyTrackerDossierCard extends HTMLElement {
       ...config,
     };
     this._selectedLitterId = config.litter_id || this._selectedLitterId;
-    const scope = ["all", "litter", "mother", "puppy"].includes(config.default_scope)
+    const scope = Object.hasOwn(config, "default_scope") && ["all", "litter", "mother", "puppy"].includes(config.default_scope)
       ? config.default_scope
-      : "litter";
+      : (this._state.owner && this._state.owner !== "__litter__" ? "puppy" : "litter");
     this.__allSelected = !config.puppy_id && scope === "all";
     this.__motherSelected = !config.puppy_id && scope === "mother";
-    this._selectedPuppyId = config.puppy_id || (scope === "puppy" ? this._selectedPuppyId : null);
+    this._selectedPuppyId = config.puppy_id || (scope === "puppy" ? this._state.owner : null);
     this._render();
   }
 
@@ -331,6 +338,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
   async _selectLitter(litterId) {
     this._selectedLitterId = litterId;
     this._selectedPuppyId = null;
+    this._persistState();
     this._editor = null;
     this._profileEditing = false;
     this._status = "";
@@ -349,6 +357,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
 
   async _selectOwner(value) {
     this._selectedPuppyId = value === "__litter__" ? null : value;
+    this._persistState();
     this._editor = null;
     this._profileEditing = false;
     this._status = "";
@@ -533,7 +542,23 @@ class PuppyTrackerDossierCard extends HTMLElement {
       else current.add(type);
       this.__dossierCategoryFilters = current;
     }
+    this._persistState();
     this._render();
+  }
+
+  _clearCategoryFilters() {
+    this.__dossierCategoryFilters = null;
+    this._persistState();
+    this._render();
+  }
+
+  _persistState() {
+    saveCardState(this, {
+      ...this._state,
+      owner: this._selectedPuppyId || "__litter__",
+      showDeleted: this._showDeleted,
+      categories: this.__dossierCategoryFilters ? [...this.__dossierCategoryFilters] : null,
+    });
   }
 
   async _saveRecord() {
@@ -855,11 +880,12 @@ class PuppyTrackerDossierCard extends HTMLElement {
           ${this._canManage ? `<label class="toggle"><input id="show-deleted" type="checkbox" ${this._showDeleted ? "checked" : ""}> ${escapeHtml(localize(this._hass, "showDeleted"))}</label>` : ""}
         </div>
         ${this._renderCategoryFilters(availableCategoryTypes, selectedCategoryTypes)}
-        ${this._loading ? `<div class="empty">${escapeHtml(localize(this._hass, "loading"))}</div>` : records.length ? (visibleRecords.length ? `<div class="timeline">${visibleRecords.map((record) => this._renderRecord(record)).join("")}</div>` : `<div class="empty">${escapeHtml(localize(this._hass, "noDossierItemsInCategories"))}</div>`) : `<div class="empty">${escapeHtml(localize(this._hass, "noDossierItems", { owner: ownerName }))}${this._canManage ? escapeHtml(localize(this._hass, "noDossierItemsCanAdd")) : ""}</div>`}
+        ${this._loading ? `<div class="empty">${escapeHtml(localize(this._hass, "loading"))}</div>` : records.length ? (visibleRecords.length ? `<div class="timeline">${visibleRecords.map((record) => this._renderRecord(record)).join("")}</div>` : `<div class="empty"><div>${escapeHtml(localize(this._hass, "noDossierItemsInCategories"))}</div><button type="button" class="text-button" id="clear-category-filters">${escapeHtml(localize(this._hass, "clearFilters"))}</button></div>`) : `<div class="empty">${escapeHtml(localize(this._hass, "noDossierItems", { owner: ownerName }))}${this._canManage ? escapeHtml(localize(this._hass, "noDossierItemsCanAdd")) : ""}</div>`}
       </ha-card>`;
 
     this.shadowRoot.getElementById("litter-select")?.addEventListener("change", (event) => this._selectLitter(event.target.value));
     this.shadowRoot.getElementById("owner-select")?.addEventListener("change", (event) => this._selectOwner(event.target.value));
+    this.shadowRoot.getElementById("clear-category-filters")?.addEventListener("click", () => this._clearCategoryFilters());
     this.shadowRoot.getElementById("add-record")?.addEventListener("click", () => this._startAdd());
     this.shadowRoot.getElementById("record-cancel")?.addEventListener("click", async () => {
       this._editor = null;
@@ -887,6 +913,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
     this.shadowRoot.getElementById("profile-save")?.addEventListener("click", () => this._saveProfileNote());
     this.shadowRoot.getElementById("show-deleted")?.addEventListener("change", async (event) => {
       this._showDeleted = Boolean(event.target.checked);
+      this._persistState();
       this._loading = true;
       this._render();
       try {

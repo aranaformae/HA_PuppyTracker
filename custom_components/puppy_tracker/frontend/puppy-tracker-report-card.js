@@ -5,7 +5,9 @@ import {
   fetchLitterData,
   fetchLitters,
   filterMeasurements,
+  loadCardState,
   rangeToHours,
+  saveCardState,
   selectDefaultLitter,
   subscribeUpdates,
 } from "./puppy-tracker-card-common.js";
@@ -28,6 +30,9 @@ class PuppyTrackerReportCard extends HTMLElement {
     this._subscriptionPending = false;
     this._refreshing = false;
     this._refreshAgain = false;
+    this._state = loadCardState(this, { range: "all", puppyId: "all" });
+    this._range = this._state.range || "all";
+    this._selectedPuppyId = this._state.puppyId || "all";
   }
 
   static getStubConfig() {
@@ -56,7 +61,7 @@ class PuppyTrackerReportCard extends HTMLElement {
   setConfig(config) {
     this._config = { title: "Rapport & export", default_range: "all", ...config };
     this._selectedLitterId = config.litter_id || this._selectedLitterId;
-    this._range = config.default_range || this._range;
+    this._range = Object.hasOwn(config, "default_range") ? (config.default_range || "all") : (this._state.range || this._range);
     this._render();
   }
 
@@ -167,6 +172,10 @@ class PuppyTrackerReportCard extends HTMLElement {
     return filterMeasurements(puppy.measurements || [], rangeToHours(this._range));
   }
 
+  _persistState() {
+    saveCardState(this, { ...this._state, range: this._range, puppyId: this._selectedPuppyId });
+  }
+
   async _export(format) {
     if (!this._hass || !this._selectedLitterId) return;
     this._status = `${format.toUpperCase()} voorbereiden…`;
@@ -215,8 +224,8 @@ class PuppyTrackerReportCard extends HTMLElement {
       </ha-card>`;
 
     this.shadowRoot.getElementById("litter")?.addEventListener("change", async (e) => { this._selectedLitterId = e.target.value; this._selectedPuppyId = "all"; await this._loadData(); });
-    this.shadowRoot.getElementById("puppy")?.addEventListener("change", (e) => { this._selectedPuppyId = e.target.value; this._render(); });
-    this.shadowRoot.getElementById("range")?.addEventListener("change", (e) => { this._range = e.target.value; this._render(); });
+    this.shadowRoot.getElementById("puppy")?.addEventListener("change", (e) => { this._selectedPuppyId = e.target.value; this._persistState(); this._render(); });
+    this.shadowRoot.getElementById("range")?.addEventListener("change", (e) => { this._range = e.target.value; this._persistState(); this._render(); });
     this.shadowRoot.getElementById("pdf")?.addEventListener("click", () => this._export("pdf"));
     this.shadowRoot.getElementById("csv")?.addEventListener("click", () => this._export("csv"));
     this.shadowRoot.getElementById("json")?.addEventListener("click", () => this._export("json"));

@@ -4,6 +4,8 @@ import {
   fetchLitterData,
   fetchLitters,
   languageForHass,
+  loadCardState,
+  saveCardState,
   selectDefaultLitter,
   subscribeUpdates,
 } from "./puppy-tracker-card-common.js";
@@ -123,6 +125,7 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
     this._refreshing = false;
     this._refreshAgain = false;
     this._refreshDeferred = false;
+    this._state = loadCardState(this, { recentOwners: {} });
   }
 
   static getStubConfig() {
@@ -291,6 +294,7 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
   }
 
   _selectOwner(value) {
+    if (this._draft?.presetId) this._rememberOwner(this._draft.presetId, value);
     this._selectedPuppyId = value === "__litter__" ? null : value;
     this._draft = null;
     this._status = "";
@@ -299,6 +303,10 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
 
   _startPreset(presetId) {
     const preset = PRESETS.find((item) => item.id === presetId) || PRESETS[0];
+    const remembered = this._state.recentOwners?.[preset.id];
+    if (!this._draft && remembered && (remembered === "__litter__" || this._puppies.some((puppy) => puppy.id === remembered))) {
+      this._selectedPuppyId = remembered === "__litter__" ? null : remembered;
+    }
     this._draft = {
       presetId: preset.id,
       occurred_at: this._draft?.occurred_at || toLocalDateTimeInput(),
@@ -308,6 +316,12 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
     this._status = "";
     this._render();
     queueMicrotask(() => this.shadowRoot?.getElementById("quick-note")?.focus());
+  }
+
+  _rememberOwner(presetId, ownerValue) {
+    if (!presetId) return;
+    this._state.recentOwners = { ...(this._state.recentOwners || {}), [presetId]: ownerValue || "__litter__" };
+    saveCardState(this, this._state);
   }
 
   _captureDraft() {
@@ -332,6 +346,7 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
     if (!this._draft || !this._hass || !this._selectedLitterId || this._saving) return;
     this._captureDraft();
     const preset = PRESETS.find((item) => item.id === this._draft.presetId) || PRESETS[0];
+    this._rememberOwner(preset.id, this._selectedPuppyId || "__litter__");
     const occurredAt = toIsoTimestamp(this._draft.occurred_at);
     const note = String(this._draft.note || "").trim();
 
