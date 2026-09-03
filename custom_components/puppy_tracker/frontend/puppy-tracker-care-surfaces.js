@@ -12,7 +12,11 @@ function openItems(card) {
 }
 
 function isTodayItem(item) {
-  return item?.status === "due_today" || Number(item?.days_until_due) === 0;
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  return String(item?.scheduled_date || "") === today
+    || item?.status === "due_today"
+    || Number(item?.days_until_due) === 0;
 }
 
 function statusText(card, item) {
