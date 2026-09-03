@@ -35,6 +35,7 @@ function patchQuickLog() {
   const originalRender = Card.prototype._render;
 
   Card.prototype._selectOwner = function (value) {
+    this.__quickLogOwner = value;
     if (value !== MOTHER_VALUE) {
       this.__motherSelected = false;
       return originalSelectOwner.call(this, value);
@@ -48,7 +49,11 @@ function patchQuickLog() {
   };
 
   Card.prototype._saveQuickLog = async function () {
-    const selectedOwner = this.shadowRoot?.getElementById("owner-select")?.value;
+    // Use the event-backed owner selection. Temperature rendering can rebuild
+    // the select after the user chose the mother, which otherwise falls back
+    // to the litter option before the save handler runs.
+    const selectedOwner = this.__quickLogOwner
+      || this.shadowRoot?.getElementById("owner-select")?.value;
     const motherSelected = this.__motherSelected || selectedOwner === MOTHER_VALUE;
     if (!motherSelected) return originalSave.call(this);
     if (!this._draft || !this._hass || !this._selectedLitterId || this._saving) return;
@@ -133,7 +138,12 @@ function patchQuickLog() {
         option.textContent = `${copy(this, "Moederhond", "Mother")} · ${name}`;
         select.insertBefore(option, select.options[1] || null);
       }
-      if (this.__motherSelected) select.value = MOTHER_VALUE;
+      if (this.__motherSelected) {
+        select.value = MOTHER_VALUE;
+        this.__quickLogOwner = MOTHER_VALUE;
+      } else if (this.__quickLogOwner && this.__quickLogOwner !== MOTHER_VALUE) {
+        select.value = this.__quickLogOwner;
+      }
     }
     return result;
   };

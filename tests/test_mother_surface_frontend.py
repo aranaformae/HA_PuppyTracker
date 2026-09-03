@@ -31,6 +31,8 @@ def test_quick_log_supports_mother_records_including_temperature() -> None:
     assert 'temperature: "temperature"' in source
     assert 'data.temperature_c = temperature' in source
     assert 'option.textContent = `${copy(this, "Moederhond", "Mother")} · ${name}`' in source
+    assert "this.__quickLogOwner = value" in source
+    assert "const selectedOwner = this.__quickLogOwner" in source
 
 
 def test_timeline_supports_mother_scope_and_current_litter_records() -> None:
