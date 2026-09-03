@@ -21,6 +21,33 @@ PAGE_HEIGHT = 841.89
 MARGIN = 42.0
 CONTENT_WIDTH = PAGE_WIDTH - 2 * MARGIN
 
+_COLLAR_COLORS = {
+    "rood": (0.90, 0.22, 0.22), "red": (0.90, 0.22, 0.22),
+    "blauw": (0.12, 0.53, 0.90), "blue": (0.12, 0.53, 0.90),
+    "groen": (0.26, 0.63, 0.28), "green": (0.26, 0.63, 0.28),
+    "geel": (0.98, 0.65, 0.08), "yellow": (0.98, 0.65, 0.08),
+    "oranje": (0.98, 0.55, 0.05), "orange": (0.98, 0.55, 0.05),
+    "paars": (0.55, 0.14, 0.67), "purple": (0.55, 0.14, 0.67),
+    "roze": (0.92, 0.25, 0.48), "pink": (0.92, 0.25, 0.48),
+    "bruin": (0.47, 0.33, 0.27), "brown": (0.47, 0.33, 0.27),
+    "grijs": (0.47, 0.57, 0.65), "gray": (0.47, 0.57, 0.65), "grey": (0.47, 0.57, 0.65),
+    "zwart": (0.26, 0.26, 0.26), "black": (0.26, 0.26, 0.26),
+    "wit": (0.69, 0.75, 0.80), "white": (0.69, 0.75, 0.80),
+}
+
+
+def _collar_rgb(value: Any, index: int) -> tuple[float, float, float]:
+    """Map common collar names and hex colors to PDF RGB values."""
+    text = str(value or "").strip().lower()
+    if text in _COLLAR_COLORS:
+        return _COLLAR_COLORS[text]
+    if text.startswith("#") and len(text) == 7:
+        try:
+            return tuple(int(text[pos:pos + 2], 16) / 255 for pos in (1, 3, 5))
+        except ValueError:
+            pass
+    return ((index * 0.19 + 0.25) % 0.7 + 0.15, 0.45, 0.68)
+
 
 def _safe_filename(value: str | None) -> str:
     text = (value or "nest").strip().lower()
@@ -259,9 +286,9 @@ class _PdfReport:
             draw_row(row)
         self.y += 8
 
-    def chart(self, series: list[tuple[str, list[dict[str, Any]]]]) -> None:
+    def chart(self, series: list[tuple[str, list[dict[str, Any]], tuple[float, float, float]]]) -> None:
         points_all: list[tuple[float, float]] = []
-        for _, rows in series:
+        for _, rows, _ in series:
             for row in rows:
                 try:
                     points_all.append((timestamp_sort_key(row.get("timestamp")), float(row.get("weight"))))
@@ -290,15 +317,7 @@ class _PdfReport:
         self.text(MARGIN, chart_top - 1, _format_weight(max_w), size=7.5, gray=0.35)
         self.text(MARGIN, chart_top + chart_height - 8, _format_weight(min_w), size=7.5, gray=0.35)
 
-        palette = [
-            (0.20, 0.40, 0.65),
-            (0.30, 0.60, 0.10),
-            (0.80, 0.10, 0.10),
-            (0.45, 0.25, 0.55),
-            (0.75, 0.45, 0.08),
-            (0.05, 0.55, 0.55),
-        ]
-        for index, (name, rows) in enumerate(series):
+        for index, (name, rows, color) in enumerate(series):
             chart_points: list[tuple[float, float]] = []
             for row in rows:
                 try:
@@ -309,12 +328,11 @@ class _PdfReport:
                 x = chart_left + ((ts - min_t) / max(1.0, max_t - min_t)) * chart_width
                 top = chart_top + (1 - (weight - min_w) / max(1.0, max_w - min_w)) * chart_height
                 chart_points.append((x, top))
-            self.colored_line(chart_points, palette[index % len(palette)])
+            self.colored_line(chart_points, color)
 
         self.y = chart_top + chart_height + 12
         legend_x = MARGIN
-        for index, (name, _) in enumerate(series):
-            color = palette[index % len(palette)]
+        for index, (name, _, color) in enumerate(series):
             if legend_x + _estimate_width(name, 8) + 24 > PAGE_WIDTH - MARGIN:
                 self.y += 12
                 legend_x = MARGIN
@@ -373,12 +391,16 @@ def build_pdf_export(
     *,
     puppy_id: str | None = None,
     range_hours: float | None = None,
+    sections: dict[str, bool] | None = None,
 ) -> tuple[str, str, str]:
     """Return filename, MIME type and base64 PDF content."""
     litter = storage.get_litter(litter_id)
     if litter is None:
         raise ValueError("Unknown litter")
 
+    visible = {"summary": True, "chart": True, "measurements": True, "care": True, "attention": True}
+    if isinstance(sections, dict):
+        visible.update({key: bool(value) for key, value in sections.items() if key in visible})
     puppies: list[tuple[str, dict[str, Any]]] = []
     for current_id, puppy in litter.get("puppies", {}).items():
         if puppy.get("active", True) is False:
@@ -413,7 +435,7 @@ def build_pdf_export(
 
     warnings: list[str] = []
     summary_rows: list[list[str]] = []
-    chart_series: list[tuple[str, list[dict[str, Any]]]] = []
+    chart_series: list[tuple[str, list[dict[str, Any]], tuple[float, float, float]]] = []
     for current_id, puppy in puppies:
         rows = _active_measurements(puppy, range_hours)
         metrics = calculate_puppy_metrics(storage, litter_id, current_id)
@@ -426,7 +448,7 @@ def build_pdf_export(
         growth_birth = metrics.get("growth_birth_percent")
         growth24 = metrics.get("growth_24h_percent")
         status_label = str(metrics.get("status") or "Onbekend")
-        if metrics.get("needs_attention"):
+        if visible["attention"] and metrics.get("needs_attention"):
             warnings.append(f"{puppy.get('name') or 'Puppy'}: {status_label}")
         summary_rows.append([
             str(puppy.get("name") or "Puppy"),
@@ -438,24 +460,26 @@ def build_pdf_export(
             _format_percent(growth_birth),
             status_label,
         ])
-        chart_series.append((str(puppy.get("name") or "Puppy"), rows))
+        chart_series.append((str(puppy.get("name") or "Puppy"), rows, _collar_rgb(puppy.get("collar_color"), len(chart_series))))
 
-    if warnings:
+    if visible["attention"] and warnings:
         report.heading("Actuele aandachtspunten", level=2)
         for warning in warnings:
             report.paragraph(f"• {warning}", size=9.5)
-    else:
+    elif visible["attention"]:
         report.paragraph("Actuele status: geen actieve waarschuwingen voor de pups in dit rapport.", size=9.5, bold=True)
         report.y += 4
 
-    report.heading("Samenvatting", level=2)
-    report.table(
-        ["Pup", "Band", "Gesl.", "Geboorte", "Huidig", "Groei 24u", "Totaal", "Status"],
-        summary_rows,
-        [76, 55, 42, 58, 55, 60, 55, 80],
-        font_size=7.4,
-    )
-    report.chart(chart_series)
+    if visible["summary"]:
+        report.heading("Samenvatting", level=2)
+        report.table(
+            ["Pup", "Band", "Gesl.", "Geboorte", "Huidig", "Groei 24u", "Totaal", "Status"],
+            summary_rows,
+            [76, 55, 42, 58, 55, 60, 55, 80],
+            font_size=7.4,
+        )
+    if visible["chart"]:
+        report.chart(chart_series)
 
     for current_id, puppy in puppies:
         report.heading(str(puppy.get("name") or "Puppy"), level=2)
@@ -481,18 +505,18 @@ def build_pdf_export(
                 str(measurement.get("kind") or "weging"),
                 str(measurement.get("note") or ""),
             ])
-        if table_rows:
+        if visible["measurements"] and table_rows:
             report.table(
                 ["Datum/tijd", "Gewicht", "Verschil", "Type", "Notitie"],
                 table_rows,
                 [105, 60, 65, 65, 186],
                 font_size=7.6,
             )
-        else:
+        elif visible["measurements"]:
             report.paragraph("Geen geldige metingen in deze periode.", size=9)
 
         care_records = _active_care_records(storage, litter_id, current_id, range_hours)
-        if care_records:
+        if visible["care"] and care_records:
             report.heading("Zorgprogrammaresultaten", level=2)
             care_rows: list[list[str]] = []
             for record in care_records:

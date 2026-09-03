@@ -1227,6 +1227,13 @@ async def websocket_integrity_check(
         vol.Required("format"): vol.In(("csv", "json", "pdf")),
         vol.Optional("puppy_id"): str,
         vol.Optional("range_hours"): vol.All(vol.Coerce(float), vol.Range(min=0, max=24 * 3650)),
+        vol.Optional("sections", default={}): {
+            vol.Optional("summary", default=True): bool,
+            vol.Optional("chart", default=True): bool,
+            vol.Optional("measurements", default=True): bool,
+            vol.Optional("care", default=True): bool,
+            vol.Optional("attention", default=True): bool,
+        },
     }
 )
 @callback
@@ -1247,6 +1254,7 @@ def websocket_export_data(
                 msg["litter_id"],
                 puppy_id=msg.get("puppy_id"),
                 range_hours=msg.get("range_hours"),
+                sections=msg.get("sections"),
             )
             encoding = "text"
         elif msg["format"] == "pdf":

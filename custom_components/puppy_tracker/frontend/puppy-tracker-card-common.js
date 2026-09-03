@@ -349,6 +349,7 @@ export async function fetchExport(hass, litterId, format, options = {}) {
   if (Number.isFinite(Number(options.range_hours)) && Number(options.range_hours) > 0) {
     message.range_hours = Number(options.range_hours);
   }
+  if (options.sections && typeof options.sections === "object") message.sections = options.sections;
   return hass.callWS(message);
 }
 
