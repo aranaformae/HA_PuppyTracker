@@ -305,6 +305,7 @@ class PuppyTrackerBackupStatusSensor(SensorEntity):
             "path": self._runtime.last_backup_path,
             "scope": self._runtime.last_backup_scope,
             "file_count": self._runtime.last_backup_count,
+            "last_error": self._runtime.last_backup_error,
         }
 
     async def async_added_to_hass(self) -> None:

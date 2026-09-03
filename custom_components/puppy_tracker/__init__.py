@@ -245,7 +245,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             measurement_id,
         )
 
-    async def handle_backup_to_file(call: ServiceCall) -> None:
+    async def _handle_backup_to_file_impl(call: ServiceCall) -> None:
         """Write an importable JSON backup inside the Home Assistant config directory."""
         scope = call.data["scope"]
         configured_path = Path(call.data["path"])
@@ -302,11 +302,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await hass.async_add_executor_job(write_backup)
         runtime.last_backup_at = datetime.now(timezone.utc).isoformat()
         runtime.last_backup_status = "ok"
+        runtime.last_backup_error = None
         runtime.last_backup_path = str(target)
         runtime.last_backup_scope = scope
         runtime.last_backup_count = len(list(target.parent.glob(f"{target.stem.rsplit('-', 2)[0]}-*.json"))) if call.data["include_timestamp"] else 1
         async_dispatcher_send(hass, SIGNAL_DASHBOARD_UPDATE)
         _LOGGER.info("Wrote Puppy Tracker %s backup to %s", scope, target)
+
+    async def handle_backup_to_file(call: ServiceCall) -> None:
+        """Run a backup and expose failures through the diagnostic sensor."""
+        try:
+            await _handle_backup_to_file_impl(call)
+        except Exception as err:
+            runtime.last_backup_status = "error"
+            runtime.last_backup_error = str(err)
+            async_dispatcher_send(hass, SIGNAL_DASHBOARD_UPDATE)
+            raise
 
     for service, handler, schema in (
         (SERVICE_CREATE_LITTER, handle_create_litter, CREATE_LITTER_SCHEMA),

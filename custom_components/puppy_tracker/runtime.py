@@ -37,6 +37,7 @@ class PuppyTrackerRuntimeData:
     last_backup_path: str | None = None
     last_backup_scope: str | None = None
     last_backup_count: int | None = None
+    last_backup_error: str | None = None
 
 
 def reconcile_dashboard_selection(

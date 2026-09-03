@@ -75,6 +75,8 @@ action:
 
 `keep_last` is optional and only applies when `include_timestamp` is `true`. It retains the newest number of timestamped files matching the configured filename and removes older matching backups; unrelated files in the directory are left untouched.
 
+The diagnostic sensor `sensor.puppy_tracker_laatste_backup` changes to `ok` after a successful backup or `error` after a failed attempt. The attributes `last_backup_at`, `path`, `scope`, `file_count` and `last_error` can be used by automations for monitoring.
+
 ## Import safety model
 
 Every import follows the same sequence:
