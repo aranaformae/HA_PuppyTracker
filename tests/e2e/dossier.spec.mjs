@@ -109,6 +109,18 @@ async function mountDossier(page, { compact = false } = {}) {
           return { record: clone(records[index]) };
         }
 
+        if (message.type === "puppy_tracker/record/change_owner") {
+          const record = records.find((item) => item.id === message.record_id);
+          if (!record) throw new Error("Record not found");
+          if ((record.puppy_id || null) !== (message.source_puppy_id || null)) {
+            throw new Error("Record owner mismatch");
+          }
+          record.puppy_id = message.target_puppy_id || null;
+          record.scope = record.puppy_id ? "puppy" : "litter";
+          record.updated_at = new Date().toISOString();
+          return { record: clone(record) };
+        }
+
         if (message.type === "puppy_tracker/record/delete") {
           const record = records.find((item) => item.id === message.record_id);
           if (!record) throw new Error("Record not found");
@@ -257,6 +269,31 @@ test("dossier hides internal care program identifiers", async ({ page }) => {
   await expect(card.getByText("Care result", { exact: true })).toHaveCount(0);
   await expect(card.getByText("2251b89c-0f0d-47e0-bcba-abe69e91e773", { exact: true })).toHaveCount(0);
   await expect(card.getByText("internal-ref", { exact: true })).toHaveCount(0);
+});
+
+test("dossier can change a record owner and keeps the record identity", async ({ page }) => {
+  const dialogs = [];
+  page.on("dialog", async (dialog) => {
+    dialogs.push(dialog.message());
+    await dialog.accept("0");
+  });
+  const card = await mountDossier(page);
+
+  await card.locator("#add-record").click();
+  await card.locator("#record-title").fill("Move me");
+  await card.locator("#record-note").fill("Owner transfer");
+  await card.locator("#record-save").click();
+  const recordId = await page.evaluate(() => window.__dossierRecords.at(-1).id);
+
+  await card.locator(".move-record").first().click();
+  await expect(card.getByText("Owner transfer", { exact: true })).toHaveCount(0);
+  await card.locator("#owner-select").selectOption("__litter__");
+  await expect(card.getByText("Move me", { exact: true })).toBeVisible();
+
+  const moveCall = await page.evaluate(() => window.__dossierCalls.find((call) => call.type === "puppy_tracker/record/change_owner"));
+  expect(moveCall).toMatchObject({ record_id: recordId, source_puppy_id: "p1" });
+  expect(moveCall).not.toHaveProperty("target_puppy_id");
+  expect(dialogs[0]).toContain("0: Luna x Dutch");
 });
 
 test("dossier localizes temperature record labels", async ({ page }) => {

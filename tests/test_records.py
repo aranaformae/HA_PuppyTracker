@@ -199,6 +199,40 @@ async def test_litter_and_puppy_records_remain_separate(storage, install_litter)
     assert puppy_records[0]["puppy_id"] == puppy_id
 
 
+@pytest.mark.asyncio
+async def test_change_record_owner_moves_record_atomically_and_audits(storage, install_litter) -> None:
+    litter_id, puppy_id = install_litter()
+    record_id = await storage.async_add_record(
+        litter_id,
+        record_type="temperature",
+        note="38.4",
+    )
+
+    moved = await storage.async_change_record_owner(
+        litter_id,
+        record_id,
+        target_puppy_id=puppy_id,
+    )
+
+    assert moved["id"] == record_id
+    assert moved["puppy_id"] == puppy_id
+    assert storage.get_record(litter_id, record_id) is None
+    assert storage.get_record(litter_id, record_id, puppy_id)["note"] == "38.4"
+    assert storage._data["audit_log"][-1]["action"] == "change_record_owner"
+
+    await storage.async_change_record_owner(
+        litter_id,
+        record_id,
+        source_puppy_id=puppy_id,
+        target_puppy_id=None,
+    )
+    assert storage.get_record(litter_id, record_id, puppy_id) is None
+    assert storage.get_record(litter_id, record_id)["puppy_id"] is None
+
+    with pytest.raises(ValueError, match="already belongs"):
+        await storage.async_change_record_owner(litter_id, record_id, target_puppy_id=None)
+
+
 def test_legacy_notes_migrate_to_profile_note_and_record_containers(storage, install_litter) -> None:
     litter_id, puppy_id = install_litter(
         puppy_overrides={"notes": "Rustige pup", "profile_note": None},
