@@ -161,6 +161,7 @@ test("supports all planned bulk care record types", async ({ page }) => {
     options.map((option) => option.value)
   );
   expect(values).toEqual([
+    "temperature",
     "deworming",
     "vaccination",
     "test",
