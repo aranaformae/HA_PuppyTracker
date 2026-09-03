@@ -159,7 +159,7 @@ Puppy Tracker automatically registers its frontend modules. A full browser refre
 | Today | `custom:puppy-tracker-today-card` | Daily weighing progress and today’s care activity |
 | Attention | `custom:puppy-tracker-attention-card` | Weight, recurring-reminder and age-based care attention |
 | Litter | `custom:puppy-tracker-litter-card` | Puppy/litter overview |
-| Report | `custom:puppy-tracker-report-card` | Reports and CSV/JSON/PDF export, including care-program results |
+| Report | `custom:puppy-tracker-report-card` | Reports and CSV/importable litter JSON/PDF export, including care-program results |
 | Dossier | `custom:puppy-tracker-dossier-card` | Litter, mother and puppy dossier records |
 | Quick Log | `custom:puppy-tracker-quick-log-card` | Fast litter/mother/puppy care logging |
 | Bulk Dossier | `custom:puppy-tracker-bulk-dossier-card` | Add one event to multiple puppies |

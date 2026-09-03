@@ -9,6 +9,7 @@ import json
 from datetime import datetime, timezone
 
 from custom_components.puppy_tracker import api, pdf_export
+from custom_components.puppy_tracker.backup import parse_export_json
 
 
 NOW = datetime(2026, 8, 30, 12, 0, tzinfo=timezone.utc)
@@ -114,9 +115,12 @@ def test_json_preserves_full_measurement_history_and_litter_audit(
 
     _filename, mime, content = api._json_export(storage, litter_id)
     document = json.loads(content)
+    parse_export_json(content)
 
     measurements = document["litter"]["puppies"][puppy_id]["measurements"]
     assert mime == "application/json;charset=utf-8"
+    assert document["export_version"] == 5
+    assert document["scope"] == "litter"
     assert {item["id"] for item in measurements} == {"old", "new"}
     assert document["audit_log"] == [
         {"action": "correct_measurement", "litter_id": litter_id}

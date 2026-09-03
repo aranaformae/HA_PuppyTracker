@@ -42,6 +42,7 @@ async def async_apply_mother_import(
         "mother_id": result["mother_id"],
         "mode": result["mode"],
         "records": result["imported_records"],
+        "audit_entries": result["imported_audit_entries"],
         "litters": len(set(result["litter_map"].values())),
         "puppies": 0,
         "measurements": 0,

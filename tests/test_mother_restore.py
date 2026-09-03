@@ -53,6 +53,22 @@ def _document() -> dict:
             {"id": "litter-1", "name": "Nest A"},
             {"id": "source-litter-2", "name": "Nest B"},
         ],
+        "audit_log": [
+            {
+                "id": "audit-a",
+                "action": "add_mother_record",
+                "litter_id": "litter-1",
+                "record_id": "record-a",
+                "details": {"mother_id": "source-mother"},
+            },
+            {
+                "id": "audit-b",
+                "action": "add_mother_record",
+                "litter_id": "source-litter-2",
+                "record_id": "record-b",
+                "details": {"mother_id": "source-mother"},
+            },
+        ],
     }
 
 
@@ -151,6 +167,12 @@ def test_merge_import_keeps_existing_records_and_remaps_imported_ids() -> None:
     assert {record["id"] for record in imported[1:]} .isdisjoint({"record-a", "record-b", "existing"})
     assert [record["litter_id"] for record in imported[1:]] == ["litter-1", "litter-2"]
     assert result["data"]["mothers"]["mother-1"]["profile_note"] == "Lokaal profiel"
+    imported_audit = result["data"]["audit_log"][:2]
+    assert len(imported_audit) == 2
+    assert {item["litter_id"] for item in imported_audit} == {"litter-1", "litter-2"}
+    assert all(item["id"] not in {"audit-a", "audit-b"} for item in imported_audit)
+    assert all(item["details"]["mother_id"] == "mother-1" for item in imported_audit)
+    assert all(item["record_id"] in {record["id"] for record in imported[1:]} for item in imported_audit)
 
 
 def test_new_profile_import_uses_clear_unique_name_and_links_unowned_litters() -> None:

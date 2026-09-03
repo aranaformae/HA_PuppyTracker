@@ -184,7 +184,7 @@ class PuppyTrackerReportCard extends HTMLElement {
           : {}
       );
       downloadExportFile(result);
-      this._status = format === "json" ? "Volledige JSON-backup gedownload." : format === "pdf" ? "PDF-rapport gedownload." : "CSV gedownload.";
+      this._status = format === "json" ? "JSON-nestback-up gedownload." : format === "pdf" ? "PDF-rapport gedownload." : "CSV gedownload.";
     } catch (err) {
       this._status = err?.message || "Export mislukt.";
     }
@@ -210,8 +210,8 @@ class PuppyTrackerReportCard extends HTMLElement {
       ${this._error ? `<div class="error">${escapeHtml(this._error)}</div>` : `
       <div class="controls"><div class="field"><label>Nest</label><select id="litter">${litterOptions}</select></div><div class="field"><label>Selectie</label><select id="puppy">${puppyOptions}</select></div><div class="field"><label>Periode</label><select id="range"><option value="24h" ${this._range === "24h" ? "selected" : ""}>24 uur</option><option value="3d" ${this._range === "3d" ? "selected" : ""}>3 dagen</option><option value="7d" ${this._range === "7d" ? "selected" : ""}>7 dagen</option><option value="14d" ${this._range === "14d" ? "selected" : ""}>14 dagen</option><option value="30d" ${this._range === "30d" ? "selected" : ""}>30 dagen</option><option value="all" ${this._range === "all" ? "selected" : ""}>Alles</option></select></div></div>
       <div class="preview"><div class="box"><span>Pups</span><b>${selected.length}</b></div><div class="box"><span>Metingen</span><b>${measurementCount}</b></div><div class="box"><span>Actuele aandacht</span><b>${warnings}</b></div></div>
-      <div class="actions"><button id="pdf">PDF downloaden</button><button class="secondary" id="csv">CSV</button><button class="secondary" id="json">JSON-backup</button></div>
-      <div class="status">${escapeHtml(this._status)}</div><div class="note">PDF en CSV volgen de gekozen pup en periode. JSON blijft bewust een volledige nestbackup inclusief correctie- en verwijderhistorie.</div>`}
+      <div class="actions"><button id="pdf">PDF downloaden</button><button class="secondary" id="csv">CSV</button><button class="secondary" id="json">JSON-nestback-up</button></div>
+      <div class="status">${escapeHtml(this._status)}</div><div class="note">PDF en CSV volgen de gekozen pup en periode. JSON is een importeerbare nestback-up inclusief correctie- en verwijderhistorie.</div>`}
       </ha-card>`;
 
     this.shadowRoot.getElementById("litter")?.addEventListener("change", async (e) => { this._selectedLitterId = e.target.value; this._selectedPuppyId = "all"; await this._loadData(); });

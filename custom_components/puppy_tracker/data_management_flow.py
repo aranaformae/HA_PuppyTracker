@@ -292,6 +292,11 @@ class PuppyTrackerDataManagementMixin:
                 "puppies": str(description["puppies"]),
                 "measurements": str(description["measurements"]),
                 "records": str(description["records"]),
+                "audit_entries": str(description["audit_entries"]),
+                "scheduler_programs": str(description["scheduler_programs"]),
+                "scheduler_reminders": str(description["scheduler_reminders"]),
+                "export_version": str(description["export_version"]),
+                "schema_version": str(description["schema_version"]),
             },
             data_schema=vol.Schema(
                 {
@@ -407,8 +412,24 @@ class PuppyTrackerDataManagementMixin:
                 "puppies": str(summary["puppies"]),
                 "measurements": str(summary["measurements"]),
                 "records": str(summary["records"]),
+                "audit_entries": str(summary.get("audit_entries", 0)),
+                "scheduler_programs": str(summary.get("scheduler_programs", 0)),
+                "scheduler_reminders": str(summary.get("scheduler_reminders", 0)),
                 "warnings": str(summary.get("integrity_warnings", 0)),
                 "replace": "yes" if summary.get("replaces_all") else "no",
+                "target": str(
+                    summary.get("target_litter_name")
+                    or (
+                        "All current Puppy Tracker data"
+                        if summary.get("replaces_all")
+                        else "New litter"
+                    )
+                ),
+                "id_policy": (
+                    "preserved"
+                    if summary.get("id_policy") == "preserve"
+                    else "newly generated"
+                ),
             },
             data_schema=vol.Schema(
                 {
@@ -497,6 +518,7 @@ class PuppyTrackerDataManagementMixin:
                 "puppies": str(result.get("puppies", 0)),
                 "measurements": str(result.get("measurements", 0)),
                 "records": str(result.get("records", 0)),
+                "audit_entries": str(result.get("audit_entries", 0)),
             },
             data_schema=vol.Schema({}),
         )

@@ -54,6 +54,20 @@
           "puppy": "Puppy"
         }
       },
+      "export_mother": {
+        "title": "Moederdossier exporteren",
+        "description": "Kies het moederprofiel dat je wilt exporteren.",
+        "data": {
+          "mother_id": "Moederhond"
+        }
+      },
+      "export_mother_filter": {
+        "title": "Moederhistorie kiezen",
+        "description": "Kies alle gekoppelde nesten of één nestcontext voor de moederdossierexport.",
+        "data": {
+          "context": "Historiebereik"
+        }
+      },
       "export_ready": {
         "title": "Back-up gereed",
         "description": "[JSON-back-up downloaden]({download_url})\n\nDeze ondertekende downloadlink verloopt na 10 minuten en wordt niet in `/www` opgeslagen."
@@ -67,7 +81,7 @@
       },
       "import_mode": {
         "title": "Importmodus kiezen",
-        "description": "Gevalideerde back-up: **{source}** — {litters} nest(en), {puppies} puppy('s), {measurements} meetversies en {records} dossierrecords. Gedeeltelijke imports krijgen altijd nieuwe identifiers.",
+        "description": "Gevalideerde back-up: **{source}** — {litters} nest(en), {puppies} puppy('s), {measurements} meetversies, {records} dossierrecords en {audit_entries} auditregels. Formaat v{export_version}, opslagschema v{schema_version}. Plannerdata: {scheduler_programs} zorgprogramma's en {scheduler_reminders} herhalende herinneringen.",
         "data": {
           "mode": "Importmodus"
         }
@@ -81,14 +95,18 @@
       },
       "import_preview": {
         "title": "Herstelvoorvertoning controleren",
-        "description": "De dry-run voor **{source}** is geslaagd: {litters} nest(en), {puppies} puppy('s), {measurements} meetversies en {records} dossierrecords. Integriteitswaarschuwingen: {warnings}. Er is nog niets gewijzigd. Een volledige vervanging gebeurt alleen als je die modus in de vorige stap expliciet hebt gekozen.",
+        "description": "De dry-run voor **{source}** is geslaagd: {litters} nest(en), {puppies} puppy('s), {measurements} meetversies, {records} dossierrecords en {audit_entries} auditregels. Plannerdata: {scheduler_programs} zorgprogramma's en {scheduler_reminders} herhalende herinneringen. Doel: **{target}**. ID's worden {id_policy}. Integriteitswaarschuwingen: {warnings}. Er is nog niets gewijzigd. Een volledige vervanging gebeurt alleen als je die modus in de vorige stap expliciet hebt gekozen.",
         "data": {
           "confirm": "Ik heb deze voorvertoning gecontroleerd en wil de import uitvoeren"
         }
       },
       "import_complete": {
         "title": "Import voltooid",
-        "description": "Import van **{source}** voltooid: {litters} nest(en), {puppies} puppy('s), {measurements} meetversies en {records} dossierrecords zijn verwerkt."
+        "description": "Import van **{source}** voltooid: {litters} nest(en), {puppies} puppy('s), {measurements} meetversies, {records} dossierrecords en {audit_entries} auditregels zijn verwerkt."
+      },
+      "import_mother_litters": {
+        "title": "Moeder-nestcontexten koppelen",
+        "description": "De bronback-up verwijst naar nestcontexten die hier niet op ID zijn gevonden. Kies voor elke broncontext het lokale nest voordat je verdergaat."
       },
       "create_litter": {
         "title": "Nest aanmaken",
@@ -373,7 +391,8 @@
       "options": {
         "full": "Volledige Puppy Tracker-back-up",
         "litter": "Eén compleet nest",
-        "puppy": "Eén losse puppy"
+        "puppy": "Eén losse puppy",
+        "mother": "Eén moederdossier"
       }
     },
     "full_import_mode": {

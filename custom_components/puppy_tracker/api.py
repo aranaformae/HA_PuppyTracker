@@ -17,6 +17,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect, async_dis
 from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN, SIGNAL_DASHBOARD_UPDATE, SIGNAL_UPDATE
+from .backup import build_export_document
 from .measurements import measurement_status, puppy_measurements
 from .metrics import calculate_puppy_metrics
 from .pdf_export import build_pdf_export
@@ -508,29 +509,11 @@ def _csv_export(
 
 
 def _json_export(storage: PuppyTrackerStorage, litter_id: str) -> tuple[str, str, str]:
-    """Export a complete litter including correction/deletion history and audit data."""
-    litter = storage.get_litter(litter_id)
-    if litter is None:
-        raise ValueError("Unknown litter")
-
-    all_data = storage.get_data()
-    audit_log = [
-        deepcopy(item)
-        for item in all_data.get("audit_log", [])
-        if item.get("litter_id") == litter_id
-    ]
-
-    document = {
-        "export_version": 2,
-        "exported_at": dt_util.now().isoformat(),
-        "integration": DOMAIN,
-        "schema_version": all_data.get("schema_version"),
-        "litter": litter,
-        "audit_log": audit_log,
-    }
-
+    """Export one litter in the importable v5 partial-backup format."""
+    document = build_export_document(storage, scope="litter", litter_id=litter_id)
     stamp = dt_util.now().strftime("%Y%m%d-%H%M%S")
-    filename = f"puppy-tracker-{_safe_filename(litter.get('name'))}-{stamp}.json"
+    litter = document["litter"]
+    filename = f"puppy-tracker-litter-{_safe_filename(litter.get('name'))}-{stamp}.json"
     content = json.dumps(document, ensure_ascii=False, indent=2, sort_keys=False)
     return filename, "application/json;charset=utf-8", content
 

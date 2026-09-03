@@ -150,7 +150,9 @@ def validate_mother_export_document(document: Any) -> dict[str, Any]:
         if any(str(record.get("litter_id")) != str(filter_litter_id) for record in records):
             raise ValueError("Filtered mother export contains records from another litter")
 
-    if not isinstance(document.get("audit_log", []), list):
+    if not isinstance(document.get("audit_log", []), list) or any(
+        not isinstance(item, dict) for item in document.get("audit_log", [])
+    ):
         raise ValueError("Mother export audit log is invalid")
     return deepcopy(document)
 
@@ -199,6 +201,7 @@ def describe_mother_export(document: dict[str, Any]) -> dict[str, Any]:
         "mother_id": mother.get("id"),
         "litter_count": len(validated.get("linked_litters", [])),
         "record_count": len(records),
+        "audit_count": len(validated.get("audit_log", [])),
         "filter_mode": validated.get("filter", {}).get("mode", "all"),
         "schema_version": int(validated.get("schema_version", -1)),
         "export_version": int(validated.get("export_version", -1)),

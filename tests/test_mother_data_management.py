@@ -28,7 +28,8 @@ def test_mother_import_defaults_to_safe_plan_and_explicit_litter_mapping() -> No
     assert "mother_import_options" in source
     assert "plan_mother_import" in source
     assert "async_step_import_mother_litters" in source
-    assert 'mapping[source_id] = str(user_input[f"litter__{source_id}"])' in source
+    assert "_mother_litter_field_key" in source
+    assert "mapping[source_id] = str(user_input[field_keys[source_id]])" in source
     assert "async_apply_mother_import" in source
 
 

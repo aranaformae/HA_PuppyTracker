@@ -71,7 +71,7 @@ function patchReportScopes() {
       );
       downloadExportFile(result);
       this._status = format === "json"
-        ? copy(this, "Volledige JSON-backup gedownload.", "Complete JSON backup downloaded.")
+        ? copy(this, "JSON-nestback-up gedownload.", "Litter JSON backup downloaded.")
         : format === "pdf"
           ? copy(this, "PDF-rapport gedownload.", "PDF report downloaded.")
           : copy(this, "CSV gedownload.", "CSV downloaded.");

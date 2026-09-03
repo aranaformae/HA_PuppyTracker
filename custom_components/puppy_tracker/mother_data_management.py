@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import re
 from typing import Any
 
 import voluptuous as vol
@@ -29,6 +30,12 @@ class MotherDataManagementMixin:
 
     _mother_export_id: str | None = None
     _mother_import_litter_map: dict[str, str] | None = None
+
+    @staticmethod
+    def _mother_litter_field_key(index: int, source_name: str) -> str:
+        """Build a readable, unique form key for a source litter context."""
+        label = re.sub(r"[^a-zA-Z0-9]+", "_", source_name).strip("_") or "litter"
+        return f"source_litter_{index + 1}_{label[:32]}"
 
     def _mother_options(self) -> list[selector.SelectOptionDict]:
         storage = self._get_storage()
@@ -241,6 +248,9 @@ class MotherDataManagementMixin:
                 "puppies": "0",
                 "measurements": "0",
                 "records": str(preview["record_count"]),
+                "audit_entries": str(preview["audit_count"]),
+                "export_version": str(preview["export_version"]),
+                "schema_version": str(preview["schema_version"]),
             },
             data_schema=vol.Schema(
                 {
@@ -269,10 +279,13 @@ class MotherDataManagementMixin:
 
         unresolved = plan.get("unresolved_litters", [])
         fields: dict[Any, Any] = {}
-        for item in unresolved:
+        field_keys: dict[str, str] = {}
+        for index, item in enumerate(unresolved):
             source_id = str(item["source_litter_id"])
             source_name = str(item.get("source_litter_name") or source_id)
-            fields[vol.Required(f"litter__{source_id}")] = selector.SelectSelector(
+            field_key = self._mother_litter_field_key(index, source_name)
+            field_keys[source_id] = field_key
+            fields[vol.Required(field_key)] = selector.SelectSelector(
                 selector.SelectSelectorConfig(
                     options=litter_options,
                     mode=selector.SelectSelectorMode.DROPDOWN,
@@ -286,7 +299,7 @@ class MotherDataManagementMixin:
             }
             for item in unresolved:
                 source_id = str(item["source_litter_id"])
-                mapping[source_id] = str(user_input[f"litter__{source_id}"])
+                mapping[source_id] = str(user_input[field_keys[source_id]])
             self._mother_import_litter_map = mapping
             return await self.async_step_import_preview()
 
@@ -352,8 +365,11 @@ class MotherDataManagementMixin:
                 "puppies": "0",
                 "measurements": "0",
                 "records": str(preview["record_count"]),
+                "audit_entries": str(preview["audit_count"]),
                 "warnings": "0",
                 "replace": "no",
+                "target": "Linked litter contexts",
+                "id_policy": "newly generated record and audit IDs",
             },
             data_schema=vol.Schema(
                 {vol.Required("confirm", default=False): selector.BooleanSelector()}

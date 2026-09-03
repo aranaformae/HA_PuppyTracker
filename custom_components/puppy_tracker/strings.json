@@ -54,6 +54,20 @@
           "puppy": "Puppy"
         }
       },
+      "export_mother": {
+        "title": "Export mother dossier",
+        "description": "Choose the mother profile to export.",
+        "data": {
+          "mother_id": "Mother"
+        }
+      },
+      "export_mother_filter": {
+        "title": "Choose mother history",
+        "description": "Choose all linked litters or one litter context for the mother dossier export.",
+        "data": {
+          "context": "History scope"
+        }
+      },
       "export_ready": {
         "title": "Backup ready",
         "description": "[Download JSON backup]({download_url})\n\nThis signed download link expires after 10 minutes and is not stored in `/www`."
@@ -67,7 +81,7 @@
       },
       "import_mode": {
         "title": "Choose import mode",
-        "description": "Validated backup: **{source}** — {litters} litter(s), {puppies} puppy/puppies, {measurements} measurement versions and {records} dossier records. Partial imports always receive new identifiers.",
+        "description": "Validated backup: **{source}** — {litters} litter(s), {puppies} puppy/puppies, {measurements} measurement versions, {records} dossier records and {audit_entries} audit entries. Format v{export_version}, storage schema v{schema_version}. Scheduler data: {scheduler_programs} care programs and {scheduler_reminders} recurring reminders.",
         "data": {
           "mode": "Import mode"
         }
@@ -81,14 +95,18 @@
       },
       "import_preview": {
         "title": "Review restore preview",
-        "description": "Dry-run validation succeeded for **{source}**: {litters} litter(s), {puppies} puppy/puppies, {measurements} measurement versions and {records} dossier records. Integrity warnings: {warnings}. No data has been changed yet. A full replacement only occurs if you explicitly selected that mode on the previous step.",
+        "description": "Dry-run validation succeeded for **{source}**: {litters} litter(s), {puppies} puppy/puppies, {measurements} measurement versions, {records} dossier records and {audit_entries} audit entries. Scheduler data: {scheduler_programs} care programs and {scheduler_reminders} recurring reminders. Target: **{target}**. IDs will be {id_policy}. Integrity warnings: {warnings}. No data has been changed yet. A full replacement only occurs if you explicitly selected that mode on the previous step.",
         "data": {
           "confirm": "I reviewed this preview and want to apply the import"
         }
       },
       "import_complete": {
         "title": "Import complete",
-        "description": "Import of **{source}** completed: {litters} litter(s), {puppies} puppy/puppies, {measurements} measurement versions and {records} dossier records were processed."
+        "description": "Import of **{source}** completed: {litters} litter(s), {puppies} puppy/puppies, {measurements} measurement versions, {records} dossier records and {audit_entries} audit entries were processed."
+      },
+      "import_mother_litters": {
+        "title": "Map mother litter contexts",
+        "description": "The source backup refers to litter contexts that are not found by ID here. Select the local litter for each source context before continuing."
       },
       "create_litter": {
         "title": "Create litter",
@@ -373,7 +391,8 @@
       "options": {
         "full": "Complete Puppy Tracker backup",
         "litter": "One complete litter",
-        "puppy": "One individual puppy"
+        "puppy": "One individual puppy",
+        "mother": "One mother dossier"
       }
     },
     "full_import_mode": {

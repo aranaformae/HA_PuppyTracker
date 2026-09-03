@@ -11,6 +11,7 @@ MOTHER_IMPORT_MERGE = "merge_existing"
 MOTHER_IMPORT_NEW = "new_profile"
 MOTHER_IMPORT_MODES = frozenset({MOTHER_IMPORT_MERGE, MOTHER_IMPORT_NEW})
 DEFAULT_MOTHER_IMPORT_MODE = MOTHER_IMPORT_MERGE
+_AUDIT_ID_FIELDS = frozenset({"litter_id", "mother_id", "record_id"})
 
 
 def _now_iso() -> str:
@@ -157,6 +158,49 @@ def _resolved_litter_map(
     return resolved
 
 
+def _remap_mother_audit(
+    value: Any,
+    *,
+    litter_map: dict[str, str],
+    mother_map: dict[str, str],
+    record_map: dict[str, str],
+    key: str | None = None,
+) -> Any:
+    """Remap ownership/reference fields in imported mother audit data."""
+    if isinstance(value, dict):
+        return {
+            item_key: _remap_mother_audit(
+                item,
+                litter_map=litter_map,
+                mother_map=mother_map,
+                record_map=record_map,
+                key=str(item_key),
+            )
+            for item_key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [
+            _remap_mother_audit(
+                item,
+                litter_map=litter_map,
+                mother_map=mother_map,
+                record_map=record_map,
+                key=key,
+            )
+            for item in value
+        ]
+    if isinstance(value, str) and key in _AUDIT_ID_FIELDS:
+        mapping = (
+            litter_map
+            if key == "litter_id"
+            else mother_map
+            if key == "mother_id"
+            else record_map
+        )
+        return mapping.get(value, value)
+    return deepcopy(value)
+
+
 def apply_mother_import(
     data: dict[str, Any],
     document: dict[str, Any],
@@ -210,6 +254,7 @@ def apply_mother_import(
             )
 
     imported_records = 0
+    record_map: dict[str, str] = {}
     for raw_record in source.get("records", []):
         if not isinstance(raw_record, dict):
             continue
@@ -218,6 +263,7 @@ def apply_mother_import(
             raise ValueError("Mother record has unresolved litter context")
         record = deepcopy(raw_record)
         record["id"] = str(uuid4())
+        record_map[str(raw_record.get("id"))] = record["id"]
         record["scope"] = "mother"
         record["mother_id"] = mother_id
         record["puppy_id"] = None
@@ -226,6 +272,21 @@ def apply_mother_import(
         record["updated_at"] = timestamp
         mother.setdefault("records", []).append(record)
         imported_records += 1
+
+    imported_audit_entries = 0
+    mother_map = {str(source.get("id")): mother_id}
+    for raw_audit in document.get("audit_log", []):
+        if not isinstance(raw_audit, dict):
+            continue
+        audit = _remap_mother_audit(
+            raw_audit,
+            litter_map=mappings,
+            mother_map=mother_map,
+            record_map=record_map,
+        )
+        audit["id"] = str(uuid4())
+        candidate["audit_log"].append(audit)
+        imported_audit_entries += 1
 
     if plan["mode"] == MOTHER_IMPORT_MERGE and not mother.get("profile_note"):
         mother["profile_note"] = source.get("profile_note")
@@ -253,9 +314,10 @@ def apply_mother_import(
                 "mother_id": mother_id,
                 "source_mother_id": source.get("id"),
                 "source_name": plan["source_name"],
-                "mode": plan["mode"],
-                "imported_records": imported_records,
-                "litter_map": deepcopy(mappings),
+        "mode": plan["mode"],
+        "imported_records": imported_records,
+        "imported_audit_entries": imported_audit_entries,
+        "litter_map": deepcopy(mappings),
             },
         }
     )

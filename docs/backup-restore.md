@@ -31,7 +31,7 @@ Before a v5 full backup is emitted, Puppy Tracker validates active scheduler ref
 
 ### One complete litter
 
-Exports one litter with all puppies, full measurement/correction history, dossier records and the audit history belonging to that litter. Global settings and scheduler stores are not included.
+Exports one litter with all puppies, full measurement/correction history, dossier records and the audit history belonging to that litter. This is an importable v5 partial backup. Global settings and scheduler stores are not included. The report card's JSON-nestback-up button produces this same format; it is not a full installation backup.
 
 ### One individual puppy
 
@@ -67,6 +67,8 @@ Every import follows the same sequence:
 If Puppy Tracker data changes after the preview but before confirmation, the import is refused. Review the import again so new measurements or dossier entries cannot be overwritten accidentally.
 
 Partial imports always receive new identifiers. Puppy, litter, measurement and dossier record UUIDs are remapped together with internal references such as `birth_measurement_id`, `source_measurement_id`, `superseded_by` and relevant audit references. Existing history is therefore never silently overwritten.
+
+Mother dossier exports follow the same explicit mapping rule for linked litter contexts. Imported mother dossier records and audit entries receive new identifiers; mother, litter and dossier-record references inside audit data are remapped to the selected local profiles and litters. Source audit history is retained as historical data, while a new import audit entry records the transfer itself.
 
 ## Coordinated full restore
 
@@ -120,7 +122,7 @@ Because merge-as-new changes litter and puppy identities, a v5 full backup conta
 
 A v5 full backup with an empty scheduler envelope can still be merged as new. A legacy v4 merge keeps the destination installation's existing scheduler stores and global care-reminder preferences.
 
-Use full replacement only for intentional disaster recovery. Use merge-as-new when both the current and backup datasets need to remain available and the backup contains no scheduler identity data that would require remapping.
+Use full replacement only for intentional disaster recovery. Use merge-as-new when both the current and backup datasets need to remain available and the backup contains no scheduler identity data that would require remapping. For a quick litter transfer, use the importable litter v5 export from the report card or Data management.
 
 ## Compatibility
 

@@ -483,6 +483,11 @@ def describe_backup(document: dict[str, Any]) -> dict[str, Any]:
     puppies = 0
     measurements = 0
     records = 0
+    audit_entries = len(
+        [item for item in document.get("audit_log", []) if isinstance(item, dict)]
+    )
+    scheduler_programs = 0
+    scheduler_reminders = 0
     source_name = ""
 
     if scope == "full":
@@ -520,6 +525,27 @@ def describe_backup(document: dict[str, Any]) -> dict[str, Any]:
         source_name = str(puppy.get("name") or "Puppy")
         measurements, records = _counts_for_puppy(puppy)
 
+    schedulers = document.get("schedulers")
+    if isinstance(schedulers, dict):
+        care_programs = schedulers.get("care_programs", {})
+        recurring_reminders = schedulers.get("recurring_reminders", {})
+        if isinstance(care_programs, dict):
+            scheduler_programs = len(
+                [
+                    item
+                    for item in care_programs.get("programs", {}).values()
+                    if isinstance(item, dict)
+                ]
+            )
+        if isinstance(recurring_reminders, dict):
+            scheduler_reminders = len(
+                [
+                    item
+                    for item in recurring_reminders.get("reminders", {}).values()
+                    if isinstance(item, dict)
+                ]
+            )
+
     return {
         "scope": scope,
         "source_name": source_name,
@@ -527,6 +553,9 @@ def describe_backup(document: dict[str, Any]) -> dict[str, Any]:
         "puppies": puppies,
         "measurements": measurements,
         "records": records,
+        "audit_entries": audit_entries,
+        "scheduler_programs": scheduler_programs,
+        "scheduler_reminders": scheduler_reminders,
         "schema_version": int(document["schema_version"]),
         "export_version": int(document["export_version"]),
     }
@@ -739,6 +768,12 @@ def prepare_import(
         "mode": mode,
         "replaces_all": False,
         "target_litter_id": target_litter_id,
+        "target_litter_name": (
+            current.get("litters", {}).get(target_litter_id, {}).get("name")
+            if target_litter_id
+            else ""
+        ),
+        "id_policy": "preserve" if scope == "full" and mode == "replace_all" else "new",
     }
 
     if scope == "full":
