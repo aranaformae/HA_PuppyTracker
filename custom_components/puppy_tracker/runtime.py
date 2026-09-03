@@ -32,6 +32,11 @@ class PuppyTrackerRuntimeData:
     weighing_session: dict[str, Any] = field(default_factory=new_session_state)
     notification_manager: PuppyNotificationManager | None = None
     recurring_notification_manager: RecurringReminderNotificationManager | None = None
+    last_backup_at: str | None = None
+    last_backup_status: str = "unknown"
+    last_backup_path: str | None = None
+    last_backup_scope: str | None = None
+    last_backup_count: int | None = None
 
 
 def reconcile_dashboard_selection(

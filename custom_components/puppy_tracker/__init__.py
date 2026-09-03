@@ -300,6 +300,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 old_backup.unlink()
 
         await hass.async_add_executor_job(write_backup)
+        runtime.last_backup_at = datetime.now(timezone.utc).isoformat()
+        runtime.last_backup_status = "ok"
+        runtime.last_backup_path = str(target)
+        runtime.last_backup_scope = scope
+        runtime.last_backup_count = len(list(target.parent.glob(f"{target.stem.rsplit('-', 2)[0]}-*.json"))) if call.data["include_timestamp"] else 1
+        async_dispatcher_send(hass, SIGNAL_DASHBOARD_UPDATE)
         _LOGGER.info("Wrote Puppy Tracker %s backup to %s", scope, target)
 
     for service, handler, schema in (

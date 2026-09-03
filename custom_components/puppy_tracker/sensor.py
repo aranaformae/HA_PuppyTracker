@@ -68,6 +68,7 @@ async def async_setup_entry(
     if not isinstance(runtime, PuppyTrackerRuntimeData):
         raise RuntimeError("Puppy Tracker runtime is unavailable")
     storage = runtime.storage
+    async_add_entities([PuppyTrackerBackupStatusSensor(hass, entry, runtime)])
 
     known_puppies: set[str] = set()
     known_litters: set[str] = set()
@@ -279,6 +280,41 @@ async def async_setup_entry(
             async_handle_new_puppy,
         )
     )
+
+
+class PuppyTrackerBackupStatusSensor(SensorEntity):
+    """Expose the latest automated backup result."""
+
+    _attr_name = "Puppy Tracker laatste backup"
+    _attr_icon = "mdi:backup-restore"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, runtime: PuppyTrackerRuntimeData) -> None:
+        self.hass = hass
+        self._runtime = runtime
+        self._attr_unique_id = f"{entry.entry_id}_last_backup"
+
+    @property
+    def native_value(self) -> str:
+        return self._runtime.last_backup_status
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {
+            "last_backup_at": self._runtime.last_backup_at,
+            "path": self._runtime.last_backup_path,
+            "scope": self._runtime.last_backup_scope,
+            "file_count": self._runtime.last_backup_count,
+        }
+
+    async def async_added_to_hass(self) -> None:
+        self.async_on_remove(
+            async_dispatcher_connect(self.hass, SIGNAL_DASHBOARD_UPDATE, self._handle_update)
+        )
+
+    @callback
+    def _handle_update(self, *args: Any) -> None:
+        self.async_write_ha_state()
 
 
 class WeighingStationSensor(
