@@ -202,6 +202,8 @@ Growth-analysis settings are managed per nest through **Manage litter**. Each ne
 
 The Overview card's detail density is configurable per card instance. `show_advanced_analysis` controls the analysis details, `show_growth_milestones` controls the milestone list and progress bars, and `show_milestone_chart_annotations` controls the chart reference/projected lines. All default to `true`. A basic card can keep the normal summary and chart while setting `show_advanced_analysis: false`; an advanced card can leave all three enabled.
 
+Milestone estimates use the configured number of recent valid growth periods, defaulting to 4 and configurable per nest from 2 to 8. The analysis reports a central estimate, an early/late date range when enough variation data exists, and a confidence label. These are monitoring estimates, not guaranteed forecasts.
+
 The Litter card also supports per-card detail density with `show_details`. It defaults to `true`; set it to `false` for a compact/basic puppy list that keeps current weight, 24-hour growth and status while hiding secondary growth columns and expandable details.
 
 ## Monitoring

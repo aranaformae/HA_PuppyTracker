@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from math import sqrt
 from typing import Any
 
 from homeassistant.util import dt as dt_util
@@ -289,11 +290,70 @@ def _measurement_cadence(series: list[tuple[datetime, dict[str, Any]]]) -> dict[
     }
 
 
+def _milestone_projection(
+    series: list[tuple[datetime, dict[str, Any]]],
+    requested_samples: int,
+) -> dict[str, Any]:
+    """Estimate a recent daily growth rate and its uncertainty context."""
+    rates: list[float] = []
+    intervals: list[float] = []
+    for (previous_time, previous), (current_time, current) in zip(series, series[1:]):
+        previous_weight = finite_number(previous.get("weight"))
+        current_weight = finite_number(current.get("weight"))
+        interval_hours = (current_time - previous_time).total_seconds() / 3600
+        if (
+            previous_weight is None
+            or current_weight is None
+            or previous_weight <= 0
+            or interval_hours < MIN_GROWTH_SAMPLE_HOURS
+        ):
+            continue
+        rates.append((current_weight - previous_weight) * 24 / interval_hours)
+        intervals.append(interval_hours)
+
+    recent = rates[-max(2, min(8, int(requested_samples))):]
+    recent_intervals = intervals[-len(recent):] if recent else []
+    positive = [rate for rate in recent if rate > 0]
+    if not recent or not positive:
+        return {
+            "daily_growth_grams": None,
+            "sample_count": len(recent),
+            "confidence_code": "insufficient_data",
+            "confidence": "Onvoldoende data",
+            "range_min_grams": None,
+            "range_max_grams": None,
+            "cadence_irregular": False,
+        }
+
+    average = sum(recent) / len(recent)
+    deviation = sqrt(sum((rate - average) ** 2 for rate in recent) / len(recent))
+    lower = max(average - deviation, average * 0.25)
+    upper = max(average + deviation, average)
+    relative_spread = deviation / average if average > 0 else 1.0
+    cadence_irregular = bool(recent_intervals) and max(recent_intervals) / min(recent_intervals) > 1.5
+    if len(recent) >= 4 and all(rate > 0 for rate in recent) and relative_spread <= 0.35 and not cadence_irregular:
+        confidence_code, confidence = "high", "Hoge betrouwbaarheid"
+    elif len(recent) >= 2:
+        confidence_code, confidence = "medium", "Redelijke betrouwbaarheid"
+    else:
+        confidence_code, confidence = "low", "Lage betrouwbaarheid"
+
+    return {
+        "daily_growth_grams": round(average, 2) if average > 0 else None,
+        "sample_count": len(recent),
+        "confidence_code": confidence_code if average > 0 else "insufficient_data",
+        "confidence": confidence if average > 0 else "Onvoldoende data",
+        "range_min_grams": round(lower, 2) if average > 0 else None,
+        "range_max_grams": round(upper, 2) if average > 0 else None,
+        "cadence_irregular": cadence_irregular,
+    }
+
+
 def _growth_milestones(
     series: list[tuple[datetime, dict[str, Any]]],
     birth_weight: float | None,
     milestone_percentages: Any,
-    daily_growth_grams: float | None,
+    projection: dict[str, Any],
     birth_time: datetime | None,
     double_weight_reference_days: int,
 ) -> dict[str, Any] | None:
@@ -313,10 +373,18 @@ def _growth_milestones(
         )
         estimated_at = None
         latest_weight = finite_number(series[-1][1].get("weight")) if series else None
+        range_start_at = None
+        range_end_at = None
+        daily_growth_grams = finite_number(projection.get("daily_growth_grams"))
+        range_min_grams = finite_number(projection.get("range_min_grams"))
+        range_max_grams = finite_number(projection.get("range_max_grams"))
         if reached_at is None and latest_weight is not None and daily_growth_grams is not None and daily_growth_grams > 0:
             remaining = target_weight - latest_weight
             if remaining > 0:
                 estimated_at = (series[-1][0] + timedelta(days=remaining / daily_growth_grams)).isoformat()
+                if range_min_grams and range_min_grams > 0 and range_max_grams and range_max_grams > 0:
+                    range_start_at = (series[-1][0] + timedelta(days=remaining / range_max_grams)).isoformat()
+                    range_end_at = (series[-1][0] + timedelta(days=remaining / range_min_grams)).isoformat()
         reference_deadline = None
         on_schedule = None
         if int(target_percent) == 200 and birth_time is not None:
@@ -329,6 +397,10 @@ def _growth_milestones(
             "reached": reached_at is not None,
             "reached_at": reached_at,
             "estimated_at": estimated_at,
+            "estimated_range_start": range_start_at,
+            "estimated_range_end": range_end_at,
+            "projection_confidence_code": projection.get("confidence_code"),
+            "projection_confidence": projection.get("confidence"),
             "reference_deadline": reference_deadline,
             "on_schedule": on_schedule,
         })
@@ -337,6 +409,7 @@ def _growth_milestones(
     return {
         "milestones": milestones,
         "next": next((item for item in milestones if not item["reached"]), None),
+        "projection": projection,
     }
 
 
@@ -475,6 +548,10 @@ def growth_analysis(
     settings = effective_growth_settings(storage, litter_id)
     series = measurement_series(storage, litter_id, puppy_id)
     growth = daily_growth_data(storage, litter_id, puppy_id)
+    projection = _milestone_projection(
+        series,
+        int(settings.get("milestone_projection_measurements", 4)),
+    )
     status = calculate_puppy_status(storage, litter_id, puppy_id)
     current = finite_number(series[-1][1].get("weight")) if series else None
     puppy = storage.get_puppy(litter_id, puppy_id) or {}
@@ -502,11 +579,12 @@ def growth_analysis(
             series,
             birth_weight,
             settings.get("growth_milestones_percent"),
-            growth["daily_change_grams"] if growth else None,
+            projection,
             birth_datetime(storage, litter_id, puppy_id),
             int(settings.get("double_weight_reference_days", DEFAULT_DOUBLE_WEIGHT_REFERENCE_DAYS)),
         ),
         "double_weight_reference_days": int(settings.get("double_weight_reference_days", DEFAULT_DOUBLE_WEIGHT_REFERENCE_DAYS)),
+        "milestone_projection": projection,
         "daily_growth_percent": growth["daily_change_percent"] if growth else None,
         "daily_growth_grams": growth["daily_change_grams"] if growth else None,
         "hours_since_weighing": status.get("hours_since_weighing"),

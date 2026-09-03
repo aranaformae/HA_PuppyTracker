@@ -139,6 +139,9 @@ def test_overview_renders_litter_weight_comparison() -> None:
     assert "projectedMilestone" in source
     assert "milestone-projection" in source
     assert "milestone-progress" in source
+    assert "estimated_range_start" in source
+    assert "milestone_projection" in source
+    assert "Onregelmatig meetinterval" in source
 
 
 def test_overview_exposes_basic_and_advanced_visibility_options() -> None:

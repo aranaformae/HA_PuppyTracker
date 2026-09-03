@@ -32,6 +32,7 @@ from .const import (
     DEFAULT_NOTIFY_ENTITIES,
     DEFAULT_RECURRING_REMINDER_NOTIFICATIONS_ENABLED,
     DEFAULT_LITTER_GROWTH_ANALYSIS,
+    DEFAULT_MILESTONE_PROJECTION_MEASUREMENTS,
     DEFAULT_GROWTH_MILESTONES_PERCENT,
     STORAGE_KEY,
     STORAGE_VERSION,
@@ -103,6 +104,17 @@ def _normalize_litter_growth_analysis(value: Any) -> dict[str, Any]:
         if not 1 <= reference_days <= 56:
             raise ValueError("Invalid litter growth setting: double_weight_reference_days")
         result["double_weight_reference_days"] = reference_days
+    raw_projection_measurements = raw.get("milestone_projection_measurements")
+    if raw_projection_measurements in (None, ""):
+        result["milestone_projection_measurements"] = DEFAULT_MILESTONE_PROJECTION_MEASUREMENTS
+    else:
+        try:
+            projection_measurements = int(float(raw_projection_measurements))
+        except (TypeError, ValueError) as err:
+            raise ValueError("Invalid litter growth setting: milestone_projection_measurements") from err
+        if not 2 <= projection_measurements <= 8:
+            raise ValueError("Invalid litter growth setting: milestone_projection_measurements")
+        result["milestone_projection_measurements"] = projection_measurements
 
     ranges = {
         "min_daily_growth_percent": (0.0, 20.0),

@@ -333,6 +333,69 @@ def test_growth_analysis_estimates_milestone_dates_and_double_weight_reference(
     assert result["growth_milestones"]["next"]["target_percent"] == 200
 
 
+def test_growth_analysis_uses_recent_growth_periods_for_projection_range(
+    monkeypatch,
+    storage,
+    install_litter,
+    make_measurement,
+) -> None:
+    _set_now(monkeypatch)
+    litter_id, puppy_id = install_litter(
+        measurements=[
+            make_measurement("birth", 400, "2026-08-30T10:00:00+00:00"),
+            make_measurement("second", 500, "2026-08-31T10:00:00+00:00"),
+            make_measurement("third", 700, "2026-09-01T10:00:00+00:00"),
+            make_measurement("latest", 850, "2026-09-02T10:00:00+00:00"),
+        ],
+        puppy_overrides={
+            "birth_weight": 400.0,
+            "birth_time": "2026-08-30T00:00:00+00:00",
+        },
+        litter_overrides={
+            "growth_analysis": {
+                "growth_milestones_percent": [400],
+                "milestone_projection_measurements": 3,
+            }
+        },
+    )
+
+    result = metrics.growth_analysis(storage, litter_id, puppy_id)
+    projection = result["milestone_projection"]
+    milestone = result["growth_milestones"]["next"]
+
+    assert projection["sample_count"] == 3
+    assert projection["daily_growth_grams"] == 150.0
+    assert projection["confidence_code"] == "medium"
+    assert milestone["estimated_at"] is not None
+    assert milestone["estimated_range_start"] is not None
+    assert milestone["estimated_range_end"] is not None
+
+
+def test_growth_analysis_marks_irregular_projection_cadence(
+    monkeypatch,
+    storage,
+    install_litter,
+    make_measurement,
+) -> None:
+    _set_now(monkeypatch)
+    litter_id, puppy_id = install_litter(
+        measurements=[
+            make_measurement("one", 400, "2026-08-30T10:00:00+00:00"),
+            make_measurement("two", 500, "2026-08-31T10:00:00+00:00"),
+            make_measurement("three", 600, "2026-09-01T10:00:00+00:00"),
+            make_measurement("four", 800, "2026-09-03T10:00:00+00:00"),
+            make_measurement("five", 900, "2026-09-04T10:00:00+00:00"),
+        ],
+        puppy_overrides={"birth_weight": 400.0},
+        litter_overrides={"growth_analysis": {"growth_milestones_percent": [400]}},
+    )
+
+    result = metrics.growth_analysis(storage, litter_id, puppy_id)
+
+    assert result["milestone_projection"]["cadence_irregular"] is True
+    assert result["milestone_projection"]["confidence_code"] == "medium"
+
+
 def test_status_without_measurement_requires_attention(
     monkeypatch,
     storage,

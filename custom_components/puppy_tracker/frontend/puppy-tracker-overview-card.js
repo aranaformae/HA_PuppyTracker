@@ -1734,6 +1734,11 @@ class PuppyTrackerOverviewCard extends HTMLElement {
             const progress = Number.isFinite(selected?.weight) && milestone.target_weight > 0
               ? Math.min(100, Math.max(0, selected.weight / milestone.target_weight * 100))
               : 0;
+            const estimate = milestone.estimated_at
+              ? milestone.estimated_range_start && milestone.estimated_range_end
+                ? `Geschat ${this._formatDateTime(milestone.estimated_range_start)} - ${this._formatDateTime(milestone.estimated_range_end)}`
+                : `Geschat ${this._formatDateTime(milestone.estimated_at)}`
+              : "Nog niet te schatten";
             return `
             <div class="milestone-row ${milestone.reached ? "reached" : "pending"}">
               <div>
@@ -1741,7 +1746,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
                 <span class="milestone-progress" role="progressbar" aria-label="Voortgang naar mijlpaal" aria-valuenow="${progress.toFixed(0)}" aria-valuemin="0" aria-valuemax="100"><span style="width: ${progress.toFixed(1)}%"></span></span>
               </div>
               <span>${this._formatNumber(milestone.target_weight, "g")}</span>
-              <span>${this._escape(milestone.reached ? `Bereikt ${this._formatDateTime(milestone.reached_at)}` : milestone.estimated_at ? `Geschat ${this._formatDateTime(milestone.estimated_at)}` : "Nog niet te schatten")}</span>
+              <span>${this._escape(milestone.reached ? `Bereikt ${this._formatDateTime(milestone.reached_at)}` : estimate)}${!milestone.reached && milestone.projection_confidence ? `<small class="milestone-confidence">${this._escape(milestone.projection_confidence)}</small>` : ""}</span>
             </div>
           `;
           }).join("")}
@@ -1803,6 +1808,8 @@ class PuppyTrackerOverviewCard extends HTMLElement {
             <div><span>Verschil geboortegewicht</span><strong>${this._formatNumber(selected.analysis?.birth_weight_recovery?.difference_grams, "g", true)}</strong></div>
             <div><span>Volgende groeimijlpaal</span><strong>${this._escape(selected.analysis?.growth_milestones?.next ? `${selected.analysis.growth_milestones.next.target_percent / 100}x (${selected.analysis.growth_milestones.next.target_weight} g)` : "Alle ingesteld")}</strong></div>
             <div><span>Geschatte datum volgende</span><strong>${this._escape(this._formatDateTime(selected.analysis?.growth_milestones?.next?.estimated_at))}</strong></div>
+            <div><span>Betrouwbaarheid mijlpaal</span><strong>${this._escape(selected.analysis?.milestone_projection?.confidence || "Onvoldoende data")}</strong></div>
+            <div><span>Meetritme prognose</span><strong>${selected.analysis?.milestone_projection?.cadence_irregular ? "Onregelmatig meetinterval" : "Voldoende regelmatig"}</strong></div>
             <div><span>Verdubbeling binnen ${selected.analysis?.double_weight_reference_days || 14} dagen</span><strong>${this._escape(selected.analysis?.growth_milestones?.milestones?.find((item) => item.target_percent === 200)?.on_schedule === true ? "Op schema" : selected.analysis?.growth_milestones?.milestones?.find((item) => item.target_percent === 200)?.on_schedule === false ? "Niet op schema" : "Nog niet te schatten")}</strong></div>
           </div>` : ""}
           ${milestoneHtml}
@@ -2445,6 +2452,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
         .milestone-row.reached { border-left-color: var(--success-color, #4caf50); }
         .milestone-row.pending { border-left-color: var(--warning-color, #ff9800); }
         .milestone-row > span:last-child { color: var(--secondary-text-color); text-align: right; }
+        .milestone-confidence { display: block; margin-top: 2px; font-size: 10px; color: var(--secondary-text-color); }
         .milestone-progress {
           display: block;
           height: 4px;

@@ -536,6 +536,8 @@ The recurring-reminder card must resolve the linked mother through the mother sc
 
 Presentation density is configured per Lovelace card instance. The Overview card exposes independent switches for advanced analysis, growth milestones and chart annotations. The Litter card uses `show_details` to control secondary growth columns and expandable per-puppy metadata; all of these options default to the current detailed presentation for backward compatibility.
 
+Milestone projection is derived presentation data. The per-litter `milestone_projection_measurements` setting selects 2 to 8 recent valid growth periods, with 4 as the default. The backend returns the mean daily growth, an uncertainty range, a confidence level and an irregular-cadence flag; the original single-date estimate remains available for clients that only understand `estimated_at`.
+
 ### Configurable initial card scope
 
 Dossier and Timeline accept a presentation-only `default_scope` card option with

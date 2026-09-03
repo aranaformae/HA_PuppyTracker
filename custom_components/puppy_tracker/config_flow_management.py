@@ -23,6 +23,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from .const import (
     DEFAULT_GROWTH_MILESTONES_PERCENT,
     DEFAULT_DOUBLE_WEIGHT_REFERENCE_DAYS,
+    DEFAULT_MILESTONE_PROJECTION_MEASUREMENTS,
     DEFAULT_GROWTH_MONITORING_DAYS,
     DEFAULT_MAX_HOURS_BETWEEN_WEIGHINGS,
     DEFAULT_MIN_DAILY_GROWTH_PERCENT,
@@ -83,6 +84,12 @@ class PuppyTrackerConfigFlow(
             default=growth.get("double_weight_reference_days", DEFAULT_DOUBLE_WEIGHT_REFERENCE_DAYS),
         )] = selector.NumberSelector(
             selector.NumberSelectorConfig(min=1, max=56, step=1, mode=selector.NumberSelectorMode.BOX)
+        )
+        fields[vol.Optional(
+            "milestone_projection_measurements",
+            default=growth.get("milestone_projection_measurements", DEFAULT_MILESTONE_PROJECTION_MEASUREMENTS),
+        )] = selector.NumberSelector(
+            selector.NumberSelectorConfig(min=2, max=8, step=1, mode=selector.NumberSelectorMode.BOX)
         )
 
         return self.async_show_form(
@@ -306,6 +313,7 @@ class PuppyTrackerOptionsFlow(
                             "expected_adult_weight_max_grams": user_input.get("expected_adult_weight_max_grams"),
                             "growth_milestones_percent": user_input.get("growth_milestones_percent"),
                             "double_weight_reference_days": user_input.get("double_weight_reference_days"),
+                            "milestone_projection_measurements": user_input.get("milestone_projection_measurements"),
                         },
                     )
 
@@ -447,6 +455,7 @@ class PuppyTrackerOptionsFlow(
             ("first_day_max_weight_loss_percent", 0, 50, 0.1),
             ("expected_adult_weight_min_grams", 1, 100000, 1),
             ("expected_adult_weight_max_grams", 1, 100000, 1),
+            ("milestone_projection_measurements", 2, 8, 1),
         ):
             fields[vol.Optional(key, default=growth.get(key))] = (
                 selector.NumberSelector(
