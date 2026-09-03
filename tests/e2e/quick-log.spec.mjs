@@ -41,6 +41,7 @@ async function mountQuickLog(page, language = "en") {
             litter: {
               id: message.litter_id,
               name: second ? "Second litter" : "Luna x Dutch",
+              mother: second ? "Nova" : "Luna",
               active: true,
             },
             puppies: second
@@ -59,6 +60,22 @@ async function mountQuickLog(page, language = "en") {
               type: message.record_type,
               litter_id: message.litter_id,
               puppy_id: message.puppy_id || null,
+              occurred_at: message.occurred_at,
+              title: message.title || null,
+              note: message.note || null,
+              data: message.data || {},
+            },
+          };
+        }
+
+        if (message.type === "puppy_tracker/mother/record/add") {
+          return {
+            record: {
+              id: `mr${calls.length}`,
+              type: message.record_type,
+              litter_id: message.litter_id,
+              scope: "mother",
+              mother_id: "mother-luna",
               occurred_at: message.occurred_at,
               title: message.title || null,
               note: message.note || null,
@@ -148,6 +165,24 @@ test("supports litter-scoped medication and puppy-scoped milestone logging", asy
   expect(calls[0].puppy_id).toBeUndefined();
   expect(calls[1].record_type).toBe("milestone");
   expect(calls[1].puppy_id).toBe("p2");
+});
+
+test("logs a temperature for the selected mother instead of the whole litter", async ({ page }) => {
+  const card = await mountQuickLog(page, "en");
+
+  await card.locator("#owner-select").selectOption({ label: "Mother · Luna" });
+  await card.locator('[data-preset="temperature"]').click();
+  await card.locator("#quick-temperature").fill("38.4");
+  await card.locator("#quick-save").click();
+
+  const calls = await page.evaluate(() => window.__quickLogCalls);
+  expect(calls.filter((call) => call.type === "puppy_tracker/record/add")).toHaveLength(0);
+  expect(calls).toContainEqual(expect.objectContaining({
+    type: "puppy_tracker/mother/record/add",
+    litter_id: "l1",
+    record_type: "temperature",
+    data: { temperature_c: 38.4 },
+  }));
 });
 
 test("switching presets preserves unsaved input", async ({ page }) => {
