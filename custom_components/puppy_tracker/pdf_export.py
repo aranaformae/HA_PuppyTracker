@@ -7,6 +7,7 @@ import math
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from homeassistant.util import dt as dt_util
@@ -20,6 +21,7 @@ PAGE_WIDTH = 595.28
 PAGE_HEIGHT = 841.89
 MARGIN = 42.0
 CONTENT_WIDTH = PAGE_WIDTH - 2 * MARGIN
+LOGO_PATH = Path(__file__).parent / "brand" / "logo.jpg"
 
 _COLLAR_COLORS = {
     "rood": (0.90, 0.22, 0.22), "red": (0.90, 0.22, 0.22),
@@ -166,6 +168,24 @@ def _estimate_width(text: str, size: float, bold: bool = False) -> float:
     return len(str(text)) * size * factor
 
 
+def _jpeg_dimensions(data: bytes) -> tuple[int, int]:
+    """Read JPEG dimensions without adding an image dependency."""
+    index = 2
+    while index + 9 < len(data):
+        if data[index] != 0xFF:
+            index += 1
+            continue
+        marker = data[index + 1]
+        index += 2
+        if marker in (0xD8, 0xD9):
+            continue
+        length = int.from_bytes(data[index:index + 2], "big")
+        if 0xC0 <= marker <= 0xC3:
+            return int.from_bytes(data[index + 5:index + 7], "big"), int.from_bytes(data[index + 3:index + 5], "big")
+        index += length
+    raise ValueError("Invalid logo JPEG")
+
+
 def _wrap(text: str, size: float, width: float, bold: bool = False) -> list[str]:
     words = str(text or "").split()
     if not words:
@@ -196,11 +216,21 @@ class _Page:
 
 
 class _PdfReport:
-    def __init__(self) -> None:
+    def __init__(self, logo: bytes | None = None) -> None:
         self.pages: list[_Page] = []
         self.page = _Page()
         self.pages.append(self.page)
         self.y = MARGIN
+        self.logo = logo
+
+    def brand_logo(self) -> None:
+        """Place the bundled logo at the top of the first page."""
+        if not self.logo:
+            return
+        self.ensure(72)
+        size = 64
+        self.page.add(f"q {size:.2f} 0 0 {size:.2f} {MARGIN:.2f} {self._py(self.y + size):.2f} cm /Im1 Do Q")
+        self.y += size + 8
 
     @staticmethod
     def _py(top: float) -> float:
@@ -350,15 +380,25 @@ class _PdfReport:
 
         font_regular = add_object(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>")
         font_bold = add_object(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>")
+        logo_ref = None
+        if self.logo:
+            width, height = _jpeg_dimensions(self.logo)
+            logo_ref = add_object(
+                f"<< /Type /XObject /Subtype /Image /Width {width} /Height {height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length {len(self.logo)} >>\nstream\n".encode("ascii")
+                + self.logo + b"\nendstream"
+            )
         pages_placeholder = add_object(b"")
         page_refs: list[int] = []
 
         for page in self.pages:
             stream = bytes(page.operations)
             content_ref = add_object(b"<< /Length " + str(len(stream)).encode("ascii") + b" >>\nstream\n" + stream + b"endstream")
+            resources = f"/Font << /F1 {font_regular} 0 R /F2 {font_bold} 0 R >>"
+            if logo_ref:
+                resources += f" /XObject << /Im1 {logo_ref} 0 R >>"
             page_ref = add_object(
                 f"<< /Type /Page /Parent {pages_placeholder} 0 R /MediaBox [0 0 {PAGE_WIDTH:.2f} {PAGE_HEIGHT:.2f}] ".encode("ascii")
-                + f"/Resources << /Font << /F1 {font_regular} 0 R /F2 {font_bold} 0 R >> >> ".encode("ascii")
+                + f"/Resources << {resources} >> ".encode("ascii")
                 + f"/Contents {content_ref} 0 R >>".encode("ascii")
             )
             page_refs.append(page_ref)
@@ -411,7 +451,9 @@ def build_pdf_export(
     if puppy_id is not None and not puppies:
         raise ValueError("Unknown puppy")
 
-    report = _PdfReport()
+    logo = LOGO_PATH.read_bytes() if LOGO_PATH.is_file() else None
+    report = _PdfReport(logo)
+    report.brand_logo()
     title = f"Puppy Tracker - {litter.get('name') or 'Nest'}"
     if puppy_id is not None and puppies:
         title = f"Puppy Tracker - {puppies[0][1].get('name') or 'Puppy'}"
