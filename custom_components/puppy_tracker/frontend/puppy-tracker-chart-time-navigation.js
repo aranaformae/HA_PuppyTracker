@@ -128,6 +128,18 @@
       }
 
       const allPoints = series.flatMap((item) => item.points);
+      const selectedRow = rows.find((row) => row.puppyId === this._selectedPuppyId);
+      const nextMilestone = selectedRow?.analysis?.growth_milestones?.next;
+      const estimatedMilestoneTime = Date.parse(nextMilestone?.estimated_at || "");
+      const estimatedRangeStartTime = Date.parse(nextMilestone?.estimated_range_start || "");
+      const estimatedRangeEndTime = Date.parse(nextMilestone?.estimated_range_end || "");
+      const projectedMilestone = this._config.show_milestone_chart_annotations !== false && this._metric === "weight"
+        && Number.isFinite(estimatedMilestoneTime)
+        && estimatedMilestoneTime > Date.now()
+        && estimatedMilestoneTime <= Date.now() + 30 * 24 * HOUR_MS
+        && (this._rangeHours === 0 || this._rangeHours >= 168)
+        ? nextMilestone
+        : null;
       const now = Date.now();
       const earliestPoint = Math.min(...allPoints.map((point) => point.time));
       const selectedVisibleMs = this._rangeHours > 0
@@ -137,7 +149,9 @@
       const contentStart = this._rangeHours > 0
         ? Math.min(earliestPoint, currentWindowStart)
         : earliestPoint;
-      const contentEnd = now;
+      const contentEnd = projectedMilestone && Number.isFinite(estimatedRangeEndTime)
+        ? Math.max(now, estimatedMilestoneTime, estimatedRangeEndTime)
+        : now;
       const contentSpan = Math.max(HOUR_MS, contentEnd - contentStart);
       const pageCount = this._rangeHours > 0
         ? Math.max(1, contentSpan / selectedVisibleMs)
@@ -159,6 +173,16 @@
       const plotHeight = CHART_HEIGHT - TOP - BOTTOM;
       const x = (time) => ((time - contentStart) / contentSpan) * contentWidth;
       const y = (value) => TOP + ((maxValue - value) / (maxValue - minValue)) * plotHeight;
+      const projectionBand = projectedMilestone
+        && Number.isFinite(estimatedRangeStartTime)
+        && Number.isFinite(estimatedRangeEndTime)
+        && estimatedRangeEndTime > estimatedRangeStartTime
+        ? `<rect class="milestone-projection-band ${this._escape(nextMilestone.projection_confidence_code || "medium")}" x="${x(estimatedRangeStartTime).toFixed(1)}" y="${TOP}" width="${Math.max(1, x(estimatedRangeEndTime) - x(estimatedRangeStartTime)).toFixed(1)}" height="${plotHeight}"></rect>`
+        : "";
+      const projectionLine = projectedMilestone
+        ? `<line class="milestone-projection" x1="${x(estimatedMilestoneTime).toFixed(1)}" x2="${x(estimatedMilestoneTime).toFixed(1)}" y1="${TOP}" y2="${CHART_HEIGHT - BOTTOM}"></line>
+          <text class="milestone-projection-label" x="${Math.min(x(estimatedMilestoneTime) + 4, contentWidth - 4).toFixed(1)}" y="${TOP + 12}">${this._escape(`${isDutch(this) ? "Geschat" : "Estimated"} ${projectedMilestone.target_percent / 100}x`)}</text>`
+        : "";
 
       const yTicks = Array.from({ length: 5 }, (_, index) => {
         const ratio = index / 4;
@@ -210,7 +234,7 @@
         })
         .join("");
 
-      const nowX = Math.max(0, contentWidth - 1);
+      const nowX = Math.max(0, Math.min(contentWidth - 1, x(now)));
       const navigation = this._rangeHours > 0
         ? `
           <div class="chart-navigation">
@@ -271,7 +295,9 @@
                     )}</text>`
                 )
                 .join("")}
+              ${projectionBand}
               ${lines}
+              ${projectionLine}
               <line class="chart-now-line" x1="${nowX}" x2="${nowX}" y1="${TOP}" y2="${CHART_HEIGHT - BOTTOM}"></line>
               <text class="chart-now-label" x="${Math.max(0, nowX - 6)}" y="${TOP + 13}" text-anchor="end">${
                 isDutch(this) ? "NU" : "NOW"

@@ -89,6 +89,82 @@ test("chart ranges behave as zoom levels without dropping older points", async (
   expect(result.range24.hasBackNow).toBe(true);
 });
 
+test("growth chart renders the milestone projection window around its central estimate", async ({ page }) => {
+  await openFixture(page);
+
+  const result = await page.evaluate(() => {
+    const element = document.createElement("puppy-tracker-overview-card");
+    element.style.display = "block";
+    element.style.width = "440px";
+    element._historyLoading = false;
+    element._historyError = "";
+    element._metric = "weight";
+    element._rangeHours = 168;
+    element._selectedPuppyId = "p1";
+    const now = Date.now();
+    element._history = {
+      puppies: [{
+        id: "p1",
+        summary: {
+          growth_analysis: {
+            growth_milestones: {
+              next: {
+                target_percent: 200,
+                target_weight: 800,
+                estimated_at: new Date(now + 2 * 24 * 3600 * 1000).toISOString(),
+                estimated_range_start: new Date(now + 24 * 3600 * 1000).toISOString(),
+                estimated_range_end: new Date(now + 3 * 24 * 3600 * 1000).toISOString(),
+                projection_confidence_code: "medium",
+              },
+            },
+          },
+        },
+        measurements: [
+          { id: "old", timestamp: new Date(now - 3 * 24 * 3600 * 1000).toISOString(), weight: 500, kind: "weight" },
+          { id: "recent", timestamp: new Date(now - 3600000).toISOString(), weight: 650, kind: "weight" },
+        ],
+      }],
+    };
+    const row = {
+      puppyId: "p1",
+      name: "Pup 1",
+      collar: "blauw",
+      entityIds: {},
+      statusCode: "ok",
+      weight: 650,
+      analysis: {
+        growth_milestones: {
+          next: {
+            target_percent: 200,
+            target_weight: 800,
+            estimated_at: new Date(now + 2 * 24 * 3600 * 1000).toISOString(),
+            estimated_range_start: new Date(now + 24 * 3600 * 1000).toISOString(),
+            estimated_range_end: new Date(now + 3 * 24 * 3600 * 1000).toISOString(),
+            projection_confidence_code: "medium",
+          },
+        },
+      },
+    };
+    document.querySelector("#cards").appendChild(element);
+    element.shadowRoot.innerHTML = element._chartSvg([row]);
+    const band = element.shadowRoot.querySelector(".milestone-projection-band");
+    const line = element.shadowRoot.querySelector(".milestone-projection");
+    return {
+      bandClass: band?.getAttribute("class") || "",
+      bandX: Number(band?.getAttribute("x")),
+      bandWidth: Number(band?.getAttribute("width")),
+      lineX: Number(line?.getAttribute("x1")),
+      svgWidth: element.shadowRoot.querySelector("svg.chart")?.getBoundingClientRect().width || 0,
+    };
+  });
+
+  expect(result.bandClass).toContain("milestone-projection-band");
+  expect(result.bandWidth).toBeGreaterThan(0);
+  expect(result.lineX).toBeGreaterThan(result.bandX);
+  expect(result.lineX).toBeLessThan(result.bandX + result.bandWidth);
+  expect(result.svgWidth).toBeGreaterThan(0);
+});
+
 test("return-to-now button restores the right edge after scrolling into history", async ({ page }) => {
   await openFixture(page);
 
