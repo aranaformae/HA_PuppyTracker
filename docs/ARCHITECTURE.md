@@ -526,6 +526,7 @@ custom:puppy-tracker-litter-card
 custom:puppy-tracker-report-card
 custom:puppy-tracker-dossier-card
 custom:puppy-tracker-quick-log-card
+custom:puppy-tracker-mobile-card
 custom:puppy-tracker-bulk-dossier-card
 custom:puppy-tracker-timeline-card
 ```

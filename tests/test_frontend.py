@@ -60,6 +60,22 @@ def test_localization_bridge_loads_after_dashboard_cards() -> None:
     assert CARD_FILES[-1] == LOCALIZATION_BRIDGE
 
 
+def test_mobile_control_card_is_registered_after_its_composed_cards() -> None:
+    """The mobile surface must load after the cards it composes."""
+    mobile = CARD_FILES.index("puppy-tracker-mobile-card.js")
+    assert mobile > CARD_FILES.index("puppy-tracker-quick-log-card.js")
+    assert mobile > CARD_FILES.index("puppy-tracker-today-card.js")
+    source = (
+        Path(__file__).parents[1]
+        / "custom_components"
+        / "puppy_tracker"
+        / "frontend"
+        / "puppy-tracker-mobile-card.js"
+    ).read_text(encoding="utf-8")
+    assert 'min-height:52px' in source
+    assert 'aria-pressed' in source
+
+
 def test_localization_bridge_covers_all_legacy_cards() -> None:
     """Every card that still contains Dutch UI literals is handled by the bridge."""
     source = (

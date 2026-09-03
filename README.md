@@ -162,6 +162,7 @@ Puppy Tracker automatically registers its frontend modules. A full browser refre
 | Report | `custom:puppy-tracker-report-card` | Reports and CSV/importable litter JSON/PDF export, including care-program results |
 | Dossier | `custom:puppy-tracker-dossier-card` | Litter, mother and puppy dossier records |
 | Quick Log | `custom:puppy-tracker-quick-log-card` | Fast litter/mother/puppy care logging |
+| Mobile Controls | `custom:puppy-tracker-mobile-card` | Touch-first weighing, Quick Log and today-care workflow |
 | Bulk Dossier | `custom:puppy-tracker-bulk-dossier-card` | Add one event to multiple puppies |
 | Timeline | `custom:puppy-tracker-timeline-card` | Combined weight + dossier chronology |
 | Recurring Reminders | `custom:puppy-tracker-recurring-reminder-card` | Create and manage generic recurring care rules |
@@ -199,6 +200,8 @@ Timeline, Today and Attention expose type/category chips for the items they disp
 **Mother scope** is first-class and reusable across litters. Mother records can be logged/viewed through Dossier, Quick Log and Timeline; mother actions can appear on Attention; mother JSON dossier export is available through Report & export; and a mother receives a Home Assistant device.
 
 Growth-analysis settings are managed per nest through **Manage litter**. Each nest can override the minimum daily growth, weighing interval, monitoring age, first-day loss limit and an optional expected adult-weight range. Empty overrides use the global monitoring settings. The overview also shows each measured puppy's current position relative to the nest median, its normalized daily-growth tempo relative to the nest, the spread across its own recent growth periods, the measurement cadence, birth-weight recovery and configured growth milestones. Open milestones receive an estimated date from the current positive growth rate; the 200% milestone also shows a 14-day reference from birth. These estimates are monitoring context, not diagnoses or guaranteed forecasts. Breed profile and size class (including Labradoodle and Australian Labradoodle) are descriptive metadata in this first phase; they do not activate a fixed breed curve.
+
+For phone use, `custom:puppy-tracker-mobile-card` combines the existing weighing station, Quick Log and Today card behind large touch-friendly tabs. It reuses the same API contracts and action feedback as the full cards, so it is intended as a compact action surface rather than a second data store. Individual tabs can be disabled with `show_weighing`, `show_quick_log` and `show_today`.
 
 The Overview card's detail density is configurable per card instance. `show_advanced_analysis` controls the analysis details, `show_growth_milestones` controls the milestone list and progress bars, and `show_milestone_chart_annotations` controls the chart reference/projected lines. All default to `true`. A basic card can keep the normal summary and chart while setting `show_advanced_analysis: false`; an advanced card can leave all three enabled.
 
@@ -247,6 +250,7 @@ custom_components/puppy_tracker/
     ├── puppy-tracker-dossier-card.js
     ├── puppy-tracker-today-card.js
     ├── puppy-tracker-quick-log-card.js
+    ├── puppy-tracker-mobile-card.js
     ├── puppy-tracker-timeline-card.js
     ├── puppy-tracker-attention-card.js
     ├── puppy-tracker-report-card.js
