@@ -64,6 +64,10 @@ const CARD_TRANSLATIONS = {
     dossierItemRestore: "Restoring dossier item...",
     dossierItemSave: "Saving dossier item...",
     dossierItemUpdated: "Dossier item updated.",
+    changeOwner: "Change owner",
+    changeOwnerPrompt: "Choose the new owner by number:",
+    recordOwnerChanged: "Dossier item owner changed.",
+    invalidOwner: "Invalid owner choice.",
     dossierLoadFailed: "The dossier could not be loaded.",
     dossierRefreshFailed: "The dossier could not be refreshed.",
     dosage: "Dosage",
@@ -204,6 +208,10 @@ const CARD_TRANSLATIONS = {
     dossierItemRestore: "Dossieritem herstellen...",
     dossierItemSave: "Dossieritem opslaan...",
     dossierItemUpdated: "Dossieritem bijgewerkt.",
+    changeOwner: "Eigenaar wijzigen",
+    changeOwnerPrompt: "Kies de nieuwe eigenaar met het nummer:",
+    recordOwnerChanged: "Eigenaar van dossieritem gewijzigd.",
+    invalidOwner: "Ongeldige eigenaar-keuze.",
     dossierLoadFailed: "Het dossier kon niet worden geladen.",
     dossierRefreshFailed: "Het dossier kon niet worden vernieuwd.",
     dosage: "Dosering",
@@ -598,6 +606,17 @@ export async function updateDossierRecord(hass, litterId, puppyId, recordId, rec
   if (record.occurred_at) message.occurred_at = record.occurred_at;
   message.title = record.title || null;
   message.note = record.note || null;
+  return hass.callWS(message);
+}
+
+export async function changeDossierRecordOwner(hass, litterId, sourcePuppyId, recordId, targetPuppyId) {
+  const message = {
+    type: `${DOMAIN}/record/change_owner`,
+    litter_id: litterId,
+    record_id: recordId,
+  };
+  if (sourcePuppyId) message.source_puppy_id = sourcePuppyId;
+  if (targetPuppyId) message.target_puppy_id = targetPuppyId;
   return hass.callWS(message);
 }
 

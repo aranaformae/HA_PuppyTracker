@@ -1096,6 +1096,41 @@ async def websocket_update_record(
 @websocket_api.require_admin
 @websocket_api.websocket_command(
     {
+        vol.Required("type"): f"{DOMAIN}/record/change_owner",
+        vol.Required("litter_id"): str,
+        vol.Optional("source_puppy_id"): str,
+        vol.Optional("target_puppy_id"): str,
+        vol.Required("record_id"): str,
+    }
+)
+@websocket_api.async_response
+async def websocket_change_record_owner(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Move one dossier record to another owner in the same litter."""
+    storage = _storage_or_error(hass, connection, msg)
+    if storage is None:
+        return
+    try:
+        record = await storage.async_change_record_owner(
+            msg["litter_id"],
+            msg["record_id"],
+            source_puppy_id=msg.get("source_puppy_id"),
+            target_puppy_id=msg.get("target_puppy_id"),
+        )
+    except ValueError as err:
+        connection.send_error(msg["id"], "invalid_record_owner", str(err))
+        return
+    _signal_dossier_change(hass, msg.get("source_puppy_id"))
+    _signal_dossier_change(hass, msg.get("target_puppy_id"))
+    connection.send_result(msg["id"], {"ok": True, "record": record})
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
         vol.Required("type"): f"{DOMAIN}/record/delete",
         vol.Required("litter_id"): str,
         vol.Optional("puppy_id"): str,
@@ -1286,6 +1321,7 @@ def async_setup_api(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, websocket_update_profile_note)
     websocket_api.async_register_command(hass, websocket_add_record)
     websocket_api.async_register_command(hass, websocket_update_record)
+    websocket_api.async_register_command(hass, websocket_change_record_owner)
     websocket_api.async_register_command(hass, websocket_delete_record)
     websocket_api.async_register_command(hass, websocket_restore_record)
     websocket_api.async_register_command(hass, websocket_integrity_check)

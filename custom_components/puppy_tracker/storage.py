@@ -2038,6 +2038,40 @@ class PuppyTrackerStorage:
             )
             await self.async_save()
 
+    async def async_change_record_owner(
+        self,
+        litter_id: str,
+        record_id: str,
+        *,
+        source_puppy_id: str | None = None,
+        target_puppy_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Move a dossier record between litter and puppy ownership lists."""
+        async with self._lock:
+            litter = self._require_litter(litter_id)
+            if source_puppy_id == target_puppy_id:
+                raise ValueError("Record already belongs to this owner")
+            source = litter if source_puppy_id is None else self._require_puppy(litter_id, source_puppy_id)
+            target = litter if target_puppy_id is None else self._require_puppy(litter_id, target_puppy_id)
+            record = self._require_record(source, record_id)
+            source["records"].remove(record)
+            before = deepcopy(record)
+            record["puppy_id"] = target_puppy_id
+            target.setdefault("records", []).append(record)
+            now = _now_iso()
+            source["updated_at"] = now
+            target["updated_at"] = now
+            litter["updated_at"] = now
+            self._add_audit_entry(
+                action="change_record_owner",
+                litter_id=litter_id,
+                puppy_id=target_puppy_id,
+                record_id=record_id,
+                details={"before": before, "after": deepcopy(record)},
+            )
+            await self.async_save()
+            return deepcopy(record)
+
     async def async_delete_record(
         self,
         litter_id: str,

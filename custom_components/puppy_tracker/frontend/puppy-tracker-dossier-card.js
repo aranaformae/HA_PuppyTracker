@@ -1,5 +1,6 @@
 import {
   addDossierRecord,
+  changeDossierRecordOwner,
   deleteDossierRecord,
   escapeHtml,
   fetchLitterData,
@@ -644,6 +645,38 @@ class PuppyTrackerDossierCard extends HTMLElement {
     }
   }
 
+  async _changeOwner(record) {
+    if (!this._canManage || this._saving) return;
+    const owners = [
+      { id: null, name: this._litterData?.litter?.name || localize(this._hass, "litterDossier") },
+      ...(this._litterData?.puppies || []).map((puppy) => ({ id: puppy.id, name: puppy.name || puppy.id })),
+    ].filter((owner) => owner.id !== this._selectedPuppyId);
+    const choices = owners.map((owner, index) => `${index}: ${owner.name}`).join("\n");
+    const answer = window.prompt(`${localize(this._hass, "changeOwnerPrompt")}\n\n${choices}`);
+    if (answer === null) return;
+    const index = Number.parseInt(answer, 10);
+    const target = Number.isInteger(index) ? owners[index] : null;
+    if (!target) {
+      this._error = localize(this._hass, "invalidOwner");
+      this._render();
+      return;
+    }
+    this._saving = true;
+    this._error = "";
+    this._status = localize(this._hass, "changeOwner");
+    this._render();
+    try {
+      await changeDossierRecordOwner(this._hass, this._selectedLitterId, this._selectedPuppyId, record.id, target.id);
+      this._status = localize(this._hass, "recordOwnerChanged");
+      await this._loadLitterAndRecords(false);
+    } catch (err) {
+      this._error = err?.message || localize(this._hass, "dossierItemCouldNotSave");
+    } finally {
+      this._saving = false;
+      this._render();
+    }
+  }
+
   async _restoreRecord(record) {
     if (!this._canManage || this._saving) return;
     this._saving = true;
@@ -814,7 +847,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
           ${this._canManage ? `<div class="record-actions">
             ${deleted
               ? `<button class="text-button restore-record" data-id="${escapeHtml(record.id)}"><ha-icon icon="mdi:restore"></ha-icon> ${escapeHtml(localize(this._hass, "restore"))}</button>`
-              : `<button class="text-button edit-record" data-id="${escapeHtml(record.id)}"><ha-icon icon="mdi:pencil-outline"></ha-icon> ${escapeHtml(localize(this._hass, "editDossierItem"))}</button><button class="text-button danger delete-record" data-id="${escapeHtml(record.id)}"><ha-icon icon="mdi:delete-outline"></ha-icon> ${escapeHtml(localize(this._hass, "delete"))}</button>`}
+              : `<button class="text-button edit-record" data-id="${escapeHtml(record.id)}"><ha-icon icon="mdi:pencil-outline"></ha-icon> ${escapeHtml(localize(this._hass, "editDossierItem"))}</button><button class="text-button move-record" data-id="${escapeHtml(record.id)}"><ha-icon icon="mdi:account-switch-outline"></ha-icon> ${escapeHtml(localize(this._hass, "changeOwner"))}</button><button class="text-button danger delete-record" data-id="${escapeHtml(record.id)}"><ha-icon icon="mdi:delete-outline"></ha-icon> ${escapeHtml(localize(this._hass, "delete"))}</button>`}
           </div>` : ""}
         </div>
       </article>`;
@@ -946,6 +979,12 @@ class PuppyTrackerDossierCard extends HTMLElement {
       button.addEventListener("click", () => {
         const record = visibleRecords.find((item) => item.id === button.dataset.id);
         if (record) this._deleteRecord(record);
+      });
+    }
+    for (const button of this.shadowRoot.querySelectorAll(".move-record")) {
+      button.addEventListener("click", () => {
+        const record = visibleRecords.find((item) => item.id === button.dataset.id);
+        if (record) this._changeOwner(record);
       });
     }
     for (const button of this.shadowRoot.querySelectorAll(".restore-record")) {
