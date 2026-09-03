@@ -48,14 +48,7 @@ function patchQuickLog() {
     this._render();
   };
 
-  Card.prototype._saveQuickLog = async function () {
-    // Use the event-backed owner selection. Temperature rendering can rebuild
-    // the select after the user chose the mother, which otherwise falls back
-    // to the litter option before the save handler runs.
-    const selectedOwner = this.__quickLogOwner
-      || this.shadowRoot?.getElementById("owner-select")?.value;
-    const motherSelected = this.__motherSelected || selectedOwner === MOTHER_VALUE;
-    if (!motherSelected) return originalSave.call(this);
+  Card.prototype.__saveMotherQuickLog = async function () {
     if (!this._draft || !this._hass || !this._selectedLitterId || this._saving) return;
 
     this._captureDraft();
@@ -123,6 +116,17 @@ function patchQuickLog() {
       this._error = error?.message || copy(this, "Log kon niet worden opgeslagen.", "Log could not be saved.");
       this._render();
     }
+  };
+
+  Card.prototype._saveQuickLog = async function () {
+    // Use the event-backed owner selection. Temperature rendering can rebuild
+    // the select after the user chose the mother, which otherwise falls back
+    // to the litter option before the save handler runs.
+    const selectedOwner = this.__quickLogOwner
+      || this.shadowRoot?.getElementById("owner-select")?.value;
+    const motherSelected = this.__motherSelected || selectedOwner === MOTHER_VALUE;
+    if (!motherSelected) return originalSave.call(this);
+    return this.__saveMotherQuickLog();
   };
 
   Card.prototype._render = function (...args) {

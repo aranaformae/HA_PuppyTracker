@@ -86,6 +86,11 @@ function patchQuickLog() {
   };
 
   Card.prototype._saveQuickLog = async function () {
+    // Mother support owns its record endpoint. Keep that contract intact even
+    // when Home Assistant activates this patch after mother-surfaces.js.
+    if (this.__motherSelected && typeof this.__saveMotherQuickLog === "function") {
+      return this.__saveMotherQuickLog();
+    }
     if (this._draft?.presetId !== "temperature") return originalSaveQuickLog.call(this);
     if (!this._hass || !this._selectedLitterId || this._saving) return;
 

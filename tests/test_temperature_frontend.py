@@ -30,6 +30,7 @@ def test_quick_log_supports_temperature_value() -> None:
     assert 'record_type: "temperature"' in source
     assert 'data: { temperature_c: temperature }' in source
     assert 'id="quick-temperature"' in source
+    assert "this.__saveMotherQuickLog()" in source
 
 
 def test_bulk_log_adds_temperature_type() -> None:
