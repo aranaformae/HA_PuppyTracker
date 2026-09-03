@@ -44,3 +44,14 @@ def test_care_program_mutations_are_hidden_for_non_admin_users() -> None:
     assert 'const isAdmin = Boolean(this._hass?.user?.is_admin)' in source
     assert 'this._showEditor && isAdmin' in source
     assert 'isAdmin ? `<button id="add-program"' in source
+
+
+def test_care_program_card_exposes_filtering_and_overflow_controls() -> None:
+    source = (FRONTEND / "puppy-tracker-care-program-card.js").read_text(encoding="utf-8")
+
+    assert '{ name: "max_items"' in source
+    assert '{ name: "compact"' in source
+    assert '{ name: "sort_order"' in source
+    assert 'id="program-search"' in source
+    assert "schedulesOverlap" in source
+    assert "max-height:60vh" in source

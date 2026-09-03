@@ -5,12 +5,26 @@ import {
   fetchLitterData,
   fetchLitters,
   filterMeasurements,
+  languageForHass,
   loadCardState,
   rangeToHours,
   saveCardState,
   selectDefaultLitter,
   subscribeUpdates,
 } from "./puppy-tracker-card-common.js";
+
+const REPORT_TEXT = {
+  nl: {
+    subtitle: "Printvriendelijk pup- of nestrapport met bestaande CSV/JSON-export.", litter: "Nest", selection: "Selectie", period: "Periode", all: "Alles", hours24: "24 uur", days3: "3 dagen", days7: "7 dagen", days14: "14 dagen", days30: "30 dagen", puppies: "Pups", measurements: "Metingen", attention: "Actuele aandacht", pdf: "PDF downloaden", csv: "CSV", json: "JSON-nestback-up", note: "PDF en CSV volgen de gekozen pup en periode. JSON is een importeerbare nestback-up inclusief correctie- en verwijderhistorie.", loadFailed: "Rapportgegevens konden niet worden geladen.", refreshFailed: "Nieuwe Puppy Tracker-data kon niet worden geladen.", dataFailed: "Nestdata kon niet worden geladen.", exportFailed: "Export mislukt.", pdfDone: "PDF-rapport gedownload.", csvDone: "CSV gedownload.", jsonDone: "JSON-nestback-up gedownload.", puppy: "Puppy", litterName: "Nest",
+  },
+  en: {
+    subtitle: "Print-friendly puppy or litter report with existing CSV/JSON export.", litter: "Litter", selection: "Selection", period: "Period", all: "All", hours24: "24 hours", days3: "3 days", days7: "7 days", days14: "14 days", days30: "30 days", puppies: "Puppies", measurements: "Measurements", attention: "Current attention", pdf: "Download PDF", csv: "CSV", json: "Litter JSON backup", note: "PDF and CSV follow the selected puppy and period. JSON is an importable litter backup including correction and deletion history.", loadFailed: "Report data could not be loaded.", refreshFailed: "New Puppy Tracker data could not be loaded.", dataFailed: "Litter data could not be loaded.", exportFailed: "Export failed.", pdfDone: "PDF report downloaded.", csvDone: "CSV downloaded.", jsonDone: "Litter JSON backup downloaded.", puppy: "Puppy", litterName: "Litter",
+  },
+};
+
+function reportText(hass, key) {
+  return (REPORT_TEXT[languageForHass(hass)] || REPORT_TEXT.nl)[key] || key;
+}
 
 class PuppyTrackerReportCard extends HTMLElement {
   constructor() {
@@ -101,7 +115,7 @@ class PuppyTrackerReportCard extends HTMLElement {
       await this._loadData(false);
       await this._ensureSubscription();
     } catch (err) {
-      this._error = err?.message || "Rapportgegevens konden niet worden geladen.";
+      this._error = err?.message || reportText(this._hass, "loadFailed");
     } finally {
       this._loading = false;
       this._render();
@@ -141,7 +155,7 @@ class PuppyTrackerReportCard extends HTMLElement {
       } while (this._refreshAgain);
       this._error = "";
     } catch (err) {
-      this._error = err?.message || "Nieuwe Puppy Tracker-data kon niet worden geladen.";
+      this._error = err?.message || reportText(this._hass, "refreshFailed");
     } finally {
       this._refreshing = false;
       this._render();
@@ -157,7 +171,7 @@ class PuppyTrackerReportCard extends HTMLElement {
       }
       this._error = "";
     } catch (err) {
-      this._error = err?.message || "Nestdata kon niet worden geladen.";
+      this._error = err?.message || reportText(this._hass, "dataFailed");
     }
     if (render) this._render();
   }
@@ -193,9 +207,9 @@ class PuppyTrackerReportCard extends HTMLElement {
           : {}
       );
       downloadExportFile(result);
-      this._status = format === "json" ? "JSON-nestback-up gedownload." : format === "pdf" ? "PDF-rapport gedownload." : "CSV gedownload.";
+      this._status = format === "json" ? reportText(this._hass, "jsonDone") : format === "pdf" ? reportText(this._hass, "pdfDone") : reportText(this._hass, "csvDone");
     } catch (err) {
-      this._status = err?.message || "Export mislukt.";
+      this._status = err?.message || reportText(this._hass, "exportFailed");
     }
     this._render();
   }
@@ -206,8 +220,8 @@ class PuppyTrackerReportCard extends HTMLElement {
     const selected = this._selectedPuppies();
     const warnings = selected.filter((p) => p.summary?.needs_attention).length;
     const measurementCount = selected.reduce((sum, p) => sum + this._measurementRows(p).length, 0);
-    const litterOptions = this._litters.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === this._selectedLitterId ? "selected" : ""}>${escapeHtml(item.name || "Nest")}</option>`).join("");
-    const puppyOptions = `<option value="all" ${this._selectedPuppyId === "all" ? "selected" : ""}>Alles</option>${puppies.map((p) => `<option value="${escapeHtml(p.id)}" ${p.id === this._selectedPuppyId ? "selected" : ""}>${escapeHtml(p.name || "Puppy")}${p.collar_color ? ` – ${escapeHtml(p.collar_color)}` : ""}</option>`).join("")}`;
+    const litterOptions = this._litters.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === this._selectedLitterId ? "selected" : ""}>${escapeHtml(item.name || reportText(this._hass, "litterName"))}</option>`).join("");
+    const puppyOptions = `<option value="all" ${this._selectedPuppyId === "all" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "all"))}</option>${puppies.map((p) => `<option value="${escapeHtml(p.id)}" ${p.id === this._selectedPuppyId ? "selected" : ""}>${escapeHtml(p.name || reportText(this._hass, "puppy"))}${p.collar_color ? ` – ${escapeHtml(p.collar_color)}` : ""}</option>`).join("")}`;
 
     this.shadowRoot.innerHTML = `
       <ha-card><style>
@@ -215,12 +229,12 @@ class PuppyTrackerReportCard extends HTMLElement {
         @container report-card (max-width:600px){.controls{grid-template-columns:1fr}.preview{grid-template-columns:repeat(3,minmax(0,1fr))}.actions button{flex:1 1 auto}}
         @container report-card (max-width:380px){ha-card{padding:13px}.preview{grid-template-columns:1fr}.actions{display:grid;grid-template-columns:1fr}.actions button{width:100%}}
       </style>
-      <div class="title">${escapeHtml(this._config.title)}</div><div class="sub">Printvriendelijk pup- of nestrapport met bestaande CSV/JSON-export.</div>
+      <div class="title">${escapeHtml(this._config.title)}</div><div class="sub">${escapeHtml(reportText(this._hass, "subtitle"))}</div>
       ${this._error ? `<div class="error">${escapeHtml(this._error)}</div>` : `
-      <div class="controls"><div class="field"><label>Nest</label><select id="litter">${litterOptions}</select></div><div class="field"><label>Selectie</label><select id="puppy">${puppyOptions}</select></div><div class="field"><label>Periode</label><select id="range"><option value="24h" ${this._range === "24h" ? "selected" : ""}>24 uur</option><option value="3d" ${this._range === "3d" ? "selected" : ""}>3 dagen</option><option value="7d" ${this._range === "7d" ? "selected" : ""}>7 dagen</option><option value="14d" ${this._range === "14d" ? "selected" : ""}>14 dagen</option><option value="30d" ${this._range === "30d" ? "selected" : ""}>30 dagen</option><option value="all" ${this._range === "all" ? "selected" : ""}>Alles</option></select></div></div>
-      <div class="preview"><div class="box"><span>Pups</span><b>${selected.length}</b></div><div class="box"><span>Metingen</span><b>${measurementCount}</b></div><div class="box"><span>Actuele aandacht</span><b>${warnings}</b></div></div>
-      <div class="actions"><button id="pdf">PDF downloaden</button><button class="secondary" id="csv">CSV</button><button class="secondary" id="json">JSON-nestback-up</button></div>
-      <div class="status">${escapeHtml(this._status)}</div><div class="note">PDF en CSV volgen de gekozen pup en periode. JSON is een importeerbare nestback-up inclusief correctie- en verwijderhistorie.</div>`}
+      <div class="controls"><div class="field"><label>${escapeHtml(reportText(this._hass, "litter"))}</label><select id="litter">${litterOptions}</select></div><div class="field"><label>${escapeHtml(reportText(this._hass, "selection"))}</label><select id="puppy">${puppyOptions}</select></div><div class="field"><label>${escapeHtml(reportText(this._hass, "period"))}</label><select id="range"><option value="24h" ${this._range === "24h" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "hours24"))}</option><option value="3d" ${this._range === "3d" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "days3"))}</option><option value="7d" ${this._range === "7d" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "days7"))}</option><option value="14d" ${this._range === "14d" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "days14"))}</option><option value="30d" ${this._range === "30d" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "days30"))}</option><option value="all" ${this._range === "all" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "all"))}</option></select></div></div>
+      <div class="preview"><div class="box"><span>${escapeHtml(reportText(this._hass, "puppies"))}</span><b>${selected.length}</b></div><div class="box"><span>${escapeHtml(reportText(this._hass, "measurements"))}</span><b>${measurementCount}</b></div><div class="box"><span>${escapeHtml(reportText(this._hass, "attention"))}</span><b>${warnings}</b></div></div>
+      <div class="actions"><button id="pdf">${escapeHtml(reportText(this._hass, "pdf"))}</button><button class="secondary" id="csv">${escapeHtml(reportText(this._hass, "csv"))}</button><button class="secondary" id="json">${escapeHtml(reportText(this._hass, "json"))}</button></div>
+      <div class="status">${escapeHtml(this._status)}</div><div class="note">${escapeHtml(reportText(this._hass, "note"))}</div>`}
       </ha-card>`;
 
     this.shadowRoot.getElementById("litter")?.addEventListener("change", async (e) => { this._selectedLitterId = e.target.value; this._selectedPuppyId = "all"; await this._loadData(); });

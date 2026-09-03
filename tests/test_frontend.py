@@ -112,6 +112,8 @@ def test_attention_today_filter_is_configurable() -> None:
 
     assert "show_today_only: false" in source
     assert '{ name: "show_today_only", selector: { boolean: {} } }' in source
+    assert '{ name: "max_items"' in source
+    assert '{ name: "compact"' in source
 
 
 def test_dossier_and_timeline_expose_configurable_default_scopes() -> None:

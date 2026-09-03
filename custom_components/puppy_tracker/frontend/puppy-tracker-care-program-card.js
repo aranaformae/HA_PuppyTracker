@@ -38,6 +38,15 @@ function recordTypeLabel(card, value) {
   return labels[value] || value || "note";
 }
 
+function schedulesOverlap(left, right) {
+  if (left.time_of_day !== right.time_of_day) return false;
+  const leftStart = Number(left.start_age_days ?? 0);
+  const leftEnd = left.schedule_type === "once" ? leftStart : Number(left.end_age_days ?? leftStart);
+  const rightStart = Number(right.start_age_days ?? 0);
+  const rightEnd = right.schedule_type === "once" ? rightStart : Number(right.end_age_days ?? rightStart);
+  return leftStart <= rightEnd && rightStart <= leftEnd;
+}
+
 class PuppyTrackerCareProgramCard extends HTMLElement {
   constructor() {
     super();
@@ -52,18 +61,26 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
     this._saving = false;
     this._error = "";
     this._unsubscribe = null;
+    this._query = "";
   }
 
-  static getStubConfig() { return { title: "", show_litter_selector: true }; }
+  static getStubConfig() { return { title: "", show_litter_selector: true, show_disabled: true, max_items: 50, compact: false, sort_order: "schedule" }; }
   static getConfigForm() {
     return { schema: [
       { name: "title", selector: { text: {} } },
       { name: "show_litter_selector", selector: { boolean: {} } },
+      { name: "show_disabled", selector: { boolean: {} } },
+      { name: "max_items", selector: { number: { min: 5, max: 200, step: 5, mode: "box" } } },
+      { name: "compact", selector: { boolean: {} } },
+      { name: "sort_order", selector: { select: { mode: "dropdown", options: [
+        { value: "schedule", label: "Schedule" },
+        { value: "title", label: "Title" },
+      ] } } },
     ] };
   }
 
   setConfig(config) {
-    this._config = { title: "", show_litter_selector: true, ...config };
+    this._config = { title: "", show_litter_selector: true, show_disabled: true, max_items: 50, compact: false, sort_order: "schedule", ...config };
     this._selectedLitterId = config.litter_id || this._selectedLitterId;
     this._render();
   }
@@ -237,8 +254,18 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
       ? `<select id="litter-select">${this._litters.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === this._selectedLitterId ? "selected" : ""}>${escapeHtml(item.name || "Nest")}</option>`).join("")}</select>`
       : "";
 
-    const list = this._programs.length
-      ? `<div class="list">${this._programs.map((item) => `
+    const query = this._query.trim().toLocaleLowerCase();
+    const programs = [...this._programs]
+      .filter((item) => this._config.show_disabled !== false || item.enabled !== false)
+      .filter((item) => !query || `${item.title || ""} ${item.description || ""} ${recordTypeLabel(this, item.record_type)}`.toLocaleLowerCase().includes(query))
+      .sort((left, right) => this._config.sort_order === "title"
+        ? String(left.title || "").localeCompare(String(right.title || ""), undefined, { sensitivity: "base" })
+        : Number(left.start_age_days || 0) - Number(right.start_age_days || 0));
+    const overlaps = programs.some((item, index) => programs.slice(index + 1).some((other) => schedulesOverlap(item, other)));
+    const maxItems = Math.max(5, Math.min(200, Number(this._config.max_items) || 50));
+    const visiblePrograms = programs.slice(0, maxItems);
+    const list = visiblePrograms.length
+      ? `<div class="list ${this._config.compact === true ? "compact" : ""}">${visiblePrograms.map((item) => `
           <div class="item ${item.enabled === false ? "disabled" : ""}">
             <div class="ico"><ha-icon icon="${item.record_type === "deworming" ? "mdi:medical-bag" : "mdi:calendar-heart"}"></ha-icon></div>
             <div class="main">
@@ -246,7 +273,7 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
               <div>${escapeHtml(scheduleText(this, item))}${item.time_of_day ? ` · ${escapeHtml(item.time_of_day)}` : ""}</div>
               <div class="meta">${escapeHtml(recordTypeLabel(this, item.record_type))}${item.notifications_enabled === false ? ` · ${escapeHtml(t(this, "meldingen uit", "notifications off"))}` : ""}${item.notification_lead_minutes != null ? ` · ${escapeHtml(t(this, `${item.notification_lead_minutes} min vooraf`, `${item.notification_lead_minutes} min before`))}` : ""}</div>
             </div>
-            ${isAdmin ? `<button class="icon-button edit" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t(this, "Aanpassen", "Edit"))}"><ha-icon icon="mdi:pencil-outline"></ha-icon></button>` : ""}
+            ${isAdmin ? `<button class="icon-button edit" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t(this, "Aanpassen", "Edit"))}" aria-label="${escapeHtml(t(this, "Aanpassen", "Edit"))}"><ha-icon icon="mdi:pencil-outline"></ha-icon></button>` : ""}
           </div>`).join("")}</div>`
       : `<div class="empty">${escapeHtml(t(this, "Nog geen leeftijdsgebonden zorgprogramma's voor dit nest.", "No age-based care programs for this litter yet."))}</div>`;
 
@@ -285,9 +312,11 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
 
     this.shadowRoot.innerHTML = `
       <ha-card><style>
-        ha-card{padding:16px}.top{display:flex;gap:12px;align-items:center;justify-content:space-between}.title{font-size:18px;font-weight:600}.tools{display:flex;gap:8px;align-items:center}select,input,textarea,button{font:inherit}select,input,textarea{box-sizing:border-box;width:100%;padding:9px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color)}button{padding:8px 12px;border:1px solid var(--divider-color);border-radius:8px;background:transparent;color:var(--primary-text-color);cursor:pointer}.primary{background:var(--primary-color);color:var(--text-primary-color);border-color:var(--primary-color)}.danger{color:var(--error-color)}.list{margin-top:12px;display:grid;gap:8px}.item{display:grid;grid-template-columns:36px 1fr auto;gap:10px;align-items:center;padding:10px;border:1px solid var(--divider-color);border-radius:10px}.item.disabled{opacity:.55}.ico{display:flex;align-items:center;justify-content:center}.main div{font-size:12px;color:var(--secondary-text-color);margin-top:2px}.main .meta{opacity:.85}.icon-button{border:0;padding:7px}.empty{padding:18px 4px;color:var(--secondary-text-color)}.editor{margin-top:14px;padding-top:14px;border-top:1px solid var(--divider-color);display:grid;gap:10px}.editor-title,.result-title{font-weight:600}.editor label{display:grid;gap:5px;font-size:12px;color:var(--secondary-text-color)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.ages{grid-template-columns:repeat(4,1fr)}.checks{display:flex;flex-wrap:wrap;gap:14px}.checks label{display:flex;align-items:center;gap:6px}.checks input{width:auto}.editor-actions{display:grid;grid-template-columns:auto 1fr auto auto;gap:8px;align-items:center}.error{margin-top:10px;color:var(--error-color);font-size:13px}@media(max-width:700px){.grid,.ages{grid-template-columns:1fr 1fr}.top{align-items:flex-start;flex-direction:column}.tools{width:100%}.tools select{flex:1}}
+          ha-card{padding:16px}.top{display:flex;gap:12px;align-items:center;justify-content:space-between}.title{font-size:18px;font-weight:600}.tools{display:flex;gap:8px;align-items:center}select,input,textarea,button{font:inherit}select,input,textarea{box-sizing:border-box;width:100%;padding:9px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color)}button{padding:8px 12px;border:1px solid var(--divider-color);border-radius:8px;background:transparent;color:var(--primary-text-color);cursor:pointer}.primary{background:var(--primary-color);color:var(--text-primary-color);border-color:var(--primary-color)}.danger{color:var(--error-color)}.search{margin-top:12px}.list{margin-top:12px;display:grid;gap:8px;max-height:60vh;overflow:auto}.list.compact{gap:4px}.item{display:grid;grid-template-columns:36px 1fr auto;gap:10px;align-items:center;padding:10px;border:1px solid var(--divider-color);border-radius:10px}.compact .item{padding:6px}.item.disabled{opacity:.55}.ico{display:flex;align-items:center;justify-content:center}.main div{font-size:12px;color:var(--secondary-text-color);margin-top:2px}.main .meta{opacity:.85}.icon-button{border:0;padding:7px}.empty{padding:18px 4px;color:var(--secondary-text-color)}.editor{margin-top:14px;padding-top:14px;border-top:1px solid var(--divider-color);display:grid;gap:10px}.editor-title,.result-title{font-weight:600}.editor label{display:grid;gap:5px;font-size:12px;color:var(--secondary-text-color)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.ages{grid-template-columns:repeat(4,1fr)}.checks{display:flex;flex-wrap:wrap;gap:14px}.checks label{display:flex;align-items:center;gap:6px}.checks input{width:auto}.editor-actions{display:grid;grid-template-columns:auto 1fr auto auto;gap:8px;align-items:center}.error{margin-top:10px;color:var(--error-color);font-size:13px}.warning{margin-top:10px;padding:8px 10px;border-radius:8px;background:color-mix(in srgb,var(--warning-color,var(--primary-color)) 12%,transparent);color:var(--primary-text-color)}@media(max-width:700px){.grid,.ages{grid-template-columns:1fr 1fr}.top{align-items:flex-start;flex-direction:column}.tools{width:100%}.tools select{flex:1}}
       </style>
       <div class="top"><div class="title">${escapeHtml(this._config.title || t(this, "Zorgprogramma's", "Care programs"))}</div><div class="tools">${selector}${isAdmin ? `<button id="add-program"><ha-icon icon="mdi:plus"></ha-icon> ${escapeHtml(t(this, "Toevoegen", "Add"))}</button>` : ""}</div></div>
+      <input class="search" id="program-search" type="search" value="${escapeHtml(this._query)}" placeholder="${escapeHtml(t(this, "Zoek zorgprogramma's", "Search care programs"))}" aria-label="${escapeHtml(t(this, "Zoek zorgprogramma's", "Search care programs"))}">
+      ${overlaps ? `<div class="warning" role="status">${escapeHtml(t(this, "Let op: sommige zorgprogramma's overlappen op hetzelfde tijdstip.", "Some care programs overlap at the same time."))}</div>` : ""}
       ${list}${editor}${this._error ? `<div class="error">${escapeHtml(this._error)}</div>` : ""}
       </ha-card>`;
 
@@ -300,6 +329,10 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
     this.shadowRoot.getElementById("add-program")?.addEventListener("click", () => {
       this._editing = null;
       this._showEditor = true;
+      this._render();
+    });
+    this.shadowRoot.getElementById("program-search")?.addEventListener("input", (event) => {
+      this._query = event.target.value || "";
       this._render();
     });
     this.shadowRoot.querySelectorAll(".edit").forEach((button) => button.addEventListener("click", () => {

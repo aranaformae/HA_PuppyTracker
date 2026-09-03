@@ -105,7 +105,7 @@ test("report selection separates aggregate and whole-litter scopes", async ({ pa
     "Mother · Luna",
     "Alice – Red",
   ]);
-  await expect(card.locator(".field label").nth(1)).toHaveText("Selectie");
+  await expect(card.locator(".field label").nth(1)).toHaveText("Selection");
   await expect(card.locator("#puppy")).not.toContainText("Complete litter");
 });
 

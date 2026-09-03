@@ -71,7 +71,7 @@ class PuppyTrackerAttentionCard extends HTMLElement {
   }
 
   static getStubConfig() {
-    return { title: "", show_litter_selector: true, show_today_only: false, navigate_path: "" };
+    return { title: "", show_litter_selector: true, show_today_only: false, max_items: 25, compact: false, navigate_path: "" };
   }
 
   static getConfigForm() {
@@ -80,13 +80,15 @@ class PuppyTrackerAttentionCard extends HTMLElement {
         { name: "title", selector: { text: {} } },
         { name: "show_litter_selector", selector: { boolean: {} } },
         { name: "show_today_only", selector: { boolean: {} } },
+        { name: "max_items", selector: { number: { min: 5, max: 100, step: 5, mode: "box" } } },
+        { name: "compact", selector: { boolean: {} } },
         { name: "navigate_path", selector: { text: {} } },
       ],
     };
   }
 
   setConfig(config) {
-    this._config = { title: "", show_litter_selector: true, show_today_only: false, navigate_path: "", ...config };
+    this._config = { title: "", show_litter_selector: true, show_today_only: false, max_items: 25, compact: false, navigate_path: "", ...config };
     this._selectedLitterId = config.litter_id || this._selectedLitterId;
     this._render();
   }
@@ -233,14 +235,16 @@ class PuppyTrackerAttentionCard extends HTMLElement {
       });
     }
 
+    const maxItems = Math.max(5, Math.min(100, Number(this._config.max_items) || 25));
+    const visibleEntries = entries.slice(0, maxItems);
     const selector = this._config.show_litter_selector !== false && this._litters.length > 1
       ? `<select id="litter-select">${this._litters.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === this._selectedLitterId ? "selected" : ""}>${escapeHtml(item.name || localize(this._hass, "litter"))}</option>`).join("")}</select>`
       : "";
 
     const body = this._error
       ? `<div class="error">${escapeHtml(this._error)}</div>`
-      : entries.length
-        ? `<div class="list">${entries.map((entry) => `
+      : visibleEntries.length
+        ? `<div class="list ${this._config.compact === true ? "compact" : ""}">${visibleEntries.map((entry) => `
             <div class="row ${entry.tone}" ${entry.puppy_id ? `data-puppy="${escapeHtml(entry.puppy_id)}"` : ""}>
               <div class="icon ${entry.kind === "dossier" ? "ha" : ""}">${entry.kind === "dossier" ? entry.icon : escapeHtml(entry.icon)}</div>
               <div class="main"><div class="name">${escapeHtml(entry.name)}${entry.collar_color ? `<span class="collar">${escapeHtml(entry.collar_color)}</span>` : ""}</div><div class="reason">${escapeHtml(entry.reason)}</div></div>
@@ -253,7 +257,7 @@ class PuppyTrackerAttentionCard extends HTMLElement {
         <style>
           ha-card{padding:16px;container-type:inline-size;container-name:attention-card}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px}.title{font-size:18px;font-weight:600}.sub{font-size:12px;color:var(--secondary-text-color);margin-top:2px}
           select{min-height:38px;max-width:48%;border:1px solid var(--divider-color);border-radius:10px;background:var(--card-background-color);color:var(--primary-text-color);padding:0 10px;font-size:14px}
-          .list{display:grid;gap:8px}.row{display:grid;grid-template-columns:34px minmax(0,1fr) auto;align-items:center;gap:10px;padding:10px 11px;border:1px solid var(--divider-color);border-radius:12px}.icon{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--secondary-background-color);font-weight:700}.icon.ha ha-icon{--mdc-icon-size:18px}.name{font-weight:600}.collar{font-weight:400;color:var(--secondary-text-color);margin-left:7px}.reason{font-size:12px;color:var(--secondary-text-color);margin-top:2px}.status{font-size:12px;font-weight:600;white-space:nowrap}.danger .status,.danger .icon{color:var(--error-color)}.warning .status,.warning .icon{color:var(--warning-color,var(--primary-color))}.all-ok{display:flex;align-items:center;gap:12px;padding:13px;border:1px solid var(--divider-color);border-radius:12px}.all-ok>span{font-size:24px}.all-ok div div{font-size:12px;color:var(--secondary-text-color);margin-top:2px}.error{color:var(--error-color)}
+          .list{display:grid;gap:8px;max-height:60vh;overflow:auto}.list.compact{gap:4px}.list.compact .row{padding:6px 8px}.row{display:grid;grid-template-columns:34px minmax(0,1fr) auto;align-items:center;gap:10px;padding:10px 11px;border:1px solid var(--divider-color);border-radius:12px}.icon{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--secondary-background-color);font-weight:700}.icon.ha ha-icon{--mdc-icon-size:18px}.name{font-weight:600}.collar{font-weight:400;color:var(--secondary-text-color);margin-left:7px}.reason{font-size:12px;color:var(--secondary-text-color);margin-top:2px}.status{font-size:12px;font-weight:600;white-space:nowrap}.danger .status,.danger .icon{color:var(--error-color)}.warning .status,.warning .icon{color:var(--warning-color,var(--primary-color))}.all-ok{display:flex;align-items:center;gap:12px;padding:13px;border:1px solid var(--divider-color);border-radius:12px}.all-ok>span{font-size:24px}.all-ok div div{font-size:12px;color:var(--secondary-text-color);margin-top:2px}.error{color:var(--error-color)}
           .row.clickable{cursor:pointer}@container attention-card (max-width:520px){.status{display:none}.row{grid-template-columns:34px minmax(0,1fr)}.top{align-items:flex-start}.top select{max-width:52%}}
         </style>
         <div class="top"><div class="title">${escapeHtml(this._config.title || localize(this._hass, "attention"))}<div class="sub">${escapeHtml(litter?.name || (this._loading ? localize(this._hass, "loading") : localize(this._hass, "noLitter")))}</div></div>${selector}</div>
