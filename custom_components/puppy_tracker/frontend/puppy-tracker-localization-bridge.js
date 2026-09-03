@@ -303,7 +303,7 @@ function translateRoot(root) {
   });
 }
 
-const observedRoots = new WeakSet();
+const observedRoots = new WeakMap();
 const translatingRoots = new WeakSet();
 
 function watchCard(card) {
@@ -312,7 +312,6 @@ function watchCard(card) {
 
   translateRoot(root);
   if (observedRoots.has(root)) return;
-  observedRoots.add(root);
 
   const observer = new MutationObserver(() => {
     if (translatingRoots.has(root)) return;
@@ -332,6 +331,22 @@ function watchCard(card) {
     attributes: true,
     attributeFilter: ["title", "aria-label", "placeholder"],
   });
+  observedRoots.set(root, observer);
+}
+
+function unwatchCard(card) {
+  const root = card?.shadowRoot;
+  const observer = root && observedRoots.get(root);
+  if (!observer) return;
+
+  observer.disconnect();
+  observedRoots.delete(root);
+}
+
+function unwatchRemovedNode(node) {
+  if (!(node instanceof Element)) return;
+  if (TARGET_CARDS.includes(node.localName)) unwatchCard(node);
+  node.querySelectorAll?.(TARGET_CARDS.join(",")).forEach(unwatchCard);
 }
 
 function translateSchemaLabels(value) {
@@ -379,7 +394,12 @@ function patchCardPickerMetadata() {
   }
 }
 
-function scan() {
+function scan(records = []) {
+  for (const record of records) {
+    if (record.type !== "childList") continue;
+    record.removedNodes.forEach(unwatchRemovedNode);
+  }
+
   for (const tag of TARGET_CARDS) {
     patchConstructor(tag);
     document.querySelectorAll(tag).forEach(watchCard);

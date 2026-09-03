@@ -74,6 +74,22 @@ def test_localization_bridge_covers_all_legacy_cards() -> None:
         assert f'"{card_type}"' in source
 
 
+def test_localization_bridge_disconnects_removed_card_observers() -> None:
+    """Shadow-root observers must be released when Home Assistant removes a card."""
+    source = (
+        Path(__file__).parents[1]
+        / "custom_components"
+        / "puppy_tracker"
+        / "frontend"
+        / LOCALIZATION_BRIDGE
+    ).read_text(encoding="utf-8")
+
+    assert "const observedRoots = new WeakMap();" in source
+    assert "function unwatchRemovedNode(node)" in source
+    assert "record.removedNodes.forEach(unwatchRemovedNode);" in source
+    assert "observer.disconnect();" in source
+
+
 def test_timeline_visibility_is_configurable_per_card() -> None:
     """Both dossier and timeline cards expose the timeline item default as config."""
     frontend = Path(__file__).parents[1] / "custom_components" / "puppy_tracker" / "frontend"
