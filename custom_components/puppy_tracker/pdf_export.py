@@ -432,13 +432,14 @@ def build_pdf_export(
     puppy_id: str | None = None,
     range_hours: float | None = None,
     sections: dict[str, bool] | None = None,
+    owner_records: list[dict[str, Any]] | None = None,
 ) -> tuple[str, str, str]:
     """Return filename, MIME type and base64 PDF content."""
     litter = storage.get_litter(litter_id)
     if litter is None:
         raise ValueError("Unknown litter")
 
-    visible = {"summary": True, "chart": True, "measurements": True, "care": True, "attention": True}
+    visible = {"summary": True, "chart": True, "measurements": True, "care": True, "attention": True, "owners": True}
     if isinstance(sections, dict):
         visible.update({key: bool(value) for key, value in sections.items() if key in visible})
     puppies: list[tuple[str, dict[str, Any]]] = []
@@ -474,6 +475,25 @@ def build_pdf_export(
         [150, 125, 125, 80],
         font_size=8.5,
     )
+
+    if visible["owners"]:
+        owner_by_id = {str(owner.get("id")): owner for owner in (owner_records or [])}
+        owner_rows = []
+        for _current_id, puppy in puppies:
+            linked = [
+                owner_by_id[owner_id]
+                for owner_id in puppy.get("owner_ids", [])
+                if owner_id in owner_by_id
+            ]
+            if linked:
+                owner_rows.append([
+                    str(puppy.get("name") or "Puppy"),
+                    ", ".join(str(owner.get("name") or "—") for owner in linked),
+                    "; ".join(str(owner.get("email") or owner.get("phone") or "—") for owner in linked),
+                ])
+        if owner_rows:
+            report.heading("Baasjegegevens", level=2)
+            report.table(["Pup", "Baasje(s)", "Contact"], owner_rows, [90, 190, 195], font_size=8)
 
     warnings: list[str] = []
     summary_rows: list[list[str]] = []
@@ -526,7 +546,7 @@ def build_pdf_export(
     for current_id, puppy in puppies:
         report.heading(str(puppy.get("name") or "Puppy"), level=2)
         report.paragraph(
-            f"Band: {puppy.get('collar_color') or '—'}  |  Geboren: {_format_local_datetime(puppy.get('birth_time'))}  |  Geboortegewicht: {_format_weight(puppy.get('birth_weight'))}",
+            f"Band: {puppy.get('collar_color') or '—'}  |  Chip: {puppy.get('chip_number') or '—'}  |  Geboren: {_format_local_datetime(puppy.get('birth_time'))}  |  Geboortegewicht: {_format_weight(puppy.get('birth_weight'))}",
             size=8.5,
             gray=0.25,
         )

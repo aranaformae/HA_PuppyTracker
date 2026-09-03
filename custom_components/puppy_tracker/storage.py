@@ -309,6 +309,12 @@ class PuppyTrackerStorage:
                 if "profile_note" not in puppy:
                     puppy["profile_note"] = puppy.get("notes")
                     changed = True
+                if "chip_number" not in puppy:
+                    puppy["chip_number"] = None
+                    changed = True
+                if "owner_ids" not in puppy or not isinstance(puppy.get("owner_ids"), list):
+                    puppy["owner_ids"] = []
+                    changed = True
                 if "notes" in puppy:
                     del puppy["notes"]
                     changed = True
@@ -1122,6 +1128,7 @@ class PuppyTrackerStorage:
         collar_color: str | None = None,
         sex: str | None = None,
         profile_note: str | None = None,
+        chip_number: str | None = None,
     ) -> str:
         """Add a puppy to a litter."""
 
@@ -1151,6 +1158,8 @@ class PuppyTrackerStorage:
                 "birth_time": normalized_birth_time,
                 "birth_measurement_id": None,
                 "profile_note": profile_note,
+                "chip_number": str(chip_number or "").strip() or None,
+                "owner_ids": [],
                 "active": True,
                 "created_at": now,
                 "updated_at": now,
@@ -1174,6 +1183,7 @@ class PuppyTrackerStorage:
                     "birth_time": normalized_birth_time,
                     "collar_color": collar_color,
                     "sex": sex,
+                    "chip_number": str(chip_number or "").strip() or None,
                 },
             )
 
@@ -1209,7 +1219,6 @@ class PuppyTrackerStorage:
                 puppy["birth_measurement_id"] = measurement_id
 
             await self.async_save()
-
             return puppy_id
 
     async def async_update_puppy(
@@ -1223,6 +1232,7 @@ class PuppyTrackerStorage:
         birth_weight: float | None,
         birth_time: str | None,
         profile_note: str | None,
+        chip_number: str | None = None,
     ) -> None:
         """Update puppy details and keep the birth measurement synchronized."""
 
@@ -1236,6 +1246,7 @@ class PuppyTrackerStorage:
                 "birth_weight": puppy.get("birth_weight"),
                 "birth_time": puppy.get("birth_time"),
                 "profile_note": puppy.get("profile_note"),
+                "chip_number": puppy.get("chip_number"),
                 "active": puppy.get("active", True),
             }
 
@@ -1253,6 +1264,7 @@ class PuppyTrackerStorage:
             puppy["birth_weight"] = new_birth_weight
             puppy["birth_time"] = normalized_birth_time
             puppy["profile_note"] = profile_note
+            puppy["chip_number"] = str(chip_number or "").strip() or None
             puppy["updated_at"] = now
 
             birth_measurement = self._find_birth_measurement(puppy)
@@ -1355,11 +1367,29 @@ class PuppyTrackerStorage:
                         "birth_weight": new_birth_weight,
                         "birth_time": normalized_birth_time,
                         "profile_note": profile_note,
+                        "chip_number": puppy.get("chip_number"),
                         "active": puppy.get("active", True),
                     },
                 },
             )
 
+            await self.async_save()
+
+    async def async_set_puppy_owner_ids(
+        self, litter_id: str, puppy_id: str, owner_ids: list[str]
+    ) -> None:
+        """Set reusable owner references on a puppy."""
+        async with self._lock:
+            puppy = self._require_puppy(litter_id, puppy_id)
+            normalized = list(dict.fromkeys(str(value).strip() for value in owner_ids if str(value).strip()))
+            before = list(puppy.get("owner_ids") or [])
+            if before == normalized:
+                return
+            puppy["owner_ids"] = normalized
+            now = _now_iso()
+            puppy["updated_at"] = now
+            self._data["litters"][litter_id]["updated_at"] = now
+            self._add_audit_entry(action="update_puppy_owners", litter_id=litter_id, puppy_id=puppy_id, details={"before": before, "after": normalized})
             await self.async_save()
 
     async def async_set_puppy_active(

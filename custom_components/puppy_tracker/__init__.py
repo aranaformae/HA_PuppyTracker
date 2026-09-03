@@ -35,6 +35,8 @@ from .frontend import async_setup_frontend, async_unload_frontend
 from .mother_api import async_setup_mother_api
 from .mother_storage_integrity import MotherScopeIntegrityStorage
 from .notifications import PuppyNotificationManager
+from .owner_api import async_setup_owner_api
+from .owners import OwnerStore
 from .recurring_notifications import RecurringReminderNotificationManager
 from .recurring_reminder_api import async_setup_recurring_reminder_api
 from .recurring_reminders import RecurringReminderStore
@@ -96,6 +98,7 @@ ADD_PUPPY_SCHEMA = vol.Schema(
         ),
         vol.Optional("birth_time"): cv.string,
         vol.Optional("profile_note"): cv.string,
+        vol.Optional("chip_number"): cv.string,
     }
 )
 
@@ -152,6 +155,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await care_programs.async_load()
     attention_acknowledgements = AttentionAcknowledgementStore(hass)
     await attention_acknowledgements.async_load()
+    owners = OwnerStore(hass)
+    await owners.async_load()
 
     runtime = PuppyTrackerRuntimeData(
         storage=storage,
@@ -159,6 +164,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         recurring_reminders=recurring_reminders,
         care_programs=care_programs,
         attention_acknowledgements=attention_acknowledgements,
+        owners=owners,
     )
     reconcile_dashboard_selection(runtime)
     entry.runtime_data = runtime
@@ -168,6 +174,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async_setup_recurring_reminder_api(hass)
     async_setup_care_program_api(hass)
     async_setup_attention_acknowledgement_api(hass)
+    async_setup_owner_api(hass)
     await async_setup_frontend(hass)
 
     async_sync_devices(hass, entry, storage.get_data())
@@ -204,6 +211,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             collar_color=call.data.get("collar_color"),
             sex=call.data.get("sex"),
             profile_note=call.data.get("profile_note"),
+            chip_number=call.data.get("chip_number"),
         )
         async_sync_devices(hass, entry, storage.get_data())
         async_dispatcher_send(hass, SIGNAL_NEW_PUPPY, call.data["litter_id"], puppy_id)

@@ -185,6 +185,7 @@
           "litter_id": "Litter",
           "name": "Name",
           "collar_color": "Collar color",
+          "chip_number": "Microchip number",
           "sex": "Sex",
           "birth_weight": "Birth weight",
           "birth_time": "Birth date and time",
@@ -194,6 +195,7 @@
           "litter_id": "Select the litter this puppy belongs to",
           "name": "For example Red, Blue, or a temporary name",
           "collar_color": "Optional collar or identification color",
+          "chip_number": "The dog's registered microchip number",
           "sex": "Sex of the puppy",
           "birth_weight": "Weight immediately after birth in grams",
           "birth_time": "Exact date and time of birth if known",
@@ -213,6 +215,7 @@
         "data": {
           "name": "Name",
           "collar_color": "Collar color",
+          "chip_number": "Microchip number",
           "sex": "Sex",
           "birth_weight": "Birth weight",
           "birth_time": "Birth date and time",
@@ -222,6 +225,7 @@
         "data_description": {
           "name": "Name or identification name of the puppy",
           "collar_color": "Collar or identification color",
+          "chip_number": "The dog's registered microchip number",
           "sex": "Sex of the puppy",
           "birth_weight": "Birth weight in grams",
           "birth_time": "Exact date and time of birth",

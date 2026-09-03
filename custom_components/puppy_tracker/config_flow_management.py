@@ -636,6 +636,7 @@ class PuppyTrackerOptionsFlow(
                     profile_note=user_input.get(
                         "profile_note"
                     ),
+                    chip_number=user_input.get("chip_number"),
                 )
 
                 async_sync_devices(
@@ -714,6 +715,10 @@ class PuppyTrackerOptionsFlow(
 
                     vol.Optional(
                         "collar_color"
+                    ): selector.TextSelector(),
+
+                    vol.Optional(
+                        "chip_number"
                     ): selector.TextSelector(),
 
                     vol.Optional(
@@ -876,6 +881,7 @@ class PuppyTrackerOptionsFlow(
                         profile_note=user_input.get(
                             "profile_note"
                         ),
+                        chip_number=user_input.get("chip_number"),
                     )
 
                     async_sync_devices(
@@ -1074,6 +1080,10 @@ class PuppyTrackerOptionsFlow(
                 multiline=True
             )
         )
+
+        fields[
+            vol.Optional("chip_number", default=puppy.get("chip_number") or "")
+        ] = selector.TextSelector()
 
         action_translation_key = (
             "active_item_action"

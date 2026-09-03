@@ -320,6 +320,8 @@ def _litter_payload(
                 "birth_weight": puppy.get("birth_weight"),
                 "birth_time": puppy.get("birth_time"),
                 "profile_note": puppy.get("profile_note"),
+                "chip_number": puppy.get("chip_number"),
+                "owner_ids": list(puppy.get("owner_ids") or []),
                 "active": puppy.get("active", True),
                 "created_at": puppy.get("created_at"),
                 "updated_at": puppy.get("updated_at"),
@@ -406,6 +408,8 @@ def _puppy_measurements_payload(
             "birth_time": puppy.get("birth_time"),
             "birth_measurement_id": puppy.get("birth_measurement_id"),
             "profile_note": puppy.get("profile_note"),
+            "chip_number": puppy.get("chip_number"),
+            "owner_ids": list(puppy.get("owner_ids") or []),
         },
         "counts": {
             "total_versions": len(measurements),
@@ -451,6 +455,7 @@ def _csv_export(
             "sex",
             "puppy_birth_time",
             "birth_weight_g",
+            "chip_number",
             "measurement_id",
             "measurement_timestamp",
             "weight_g",
@@ -494,6 +499,7 @@ def _csv_export(
                 puppy.get("sex") or "",
                 puppy.get("birth_time") or "",
                 puppy.get("birth_weight") if puppy.get("birth_weight") is not None else "",
+                puppy.get("chip_number") or "",
                 measurement.get("id") or "",
                 measurement.get("timestamp") or "",
                 measurement.get("weight") if measurement.get("weight") is not None else "",
@@ -1233,6 +1239,7 @@ async def websocket_integrity_check(
             vol.Optional("measurements", default=True): bool,
             vol.Optional("care", default=True): bool,
             vol.Optional("attention", default=True): bool,
+            vol.Optional("owners", default=True): bool,
         },
     }
 )
@@ -1254,15 +1261,17 @@ def websocket_export_data(
                 msg["litter_id"],
                 puppy_id=msg.get("puppy_id"),
                 range_hours=msg.get("range_hours"),
-                sections=msg.get("sections"),
             )
             encoding = "text"
         elif msg["format"] == "pdf":
+            runtime = _runtime_data(hass)
             filename, mime_type, content = build_pdf_export(
                 storage,
                 msg["litter_id"],
                 puppy_id=msg.get("puppy_id"),
                 range_hours=msg.get("range_hours"),
+                sections=msg.get("sections"),
+                owner_records=runtime.owners.get_all() if runtime and runtime.owners else None,
             )
             encoding = "base64"
         else:

@@ -70,6 +70,7 @@ CARD_FILES = (
     # puppy_tracker/data; this module only presents it in the expanded details.
     "puppy-tracker-litter-profile-note.js",
     "puppy-tracker-report-card.js",
+    "puppy-tracker-owner-card.js",
     "puppy-tracker-dossier-card.js",
     # Adds the reusable mother owner and current/all-litter history filter to
     # the dossier card without duplicating the base dossier implementation.

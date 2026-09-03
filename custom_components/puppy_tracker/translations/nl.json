@@ -185,6 +185,7 @@
           "litter_id": "Nest",
           "name": "Naam",
           "collar_color": "Halsbandkleur",
+          "chip_number": "Chipnummer",
           "sex": "Geslacht",
           "birth_weight": "Geboortegewicht",
           "birth_time": "Geboortedatum en tijd",
@@ -194,6 +195,7 @@
           "litter_id": "Kies het nest waar de pup bij hoort",
           "name": "Bijvoorbeeld Rood, Blauw of een tijdelijke naam",
           "collar_color": "Optionele halsband- of herkenningskleur",
+          "chip_number": "Het geregistreerde chipnummer van de hond",
           "sex": "Geslacht van de pup",
           "birth_weight": "Gewicht direct na geboorte in gram",
           "birth_time": "Exacte geboortedatum en tijd indien bekend",
@@ -213,6 +215,7 @@
         "data": {
           "name": "Naam",
           "collar_color": "Halsbandkleur",
+          "chip_number": "Chipnummer",
           "sex": "Geslacht",
           "birth_weight": "Geboortegewicht",
           "birth_time": "Geboortedatum en tijd",
@@ -222,6 +225,7 @@
         "data_description": {
           "name": "Naam of herkenningsnaam van de puppy",
           "collar_color": "Halsband- of herkenningskleur",
+          "chip_number": "Het geregistreerde chipnummer van de hond",
           "sex": "Geslacht van de pup",
           "birth_weight": "Geboortegewicht in gram",
           "birth_time": "Exacte geboortedatum en tijd",
