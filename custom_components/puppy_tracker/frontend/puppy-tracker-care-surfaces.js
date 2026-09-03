@@ -157,7 +157,9 @@ function patchToday() {
     const root = this.shadowRoot;
     if (!root) return result;
     const items = openItems(this).filter((item) => ["overdue", "due_today", "upcoming"].includes(item.status));
-    const relevant = items.filter((item) => item.status !== "upcoming" || Number(item.days_until_due) <= 7);
+    const relevant = items
+      .filter((item) => item.status !== "upcoming" || Number(item.days_until_due) <= 7)
+      .filter((item) => this._config?.show_today_only !== true || isTodayItem(item));
     root.querySelector(".care-summary")?.remove();
     if (!relevant.length) return result;
     const section = document.createElement("div");

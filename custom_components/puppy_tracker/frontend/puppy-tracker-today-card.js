@@ -75,7 +75,7 @@ class PuppyTrackerTodayCard extends HTMLElement {
   }
 
   static getStubConfig() {
-    return { title: "", show_litter_selector: true };
+    return { title: "", show_litter_selector: true, show_today_only: false };
   }
 
   static getConfigForm() {
@@ -83,11 +83,12 @@ class PuppyTrackerTodayCard extends HTMLElement {
       { name: "title", selector: { text: {} } },
       { name: "litter_id", selector: { text: {} } },
       { name: "show_litter_selector", selector: { boolean: {} } },
+      { name: "show_today_only", selector: { boolean: {} } },
     ] };
   }
 
   setConfig(config) {
-    this._config = { title: "", show_litter_selector: true, ...config };
+    this._config = { title: "", show_litter_selector: true, show_today_only: false, ...config };
     this._selectedLitterId = config.litter_id || this._selectedLitterId;
     this._render();
   }

@@ -47,7 +47,7 @@ class PuppyTrackerMobileCard extends HTMLElement {
   }
 
   static getStubConfig() {
-    return { title: "", tab: "weighing", show_weighing: true, show_quick_log: true, show_today: true };
+    return { title: "", tab: "weighing", show_weighing: true, show_quick_log: true, show_today: true, show_today_only: false };
   }
 
   static getConfigForm() {
@@ -56,6 +56,7 @@ class PuppyTrackerMobileCard extends HTMLElement {
       { name: "show_weighing", selector: { boolean: {} } },
       { name: "show_quick_log", selector: { boolean: {} } },
       { name: "show_today", selector: { boolean: {} } },
+      { name: "show_today_only", selector: { boolean: {} } },
     ] };
   }
 
@@ -100,7 +101,7 @@ class PuppyTrackerMobileCard extends HTMLElement {
   _childConfig(tag) {
     if (tag === "puppy-tracker-card") return { title: text(this, "weighing"), show_puppies: true, show_details: false };
     if (tag === "puppy-tracker-quick-log-card") return { title: text(this, "quickLog"), show_litter_selector: true };
-    return { title: text(this, "today"), show_litter_selector: true };
+    return { title: text(this, "today"), show_litter_selector: true, show_today_only: this._config.show_today_only === true };
   }
 
   _render() {
