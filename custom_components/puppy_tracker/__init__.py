@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
@@ -116,6 +117,7 @@ BACKUP_TO_FILE_SCHEMA = vol.Schema(
     {
         vol.Required("path"): cv.string,
         vol.Optional("scope", default="full"): vol.In(("full", "litter", "puppy")),
+        vol.Optional("include_timestamp", default=False): cv.boolean,
         vol.Optional("litter_id"): cv.string,
         vol.Optional("puppy_id"): cv.string,
     }
@@ -253,6 +255,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             raise ValueError("Backup path must be inside the Home Assistant config directory") from err
         if target == config_dir or target.suffix.lower() != ".json":
             raise ValueError("Backup path must be a JSON file")
+        if call.data["include_timestamp"]:
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+            target = target.with_name(f"{target.stem}-{timestamp}{target.suffix}")
 
         care_reminder_settings = None
         scheduler_data = None

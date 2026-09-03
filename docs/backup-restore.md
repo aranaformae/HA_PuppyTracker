@@ -61,7 +61,16 @@ action:
       scope: full
 ```
 
-Supported scopes are `full`, `litter` and `puppy`. For the latter two, provide `litter_id`; for `puppy`, also provide `puppy_id`. Existing files are replaced atomically, and parent directories are created automatically. Full backups include the care-program and recurring-reminder stores just like the normal full export.
+Supported scopes are `full`, `litter` and `puppy`. For the latter two, provide `litter_id`; for `puppy`, also provide `puppy_id`. Existing files are replaced atomically, and parent directories are created automatically. Full backups include the care-program and recurring-reminder stores just like the normal full export. Set `include_timestamp: true` to retain every run as a separate file, for example `latest-20260903-161500.json`.
+
+```yaml
+action:
+  - action: puppy_tracker.backup_to_file
+    data:
+      path: backups/puppy-tracker/backup.json
+      scope: full
+      include_timestamp: true
+```
 
 ## Import safety model
 
