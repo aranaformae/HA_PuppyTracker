@@ -61,9 +61,10 @@
       }
 
       this._dataSubscriptionPending = true;
+      const hass = this._hass;
 
       try {
-        this._dataUnsubscribe = await this._hass.connection.subscribeMessage(
+        const unsubscribe = await hass.connection.subscribeMessage(
           async () => {
             try {
               // Refresh discovery first. History may already contain imported
@@ -83,6 +84,11 @@
           },
           { type: "puppy_tracker/subscribe" }
         );
+        if (!this.isConnected || this._hass !== hass) {
+          await Promise.resolve(unsubscribe?.()).catch(() => undefined);
+          return;
+        }
+        this._dataUnsubscribe = unsubscribe;
       } catch (err) {
         console.warn("Puppy Tracker Overview card: update subscription failed", err);
       } finally {

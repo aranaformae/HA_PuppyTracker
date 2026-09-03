@@ -107,7 +107,7 @@ class PuppyTrackerReportCard extends HTMLElement {
     if (!this._hass || this._unsubscribe || this._subscriptionPending || !this.isConnected) return;
     this._subscriptionPending = true;
     try {
-      this._unsubscribe = await subscribeUpdates(this._hass, () => this._queueRefresh());
+      this._unsubscribe = await subscribeUpdates(this._hass, () => this._queueRefresh(), this);
     } catch (err) {
       // Keep showing the last good data. The next hass/connected cycle retries.
       this._unsubscribe = null;

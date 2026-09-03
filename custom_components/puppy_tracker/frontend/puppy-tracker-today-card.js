@@ -141,7 +141,7 @@ class PuppyTrackerTodayCard extends HTMLElement {
     try {
       this._unsubscribe = await subscribeUpdates(this._hass, async () => {
         try { await this._loadData(); } catch (_error) { /* next update retries */ }
-      });
+      }, this);
     } catch (_error) { this._unsubscribe = null; }
   }
 

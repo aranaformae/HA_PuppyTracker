@@ -303,8 +303,12 @@ export async function fetchLitterData(hass, litterId) {
   return hass.callWS({ type: `${DOMAIN}/data`, litter_id: litterId });
 }
 
-export async function subscribeUpdates(hass, callback) {
-  return hass.connection.subscribeMessage(callback, { type: `${DOMAIN}/subscribe` });
+export async function subscribeUpdates(hass, callback, owner = null) {
+  const unsubscribe = await hass.connection.subscribeMessage(callback, { type: `${DOMAIN}/subscribe` });
+  if (!owner || (owner.isConnected && owner._hass === hass)) return unsubscribe;
+
+  await Promise.resolve(unsubscribe?.()).catch(() => undefined);
+  return null;
 }
 
 export async function fetchExport(hass, litterId, format, options = {}) {

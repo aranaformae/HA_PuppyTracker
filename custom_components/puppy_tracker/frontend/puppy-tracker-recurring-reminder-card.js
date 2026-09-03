@@ -98,7 +98,7 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
       this._selectedLitterId = selectDefaultLitter(this._litters, this._selectedLitterId || this._config.litter_id);
       await this._loadCurrent();
       if (!this._unsubscribe && this.isConnected) {
-        this._unsubscribe = await subscribeUpdates(this._hass, () => this._loadCurrent());
+        this._unsubscribe = await subscribeUpdates(this._hass, () => this._loadCurrent(), this);
       }
     } catch (error) {
       this._error = error?.message || t(this, "Herinneringen konden niet worden geladen.", "Reminders could not be loaded.");

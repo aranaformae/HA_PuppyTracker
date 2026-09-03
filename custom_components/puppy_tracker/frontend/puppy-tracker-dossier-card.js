@@ -258,7 +258,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
     if (!this._hass || this._unsubscribe || this._subscriptionPending || !this.isConnected) return;
     this._subscriptionPending = true;
     try {
-      this._unsubscribe = await subscribeUpdates(this._hass, () => this._queueRefresh());
+      this._unsubscribe = await subscribeUpdates(this._hass, () => this._queueRefresh(), this);
     } catch (_err) {
       this._unsubscribe = null;
     } finally {

@@ -96,7 +96,7 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
       );
       await this._loadCurrent();
       if (!this._unsubscribe && this.isConnected) {
-        this._unsubscribe = await subscribeUpdates(this._hass, () => this._loadCurrent());
+        this._unsubscribe = await subscribeUpdates(this._hass, () => this._loadCurrent(), this);
       }
     } catch (error) {
       this._error = error?.message || t(this, "Zorgprogramma's konden niet worden geladen.", "Care programs could not be loaded.");

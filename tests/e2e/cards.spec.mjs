@@ -107,3 +107,27 @@ test("fixture remains usable at the configured viewport", async ({ page }) => {
   const ready = await page.evaluate(() => window.__puppyTrackerReady === true);
   expect(ready).toBe(true);
 });
+
+test("subscription helper closes a subscription that resolves after card removal", async ({ page }) => {
+  await openFixture(page);
+
+  const result = await page.evaluate(async () => {
+    const { subscribeUpdates } = await import("/custom_components/puppy_tracker/frontend/puppy-tracker-card-common.js");
+    let resolveSubscription;
+    let unsubscribeCalls = 0;
+    const hass = {
+      connection: {
+        subscribeMessage: () => new Promise((resolve) => { resolveSubscription = resolve; }),
+      },
+    };
+    const owner = { isConnected: true, _hass: hass };
+    const pending = subscribeUpdates(hass, () => {}, owner);
+    owner.isConnected = false;
+    resolveSubscription(() => { unsubscribeCalls += 1; });
+
+    return { subscription: await pending, unsubscribeCalls };
+  });
+
+  expect(result.subscription).toBeNull();
+  expect(result.unsubscribeCalls).toBe(1);
+});
