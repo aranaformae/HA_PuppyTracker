@@ -1304,6 +1304,8 @@ class PuppyTrackerOverviewCard extends HTMLElement {
     const selectedRow = rows.find((row) => row.puppyId === this._selectedPuppyId);
     const nextMilestone = selectedRow?.analysis?.growth_milestones?.next;
     const estimatedMilestoneTime = Date.parse(nextMilestone?.estimated_at || "");
+    const estimatedRangeStartTime = Date.parse(nextMilestone?.estimated_range_start || "");
+    const estimatedRangeEndTime = Date.parse(nextMilestone?.estimated_range_end || "");
     const projectedMilestone = this._config.show_milestone_chart_annotations !== false && this._metric === "weight"
       && Number.isFinite(estimatedMilestoneTime)
       && estimatedMilestoneTime > Date.now()
@@ -1316,6 +1318,9 @@ class PuppyTrackerOverviewCard extends HTMLElement {
     // at the first effective measurement and runs through the current time.
     let maxTime = Date.now();
     if (projectedMilestone) maxTime = Math.max(maxTime, estimatedMilestoneTime);
+    if (projectedMilestone && Number.isFinite(estimatedRangeEndTime)) {
+      maxTime = Math.max(maxTime, estimatedRangeEndTime);
+    }
     let minTime = this._rangeHours > 0
       ? maxTime - this._rangeHours * 3600 * 1000
       : Math.min(...allPoints.map((point) => point.time));
@@ -1369,6 +1374,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
       <text class="milestone-label" x="${width - right - 4}" y="${(y(milestone.target_weight) - 4).toFixed(1)}" text-anchor="end">${this._escape(`${milestone.target_percent / 100}x`)}</text>
     `).join("");
     const projectedMilestoneLine = projectedMilestone ? `
+      ${Number.isFinite(estimatedRangeStartTime) && Number.isFinite(estimatedRangeEndTime) && estimatedRangeEndTime > estimatedRangeStartTime ? `<rect class="milestone-projection-band ${this._escape(nextMilestone.projection_confidence_code || "medium")}" x="${x(estimatedRangeStartTime).toFixed(1)}" y="${top}" width="${Math.max(1, x(estimatedRangeEndTime) - x(estimatedRangeStartTime)).toFixed(1)}" height="${plotHeight}"></rect>` : ""}
       <line class="milestone-projection" x1="${x(estimatedMilestoneTime).toFixed(1)}" x2="${x(estimatedMilestoneTime).toFixed(1)}" y1="${top}" y2="${height - bottom}"></line>
       <text class="milestone-projection-label" x="${Math.min(x(estimatedMilestoneTime) + 4, width - right - 4).toFixed(1)}" y="${top + 12}">${this._escape(`Geschat ${projectedMilestone.target_percent / 100}x`)}</text>
     ` : "";
@@ -2515,6 +2521,8 @@ class PuppyTrackerOverviewCard extends HTMLElement {
         .milestone-label { fill: var(--primary-color); font-size: 10px; font-weight: 700; }
         .milestone-projection { stroke: var(--warning-color, #ff9800); stroke-width: 1.5; stroke-dasharray: 3 4; opacity: .75; }
         .milestone-projection-label { fill: var(--warning-color, #ff9800); font-size: 10px; font-weight: 700; }
+        .milestone-projection-band { fill: var(--warning-color, #ff9800); opacity: .12; }
+        .milestone-projection-band.low { opacity: .07; }
 
         .axis-label,
         .unit-label {
