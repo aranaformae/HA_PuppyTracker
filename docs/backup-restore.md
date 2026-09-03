@@ -70,7 +70,10 @@ action:
       path: backups/puppy-tracker/backup.json
       scope: full
       include_timestamp: true
+      keep_last: 14
 ```
+
+`keep_last` is optional and only applies when `include_timestamp` is `true`. It retains the newest number of timestamped files matching the configured filename and removes older matching backups; unrelated files in the directory are left untouched.
 
 ## Import safety model
 

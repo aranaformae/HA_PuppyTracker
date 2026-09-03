@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -118,6 +119,7 @@ BACKUP_TO_FILE_SCHEMA = vol.Schema(
         vol.Required("path"): cv.string,
         vol.Optional("scope", default="full"): vol.In(("full", "litter", "puppy")),
         vol.Optional("include_timestamp", default=False): cv.boolean,
+        vol.Optional("keep_last"): vol.All(vol.Coerce(int), vol.Range(min=1, max=3650)),
         vol.Optional("litter_id"): cv.string,
         vol.Optional("puppy_id"): cv.string,
     }
@@ -285,6 +287,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 temp.write(content)
                 temporary = Path(temp.name)
             temporary.replace(target)
+            keep_last = call.data.get("keep_last")
+            if not call.data["include_timestamp"] or keep_last is None:
+                return
+            pattern = re.compile(rf"^{re.escape(target.stem.rsplit('-', 2)[0])}-\d{{8}}-\d{{6}}{re.escape(target.suffix)}$")
+            backups = sorted(
+                (path for path in target.parent.iterdir() if path.is_file() and pattern.fullmatch(path.name)),
+                key=lambda path: path.name,
+                reverse=True,
+            )
+            for old_backup in backups[keep_last:]:
+                old_backup.unlink()
 
         await hass.async_add_executor_job(write_backup)
         _LOGGER.info("Wrote Puppy Tracker %s backup to %s", scope, target)
