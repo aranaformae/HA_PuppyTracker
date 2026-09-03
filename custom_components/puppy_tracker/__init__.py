@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
+from tempfile import NamedTemporaryFile
 
 import voluptuous as vol
 
@@ -13,6 +15,7 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .api import async_setup_api
+from .backup import SCHEDULER_BACKUP_VERSION, serialize_export
 from .attention_acknowledgement_api import async_setup_attention_acknowledgement_api
 from .attention_acknowledgements import AttentionAcknowledgementStore
 from .care_program_api import async_setup_care_program_api
@@ -59,11 +62,13 @@ PLATFORMS: tuple[Platform, ...] = (
 SERVICE_CREATE_LITTER = "create_litter"
 SERVICE_ADD_PUPPY = "add_puppy"
 SERVICE_RECORD_WEIGHT = "record_weight"
+SERVICE_BACKUP_TO_FILE = "backup_to_file"
 
 SERVICES = (
     SERVICE_CREATE_LITTER,
     SERVICE_ADD_PUPPY,
     SERVICE_RECORD_WEIGHT,
+    SERVICE_BACKUP_TO_FILE,
 )
 
 
@@ -103,6 +108,16 @@ RECORD_WEIGHT_SCHEMA = vol.Schema(
         ),
         vol.Optional("timestamp"): cv.string,
         vol.Optional("note"): cv.string,
+    }
+)
+
+
+BACKUP_TO_FILE_SCHEMA = vol.Schema(
+    {
+        vol.Required("path"): cv.string,
+        vol.Optional("scope", default="full"): vol.In(("full", "litter", "puppy")),
+        vol.Optional("litter_id"): cv.string,
+        vol.Optional("puppy_id"): cv.string,
     }
 )
 
@@ -226,10 +241,54 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             measurement_id,
         )
 
+    async def handle_backup_to_file(call: ServiceCall) -> None:
+        """Write an importable JSON backup inside the Home Assistant config directory."""
+        scope = call.data["scope"]
+        configured_path = Path(call.data["path"])
+        config_dir = Path(hass.config.config_dir).resolve()
+        target = (config_dir / configured_path).resolve() if not configured_path.is_absolute() else configured_path.resolve()
+        try:
+            target.relative_to(config_dir)
+        except ValueError as err:
+            raise ValueError("Backup path must be inside the Home Assistant config directory") from err
+        if target == config_dir or target.suffix.lower() != ".json":
+            raise ValueError("Backup path must be a JSON file")
+
+        care_reminder_settings = None
+        scheduler_data = None
+        if scope == "full":
+            if not runtime.care_reminders or not runtime.care_programs or not runtime.recurring_reminders:
+                raise ValueError("Puppy Tracker backup stores are not loaded")
+            care_reminder_settings = runtime.care_reminders.get_backup_settings()
+            scheduler_data = {
+                "version": SCHEDULER_BACKUP_VERSION,
+                "care_programs": runtime.care_programs.get_backup_data(),
+                "recurring_reminders": runtime.recurring_reminders.get_backup_data(),
+            }
+        _, _, content = serialize_export(
+            storage,
+            scope=scope,
+            litter_id=call.data.get("litter_id"),
+            puppy_id=call.data.get("puppy_id"),
+            care_reminder_settings=care_reminder_settings,
+            scheduler_data=scheduler_data,
+        )
+        target.parent.mkdir(parents=True, exist_ok=True)
+
+        def write_backup() -> None:
+            with NamedTemporaryFile("w", encoding="utf-8", dir=target.parent, delete=False) as temp:
+                temp.write(content)
+                temporary = Path(temp.name)
+            temporary.replace(target)
+
+        await hass.async_add_executor_job(write_backup)
+        _LOGGER.info("Wrote Puppy Tracker %s backup to %s", scope, target)
+
     for service, handler, schema in (
         (SERVICE_CREATE_LITTER, handle_create_litter, CREATE_LITTER_SCHEMA),
         (SERVICE_ADD_PUPPY, handle_add_puppy, ADD_PUPPY_SCHEMA),
         (SERVICE_RECORD_WEIGHT, handle_record_weight, RECORD_WEIGHT_SCHEMA),
+        (SERVICE_BACKUP_TO_FILE, handle_backup_to_file, BACKUP_TO_FILE_SCHEMA),
     ):
         if hass.services.has_service(DOMAIN, service):
             continue

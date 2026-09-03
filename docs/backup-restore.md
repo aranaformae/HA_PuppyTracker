@@ -49,6 +49,20 @@ Global settings and scheduler stores are not included in a single-puppy transfer
 
 Export downloads use a signed Home Assistant URL that expires after 10 minutes. The generated backup is not left behind in `/www`.
 
+## Automated file backups
+
+The `puppy_tracker.backup_to_file` Home Assistant service writes an importable JSON backup to a file from an automation. The path must be inside the Home Assistant configuration directory and must end in `.json`.
+
+```yaml
+action:
+  - action: puppy_tracker.backup_to_file
+    data:
+      path: backups/puppy-tracker/latest.json
+      scope: full
+```
+
+Supported scopes are `full`, `litter` and `puppy`. For the latter two, provide `litter_id`; for `puppy`, also provide `puppy_id`. Existing files are replaced atomically, and parent directories are created automatically. Full backups include the care-program and recurring-reminder stores just like the normal full export.
+
 ## Import safety model
 
 Every import follows the same sequence:
