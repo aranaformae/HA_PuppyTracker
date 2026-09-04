@@ -23,6 +23,7 @@ The current suite covers the main backend, frontend contract and browser flows.
 | `test_recurring_reminders.py` | Recurring reminder normalization, owner matching, schedule modes, due status and notification lead-time overrides |
 | `test_care_programs.py` / `test_care_occurrences.py` / `test_care_results.py` | Age-based care program validation, deterministic occurrences, result recording and protocol locking |
 | `test_care_templates.py` / `test_care_program_frontend.py` | Built-in and user template validation, day-specific instructions, JSON import/export and atomic batch saves |
+| `test_temperature_frontend.py` / `test_temperature_card.py` | Structured temperature logging, localization and dedicated temperature-card contracts |
 | `test_owner_backup.py` / `test_recurring_mother_owner_frontend.py` | Reusable contact backup/restore, placement/payment fields, puppy links and owner-related frontend contracts |
 | `test_age_based_care_notifications.py` / `test_notification_settings_storage.py` | Notification settings, default lead-time fallback, care-program overrides, grouping and delivery contracts |
 | `tests/e2e/*.spec.mjs` | Browser coverage for Lovelace cards across Chromium and WebKit projects |

@@ -182,6 +182,7 @@ Puppy Tracker automatically registers its frontend modules. A full browser refre
 | Timeline | `custom:puppy-tracker-timeline-card` | Combined weight + dossier chronology |
 | Recurring Reminders | `custom:puppy-tracker-recurring-reminder-card` | Create and manage generic recurring care rules |
 | Care Programs | `custom:puppy-tracker-care-program-card` | Manage age-based litter care programs such as ENS, ESI and age-specific care |
+| Temperature | `custom:puppy-tracker-temperature-card` | View and record temperature readings and observations per litter, mother or puppy |
 
 ### Recurring reminder card example
 
@@ -192,6 +193,19 @@ show_litter_selector: true
 ```
 
 The card lets you select the whole litter, the linked mother dog or an active puppy as owner. In 0.16.1 and later, mother ownership is resolved through the persistent mother scope rather than relying on a `mother_id` field in the normal litter payload.
+
+### Temperature card example
+
+```yaml
+type: custom:puppy-tracker-temperature-card
+title: Temperatuur
+default_scope: puppy
+default_range: 3d
+history_limit: 10
+max_height: 520
+```
+
+The Temperature card displays and records structured temperature notes for the selected litter, mother dog or puppy. The period, history length and maximum card height are configurable; the history remains scrollable on smaller screens.
 
 ## Daily-use surfaces
 

@@ -80,6 +80,7 @@ CARD_FILES = (
     "puppy-tracker-mobile-card.js",
     "puppy-tracker-bulk-dossier-card.js",
     "puppy-tracker-timeline-card.js",
+    "puppy-tracker-temperature-card.js",
     # Temperature was introduced after these cards already had their own type
     # lists/rendering. Keep all temperature-specific compatibility in one layer.
     "puppy-tracker-temperature-ui.js",
