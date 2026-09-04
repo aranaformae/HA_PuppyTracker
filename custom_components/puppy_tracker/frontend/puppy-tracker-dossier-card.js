@@ -40,6 +40,7 @@ const INTERNAL_DATA_KEYS = new Set([
   "care_occurrence_id",
   "care_age_days",
   "care_scheduled_at",
+  "care_instruction",
   "care_status",
   "care_data",
   "reference_id",

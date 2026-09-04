@@ -18,6 +18,7 @@ from .care_programs import (
     normalize_care_program,
 )
 from .care_results import async_record_care_result
+from .care_templates import CareProgramTemplateStore
 from .care_status import care_occurrence_status
 from .const import DOMAIN, SIGNAL_DASHBOARD_UPDATE
 
@@ -104,6 +105,7 @@ PROGRAM_FIELDS = {
     "schedule_type", "start_age_days", "end_age_days", "interval_days",
     "time_of_day", "counts_for_attention", "notifications_enabled",
     "notification_lead_minutes", "result_fields",
+    "instructions", "instructions_by_age",
 }
 
 
@@ -234,6 +236,8 @@ async def websocket_record_care_occurrence(hass, connection, msg) -> None:
     vol.Optional("notifications_enabled", default=True): bool,
     vol.Optional("notification_lead_minutes"): vol.Any(vol.Coerce(int), None),
     vol.Optional("result_fields"): [vol.In(("result", "score", "note"))],
+    vol.Optional("instructions"): vol.Any(str, None),
+    vol.Optional("instructions_by_age"): dict,
 })
 @websocket_api.async_response
 async def websocket_create_care_program(hass, connection, msg) -> None:
@@ -270,6 +274,8 @@ async def websocket_create_care_program(hass, connection, msg) -> None:
     vol.Optional("notifications_enabled"): bool,
     vol.Optional("notification_lead_minutes"): vol.Any(vol.Coerce(int), None),
     vol.Optional("result_fields"): [vol.In(("result", "score", "note"))],
+    vol.Optional("instructions"): vol.Any(str, None),
+    vol.Optional("instructions_by_age"): dict,
 })
 @websocket_api.async_response
 async def websocket_update_care_program(hass, connection, msg) -> None:
@@ -324,6 +330,86 @@ async def websocket_delete_care_program(hass, connection, msg) -> None:
     connection.send_result(msg["id"], {"ok": True})
 
 
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/care_program_templates"})
+@websocket_api.async_response
+async def websocket_list_care_program_templates(hass, connection, msg) -> None:
+    runtime = _runtime_data(hass)
+    store = getattr(runtime, "care_templates", None) if runtime is not None else None
+    if not isinstance(store, CareProgramTemplateStore):
+        connection.send_error(msg["id"], "not_loaded", "Care program templates are not loaded")
+        return
+    connection.send_result(msg["id"], {"templates": store.get_all()})
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/care_program_template/save",
+    vol.Required("name"): str,
+    vol.Required("template"): dict,
+})
+@websocket_api.async_response
+async def websocket_save_care_program_template(hass, connection, msg) -> None:
+    runtime = _runtime_data(hass)
+    store = getattr(runtime, "care_templates", None) if runtime is not None else None
+    if not isinstance(store, CareProgramTemplateStore):
+        connection.send_error(msg["id"], "not_loaded", "Care program templates are not loaded")
+        return
+    try:
+        template_id = await store.async_save({**msg["template"], "name": msg["name"]})
+    except ValueError as err:
+        connection.send_error(msg["id"], "invalid_template", str(err))
+        return
+    connection.send_result(msg["id"], {"ok": True, "template_id": template_id})
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/care_program_template/save_many",
+    vol.Required("templates"): [dict],
+})
+@websocket_api.async_response
+async def websocket_save_care_program_templates(hass, connection, msg) -> None:
+    """Validate and save an imported template set without partial writes."""
+    runtime = _runtime_data(hass)
+    store = getattr(runtime, "care_templates", None) if runtime is not None else None
+    if not isinstance(store, CareProgramTemplateStore):
+        connection.send_error(msg["id"], "not_loaded", "Care program templates are not loaded")
+        return
+    try:
+        template_ids = await store.async_save_many(msg["templates"])
+    except ValueError as err:
+        connection.send_error(msg["id"], "invalid_template", str(err))
+        return
+    connection.send_result(msg["id"], {"ok": True, "template_ids": template_ids})
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/care_program_template/apply", vol.Required("template_id"): str, vol.Required("litter_id"): str})
+@websocket_api.async_response
+async def websocket_apply_care_program_template(hass, connection, msg) -> None:
+    runtime = _runtime_data(hass)
+    store = getattr(runtime, "care_templates", None) if runtime is not None else None
+    programs = getattr(runtime, "care_programs", None) if runtime is not None else None
+    storage = _runtime_storage(hass)
+    if not isinstance(store, CareProgramTemplateStore) or not isinstance(programs, AgeBasedCareProgramStore) or storage is None:
+        connection.send_error(msg["id"], "not_loaded", "Care program templates are not loaded")
+        return
+    template = store.get(msg["template_id"])
+    if template is None:
+        connection.send_error(msg["id"], "not_found", "Unknown care program template")
+        return
+    try:
+        _validate_litter(storage, msg["litter_id"])
+        data = {key: value for key, value in template.items() if key not in {"id", "name"}}
+        data["litter_id"] = msg["litter_id"]
+        program_id = await programs.async_create(data)
+    except ValueError as err:
+        connection.send_error(msg["id"], "invalid_care_program", str(err))
+        return
+    async_dispatcher_send(hass, SIGNAL_DASHBOARD_UPDATE)
+    connection.send_result(msg["id"], {"ok": True, "program_id": program_id})
+
+
 @callback
 def async_setup_care_program_api(hass: HomeAssistant) -> None:
     if hass.data.get(DATA_API_REGISTERED):
@@ -335,6 +421,10 @@ def async_setup_care_program_api(hass: HomeAssistant) -> None:
         websocket_create_care_program,
         websocket_update_care_program,
         websocket_delete_care_program,
+        websocket_list_care_program_templates,
+        websocket_save_care_program_template,
+        websocket_save_care_program_templates,
+        websocket_apply_care_program_template,
     ):
         websocket_api.async_register_command(hass, command)
     hass.data[DATA_API_REGISTERED] = True

@@ -22,6 +22,10 @@ from custom_components.puppy_tracker.care_programs import (
     normalize_care_program,
 )
 from custom_components.puppy_tracker.care_reminders import CareReminderStore
+from custom_components.puppy_tracker.care_templates import (
+    CareProgramTemplateStore,
+    _normalize_template,
+)
 from custom_components.puppy_tracker.recurring_reminders import (
     RecurringReminderStore,
     normalize_reminder,
@@ -74,6 +78,20 @@ def _source_reminder() -> dict:
     )
 
 
+def _source_template() -> dict:
+    return _normalize_template({
+        "id": "template-1",
+        "name": "Mijn ENS",
+        "title": "ENS",
+        "schedule_type": "range",
+        "start_age_days": 3,
+        "end_age_days": 16,
+        "interval_days": 1,
+        "time_of_day": "09:00",
+        "instructions": "Rustig uitvoeren.",
+    })
+
+
 def _source_schedulers() -> dict:
     return {
         "version": 1,
@@ -85,6 +103,7 @@ def _source_schedulers() -> dict:
             "reminders": {"reminder-1": _source_reminder()},
             "quarantined_reminders": {"future-reminder": {"future": True}},
         },
+        "care_templates": {"templates": {"template-1": _source_template()}},
     }
 
 
@@ -110,7 +129,10 @@ def _runtime_stores(hass):
         "quarantined_reminders": {"old-future-reminder": {"raw": "preserve"}},
     }
     recurring._store.async_save = AsyncMock()
-    return care, programs, recurring
+    templates = CareProgramTemplateStore(hass)
+    templates._data = {"templates": {"old-template": _source_template()}}
+    templates._store.async_save = AsyncMock()
+    return care, programs, recurring, templates
 
 
 def _v5_plan(storage, install_litter):
@@ -136,7 +158,7 @@ async def test_v5_full_restore_updates_all_stores(
     install_litter,
 ) -> None:
     plan, _source_data, _before = _v5_plan(storage, install_litter)
-    care, programs, recurring = _runtime_stores(hass)
+    care, programs, recurring, templates = _runtime_stores(hass)
     storage._store.async_save = AsyncMock()
 
     result = await async_apply_import_transaction(
@@ -145,6 +167,7 @@ async def test_v5_full_restore_updates_all_stores(
         care_reminders=care,
         care_programs=programs,
         recurring_reminders=recurring,
+        care_templates=templates,
     )
 
     assert result["replaces_all"] is True
@@ -153,6 +176,7 @@ async def test_v5_full_restore_updates_all_stores(
     assert care.get_states() == {}
     assert programs.get_backup_data() == _source_schedulers()["care_programs"]
     assert recurring.get_backup_data() == _source_schedulers()["recurring_reminders"]
+    assert templates.get_backup_data() == _source_schedulers()["care_templates"]
 
 
 async def test_v5_failure_rolls_back_every_store_exactly(
@@ -161,10 +185,11 @@ async def test_v5_failure_rolls_back_every_store_exactly(
     install_litter,
 ) -> None:
     plan, _source_data, before_storage = _v5_plan(storage, install_litter)
-    care, programs, recurring = _runtime_stores(hass)
+    care, programs, recurring, templates = _runtime_stores(hass)
     before_care = care.get_snapshot_data()
     before_programs = programs.get_backup_data()
     before_recurring = recurring.get_backup_data()
+    before_templates = templates.get_backup_data()
     storage._store.async_save = AsyncMock()
 
     recurring._store.async_save = AsyncMock(
@@ -178,12 +203,14 @@ async def test_v5_failure_rolls_back_every_store_exactly(
             care_reminders=care,
             care_programs=programs,
             recurring_reminders=recurring,
+            care_templates=templates,
         )
 
     assert storage.get_data() == before_storage
     assert care.get_snapshot_data() == before_care
     assert programs.get_backup_data() == before_programs
     assert recurring.get_backup_data() == before_recurring
+    assert templates.get_backup_data() == before_templates
     assert recurring._store.async_save.await_count == 3
 
 
@@ -207,7 +234,7 @@ async def test_v4_full_restore_leaves_v5_scheduler_stores_untouched(
     storage._data["audit_log"] = []
     plan = prepare_import(storage, document, mode="replace_all")
 
-    care, programs, recurring = _runtime_stores(hass)
+    care, programs, recurring, _templates = _runtime_stores(hass)
     before_programs = programs.get_backup_data()
     before_recurring = recurring.get_backup_data()
     storage._store.async_save = AsyncMock()

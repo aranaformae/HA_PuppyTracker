@@ -151,6 +151,21 @@ def normalize_care_program(
     record_type = validate_record_type(str(data.get("record_type") or "note").strip() or "note")
     time_of_day = _normalize_time_of_day(data.get("time_of_day"))
     result_fields = _normalize_result_fields(data.get("result_fields"))
+    instructions = str(data.get("instructions") or "").strip() or None
+    instructions_by_age = data.get("instructions_by_age") or {}
+    if not isinstance(instructions_by_age, dict):
+        raise ValueError("instructions_by_age must be an object")
+    normalized_instructions_by_age: dict[str, str] = {}
+    for key, value in instructions_by_age.items():
+        try:
+            age = int(key)
+        except (TypeError, ValueError) as err:
+            raise ValueError("instructions_by_age keys must be ages in days") from err
+        if not 0 <= age <= MAX_AGE_DAYS:
+            raise ValueError(f"instructions_by_age keys must be between 0 and {MAX_AGE_DAYS}")
+        text = str(value).strip()
+        if text:
+            normalized_instructions_by_age[str(age)] = text
     revision = _normalize_revision(data.get("revision", 1))
     now = dt_util.now().isoformat()
 
@@ -173,6 +188,8 @@ def normalize_care_program(
             data.get("notification_lead_minutes")
         ),
         "result_fields": result_fields,
+        "instructions": instructions,
+        "instructions_by_age": normalized_instructions_by_age,
         "created_at": str(data.get("created_at") or now),
         "updated_at": str(updated_at or data.get("updated_at") or now),
     }

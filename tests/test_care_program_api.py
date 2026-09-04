@@ -54,7 +54,7 @@ def test_care_program_api_exposes_program_crud_occurrences_and_result_recording(
 def test_only_care_program_management_requires_admin() -> None:
     source = (ROOT / "custom_components" / "puppy_tracker" / "care_program_api.py").read_text(encoding="utf-8")
 
-    assert source.count("@websocket_api.require_admin") == 3
+    assert source.count("@websocket_api.require_admin") == 6
     record_pos = source.index('f"{DOMAIN}/care_occurrence/record"')
     first_admin_pos = source.index("@websocket_api.require_admin")
     assert record_pos < first_admin_pos

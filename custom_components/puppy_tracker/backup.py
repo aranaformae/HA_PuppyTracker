@@ -12,6 +12,7 @@ from uuid import uuid4
 from .backup_scheduler_integrity import validate_scheduler_references
 from .care_programs import normalize_care_program_backup_data
 from .care_reminders import CARE_REMINDER_CATEGORIES, MAX_CARE_REMINDER_LEAD_DAYS
+from .care_templates import normalize_care_template_backup_data
 from .const import DOMAIN
 from .integrity import inspect_and_repair_data
 from .mother_integrity import inspect_mother_data, merge_integrity_reports
@@ -155,7 +156,7 @@ def _validate_scheduler_backup(schedulers: Any) -> dict[str, Any]:
             "Full backup scheduler data is missing or invalid",
         )
 
-    allowed_keys = {"version", "care_programs", "recurring_reminders"}
+    allowed_keys = {"version", "care_programs", "recurring_reminders", "care_templates"}
     if set(schedulers) - allowed_keys:
         raise BackupValidationError(
             "invalid_backup",
@@ -182,6 +183,12 @@ def _validate_scheduler_backup(schedulers: Any) -> dict[str, Any]:
             "invalid_backup",
             "Full backup scheduler stores are incomplete",
         )
+    care_templates = schedulers.get("care_templates", {"templates": {}})
+    if not isinstance(care_templates, dict):
+        raise BackupValidationError(
+            "invalid_backup",
+            "Full backup care-template store is invalid",
+        )
 
     _validate_scheduler_container_ids(
         care_programs,
@@ -199,17 +206,21 @@ def _validate_scheduler_backup(schedulers: Any) -> dict[str, Any]:
         normalized_recurring_reminders = normalize_recurring_reminder_backup_data(
             recurring_reminders
         )
+        normalized_care_templates = normalize_care_template_backup_data(care_templates)
     except ValueError as err:
         raise BackupValidationError(
             "invalid_backup",
             f"Full backup scheduler data is invalid: {err}",
         ) from err
 
-    return {
+    normalized = {
         "version": SCHEDULER_BACKUP_VERSION,
         "care_programs": normalized_care_programs,
         "recurring_reminders": normalized_recurring_reminders,
     }
+    if "care_templates" in schedulers:
+        normalized["care_templates"] = normalized_care_templates
+    return normalized
 
 
 def _validate_scheduler_references(
@@ -230,11 +241,13 @@ def _scheduler_backup_has_entries(schedulers: dict[str, Any]) -> bool:
     """Return whether a scheduler envelope contains definitions or quarantine."""
     care_programs = schedulers.get("care_programs", {})
     recurring = schedulers.get("recurring_reminders", {})
+    care_templates = schedulers.get("care_templates", {})
     return any(
         bool(container.get(key))
         for container, keys in (
             (care_programs, ("programs", "quarantined_programs")),
             (recurring, ("reminders", "quarantined_reminders")),
+            (care_templates, ("templates",)),
         )
         if isinstance(container, dict)
         for key in keys

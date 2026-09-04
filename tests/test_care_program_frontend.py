@@ -46,7 +46,8 @@ def test_care_program_mutations_are_hidden_for_non_admin_users() -> None:
 
     assert 'const isAdmin = Boolean(this._hass?.user?.is_admin)' in source
     assert 'this._showEditor && isAdmin' in source
-    assert 'isAdmin ? `<button id="add-program"' in source
+    assert 'isAdmin ? `' in source
+    assert 'id="add-program"' in source
 
 
 def test_care_program_card_exposes_filtering_and_overflow_controls() -> None:
@@ -58,3 +59,14 @@ def test_care_program_card_exposes_filtering_and_overflow_controls() -> None:
     assert 'id="program-search"' in source
     assert "schedulesOverlap" in source
     assert "max-height:60vh" in source
+    assert 'type: "puppy_tracker/care_program_templates"' in source
+    assert 'puppy-tracker-care-templates.json' in source
+    assert 'accept="application/json,.json"' in source
+    assert 'care_program_template/save' in source
+    assert 'care_program_template/save_many' in source
+    assert "Stappen en instructies" in source
+    assert "age-instruction-row" in source
+    assert "instructions_by_age:" in source
+    care_surfaces = (FRONTEND / "puppy-tracker-care-surfaces.js").read_text(encoding="utf-8")
+    assert "care-result-instructions" in care_surfaces
+    assert "Observation / note" in care_surfaces

@@ -100,6 +100,7 @@ def care_result_record_payload(
         "care_occurrence_id": occurrence_id,
         "care_age_days": int(occurrence.get("age_days") or 0),
         "care_scheduled_at": occurrence.get("scheduled_at"),
+        "care_instruction": occurrence.get("instructions"),
         "care_status": normalized["status"],
         "care_result": normalized.get("result"),
         "care_score": normalized.get("score"),

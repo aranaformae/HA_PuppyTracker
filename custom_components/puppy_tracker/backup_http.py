@@ -43,11 +43,15 @@ def _download_response(
             raise RuntimeError("Puppy Tracker care programs are not loaded")
         if runtime.recurring_reminders is None:
             raise RuntimeError("Puppy Tracker recurring reminders are not loaded")
+        care_templates = getattr(runtime, "care_templates", None)
+        if care_templates is None:
+            raise RuntimeError("Puppy Tracker care templates are not loaded")
         care_reminder_settings = runtime.care_reminders.get_backup_settings()
         scheduler_data = {
             "version": SCHEDULER_BACKUP_VERSION,
             "care_programs": runtime.care_programs.get_backup_data(),
             "recurring_reminders": runtime.recurring_reminders.get_backup_data(),
+            "care_templates": care_templates.get_backup_data(),
         }
 
     filename, _mime, content = serialize_export(

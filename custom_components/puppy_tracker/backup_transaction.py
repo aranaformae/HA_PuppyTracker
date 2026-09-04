@@ -12,6 +12,7 @@ from .backup import (
 )
 from .care_programs import AgeBasedCareProgramStore
 from .care_reminders import CareReminderStore
+from .care_templates import CareProgramTemplateStore
 from .integrity import inspect_and_repair_data
 from .mother_integrity import inspect_mother_data, merge_integrity_reports
 from .recurring_reminders import RecurringReminderStore
@@ -93,13 +94,14 @@ async def async_apply_import_transaction(
     care_reminders: CareReminderStore | None = None,
     care_programs: AgeBasedCareProgramStore | None = None,
     recurring_reminders: RecurringReminderStore | None = None,
+    care_templates: CareProgramTemplateStore | None = None,
     owners: OwnerStore | None = None,
 ) -> dict[str, Any]:
     """Apply one import and coordinate rollback across external stores.
 
     Partial imports only touch the main storage. Full ``replace_all`` restores
     portable legacy care reminder preferences and, for backup v5, both scheduler
-    stores. This is coordinated rollback across separate Home Assistant storage
+    stores, including user-owned care-program templates. This is coordinated rollback across separate Home Assistant storage
     files; it is not filesystem-level crash atomicity.
     """
     summary = plan.get("summary")
@@ -140,6 +142,7 @@ async def async_apply_import_transaction(
             )
         scheduler_care = schedulers.get("care_programs")
         scheduler_recurring = schedulers.get("recurring_reminders")
+        scheduler_templates = schedulers.get("care_templates")
         if not isinstance(scheduler_care, dict) or not isinstance(
             scheduler_recurring, dict
         ):
@@ -147,15 +150,35 @@ async def async_apply_import_transaction(
                 "invalid_import_plan",
                 "Backup v5 scheduler restore data is incomplete",
             )
+        if scheduler_templates is not None and not isinstance(scheduler_templates, dict):
+            raise BackupValidationError(
+                "invalid_import_plan",
+                "Backup v5 care-template restore data is invalid",
+            )
+        if (
+            scheduler_templates is not None
+            and scheduler_templates.get("templates")
+            and care_templates is None
+        ):
+            raise BackupValidationError(
+                "invalid_import_plan",
+                "Full restore with care-template data requires the loaded care-template store",
+            )
     else:
         scheduler_care = None
         scheduler_recurring = None
+        scheduler_templates = None
 
     before_storage = storage.get_data()
     before_care = care_reminders.get_snapshot_data()
     before_programs = care_programs.get_backup_data() if scheduler_care is not None else None
     before_recurring = (
         recurring_reminders.get_backup_data() if scheduler_recurring is not None else None
+    )
+    before_templates = (
+        care_templates.get_backup_data()
+        if scheduler_templates is not None and care_templates is not None
+        else None
     )
     before_owners = owners.get_backup_data() if owner_data is not None and owners is not None else None
     if owner_data is not None and owners is None:
@@ -171,6 +194,8 @@ async def async_apply_import_transaction(
             await care_programs.async_restore_backup_data(scheduler_care)
         if scheduler_recurring is not None and recurring_reminders is not None:
             await recurring_reminders.async_restore_backup_data(scheduler_recurring)
+        if scheduler_templates is not None and care_templates is not None:
+            await care_templates.async_restore_backup_data(scheduler_templates)
         if owner_data is not None and owners is not None:
             await owners.async_restore_backup_data(owner_data)
         return result
@@ -188,6 +213,12 @@ async def async_apply_import_transaction(
                 rollback_errors,
                 "care_programs",
                 care_programs.async_restore_backup_data(before_programs),
+            )
+        if before_templates is not None and care_templates is not None:
+            await _attempt_rollback(
+                rollback_errors,
+                "care_templates",
+                care_templates.async_restore_backup_data(before_templates),
             )
         if before_owners is not None and owners is not None:
             await _attempt_rollback(

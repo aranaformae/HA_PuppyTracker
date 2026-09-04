@@ -57,6 +57,9 @@ def test_full_download_includes_external_scheduler_store_snapshots(storage) -> N
         recurring_reminders=SimpleNamespace(
             get_backup_data=lambda: {"reminders": {}}
         ),
+        care_templates=SimpleNamespace(
+            get_backup_data=lambda: {"templates": {}}
+        ),
         owners=SimpleNamespace(
             get_backup_data=lambda: {
                 "owners": {
@@ -83,6 +86,7 @@ def test_full_download_includes_external_scheduler_store_snapshots(storage) -> N
         "version": 1,
         "care_programs": {"programs": {}},
         "recurring_reminders": {"reminders": {}},
+        "care_templates": {"templates": {}},
     }
     assert payload["owners"]["owners"]["owner-1"]["notes"] == "Belangrijke notitie"
     assert payload["owners"]["owners"]["owner-1"]["payment_status"] == "registration_fee"

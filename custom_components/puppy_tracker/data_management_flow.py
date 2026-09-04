@@ -384,6 +384,7 @@ class PuppyTrackerDataManagementMixin:
                         care_reminders=runtime.care_reminders,
                         care_programs=runtime.care_programs,
                         recurring_reminders=runtime.recurring_reminders,
+                        care_templates=runtime.care_templates,
                         owners=runtime.owners,
                     )
                 else:

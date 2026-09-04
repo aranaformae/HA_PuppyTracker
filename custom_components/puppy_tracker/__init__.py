@@ -22,6 +22,7 @@ from .attention_acknowledgement_api import async_setup_attention_acknowledgement
 from .attention_acknowledgements import AttentionAcknowledgementStore
 from .care_program_api import async_setup_care_program_api
 from .care_programs import AgeBasedCareProgramStore
+from .care_templates import CareProgramTemplateStore
 from .care_reminders import CareReminderStore
 from .const import (
     DOMAIN,
@@ -153,6 +154,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await recurring_reminders.async_load()
     care_programs = AgeBasedCareProgramStore(hass)
     await care_programs.async_load()
+    care_templates = CareProgramTemplateStore(hass)
+    await care_templates.async_load()
     attention_acknowledgements = AttentionAcknowledgementStore(hass)
     await attention_acknowledgements.async_load()
     owners = OwnerStore(hass)
@@ -163,6 +166,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         care_reminders=care_reminders,
         recurring_reminders=recurring_reminders,
         care_programs=care_programs,
+        care_templates=care_templates,
         attention_acknowledgements=attention_acknowledgements,
         owners=owners,
     )
@@ -272,13 +276,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         care_reminder_settings = None
         scheduler_data = None
         if scope == "full":
-            if not runtime.care_reminders or not runtime.care_programs or not runtime.recurring_reminders:
+            if (
+                not runtime.care_reminders
+                or not runtime.care_programs
+                or not runtime.recurring_reminders
+                or not runtime.care_templates
+            ):
                 raise ValueError("Puppy Tracker backup stores are not loaded")
             care_reminder_settings = runtime.care_reminders.get_backup_settings()
             scheduler_data = {
                 "version": SCHEDULER_BACKUP_VERSION,
                 "care_programs": runtime.care_programs.get_backup_data(),
                 "recurring_reminders": runtime.recurring_reminders.get_backup_data(),
+                "care_templates": runtime.care_templates.get_backup_data(),
             }
         _, _, content = serialize_export(
             storage,

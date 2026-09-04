@@ -66,6 +66,7 @@ def test_structured_result_becomes_puppy_dossier_payload() -> None:
         "care_occurrence_id": "program-ens:pup-1:7",
         "care_age_days": 7,
         "care_scheduled_at": "2026-09-07T09:00:00+02:00",
+        "care_instruction": None,
         "care_status": "completed",
         "care_result": "Rustig",
         "care_score": 4.0,

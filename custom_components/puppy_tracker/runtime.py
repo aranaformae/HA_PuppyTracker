@@ -11,6 +11,7 @@ from .storage import PuppyTrackerStorage
 if TYPE_CHECKING:
     from .attention_acknowledgements import AttentionAcknowledgementStore
     from .care_programs import AgeBasedCareProgramStore
+    from .care_templates import CareProgramTemplateStore
     from .care_reminders import CareReminderStore
     from .notifications import PuppyNotificationManager
     from .owners import OwnerStore
@@ -26,6 +27,7 @@ class PuppyTrackerRuntimeData:
     care_reminders: CareReminderStore | None = None
     recurring_reminders: RecurringReminderStore | None = None
     care_programs: AgeBasedCareProgramStore | None = None
+    care_templates: CareProgramTemplateStore | None = None
     attention_acknowledgements: AttentionAcknowledgementStore | None = None
     owners: OwnerStore | None = None
     selected_litter_id: str | None = None

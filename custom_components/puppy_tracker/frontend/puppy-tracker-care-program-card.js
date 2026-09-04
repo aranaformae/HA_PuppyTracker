@@ -12,6 +12,17 @@ function en(card) { return languageForHass(card?._hass) === "en"; }
 function t(card, nl, english) { return en(card) ? english : nl; }
 function checked(value) { return value ? "checked" : ""; }
 
+function ageInstructionRow(card, age, value = "") {
+  return `<div class="age-instruction-row"><label>${escapeHtml(t(card, "Dag", "Day"))}<input class="age-instruction-day" type="number" min="0" max="3650" value="${escapeHtml(String(age))}"></label><label>${escapeHtml(t(card, "Instructie", "Instruction"))}<textarea class="age-instruction-text" rows="2">${escapeHtml(value)}</textarea></label><button class="icon-button remove-age-instruction" type="button" title="${escapeHtml(t(card, "Dag verwijderen", "Remove day"))}" aria-label="${escapeHtml(t(card, "Dag verwijderen", "Remove day"))}"><ha-icon icon="mdi:delete-outline"></ha-icon></button></div>`;
+}
+
+function ageInstructionRows(card, instructions) {
+    const entries = Object.entries(instructions || {})
+    .filter(([age, value]) => Number.isInteger(Number(age)) && Number(age) >= 0 && Number(age) <= 3650 && String(value || "").trim())
+    .sort(([left], [right]) => Number(left) - Number(right));
+    return entries.map(([age, value]) => ageInstructionRow(card, age, value)).join("");
+}
+
 function scheduleText(card, item) {
   const start = Number(item?.start_age_days ?? 0);
   if (item?.schedule_type === "once") {
@@ -56,6 +67,7 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
     this._litters = [];
     this._selectedLitterId = null;
     this._programs = [];
+    this._templates = [];
     this._showEditor = false;
     this._editing = null;
     this._saving = false;
@@ -112,6 +124,8 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
         this._selectedLitterId || this._config.litter_id,
       );
       await this._loadCurrent();
+      const templateResponse = await this._hass.callWS({ type: "puppy_tracker/care_program_templates" });
+      this._templates = templateResponse?.templates || [];
       if (!this._unsubscribe && this.isConnected) {
         this._unsubscribe = await subscribeUpdates(this._hass, () => this._loadCurrent(), this);
       }
@@ -152,6 +166,8 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
       notifications_enabled: item.notifications_enabled !== false,
       notification_lead_minutes: item.notification_lead_minutes ?? "",
       result_fields: item.result_fields || ["result", "note"],
+      instructions: item.instructions || "",
+      instructions_by_age: item.instructions_by_age || {},
     };
   }
 
@@ -176,6 +192,15 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
         ? null
         : Number(root.getElementById("care-lead-minutes")?.value || 0),
       result_fields: fields,
+      instructions: root.getElementById("care-instructions")?.value?.trim() || null,
+      instructions_by_age: Object.fromEntries(
+        [...root.querySelectorAll(".age-instruction-row")]
+          .map((row) => [
+            Number(row.querySelector(".age-instruction-day")?.value),
+            row.querySelector(".age-instruction-text")?.value?.trim() || "",
+          ])
+          .filter(([age, value]) => Number.isInteger(age) && age >= 0 && age <= 3650 && value),
+      ),
     };
   }
 
@@ -248,6 +273,71 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
     }
   }
 
+  _applyTemplate(templateId) {
+    const template = this._templates.find((item) => item.id === templateId);
+    if (!template) return;
+    this._editing = { ...template, id: null, litter_id: this._selectedLitterId };
+    this._error = "";
+    this._render();
+  }
+
+  async _saveAsTemplate(program) {
+    const name = window.prompt(t(this, "Naam voor dit template", "Name for this template"), program.title || "");
+    if (!name?.trim()) return;
+    try {
+      const { litter_id: _litterId, id: _id, revision: _revision, created_at: _createdAt, updated_at: _updatedAt, ...template } = program;
+      await this._hass.callWS({ type: "puppy_tracker/care_program_template/save", name: name.trim(), template });
+      const response = await this._hass.callWS({ type: "puppy_tracker/care_program_templates" });
+      this._templates = response?.templates || this._templates;
+      this._error = "";
+      this._render();
+    } catch (error) {
+      this._error = error?.message || t(this, "Template kon niet worden opgeslagen.", "Template could not be saved.");
+      this._render();
+    }
+  }
+
+  _downloadTemplates() {
+    const payload = JSON.stringify({ format: "puppy_tracker_care_templates", version: 1, templates: this._templates }, null, 2);
+    const url = URL.createObjectURL(new Blob([payload], { type: "application/json" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "puppy-tracker-care-templates.json";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
+  async _importTemplates(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      const parsed = JSON.parse(await file.text());
+      const templates = Array.isArray(parsed) ? parsed : parsed?.templates;
+      if (!Array.isArray(templates) || !templates.length) throw new Error(t(this, "Geen templates gevonden in dit bestand.", "No templates found in this file."));
+      const importItems = [];
+      for (const item of templates) {
+        if (!item || typeof item !== "object") continue;
+        const template = { ...item };
+        if (String(template.id || "").startsWith("builtin_")) delete template.id;
+        const name = String(template.name || template.title || "").trim();
+        if (!name) continue;
+        importItems.push({ ...template, name });
+      }
+      if (!importItems.length) throw new Error(t(this, "Geen geldige templates gevonden in dit bestand.", "No valid templates found in this file."));
+      await this._hass.callWS({ type: "puppy_tracker/care_program_template/save_many", templates: importItems });
+      const response = await this._hass.callWS({ type: "puppy_tracker/care_program_templates" });
+      this._templates = response?.templates || this._templates;
+      this._error = "";
+      this._render();
+    } catch (error) {
+      this._error = error?.message || t(this, "Templates konden niet worden geïmporteerd.", "Templates could not be imported.");
+      this._render();
+    }
+  }
+
   _render() {
     if (!this.shadowRoot) return;
     const draft = this._draft();
@@ -275,15 +365,18 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
               <div>${escapeHtml(scheduleText(this, item))}${item.time_of_day ? ` · ${escapeHtml(item.time_of_day)}` : ""}</div>
               <div class="meta">${escapeHtml(recordTypeLabel(this, item.record_type))}${item.notifications_enabled === false ? ` · ${escapeHtml(t(this, "meldingen uit", "notifications off"))}` : ""}${item.notification_lead_minutes != null ? ` · ${escapeHtml(t(this, `${item.notification_lead_minutes} min vooraf`, `${item.notification_lead_minutes} min before`))}` : ""}</div>
             </div>
-            ${isAdmin ? `<button class="icon-button edit" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t(this, "Aanpassen", "Edit"))}" aria-label="${escapeHtml(t(this, "Aanpassen", "Edit"))}"><ha-icon icon="mdi:pencil-outline"></ha-icon></button>` : ""}
+            ${isAdmin ? `<div class="item-actions"><button class="icon-button edit" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t(this, "Aanpassen", "Edit"))}" aria-label="${escapeHtml(t(this, "Aanpassen", "Edit"))}"><ha-icon icon="mdi:pencil-outline"></ha-icon></button><button class="icon-button save-template" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t(this, "Als template opslaan", "Save as template"))}" aria-label="${escapeHtml(t(this, "Als template opslaan", "Save as template"))}"><ha-icon icon="mdi:content-save-outline"></ha-icon></button></div>` : ""}
           </div>`).join("")}</div>`
       : `<div class="empty">${escapeHtml(t(this, "Nog geen leeftijdsgebonden zorgprogramma's voor dit nest.", "No age-based care programs for this litter yet."))}</div>`;
 
     const editor = this._showEditor && isAdmin ? `
       <div class="editor">
         <div class="editor-title">${escapeHtml(this._editing ? t(this, "Zorgprogramma aanpassen", "Edit care program") : t(this, "Zorgprogramma toevoegen", "Add care program"))}</div>
+        <label>${escapeHtml(t(this, "Template laden", "Load template"))}<select id="care-template"><option value="">${escapeHtml(t(this, "Kies een template", "Choose a template"))}</option>${this._templates.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name || item.title || "Template")}</option>`).join("")}</select></label>
         <label>${escapeHtml(t(this, "Naam", "Name"))}<input id="care-title" value="${escapeHtml(draft.title)}" placeholder="ENS / ESI / Ontworming"></label>
         <label>${escapeHtml(t(this, "Omschrijving", "Description"))}<textarea id="care-description" rows="2">${escapeHtml(draft.description)}</textarea></label>
+        <label>${escapeHtml(t(this, "Stappen en instructies", "Steps and instructions"))}<textarea id="care-instructions" rows="5" placeholder="${escapeHtml(t(this, "Beschrijf stap voor stap wat er moet gebeuren", "Describe what should happen step by step"))}">${escapeHtml(draft.instructions)}</textarea></label>
+        <details class="age-instructions" ${Object.keys(draft.instructions_by_age).length ? "open" : ""}><summary>${escapeHtml(t(this, "Dag-specifieke instructies", "Day-specific instructions"))}</summary><div id="age-instruction-list">${ageInstructionRows(this, draft.instructions_by_age)}</div><div id="age-instruction-error" class="error" hidden></div><button id="add-age-instruction" type="button"><ha-icon icon="mdi:plus"></ha-icon> ${escapeHtml(t(this, "Dag toevoegen", "Add day"))}</button></details>
         <div class="grid">
           <label>${escapeHtml(t(this, "Type dossieritem", "Dossier type"))}<select id="care-record-type">${["note","deworming","vaccination","medication","milestone","test","other"].map((value) => `<option value="${value}" ${draft.record_type === value ? "selected" : ""}>${escapeHtml(recordTypeLabel(this, value))}</option>`).join("")}</select></label>
           <label>${escapeHtml(t(this, "Schema", "Schedule"))}<select id="care-schedule-type"><option value="once" ${draft.schedule_type === "once" ? "selected" : ""}>${escapeHtml(t(this, "Eenmalig op leeftijd", "Once at age"))}</option><option value="range" ${draft.schedule_type === "range" ? "selected" : ""}>${escapeHtml(t(this, "Leeftijdsperiode", "Age range"))}</option></select></label>
@@ -315,9 +408,9 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
 
     this.shadowRoot.innerHTML = `
       <ha-card><style>
-          ha-card{padding:16px}.top{display:flex;gap:12px;align-items:center;justify-content:space-between}.title{font-size:18px;font-weight:600}.tools{display:flex;gap:8px;align-items:center}select,input,textarea,button{font:inherit}select,input,textarea{box-sizing:border-box;width:100%;padding:9px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color)}button{padding:8px 12px;border:1px solid var(--divider-color);border-radius:8px;background:transparent;color:var(--primary-text-color);cursor:pointer}.primary{background:var(--primary-color);color:var(--text-primary-color);border-color:var(--primary-color)}.danger{color:var(--error-color)}.search{margin-top:12px}.list{margin-top:12px;display:grid;gap:8px;max-height:60vh;overflow:auto}.list.compact{gap:4px}.item{display:grid;grid-template-columns:36px 1fr auto;gap:10px;align-items:center;padding:10px;border:1px solid var(--divider-color);border-radius:10px}.compact .item{padding:6px}.item.disabled{opacity:.55}.ico{display:flex;align-items:center;justify-content:center}.main div{font-size:12px;color:var(--secondary-text-color);margin-top:2px}.main .meta{opacity:.85}.icon-button{border:0;padding:7px}.empty{padding:18px 4px;color:var(--secondary-text-color)}.editor{margin-top:14px;padding-top:14px;border-top:1px solid var(--divider-color);display:grid;gap:10px}.editor-title,.result-title{font-weight:600}.editor label{display:grid;gap:5px;font-size:12px;color:var(--secondary-text-color)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.ages{grid-template-columns:repeat(4,1fr)}.checks{display:flex;flex-wrap:wrap;gap:14px}.checks label{display:flex;align-items:center;gap:6px}.checks input{width:auto}.editor-actions{display:grid;grid-template-columns:auto 1fr auto auto;gap:8px;align-items:center}.error{margin-top:10px;color:var(--error-color);font-size:13px}.warning{margin-top:10px;padding:8px 10px;border-radius:8px;background:color-mix(in srgb,var(--warning-color,var(--primary-color)) 12%,transparent);color:var(--primary-text-color)}@media(max-width:700px){.grid,.ages{grid-template-columns:1fr 1fr}.top{align-items:flex-start;flex-direction:column}.tools{width:100%}.tools select{flex:1}}
+          ha-card{padding:16px}.top{display:flex;gap:12px;align-items:center;justify-content:space-between}.title{font-size:18px;font-weight:600}.tools{display:flex;gap:8px;align-items:center}select,input,textarea,button{font:inherit}select,input,textarea{box-sizing:border-box;width:100%;padding:9px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color)}button{padding:8px 12px;border:1px solid var(--divider-color);border-radius:8px;background:transparent;color:var(--primary-text-color);cursor:pointer}.primary{background:var(--primary-color);color:var(--text-primary-color);border-color:var(--primary-color)}.danger{color:var(--error-color)}.search{margin-top:12px}.list{margin-top:12px;display:grid;gap:8px;max-height:60vh;overflow:auto}.list.compact{gap:4px}.item{display:grid;grid-template-columns:36px 1fr auto;gap:10px;align-items:center;padding:10px;border:1px solid var(--divider-color);border-radius:10px}.compact .item{padding:6px}.item.disabled{opacity:.55}.ico{display:flex;align-items:center;justify-content:center}.main div{font-size:12px;color:var(--secondary-text-color);margin-top:2px}.main .meta{opacity:.85}.item-actions{display:flex;gap:4px}.icon-button{border:0;padding:7px}.empty{padding:18px 4px;color:var(--secondary-text-color)}.editor{margin-top:14px;padding-top:14px;border-top:1px solid var(--divider-color);display:grid;gap:10px}.editor-title,.result-title{font-weight:600}.editor label{display:grid;gap:5px;font-size:12px;color:var(--secondary-text-color)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.ages{grid-template-columns:repeat(4,1fr)}.age-instructions{padding:10px;border:1px solid var(--divider-color);border-radius:8px}.age-instructions summary{cursor:pointer;font-weight:600}.age-instructions #age-instruction-list{display:grid;gap:8px;margin-top:10px}.age-instruction-row{display:grid;grid-template-columns:110px minmax(0,1fr) auto;gap:8px;align-items:end}.age-instruction-row label{min-width:0}.age-instruction-row .icon-button{margin-bottom:1px}.age-instructions>.error{margin-top:8px}.checks{display:flex;flex-wrap:wrap;gap:14px}.checks label{display:flex;align-items:center;gap:6px}.checks input{width:auto}.editor-actions{display:grid;grid-template-columns:auto 1fr auto auto;gap:8px;align-items:center}.error{margin-top:10px;color:var(--error-color);font-size:13px}.warning{margin-top:10px;padding:8px 10px;border-radius:8px;background:color-mix(in srgb,var(--warning-color,var(--primary-color)) 12%,transparent);color:var(--primary-text-color)}@media(max-width:700px){.grid,.ages{grid-template-columns:1fr 1fr}.age-instruction-row{grid-template-columns:1fr auto}.age-instruction-row label:nth-child(2){grid-column:1 / -1}.top{align-items:flex-start;flex-direction:column}.tools{width:100%}.tools select{flex:1}}
       </style>
-      <div class="top"><div class="title">${escapeHtml(this._config.title || t(this, "Zorgprogramma's", "Care programs"))}</div><div class="tools">${selector}${isAdmin ? `<button id="add-program"><ha-icon icon="mdi:plus"></ha-icon> ${escapeHtml(t(this, "Toevoegen", "Add"))}</button>` : ""}</div></div>
+      <div class="top"><div class="title">${escapeHtml(this._config.title || t(this, "Zorgprogramma's", "Care programs"))}</div><div class="tools">${selector}${isAdmin ? `<button id="download-templates" title="${escapeHtml(t(this, "Templates downloaden", "Download templates"))}" aria-label="${escapeHtml(t(this, "Templates downloaden", "Download templates"))}"><ha-icon icon="mdi:download"></ha-icon></button><button id="import-templates" title="${escapeHtml(t(this, "Templates importeren", "Import templates"))}" aria-label="${escapeHtml(t(this, "Templates importeren", "Import templates"))}"><ha-icon icon="mdi:upload"></ha-icon></button><input id="template-file" type="file" accept="application/json,.json" hidden><button id="add-program"><ha-icon icon="mdi:plus"></ha-icon> ${escapeHtml(t(this, "Toevoegen", "Add"))}</button>` : ""}</div></div>
       <input class="search" id="program-search" type="search" value="${escapeHtml(this._query)}" placeholder="${escapeHtml(t(this, "Zoek zorgprogramma's", "Search care programs"))}" aria-label="${escapeHtml(t(this, "Zoek zorgprogramma's", "Search care programs"))}">
       ${overlaps ? `<div class="warning" role="status">${escapeHtml(t(this, "Let op: sommige zorgprogramma's overlappen op hetzelfde tijdstip.", "Some care programs overlap at the same time."))}</div>` : ""}
       ${list}${editor}${this._error ? `<div class="error">${escapeHtml(this._error)}</div>` : ""}
@@ -334,6 +427,9 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
       this._showEditor = true;
       this._render();
     });
+    this.shadowRoot.getElementById("download-templates")?.addEventListener("click", () => this._downloadTemplates());
+    this.shadowRoot.getElementById("import-templates")?.addEventListener("click", () => this.shadowRoot.getElementById("template-file")?.click());
+    this.shadowRoot.getElementById("template-file")?.addEventListener("change", (event) => this._importTemplates(event));
     this.shadowRoot.getElementById("program-search")?.addEventListener("input", (event) => {
       this._query = event.target.value || "";
       this._render();
@@ -343,6 +439,10 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
       this._showEditor = true;
       this._render();
     }));
+    this.shadowRoot.querySelectorAll(".save-template").forEach((button) => button.addEventListener("click", () => {
+      const program = this._programs.find((item) => item.id === button.dataset.id);
+      if (program) this._saveAsTemplate(program);
+    }));
     this.shadowRoot.getElementById("cancel-program")?.addEventListener("click", () => {
       this._showEditor = false;
       this._editing = null;
@@ -350,7 +450,32 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
       this._render();
     });
     this.shadowRoot.getElementById("save-program")?.addEventListener("click", () => this._save());
+    this.shadowRoot.getElementById("care-template")?.addEventListener("change", (event) => this._applyTemplate(event.target.value));
     this.shadowRoot.getElementById("delete-program")?.addEventListener("click", () => this._delete(this._editing?.id));
+    this.shadowRoot.querySelectorAll(".remove-age-instruction").forEach((button) => button.addEventListener("click", () => button.closest(".age-instruction-row")?.remove()));
+    this.shadowRoot.getElementById("add-age-instruction")?.addEventListener("click", () => {
+      const error = this.shadowRoot.getElementById("age-instruction-error");
+      const ageRaw = window.prompt(t(this, "Voor welke leeftijd (dagen)?", "For which age (days)?"), String(draft.start_age_days));
+      if (ageRaw === null) return;
+      const age = Number(ageRaw);
+      const existing = [...this.shadowRoot.querySelectorAll(".age-instruction-day")].map((input) => Number(input.value));
+      if (!Number.isInteger(age) || age < 0 || age > 3650) {
+        if (error) { error.textContent = t(this, "Kies een dag tussen 0 en 3650.", "Choose a day between 0 and 3650."); error.hidden = false; }
+        return;
+      }
+      if (existing.includes(age)) {
+        if (error) { error.textContent = t(this, "Voor deze dag bestaat al een instructie.", "An instruction for this day already exists."); error.hidden = false; }
+        return;
+      }
+      if (error) error.hidden = true;
+      const list = this.shadowRoot.getElementById("age-instruction-list");
+      if (!list) return;
+      const wrapper = document.createElement("div");
+      wrapper.innerHTML = ageInstructionRow(this, age);
+      const row = wrapper.firstElementChild;
+      list.appendChild(row);
+      row.querySelector(".remove-age-instruction")?.addEventListener("click", () => row.remove());
+    });
     const syncSchedule = () => {
       const range = this.shadowRoot.getElementById("care-schedule-type")?.value === "range";
       this.shadowRoot.querySelectorAll(".range-field").forEach((node) => { node.style.display = range ? "grid" : "none"; });

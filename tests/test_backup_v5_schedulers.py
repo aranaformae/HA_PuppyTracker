@@ -14,6 +14,7 @@ from custom_components.puppy_tracker.backup import (
     prepare_import,
 )
 from custom_components.puppy_tracker.care_programs import normalize_care_program
+from custom_components.puppy_tracker.care_templates import _normalize_template
 from custom_components.puppy_tracker.recurring_reminders import normalize_reminder
 
 CARE_SETTINGS = {
@@ -63,6 +64,20 @@ def _reminder() -> dict:
     )
 
 
+def _template() -> dict:
+    return _normalize_template({
+        "id": "template-1",
+        "name": "Mijn ENS",
+        "title": "ENS",
+        "schedule_type": "range",
+        "start_age_days": 3,
+        "end_age_days": 16,
+        "interval_days": 1,
+        "time_of_day": "09:00",
+        "instructions": "Rustig uitvoeren.",
+    })
+
+
 def _scheduler_data() -> dict:
     return {
         "version": 1,
@@ -78,6 +93,7 @@ def _scheduler_data() -> dict:
                 "future-reminder": {"schedule_mode": "cron", "expression": "0 8 * * *"}
             },
         },
+        "care_templates": {"templates": {"template-1": _template()}},
     }
 
 
