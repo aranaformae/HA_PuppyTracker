@@ -134,7 +134,7 @@ test("logs a feeding observation for the selected puppy with an editable current
     expect.objectContaining({
       litter_id: "l1",
       puppy_id: "p1",
-      record_type: "note",
+      record_type: "feeding",
       title: "Feeding",
       note: "Bottle 45 ml, drank well",
     })

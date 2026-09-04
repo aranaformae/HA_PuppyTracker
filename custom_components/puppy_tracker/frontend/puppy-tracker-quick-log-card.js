@@ -75,7 +75,7 @@ const QUICK_LOG_TRANSLATIONS = {
 
 const PRESETS = [
   { id: "note", recordType: "note", icon: "mdi:note-text-outline", titleKey: null },
-  { id: "feeding", recordType: "note", icon: "mdi:baby-bottle-outline", titleKey: "feeding" },
+  { id: "feeding", recordType: "feeding", icon: "mdi:baby-bottle-outline", titleKey: "feeding" },
   { id: "elimination", recordType: "note", icon: "mdi:toilet", titleKey: "elimination" },
   { id: "medication", recordType: "medication", icon: "mdi:pill", titleKey: null },
   { id: "milestone", recordType: "milestone", icon: "mdi:flag-checkered", titleKey: null },

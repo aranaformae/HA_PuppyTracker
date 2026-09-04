@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 from copy import deepcopy
+from unittest.mock import AsyncMock
 
 import pytest
 
 from custom_components.puppy_tracker.integrity import inspect_and_repair_data
+from custom_components.puppy_tracker.mother_storage import MotherScopeStorage
 from custom_components.puppy_tracker.records import (
     RECORD_SCOPE_LITTER,
     RECORD_SCOPE_PUPPY,
@@ -231,6 +234,64 @@ async def test_change_record_owner_moves_record_atomically_and_audits(storage, i
 
     with pytest.raises(ValueError, match="already belongs"):
         await storage.async_change_record_owner(litter_id, record_id, target_puppy_id=None)
+
+
+@pytest.mark.asyncio
+async def test_mother_scope_storage_moves_records_to_mother_and_litter(hass) -> None:
+    """Owner changes support the reusable mother dossier as a real target."""
+    storage = MotherScopeStorage(hass)
+    storage._data = {
+        "litters": {
+            "litter-1": {
+                "id": "litter-1",
+                "mother_id": "mother-1",
+                "records": [],
+                "puppies": {
+                    "puppy-1": {"id": "puppy-1", "records": []},
+                },
+            },
+        },
+        "mothers": {
+            "mother-1": {"id": "mother-1", "name": "Luna", "records": []},
+        },
+        "audit_log": [],
+    }
+    storage._lock = asyncio.Lock()
+    storage.async_save = AsyncMock()
+    record = {
+        "id": "record-1",
+        "type": "note",
+        "scope": "puppy",
+        "litter_id": "litter-1",
+        "mother_id": None,
+        "puppy_id": "puppy-1",
+        "deleted": False,
+    }
+    storage._data["litters"]["litter-1"]["puppies"]["puppy-1"]["records"].append(record)
+
+    moved = await storage.async_change_record_owner(
+        "litter-1",
+        "record-1",
+        source_puppy_id="puppy-1",
+        source_scope="puppy",
+        target_scope="mother",
+    )
+
+    assert moved["scope"] == "mother"
+    assert moved["mother_id"] == "mother-1"
+    assert moved["puppy_id"] is None
+    assert storage._data["mothers"]["mother-1"]["records"][0]["id"] == "record-1"
+
+    moved = await storage.async_change_record_owner(
+        "litter-1",
+        "record-1",
+        source_scope="mother",
+        target_scope="litter",
+    )
+
+    assert moved["scope"] == "litter"
+    assert moved["mother_id"] is None
+    assert storage._data["litters"]["litter-1"]["records"][0]["id"] == "record-1"
 
 
 def test_legacy_notes_migrate_to_profile_note_and_record_containers(storage, install_litter) -> None:

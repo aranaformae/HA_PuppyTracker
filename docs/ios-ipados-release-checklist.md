@@ -46,7 +46,9 @@ Use this checklist before a release that changes dashboard cards, frontend loadi
 
 - [ ] Select litter-level dossier and a puppy dossier.
 - [ ] Create a general note.
-- [ ] Create at least one structured record type (vaccination, deworming, medication, test, vet visit, or milestone).
+- [ ] Select the linked mother as a dossier owner when available.
+- [ ] Create at least one structured record type (feeding, vaccination, deworming, medication, test, vet visit, or milestone).
+- [ ] Move a dossier record between puppy, mother and litter owners and confirm it appears only under the new owner.
 - [ ] Change record type while editing and confirm entered values are preserved where expected.
 - [ ] Edit an existing record.
 - [ ] Soft-delete a record.

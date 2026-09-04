@@ -147,6 +147,32 @@ def test_dossier_and_timeline_expose_configurable_default_scopes() -> None:
     assert '{ value: "mother", label: "Mother" }' in timeline
 
 
+def test_dossier_and_quick_log_expose_feeding_record_type() -> None:
+    """Feeding is a first-class dossier type on both logging surfaces."""
+    frontend = Path(__file__).parents[1] / "custom_components" / "puppy_tracker" / "frontend"
+    schema = (frontend / "puppy-tracker-dossier-schema.js").read_text(encoding="utf-8")
+    quick_log = (frontend / "puppy-tracker-quick-log-card.js").read_text(encoding="utf-8")
+
+    assert '["feeding", "feeding", "mdi:baby-bottle-outline"]' in schema
+    assert "feeding: [" in schema
+    assert '{ id: "feeding", recordType: "feeding"' in quick_log
+
+
+def test_dossier_owner_change_supports_litter_mother_and_puppy_scopes() -> None:
+    """Owner changes expose all valid scopes and pass them to the API."""
+    root = Path(__file__).parents[1]
+    card = (root / "custom_components" / "puppy_tracker" / "frontend" / "puppy-tracker-dossier-card.js").read_text(encoding="utf-8")
+    common = (root / "custom_components" / "puppy_tracker" / "frontend" / "puppy-tracker-card-common.js").read_text(encoding="utf-8")
+    api = (root / "custom_components" / "puppy_tracker" / "api.py").read_text(encoding="utf-8")
+
+    assert 'scope: "mother"' in card
+    assert 'scope: "litter"' in card
+    assert 'scope: "puppy"' in card
+    assert "options.sourceScope" in common
+    assert 'vol.Optional("source_scope")' in api
+    assert 'vol.Optional("target_scope")' in api
+
+
 def test_overview_renders_litter_weight_comparison() -> None:
     """The overview card exposes the relative weight context from the backend."""
     source = (

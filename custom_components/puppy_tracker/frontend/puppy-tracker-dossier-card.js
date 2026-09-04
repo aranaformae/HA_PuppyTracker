@@ -648,10 +648,14 @@ class PuppyTrackerDossierCard extends HTMLElement {
 
   async _changeOwner(record) {
     if (!this._canManage || this._saving) return;
+    const sourceScope = record?.scope || record?.__aggregate_owner_scope || (
+      this.__motherSelected ? "mother" : this._selectedPuppyId ? "puppy" : "litter"
+    );
     const owners = [
-      { id: null, name: this._litterData?.litter?.name || localize(this._hass, "litterDossier") },
-      ...(this._litterData?.puppies || []).map((puppy) => ({ id: puppy.id, name: puppy.name || puppy.id })),
-    ].filter((owner) => owner.id !== this._selectedPuppyId);
+      { scope: "litter", id: null, name: this._litterData?.litter?.name || localize(this._hass, "litterDossier") },
+      ...(this._litterData?.litter?.mother ? [{ scope: "mother", id: null, name: `${localize(this._hass, "mother")} · ${this._litterData.litter.mother}` }] : []),
+      ...(this._litterData?.puppies || []).map((puppy) => ({ scope: "puppy", id: puppy.id, name: `${localize(this._hass, "puppy")} · ${puppy.name || puppy.id}` })),
+    ].filter((owner) => owner.scope !== sourceScope || (owner.scope === "puppy" && owner.id !== (record?.puppy_id || this._selectedPuppyId)));
     const choices = owners.map((owner, index) => `${index}: ${owner.name}`).join("\n");
     const answer = window.prompt(`${localize(this._hass, "changeOwnerPrompt")}\n\n${choices}`);
     if (answer === null) return;
@@ -667,7 +671,14 @@ class PuppyTrackerDossierCard extends HTMLElement {
     this._status = localize(this._hass, "changeOwner");
     this._render();
     try {
-      await changeDossierRecordOwner(this._hass, this._selectedLitterId, this._selectedPuppyId, record.id, target.id);
+      await changeDossierRecordOwner(
+        this._hass,
+        this._selectedLitterId,
+        sourceScope === "puppy" ? (record?.puppy_id || this._selectedPuppyId) : null,
+        record.id,
+        target.scope === "puppy" ? target.id : null,
+        { sourceScope, targetScope: target.scope },
+      );
       this._status = localize(this._hass, "recordOwnerChanged");
       await this._loadLitterAndRecords(false);
     } catch (err) {

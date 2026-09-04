@@ -196,6 +196,7 @@ Current record concepts include:
 
 ```text
 note
+feeding
 temperature
 vaccination
 test
@@ -207,6 +208,12 @@ other
 ```
 
 Temperature is a structured dossier event. Its Celsius value belongs in record data rather than being encoded only into title/note text.
+
+Feeding is also a structured dossier event. Its optional `feeding_type`, `amount`, `unit` and `observation` values belong in record data and are available from both Dossier and Quick Log. Legacy free-text feeding notes remain valid and are not migrated automatically.
+
+### Changing dossier ownership
+
+The Dossier card can move a record between the literal `litter`, `mother` and `puppy` scopes within the selected litter. This operation removes the record from its current owner list, updates its scope and owner references, and appends it to the destination owner list in one save operation. It preserves the record identity and audit history, so the action is a move rather than a duplicate. Mother moves require the litter's linked persistent mother; puppy moves require an explicit puppy ID. The storage layer rejects mismatched scope/ID combinations at its boundary.
 
 The storage layer remains extensible for future validated lowercase snake_case record types. Scheduling layers must validate record types at their persistence boundary rather than allowing invalid types to enter their own stores.
 

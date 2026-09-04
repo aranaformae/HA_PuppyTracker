@@ -13,6 +13,9 @@ from homeassistant.helpers.storage import Store
 from .integrity import inspect_and_repair_data
 from .measurements import is_active_measurement, sorted_measurements
 from .records import (
+    RECORD_SCOPE_LITTER,
+    RECORD_SCOPE_MOTHER,
+    RECORD_SCOPE_PUPPY,
     create_record,
     normalize_record,
     sorted_records,
@@ -2075,10 +2078,32 @@ class PuppyTrackerStorage:
         *,
         source_puppy_id: str | None = None,
         target_puppy_id: str | None = None,
+        source_scope: str | None = None,
+        target_scope: str | None = None,
     ) -> dict[str, Any]:
         """Move a dossier record between litter and puppy ownership lists."""
         async with self._lock:
             litter = self._require_litter(litter_id)
+            source_scope = source_scope or (
+                RECORD_SCOPE_PUPPY if source_puppy_id else RECORD_SCOPE_LITTER
+            )
+            target_scope = target_scope or (
+                RECORD_SCOPE_PUPPY if target_puppy_id else RECORD_SCOPE_LITTER
+            )
+            if source_scope == RECORD_SCOPE_MOTHER or target_scope == RECORD_SCOPE_MOTHER:
+                raise ValueError("Mother scope is unavailable in base storage")
+            if source_scope not in {RECORD_SCOPE_LITTER, RECORD_SCOPE_PUPPY}:
+                raise ValueError("Invalid source owner scope")
+            if target_scope not in {RECORD_SCOPE_LITTER, RECORD_SCOPE_PUPPY}:
+                raise ValueError("Invalid target owner scope")
+            if source_scope == RECORD_SCOPE_PUPPY and not source_puppy_id:
+                raise ValueError("Puppy source requires a puppy")
+            if target_scope == RECORD_SCOPE_PUPPY and not target_puppy_id:
+                raise ValueError("Puppy target requires a puppy")
+            if source_scope != RECORD_SCOPE_PUPPY and source_puppy_id:
+                raise ValueError("Only a puppy owner can use a puppy source")
+            if target_scope != RECORD_SCOPE_PUPPY and target_puppy_id:
+                raise ValueError("Only a puppy owner can use a puppy target")
             if source_puppy_id == target_puppy_id:
                 raise ValueError("Record already belongs to this owner")
             source = litter if source_puppy_id is None else self._require_puppy(litter_id, source_puppy_id)
@@ -2086,6 +2111,8 @@ class PuppyTrackerStorage:
             record = self._require_record(source, record_id)
             source["records"].remove(record)
             before = deepcopy(record)
+            record["scope"] = target_scope
+            record["mother_id"] = None
             record["puppy_id"] = target_puppy_id
             target.setdefault("records", []).append(record)
             now = _now_iso()

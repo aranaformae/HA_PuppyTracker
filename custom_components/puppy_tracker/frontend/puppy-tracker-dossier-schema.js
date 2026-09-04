@@ -2,6 +2,7 @@ import { languageForHass, localize } from "./puppy-tracker-card-common.js";
 
 export const RECORD_TYPES = [
   ["note", "note", "mdi:note-text-outline"],
+  ["feeding", "feeding", "mdi:baby-bottle-outline"],
   ["temperature", "temperature", "mdi:thermometer"],
   ["vaccination", "vaccination", "mdi:needle"],
   ["test", "test", "mdi:test-tube"],
@@ -26,6 +27,14 @@ export const TYPE_META = Object.fromEntries(
 
 const SCHEMA_COPY = {
   en: {
+    feedingType: "Food / feeding type",
+    feedingTypePlaceholder: "For example bottle, nursing or solid food",
+    feedingAmount: "Amount",
+    feedingAmountPlaceholder: "For example 45",
+    feedingUnit: "Unit",
+    feedingUnitPlaceholder: "For example ml, grams or feeds",
+    feedingObservation: "Observation / note",
+    feedingObservationPlaceholder: "For example drank well or needed help",
     vaccineType: "Vaccine type / indication",
     vaccineTypePlaceholder: "For example Puppy DP or core vaccine",
     reaction: "Reaction / observation",
@@ -54,6 +63,14 @@ const SCHEMA_COPY = {
     upcomingSummary: "upcoming",
   },
   nl: {
+    feedingType: "Voeding / soort",
+    feedingTypePlaceholder: "Bijvoorbeeld fles, moedermelk of vast voer",
+    feedingAmount: "Hoeveelheid",
+    feedingAmountPlaceholder: "Bijvoorbeeld 45",
+    feedingUnit: "Eenheid",
+    feedingUnitPlaceholder: "Bijvoorbeeld ml, gram of voedingen",
+    feedingObservation: "Observatie / notitie",
+    feedingObservationPlaceholder: "Bijvoorbeeld dronk goed of had hulp nodig",
     vaccineType: "Vaccintype / indicatie",
     vaccineTypePlaceholder: "Bijvoorbeeld Puppy DP of basisvaccinatie",
     reaction: "Reactie / observatie",
@@ -93,6 +110,12 @@ export function schemaText(hass, key, replacements = {}) {
 }
 
 export const TYPE_FIELDS = {
+  feeding: [
+    { key: "feeding_type", schemaLabelKey: "feedingType", schemaPlaceholderKey: "feedingTypePlaceholder" },
+    { key: "amount", schemaLabelKey: "feedingAmount", schemaPlaceholderKey: "feedingAmountPlaceholder", type: "number", min: "0", step: "any" },
+    { key: "unit", schemaLabelKey: "feedingUnit", schemaPlaceholderKey: "feedingUnitPlaceholder" },
+    { key: "observation", schemaLabelKey: "feedingObservation", schemaPlaceholderKey: "feedingObservationPlaceholder", type: "textarea", wide: true },
+  ],
   temperature: [
     { key: "temperature_c", schemaLabelKey: "temperatureValue", schemaPlaceholderKey: "temperatureValuePlaceholder", type: "number", min: "20", max: "45", step: "0.1", required: true },
     { key: "method", schemaLabelKey: "temperatureMethod", schemaPlaceholderKey: "temperatureMethodPlaceholder" },

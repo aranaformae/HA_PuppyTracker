@@ -77,6 +77,7 @@ async function mountDossier(page, { compact = false } = {}) {
             litter: {
               id: "l1",
               name: "Luna x Dutch",
+              mother: "Luna",
               active: true,
               summary: { dossier_actions: { actions: [] } },
             },
@@ -294,6 +295,34 @@ test("dossier can change a record owner and keeps the record identity", async ({
   expect(moveCall).toMatchObject({ record_id: recordId, source_puppy_id: "p1" });
   expect(moveCall).not.toHaveProperty("target_puppy_id");
   expect(dialogs[0]).toContain("0: Luna x Dutch");
+  expect(dialogs[0]).toContain("1: Mother · Luna");
+});
+
+test("dossier can create a structured feeding record", async ({ page }) => {
+  const card = await mountDossier(page);
+
+  await card.locator("#add-record").click();
+  await card.locator("#record-type").selectOption("feeding");
+  await card.locator("#record-data-feeding_type").fill("Bottle");
+  await card.locator("#record-data-amount").fill("45");
+  await card.locator("#record-data-unit").fill("ml");
+  await card.locator("#record-data-observation").fill("Drank well");
+  await card.locator("#record-save").click();
+
+  const addCall = await page.evaluate(() =>
+    window.__dossierCalls.find((call) => call.type === "puppy_tracker/record/add" && call.record_type === "feeding")
+  );
+  expect(addCall).toMatchObject({
+    record_type: "feeding",
+    data: {
+      feeding_type: "Bottle",
+      amount: "45",
+      unit: "ml",
+      observation: "Drank well",
+    },
+  });
+  await expect(card.locator(".record-heading strong").getByText("Feeding", { exact: true })).toBeVisible();
+  await expect(card.getByText("Bottle", { exact: true })).toBeVisible();
 });
 
 test("dossier localizes temperature record labels", async ({ page }) => {

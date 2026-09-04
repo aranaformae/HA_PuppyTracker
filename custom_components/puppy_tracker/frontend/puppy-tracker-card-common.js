@@ -44,6 +44,7 @@ const CARD_TRANSLATIONS = {
     dataRefreshFailed: "New Puppy Tracker data could not be loaded.",
     dateAndTime: "Date and time",
     deworming: "Deworming",
+    feeding: "Feeding",
     dewormingNextDue: "Next deworming",
     deletedItemsLoadFailed: "Deleted dossier items could not be loaded.",
     diagnosis: "Finding / diagnosis",
@@ -92,6 +93,7 @@ const CARD_TRANSLATIONS = {
     milestoneCategory: "Category",
     milestoneCategoryPlaceholder: "For example development or socialization",
     medication: "Medication",
+    mother: "Mother",
     medicationPlaceholder: "Medication name",
     name: "Name",
     nest: "Litter",
@@ -188,6 +190,7 @@ const CARD_TRANSLATIONS = {
     dataRefreshFailed: "Nieuwe Puppy Tracker-data kon niet worden geladen.",
     dateAndTime: "Datum en tijd",
     deworming: "Ontworming",
+    feeding: "Voeding",
     dewormingNextDue: "Volgende ontworming",
     deletedItemsLoadFailed: "Verwijderde dossieritems konden niet worden geladen.",
     diagnosis: "Bevinding / diagnose",
@@ -236,6 +239,7 @@ const CARD_TRANSLATIONS = {
     milestoneCategory: "Categorie",
     milestoneCategoryPlaceholder: "Bijvoorbeeld ontwikkeling of socialisatie",
     medication: "Medicatie",
+    mother: "Moederhond",
     medicationPlaceholder: "Naam geneesmiddel",
     name: "Naam",
     nest: "Nest",
@@ -610,7 +614,7 @@ export async function updateDossierRecord(hass, litterId, puppyId, recordId, rec
   return hass.callWS(message);
 }
 
-export async function changeDossierRecordOwner(hass, litterId, sourcePuppyId, recordId, targetPuppyId) {
+export async function changeDossierRecordOwner(hass, litterId, sourcePuppyId, recordId, targetPuppyId, options = {}) {
   const message = {
     type: `${DOMAIN}/record/change_owner`,
     litter_id: litterId,
@@ -618,6 +622,8 @@ export async function changeDossierRecordOwner(hass, litterId, sourcePuppyId, re
   };
   if (sourcePuppyId) message.source_puppy_id = sourcePuppyId;
   if (targetPuppyId) message.target_puppy_id = targetPuppyId;
+  if (options.sourceScope) message.source_scope = options.sourceScope;
+  if (options.targetScope) message.target_scope = options.targetScope;
   return hass.callWS(message);
 }
 

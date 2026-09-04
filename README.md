@@ -74,7 +74,7 @@ Mother dogs are persistent owners rather than duplicated litter text. This allow
 
 ### Dossier records
 
-Dossier records are timestamped events. Supported concepts include `note`, `temperature`, `vaccination`, `test`, `deworming`, `medication`, `vet_visit`, `milestone` and `other`.
+Dossier records are timestamped events. Supported concepts include `note`, `feeding`, `temperature`, `vaccination`, `test`, `deworming`, `medication`, `vet_visit`, `milestone` and `other`.
 
 Weight measurements remain separate because they require correction chains, birth-weight references, charts, effective/current selection and specialised growth calculations.
 

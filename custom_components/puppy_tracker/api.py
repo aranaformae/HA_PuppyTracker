@@ -1106,6 +1106,8 @@ async def websocket_update_record(
         vol.Required("litter_id"): str,
         vol.Optional("source_puppy_id"): str,
         vol.Optional("target_puppy_id"): str,
+        vol.Optional("source_scope"): vol.In(("litter", "mother", "puppy")),
+        vol.Optional("target_scope"): vol.In(("litter", "mother", "puppy")),
         vol.Required("record_id"): str,
     }
 )
@@ -1125,6 +1127,8 @@ async def websocket_change_record_owner(
             msg["record_id"],
             source_puppy_id=msg.get("source_puppy_id"),
             target_puppy_id=msg.get("target_puppy_id"),
+            source_scope=msg.get("source_scope"),
+            target_scope=msg.get("target_scope"),
         )
     except ValueError as err:
         connection.send_error(msg["id"], "invalid_record_owner", str(err))

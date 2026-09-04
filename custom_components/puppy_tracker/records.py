@@ -20,6 +20,7 @@ VALID_RECORD_SCOPES = frozenset(
 # These are the first planned dossier types. Storage deliberately accepts any
 # valid snake_case type so new modules can be added without a storage migration.
 RECORD_TYPE_NOTE = "note"
+RECORD_TYPE_FEEDING = "feeding"
 RECORD_TYPE_TEMPERATURE = "temperature"
 RECORD_TYPE_VACCINATION = "vaccination"
 RECORD_TYPE_TEST = "test"
@@ -32,6 +33,7 @@ RECORD_TYPE_OTHER = "other"
 PLANNED_RECORD_TYPES = frozenset(
     {
         RECORD_TYPE_NOTE,
+        RECORD_TYPE_FEEDING,
         RECORD_TYPE_TEMPERATURE,
         RECORD_TYPE_VACCINATION,
         RECORD_TYPE_TEST,

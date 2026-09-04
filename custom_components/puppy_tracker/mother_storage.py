@@ -6,7 +6,15 @@ from copy import deepcopy
 from typing import Any
 from uuid import uuid4
 
-from .records import create_record, normalize_record, sorted_records, validate_record_type
+from .records import (
+    RECORD_SCOPE_LITTER,
+    RECORD_SCOPE_MOTHER,
+    RECORD_SCOPE_PUPPY,
+    create_record,
+    normalize_record,
+    sorted_records,
+    validate_record_type,
+)
 from .storage import PuppyTrackerStorage, _now_iso
 from .time_utils import normalize_timestamp
 
@@ -368,6 +376,95 @@ class MotherScopeStorage(PuppyTrackerStorage):
             mother["updated_at"] = now
             self._require_litter(litter_id)["updated_at"] = now
         await self.async_save()
+
+    async def async_change_record_owner(
+        self,
+        litter_id: str,
+        record_id: str,
+        *,
+        source_puppy_id: str | None = None,
+        target_puppy_id: str | None = None,
+        source_scope: str | None = None,
+        target_scope: str | None = None,
+    ) -> dict[str, Any]:
+        """Move a dossier record between litter, mother and puppy owners."""
+        source_scope = source_scope or (
+            RECORD_SCOPE_PUPPY if source_puppy_id else RECORD_SCOPE_LITTER
+        )
+        target_scope = target_scope or (
+            RECORD_SCOPE_PUPPY if target_puppy_id else RECORD_SCOPE_LITTER
+        )
+        valid_scopes = {RECORD_SCOPE_LITTER, RECORD_SCOPE_MOTHER, RECORD_SCOPE_PUPPY}
+        if source_scope not in valid_scopes or target_scope not in valid_scopes:
+            raise ValueError("Invalid dossier owner scope")
+        if source_scope == RECORD_SCOPE_PUPPY and not source_puppy_id:
+            raise ValueError("Puppy source requires a puppy")
+        if target_scope == RECORD_SCOPE_PUPPY and not target_puppy_id:
+            raise ValueError("Puppy target requires a puppy")
+        if source_scope != RECORD_SCOPE_PUPPY and source_puppy_id:
+            raise ValueError("Only a puppy owner can use a puppy source")
+        if target_scope != RECORD_SCOPE_PUPPY and target_puppy_id:
+            raise ValueError("Only a puppy owner can use a puppy target")
+
+        if source_scope != RECORD_SCOPE_MOTHER and target_scope != RECORD_SCOPE_MOTHER:
+            return await super().async_change_record_owner(
+                litter_id,
+                record_id,
+                source_puppy_id=source_puppy_id,
+                target_puppy_id=target_puppy_id,
+                source_scope=source_scope,
+                target_scope=target_scope,
+            )
+
+        async with self._lock:
+            litter = self._require_litter(litter_id)
+            mother_id = str(litter.get("mother_id") or "")
+            if not mother_id:
+                raise ValueError("Mother is not linked to this litter")
+            mother = self._require_mother(mother_id)
+
+            def owner_for(scope: str, puppy_id: str | None) -> dict[str, Any]:
+                if scope == RECORD_SCOPE_MOTHER:
+                    return mother
+                if scope == RECORD_SCOPE_PUPPY:
+                    return self._require_puppy(litter_id, str(puppy_id))
+                return litter
+
+            if source_scope == target_scope and (
+                source_scope != RECORD_SCOPE_PUPPY
+                or source_puppy_id == target_puppy_id
+            ):
+                raise ValueError("Record already belongs to this owner")
+
+            source = owner_for(source_scope, source_puppy_id)
+            target = owner_for(target_scope, target_puppy_id)
+            record = self._require_record(source, record_id)
+            source["records"].remove(record)
+            before = deepcopy(record)
+            target_mother_id = mother_id if target_scope == RECORD_SCOPE_MOTHER else None
+            record["scope"] = target_scope
+            record["litter_id"] = litter_id
+            record["mother_id"] = target_mother_id
+            record["puppy_id"] = target_puppy_id if target_scope == RECORD_SCOPE_PUPPY else None
+            target.setdefault("records", []).append(record)
+            now = _now_iso()
+            source["updated_at"] = now
+            target["updated_at"] = now
+            litter["updated_at"] = now
+            self._add_audit_entry(
+                action="change_record_owner",
+                litter_id=litter_id,
+                puppy_id=record.get("puppy_id"),
+                record_id=record_id,
+                details={
+                    "source_scope": source_scope,
+                    "target_scope": target_scope,
+                    "before": before,
+                    "after": deepcopy(record),
+                },
+            )
+            await self.async_save()
+            return deepcopy(record)
 
     async def async_delete_record(
         self,
