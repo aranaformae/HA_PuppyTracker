@@ -51,7 +51,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
       default_metric: "weight",
       show_summary: true,
       show_puppy_cards: true,
-      show_advanced_analysis: true,
+      show_advanced_analysis: false,
       show_growth_milestones: true,
       show_milestone_chart_annotations: true,
     };
@@ -106,7 +106,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
       default_metric: "weight",
       show_summary: true,
       show_puppy_cards: true,
-      show_advanced_analysis: true,
+      show_advanced_analysis: false,
       show_growth_milestones: true,
       show_milestone_chart_annotations: true,
       ...config,

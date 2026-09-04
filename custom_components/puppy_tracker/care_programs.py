@@ -159,6 +159,7 @@ def normalize_care_program(
         "revision": revision,
         "litter_id": litter_id,
         "enabled": bool(data.get("enabled", True)),
+        "counts_for_attention": bool(data.get("counts_for_attention", True)),
         "title": title,
         "description": description,
         "record_type": record_type,

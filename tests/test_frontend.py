@@ -194,8 +194,11 @@ def test_overview_exposes_basic_and_advanced_visibility_options() -> None:
         "show_growth_milestones",
         "show_milestone_chart_annotations",
     ):
-        assert f"{option}: true" in source
         assert f'name: "{option}"' in source
+
+    assert "show_advanced_analysis: false" in source
+    assert "show_growth_milestones: true" in source
+    assert "show_milestone_chart_annotations: true" in source
 
 
 def test_litter_card_exposes_basic_and_advanced_detail_option() -> None:

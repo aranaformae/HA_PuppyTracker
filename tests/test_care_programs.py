@@ -91,6 +91,13 @@ def test_program_is_litter_specific_and_notifications_are_configurable() -> None
     assert program["notifications_enabled"] is False
     assert program["notification_lead_minutes"] == 90
     assert program["enabled"] is True
+    assert program["counts_for_attention"] is True
+
+
+def test_program_can_be_excluded_from_attention() -> None:
+    program = normalize_care_program(_program_data(counts_for_attention=False))
+
+    assert program["counts_for_attention"] is False
 
 
 def test_program_rejects_invalid_age_ranges_and_frequency() -> None:

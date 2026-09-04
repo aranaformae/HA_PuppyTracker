@@ -439,7 +439,10 @@ def build_pdf_export(
     if litter is None:
         raise ValueError("Unknown litter")
 
-    visible = {"summary": True, "chart": True, "measurements": True, "care": True, "attention": True, "owners": True}
+    visible = {
+        "summary": True, "chart": True, "measurements": True, "care": True,
+        "attention": True, "owners": True, "owner_contact": False,
+    }
     if isinstance(sections, dict):
         visible.update({key: bool(value) for key, value in sections.items() if key in visible})
     puppies: list[tuple[str, dict[str, Any]]] = []
@@ -486,19 +489,38 @@ def build_pdf_export(
                 if owner_id in owner_by_id
             ]
             if linked:
-                owner_rows.append([
+                row = [
                     str(puppy.get("name") or "Puppy"),
                     ", ".join(str(owner.get("name") or "—") for owner in linked),
                     ", ".join(str(owner.get("role") or "owner") for owner in linked),
                     ", ".join(str(owner.get("placement_status") or "interested") for owner in linked),
                     ", ".join(str(owner.get("placement_date") or "—") for owner in linked),
                     ", ".join(str(owner.get("payment_status") or "none") for owner in linked),
+                    ", ".join(str(owner.get("payment_amount") or "—") for owner in linked),
+                    ", ".join(str(owner.get("payment_method") or "—") for owner in linked),
+                    ", ".join(str(owner.get("payment_balance") or "—") for owner in linked),
                     ", ".join(str(owner.get("payment_date") or "—") for owner in linked),
-                    "; ".join(str(owner.get("email") or owner.get("phone") or "—") for owner in linked),
-                ])
+                ]
+                if False and visible["owner_contact"]:
+                    owner = linked[0] if linked else {}
+                    row.append("; ".join(
+                        ", ".join(str(owner.get(field) or "—") for field in linked)
+                        for field in ("email", "phone", "address")
+                    ))
+                if visible["owner_contact"]:
+                    contact_values = []
+                    for contact_field in ("email", "phone", "address"):
+                        contact_values.append(", ".join(str(item.get(contact_field) or "-") for item in linked))
+                    row.append("; ".join(contact_values))
+                owner_rows.append(row)
         if owner_rows:
             report.heading("Baasjegegevens", level=2)
-            report.table(["Pup", "Baasje(s)", "Rol", "Status", "Geplaatst", "Betaling", "Betaald", "Contact"], owner_rows, [55, 90, 55, 55, 55, 55, 55, 85], font_size=6.5)
+            owner_headers = ["Pup", "Baasje(s)", "Rol", "Status", "Geplaatst", "Betaling", "Bedrag", "Methode", "Openstaand", "Betaald"]
+            owner_widths = [42, 70, 36, 40, 42, 42, 40, 42, 42, 42]
+            if visible["owner_contact"]:
+                owner_headers.append("Contactgegevens")
+                owner_widths.append(65)
+            report.table(owner_headers, owner_rows, owner_widths, font_size=6.1)
 
     warnings: list[str] = []
     summary_rows: list[list[str]] = []

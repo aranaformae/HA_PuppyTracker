@@ -57,6 +57,22 @@ def test_full_download_includes_external_scheduler_store_snapshots(storage) -> N
         recurring_reminders=SimpleNamespace(
             get_backup_data=lambda: {"reminders": {}}
         ),
+        owners=SimpleNamespace(
+            get_backup_data=lambda: {
+                "owners": {
+                    "owner-1": {
+                        "id": "owner-1",
+                        "name": "Alex",
+                        "notes": "Belangrijke notitie",
+                        "role": "owner",
+                        "placement_status": "reserved",
+                        "placement_date": "2026-09-01",
+                        "payment_status": "registration_fee",
+                        "payment_date": "2026-09-02",
+                    }
+                }
+            }
+        ),
     )
 
     response = backup_http._download_response(runtime, scope="full")
@@ -68,3 +84,5 @@ def test_full_download_includes_external_scheduler_store_snapshots(storage) -> N
         "care_programs": {"programs": {}},
         "recurring_reminders": {"reminders": {}},
     }
+    assert payload["owners"]["owners"]["owner-1"]["notes"] == "Belangrijke notitie"
+    assert payload["owners"]["owners"]["owner-1"]["payment_status"] == "registration_fee"

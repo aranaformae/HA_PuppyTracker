@@ -639,11 +639,11 @@ def growth_analysis(
             earlier = sum(earlier_values) / len(earlier_values)
             difference = recent - earlier
             if difference > 1:
-                result.update({"trend_code": "rising", "trend": "Stijgend"})
+                result.update({"trend_code": "rising", "trend": "Groei versnelt"})
             elif difference < -1:
-                result.update({"trend_code": "falling", "trend": "Dalend"})
+                result.update({"trend_code": "falling", "trend": "Groei neemt af"})
             else:
-                result.update({"trend_code": "stable", "trend": "Stabiel"})
+                result.update({"trend_code": "stable", "trend": "Groei stabiel"})
         elif deltas:
             result.update({"trend_code": "stable", "trend": "Eerste trend"})
 

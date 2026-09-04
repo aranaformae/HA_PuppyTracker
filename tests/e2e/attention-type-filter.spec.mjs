@@ -270,3 +270,69 @@ test("Attention can limit care program rows to today", async ({ page }) => {
   await expect(card.getByText("Vandaag prik")).toBeVisible();
   await expect(card.getByText("Toekomst prik")).toHaveCount(0);
 });
+
+test("Attention can exclude one care program without hiding weight attention", async ({ page }) => {
+  await openFixture(page);
+
+  await page.evaluate(() => {
+    const card = document.createElement("puppy-tracker-attention-card");
+    card._hass = {
+      language: "nl",
+      locale: { language: "nl" },
+      callWS: async () => ({}),
+    };
+    card._selectedLitterId = "litter-1";
+    card._litters = [{ id: "litter-1", name: "Litter", active: true }];
+    card._data = {
+      litter: { id: "litter-1", name: "Litter", summary: { dossier_actions: { actions: [] } } },
+      puppies: [{
+        id: "pup-1",
+        name: "Blue",
+        active: true,
+        summary: {
+          needs_attention: true,
+          status_code: "growth_low",
+          status: "Aandacht",
+          dossier_actions: { actions: [] },
+        },
+      }],
+    };
+    card.__careOccurrences = [
+      {
+        id: "included:pup-1:3",
+        program_id: "included",
+        puppy_id: "pup-1",
+        puppy_name: "Blue",
+        title: "Wel zichtbaar",
+        record_type: "test",
+        age_days: 3,
+        status: "due_today",
+        days_until_due: 0,
+        counts_for_attention: true,
+        result_fields: [],
+      },
+      {
+        id: "excluded:pup-1:3",
+        program_id: "excluded",
+        puppy_id: "pup-1",
+        puppy_name: "Blue",
+        title: "Niet voor aandacht",
+        record_type: "note",
+        age_days: 3,
+        status: "due_today",
+        days_until_due: 0,
+        counts_for_attention: false,
+        result_fields: [],
+      },
+    ];
+    card.__attentionAcknowledgements = {};
+    card.setConfig({ title: "Aandacht", show_litter_selector: false });
+    document.querySelector("#cards").appendChild(card);
+    card._render();
+  });
+
+  const card = page.locator("puppy-tracker-attention-card");
+  await expect(card.locator('[data-attention-type="weight"]')).toBeVisible();
+  await expect(card.getByText("Wel zichtbaar")).toBeVisible();
+  await expect(card.getByText("Niet voor aandacht")).toHaveCount(0);
+});

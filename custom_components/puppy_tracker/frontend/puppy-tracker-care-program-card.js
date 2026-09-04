@@ -148,6 +148,7 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
       interval_days: item.interval_days ?? 1,
       time_of_day: item.time_of_day || "09:00",
       enabled: item.enabled !== false,
+      counts_for_attention: item.counts_for_attention !== false,
       notifications_enabled: item.notifications_enabled !== false,
       notification_lead_minutes: item.notification_lead_minutes ?? "",
       result_fields: item.result_fields || ["result", "note"],
@@ -169,6 +170,7 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
       interval_days: Number(root.getElementById("care-interval")?.value || 1),
       time_of_day: root.getElementById("care-time")?.value || null,
       enabled: Boolean(root.getElementById("care-enabled")?.checked),
+      counts_for_attention: Boolean(root.getElementById("care-attention")?.checked),
       notifications_enabled: Boolean(root.getElementById("care-notifications")?.checked),
       notification_lead_minutes: root.getElementById("care-lead-minutes")?.value === ""
         ? null
@@ -301,6 +303,7 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
         </div>
         <div class="checks">
           <label><input id="care-enabled" type="checkbox" ${checked(draft.enabled)}> ${escapeHtml(t(this, "Programma actief", "Program enabled"))}</label>
+          <label><input id="care-attention" type="checkbox" ${checked(draft.counts_for_attention)}> ${escapeHtml(t(this, "Meetellen voor aandacht pup", "Include in puppy attention"))}</label>
           <label><input id="care-notifications" type="checkbox" ${checked(draft.notifications_enabled)}> ${escapeHtml(t(this, "Meldingen inschakelen", "Enable notifications"))}</label>
         </div>
         <div class="editor-actions">

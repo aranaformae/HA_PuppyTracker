@@ -33,6 +33,9 @@ def test_care_program_card_exposes_structured_result_configuration() -> None:
     assert 'care-result-result' in source
     assert 'care-result-score' in source
     assert 'care-result-note' in source
+    assert 'counts_for_attention:' in source
+    assert 'id="care-attention"' in source
+    assert "Meetellen voor aandacht pup" in source
 
     api = (ROOT / "custom_components" / "puppy_tracker" / "care_program_api.py").read_text(encoding="utf-8")
     assert api.count('vol.Optional("notification_lead_minutes")') == 2

@@ -48,6 +48,13 @@ def test_attention_can_limit_care_items_to_today() -> None:
     assert "this._config?.show_today_only !== true || isTodayItem(item)" in source
 
 
+def test_attention_setting_only_filters_care_occurrences() -> None:
+    source = (FRONTEND / "puppy-tracker-care-surfaces.js").read_text()
+    assert "function attentionItems(card)" in source
+    assert 'item?.counts_for_attention !== false' in source
+    assert 'data-care-occurrence' in source
+
+
 def test_open_care_rows_launch_structured_result_entry() -> None:
     source = (FRONTEND / "puppy-tracker-care-surfaces.js").read_text()
     assert "function openResultEditor(card, item)" in source

@@ -15,6 +15,7 @@ from .care_reminders import CareReminderStore
 from .integrity import inspect_and_repair_data
 from .mother_integrity import inspect_mother_data, merge_integrity_reports
 from .recurring_reminders import RecurringReminderStore
+from .owners import OwnerStore
 from .storage import PuppyTrackerStorage
 
 
@@ -92,6 +93,7 @@ async def async_apply_import_transaction(
     care_reminders: CareReminderStore | None = None,
     care_programs: AgeBasedCareProgramStore | None = None,
     recurring_reminders: RecurringReminderStore | None = None,
+    owners: OwnerStore | None = None,
 ) -> dict[str, Any]:
     """Apply one import and coordinate rollback across external stores.
 
@@ -115,6 +117,13 @@ async def async_apply_import_transaction(
         raise BackupValidationError(
             "invalid_import_plan",
             "Full restore requires the loaded care reminder store",
+        )
+
+    owner_data = summary.get("owners")
+    if owner_data is not None and not isinstance(owner_data, dict):
+        raise BackupValidationError(
+            "invalid_import_plan",
+            "Full restore owner data is invalid",
         )
 
     schedulers = summary.get("schedulers")
@@ -148,6 +157,12 @@ async def async_apply_import_transaction(
     before_recurring = (
         recurring_reminders.get_backup_data() if scheduler_recurring is not None else None
     )
+    before_owners = owners.get_backup_data() if owner_data is not None and owners is not None else None
+    if owner_data is not None and owners is None:
+        raise BackupValidationError(
+            "invalid_import_plan",
+            "Full restore with owner data requires the loaded owner store",
+        )
 
     try:
         result = await async_apply_import(storage, plan)
@@ -156,6 +171,8 @@ async def async_apply_import_transaction(
             await care_programs.async_restore_backup_data(scheduler_care)
         if scheduler_recurring is not None and recurring_reminders is not None:
             await recurring_reminders.async_restore_backup_data(scheduler_recurring)
+        if owner_data is not None and owners is not None:
+            await owners.async_restore_backup_data(owner_data)
         return result
     except Exception as primary:  # noqa: BLE001 - preserve original failure after rollback
         rollback_errors: list[str] = []
@@ -171,6 +188,12 @@ async def async_apply_import_transaction(
                 rollback_errors,
                 "care_programs",
                 care_programs.async_restore_backup_data(before_programs),
+            )
+        if before_owners is not None and owners is not None:
+            await _attempt_rollback(
+                rollback_errors,
+                "owners",
+                owners.async_restore_backup_data(before_owners),
             )
         await _attempt_rollback(
             rollback_errors,

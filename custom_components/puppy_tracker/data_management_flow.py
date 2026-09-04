@@ -384,6 +384,7 @@ class PuppyTrackerDataManagementMixin:
                         care_reminders=runtime.care_reminders,
                         care_programs=runtime.care_programs,
                         recurring_reminders=runtime.recurring_reminders,
+                        owners=runtime.owners,
                     )
                 else:
                     self._import_result = await async_apply_import_transaction(

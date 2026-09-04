@@ -11,6 +11,10 @@ function openItems(card) {
   return (card.__careOccurrences || []).filter((item) => !["completed", "missed"].includes(item?.status));
 }
 
+function attentionItems(card) {
+  return openItems(card).filter((item) => item?.counts_for_attention !== false);
+}
+
 function isTodayItem(item) {
   const now = new Date();
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
@@ -188,7 +192,8 @@ function patchAttention() {
     const result = originalRender.apply(this, args);
     const root = this.shadowRoot;
     if (!root) return result;
-    const items = openItems(this)
+    root.querySelectorAll("[data-care-occurrence]").forEach((row) => row.remove());
+    const items = attentionItems(this)
       .filter((item) => item.status === "overdue" || item.status === "due_today" || (item.status === "upcoming" && Number(item.days_until_due) <= 3))
       .filter((item) => this._config?.show_today_only !== true || isTodayItem(item));
     if (!items.length) return result;

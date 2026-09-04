@@ -72,6 +72,7 @@ def test_growth_analysis_reports_trend_and_litter_threshold(
 
     assert result["status_code"] == "on_track"
     assert result["trend_code"] == "rising"
+    assert result["trend"] == "Groei versnelt"
     assert result["measurement_count"] == 3
     assert result["min_daily_growth_percent"] == 5.0
 

@@ -75,3 +75,41 @@ async def test_pdf_care_results_follow_report_period(storage, install_litter) ->
     records = _active_care_records(storage, litter_id, puppy_id, range_hours=24)
 
     assert [record["data"]["care_occurrence_id"] for record in records] == ["ens:puppy-1:7"]
+
+
+async def test_pdf_owner_section_respects_contact_privacy(storage, install_litter) -> None:
+    litter_id, puppy_id = install_litter()
+    await storage.async_set_puppy_owner_ids(litter_id, puppy_id, ["owner-1"])
+    owner = {
+        "id": "owner-1",
+        "name": "Alex",
+        "email": "alex@example.com",
+        "phone": "0612345678",
+        "address": "Voorbeeldstraat 1",
+        "role": "owner",
+        "placement_status": "reserved",
+        "placement_date": "2026-09-01",
+        "payment_status": "deposit",
+        "payment_amount": "1250",
+        "payment_method": "bank_transfer",
+        "payment_balance": "250",
+        "payment_date": "2026-09-02",
+    }
+
+    _filename, _mime, encoded = build_pdf_export(
+        storage, litter_id, puppy_id=puppy_id, owner_records=[owner]
+    )
+    private_pdf = base64.b64decode(encoded)
+    assert b"Alex" in private_pdf
+    assert b"alex@example.com" not in private_pdf
+    assert b"1250" in private_pdf
+
+    _filename, _mime, encoded = build_pdf_export(
+        storage,
+        litter_id,
+        puppy_id=puppy_id,
+        owner_records=[owner],
+        sections={"owner_contact": True},
+    )
+    contact_pdf = base64.b64decode(encoded)
+    assert b"alex@example.com" in contact_pdf

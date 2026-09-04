@@ -104,6 +104,7 @@ def derive_puppy_care_occurrences(
             "puppy_name": puppy_name,
             "title": str(program.get("title") or ""),
             "description": program.get("description"),
+            "counts_for_attention": bool(program.get("counts_for_attention", True)),
             "record_type": str(program.get("record_type") or "note"),
             "age_days": age_days,
             "scheduled_at": scheduled.isoformat(),

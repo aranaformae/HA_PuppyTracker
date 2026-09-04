@@ -18,6 +18,7 @@ from .mother_integrity import inspect_mother_data, merge_integrity_reports
 from .mother_schema import migrate_mother_scope_data
 from .mother_storage import MOTHER_SCHEMA_VERSION
 from .recurring_reminders import normalize_recurring_reminder_backup_data
+from .owners import normalize_owner_backup_data
 from .storage import PuppyTrackerStorage
 
 EXPORT_VERSION = 5
@@ -248,6 +249,7 @@ def build_export_document(
     puppy_id: str | None = None,
     care_reminder_settings: dict[str, Any] | None = None,
     scheduler_data: dict[str, Any] | None = None,
+    owner_data: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build an authoritative JSON backup document."""
     if scope not in VALID_SCOPES:
@@ -281,6 +283,8 @@ def build_export_document(
         normalized_schedulers = _validate_scheduler_backup(scheduler_data)
         _validate_scheduler_references(data, normalized_schedulers)
         document["schedulers"] = normalized_schedulers
+        if owner_data is not None:
+            document["owners"] = normalize_owner_backup_data(owner_data)
         return document
 
     if scheduler_data is not None:
@@ -323,6 +327,7 @@ def serialize_export(
     puppy_id: str | None = None,
     care_reminder_settings: dict[str, Any] | None = None,
     scheduler_data: dict[str, Any] | None = None,
+    owner_data: dict[str, Any] | None = None,
 ) -> tuple[str, str, str]:
     """Return filename, MIME type, and JSON text for one backup."""
     document = build_export_document(
@@ -332,6 +337,7 @@ def serialize_export(
         puppy_id=puppy_id,
         care_reminder_settings=care_reminder_settings,
         scheduler_data=scheduler_data,
+        owner_data=owner_data,
     )
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
 
@@ -432,6 +438,14 @@ def parse_export_json(content: str) -> dict[str, Any]:
             document["schedulers"] = _validate_scheduler_backup(
                 document.get("schedulers")
             )
+        if "owners" in document:
+            try:
+                document["owners"] = normalize_owner_backup_data(document["owners"])
+            except ValueError as err:
+                raise BackupValidationError(
+                    "invalid_backup",
+                    f"Full backup owner data is invalid: {err}",
+                ) from err
 
     elif scope == "litter":
         if "schedulers" in document:
@@ -784,6 +798,8 @@ def prepare_import(
             result["care_reminders"] = deepcopy(document["care_reminders"])
             if "schedulers" in document:
                 result["schedulers"] = deepcopy(document["schedulers"])
+            if "owners" in document:
+                result["owners"] = deepcopy(document["owners"])
             _append_import_audit(
                 candidate,
                 scope=scope,
@@ -800,6 +816,12 @@ def prepare_import(
                         "Full backups containing scheduler definitions can only use replace_all "
                         "until scheduler identifier remapping is supported"
                     ),
+                )
+            owners = document.get("owners")
+            if isinstance(owners, dict) and owners.get("owners"):
+                raise BackupValidationError(
+                    "invalid_import_mode",
+                    "Full backups containing owner records can only use replace_all",
                 )
             for source_litter_id, source_litter in source_data.get("litters", {}).items():
                 if not isinstance(source_litter, dict):

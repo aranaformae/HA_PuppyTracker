@@ -52,6 +52,22 @@ def test_ens_range_creates_one_fixed_occurrence_per_age_day(monkeypatch) -> None
     assert occurrences[-1]["scheduled_at"] == "2026-09-19T09:00:00+02:00"
     assert occurrences[0]["time_of_day"] == "09:00"
     assert occurrences[0]["result_fields"] == ["result", "score", "note"]
+    assert occurrences[0]["counts_for_attention"] is True
+
+
+def test_occurrence_preserves_attention_opt_out() -> None:
+    program = normalize_care_program({
+        "id": "quiet-care",
+        "litter_id": "litter-1",
+        "title": "Rustmoment",
+        "schedule_type": "once",
+        "start_age_days": 3,
+        "counts_for_attention": False,
+    })
+
+    occurrence = derive_puppy_care_occurrences(program, _puppy("pup-1", "Rood"))[0]
+
+    assert occurrence["counts_for_attention"] is False
 
 
 def test_revision_one_keeps_v017_occurrence_ids_and_later_revisions_are_isolated() -> None:

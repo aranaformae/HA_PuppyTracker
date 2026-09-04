@@ -15,15 +15,26 @@ import {
 
 const REPORT_TEXT = {
   nl: {
-    subtitle: "Printvriendelijk pup- of nestrapport met bestaande CSV/JSON-export.", litter: "Nest", selection: "Selectie", period: "Periode", all: "Alles", hours24: "24 uur", days3: "3 dagen", days7: "7 dagen", days14: "14 dagen", days30: "30 dagen", puppies: "Pups", measurements: "Metingen", attention: "Actuele aandacht", pdf: "PDF downloaden", csv: "CSV", json: "JSON-nestback-up", note: "PDF en CSV volgen de gekozen pup en periode. JSON is een importeerbare nestback-up inclusief correctie- en verwijderhistorie.", loadFailed: "Rapportgegevens konden niet worden geladen.", refreshFailed: "Nieuwe Puppy Tracker-data kon niet worden geladen.", dataFailed: "Nestdata kon niet worden geladen.", exportFailed: "Export mislukt.", pdfDone: "PDF-rapport gedownload.", csvDone: "CSV gedownload.", jsonDone: "JSON-nestback-up gedownload.", puppy: "Puppy", litterName: "Nest", pdfSections: "Onderdelen in PDF", summarySection: "Samenvatting", chartSection: "Grafiek", measurementSection: "Metingen", careSection: "Zorgresultaten", attentionSection: "Aandachtspunten",
+    subtitle: "Printvriendelijk pup- of nestrapport met bestaande CSV/JSON-export.", litter: "Nest", selection: "Selectie", period: "Periode", all: "Alles", hours24: "24 uur", days3: "3 dagen", days7: "7 dagen", days14: "14 dagen", days30: "30 dagen", puppies: "Pups", measurements: "Metingen", attention: "Actuele aandacht", pdf: "PDF downloaden", csv: "CSV", json: "JSON-nestback-up", note: "PDF en CSV volgen de gekozen pup en periode. JSON is een importeerbare nestback-up inclusief correctie- en verwijderhistorie.", loadFailed: "Rapportgegevens konden niet worden geladen.", refreshFailed: "Nieuwe Puppy Tracker-data kon niet worden geladen.", dataFailed: "Nestdata kon niet worden geladen.", exportFailed: "Export mislukt.", pdfDone: "PDF-rapport gedownload.", csvDone: "CSV gedownload.", jsonDone: "JSON-nestback-up gedownload.", puppy: "Puppy", litterName: "Nest", pdfSections: "Onderdelen in PDF", summarySection: "Samenvatting", chartSection: "Grafiek", measurementSection: "Metingen", careSection: "Zorgresultaten", attentionSection: "Aandachtspunten", ownersSection: "Baasjes en plaatsing", ownerContactSection: "Contactgegevens", profile: "PDF-profiel", customProfile: "Aangepast", saveProfile: "Profiel opslaan",
   },
   en: {
-    subtitle: "Print-friendly puppy or litter report with existing CSV/JSON export.", litter: "Litter", selection: "Selection", period: "Period", all: "All", hours24: "24 hours", days3: "3 days", days7: "7 days", days14: "14 days", days30: "30 days", puppies: "Puppies", measurements: "Measurements", attention: "Current attention", pdf: "Download PDF", csv: "CSV", json: "Litter JSON backup", note: "PDF and CSV follow the selected puppy and period. JSON is an importable litter backup including correction and deletion history.", loadFailed: "Report data could not be loaded.", refreshFailed: "New Puppy Tracker data could not be loaded.", dataFailed: "Litter data could not be loaded.", exportFailed: "Export failed.", pdfDone: "PDF report downloaded.", csvDone: "CSV downloaded.", jsonDone: "Litter JSON backup downloaded.", puppy: "Puppy", litterName: "Litter", pdfSections: "PDF sections", summarySection: "Summary", chartSection: "Chart", measurementSection: "Measurements", careSection: "Care results", attentionSection: "Attention items",
+    subtitle: "Print-friendly puppy or litter report with existing CSV/JSON export.", litter: "Litter", selection: "Selection", period: "Period", all: "All", hours24: "24 hours", days3: "3 days", days7: "7 days", days14: "14 days", days30: "30 days", puppies: "Puppies", measurements: "Measurements", attention: "Current attention", pdf: "Download PDF", csv: "CSV", json: "Litter JSON backup", note: "PDF and CSV follow the selected puppy and period. JSON is an importable litter backup including correction and deletion history.", loadFailed: "Report data could not be loaded.", refreshFailed: "New Puppy Tracker data could not be loaded.", dataFailed: "Litter data could not be loaded.", exportFailed: "Export failed.", pdfDone: "PDF report downloaded.", csvDone: "CSV downloaded.", jsonDone: "Litter JSON backup downloaded.", puppy: "Puppy", litterName: "Litter", pdfSections: "PDF sections", summarySection: "Summary", chartSection: "Chart", measurementSection: "Measurements", careSection: "Care results", attentionSection: "Attention items", ownersSection: "Owners and placement", ownerContactSection: "Contact details", profile: "PDF profile", customProfile: "Custom", saveProfile: "Save profile",
   },
 };
 
 function reportText(hass, key) {
   return (REPORT_TEXT[languageForHass(hass)] || REPORT_TEXT.nl)[key] || key;
+}
+
+const REPORT_PROFILES = {
+  full: { nl: "Volledig dossier", en: "Full dossier", sections: { summary: true, chart: true, measurements: true, care: true, attention: true, owners: true, owner_contact: true } },
+  handover: { nl: "Overdracht aan baasje", en: "Owner handover", sections: { summary: true, chart: true, measurements: true, care: true, attention: false, owners: true, owner_contact: true } },
+  internal: { nl: "Intern fokdossier", en: "Internal breeding record", sections: { summary: true, chart: true, measurements: true, care: true, attention: true, owners: true, owner_contact: false } },
+};
+
+function profileLabel(hass, profile) {
+  const language = languageForHass(hass);
+  return profile?.[language] || profile?.nl || profile?.en || "Aangepast";
 }
 
 class PuppyTrackerReportCard extends HTMLElement {
@@ -47,10 +58,12 @@ class PuppyTrackerReportCard extends HTMLElement {
     this._state = loadCardState(this, { range: "all", puppyId: "all" });
     this._range = this._state.range || "all";
     this._selectedPuppyId = this._state.puppyId || "all";
+    this._reportProfile = this._state.reportProfile || "full";
+    this._sectionState = this._state.sectionState || { ...REPORT_PROFILES.full.sections };
   }
 
   static getStubConfig() {
-    return { title: "Rapport & export", default_range: "all" };
+    return { title: "Rapport & export", default_range: "all", default_profile: "full" };
   }
 
   static getConfigForm() {
@@ -68,14 +81,26 @@ class PuppyTrackerReportCard extends HTMLElement {
             { value: "all", label: "Alles" },
           ] } },
         },
+        {
+          name: "default_profile",
+          selector: { select: { mode: "dropdown", options: [
+            { value: "full", label: "Volledig dossier" },
+            { value: "handover", label: "Overdracht aan baasje" },
+            { value: "internal", label: "Intern fokdossier" },
+          ] } },
+        },
       ],
     };
   }
 
   setConfig(config) {
-    this._config = { title: "Rapport & export", default_range: "all", ...config };
+    this._config = { title: "Rapport & export", default_range: "all", default_profile: "full", ...config };
     this._selectedLitterId = config.litter_id || this._selectedLitterId;
     this._range = Object.hasOwn(config, "default_range") ? (config.default_range || "all") : (this._state.range || this._range);
+    if (!this._state.reportProfile && REPORT_PROFILES[this._config.default_profile]) {
+      this._reportProfile = this._config.default_profile;
+      this._sectionState = { ...REPORT_PROFILES[this._reportProfile].sections };
+    }
     this._render();
   }
 
@@ -187,7 +212,28 @@ class PuppyTrackerReportCard extends HTMLElement {
   }
 
   _persistState() {
-    saveCardState(this, { ...this._state, range: this._range, puppyId: this._selectedPuppyId });
+    saveCardState(this, { ...this._state, range: this._range, puppyId: this._selectedPuppyId, reportProfile: this._reportProfile, sectionState: this._sectionState });
+  }
+
+  _applyProfile(profileName) {
+    const profile = REPORT_PROFILES[profileName] || this._state.reportProfiles?.[profileName];
+    if (!profile?.sections) return;
+    this._reportProfile = profileName;
+    this._sectionState = { ...profile.sections };
+    this._persistState();
+    this._render();
+  }
+
+  _saveCustomProfile() {
+    const name = window.prompt(languageForHass(this._hass) === "en" ? "Name for this PDF profile" : "Naam voor dit PDF-profiel");
+    if (!name?.trim()) return;
+    const profiles = { ...(this._state.reportProfiles || {}) };
+    const key = `custom_${name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") || Date.now()}`;
+    profiles[key] = { nl: name.trim(), en: name.trim(), sections: { ...this._sectionState } };
+    this._state = { ...this._state, reportProfiles: profiles };
+    this._reportProfile = key;
+    this._persistState();
+    this._render();
   }
 
   async _export(format) {
@@ -224,17 +270,20 @@ class PuppyTrackerReportCard extends HTMLElement {
     const measurementCount = selected.reduce((sum, p) => sum + this._measurementRows(p).length, 0);
     const litterOptions = this._litters.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === this._selectedLitterId ? "selected" : ""}>${escapeHtml(item.name || reportText(this._hass, "litterName"))}</option>`).join("");
     const puppyOptions = `<option value="all" ${this._selectedPuppyId === "all" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "all"))}</option>${puppies.map((p) => `<option value="${escapeHtml(p.id)}" ${p.id === this._selectedPuppyId ? "selected" : ""}>${escapeHtml(p.name || reportText(this._hass, "puppy"))}${p.collar_color ? ` – ${escapeHtml(p.collar_color)}` : ""}</option>`).join("")}`;
-
+    const sections = this._sectionState;
+    const profiles = { ...REPORT_PROFILES, ...(this._state.reportProfiles || {}) };
+    if (this._reportProfile === "custom" && !profiles.custom) profiles.custom = { nl: reportText(this._hass, "customProfile"), en: reportText(this._hass, "customProfile"), sections };
+    const profileOptions = Object.entries(profiles).map(([key, profile]) => `<option value="${escapeHtml(key)}" ${key === this._reportProfile ? "selected" : ""}>${escapeHtml(profileLabel(this._hass, profile))}</option>`).join("");
     this.shadowRoot.innerHTML = `
       <ha-card><style>
-        ha-card{padding:16px;container-type:inline-size;container-name:report-card}.title{font-size:18px;font-weight:600;margin-bottom:3px}.sub{font-size:12px;color:var(--secondary-text-color);margin-bottom:12px}.controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.field{min-width:0}.field label{display:block;font-size:11px;color:var(--secondary-text-color);margin:0 0 4px 2px}.field select{width:100%;min-width:0;min-height:42px;border:1px solid var(--divider-color);border-radius:10px;background:var(--card-background-color);color:var(--primary-text-color);padding:0 9px;font-size:14px}.pdf-sections{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}.pdf-sections label{font-size:12px;display:flex;align-items:center;gap:5px}.pdf-sections input{accent-color:var(--primary-color)}.preview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px}.box{min-width:0;border:1px solid var(--divider-color);border-radius:12px;padding:10px}.box span{display:block;font-size:11px;color:var(--secondary-text-color)}.box b{display:block;margin-top:3px;font-size:16px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.actions button{min-height:42px;border:0;border-radius:10px;padding:0 13px;font-weight:600;cursor:pointer;background:var(--primary-color);color:var(--text-primary-color,#fff)}.actions button.secondary{background:var(--secondary-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color)}.status{font-size:12px;color:var(--secondary-text-color);margin-top:9px}.error{color:var(--error-color)}.note{font-size:11px;color:var(--secondary-text-color);margin-top:10px;line-height:1.4}
+        ha-card{padding:16px;container-type:inline-size;container-name:report-card}.title{font-size:18px;font-weight:600;margin-bottom:3px}.sub{font-size:12px;color:var(--secondary-text-color);margin-bottom:12px}.controls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.field{min-width:0}.field label{display:block;font-size:11px;color:var(--secondary-text-color);margin:0 0 4px 2px}.field select{width:100%;min-width:0;min-height:42px;border:1px solid var(--divider-color);border-radius:10px;background:var(--card-background-color);color:var(--primary-text-color);padding:0 9px;font-size:14px}.pdf-sections{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}.pdf-sections label{font-size:12px;display:flex;align-items:center;gap:5px}.pdf-sections input{accent-color:var(--primary-color)}.preview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px}.box{min-width:0;border:1px solid var(--divider-color);border-radius:12px;padding:10px}.box span{display:block;font-size:11px;color:var(--secondary-text-color)}.box b{display:block;margin-top:3px;font-size:16px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.actions button{min-height:42px;border:0;border-radius:10px;padding:0 13px;font-weight:600;cursor:pointer;background:var(--primary-color);color:var(--text-primary-color,#fff)}.actions button.secondary{background:var(--secondary-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color)}.status{font-size:12px;color:var(--secondary-text-color);margin-top:9px}.error{color:var(--error-color)}.note{font-size:11px;color:var(--secondary-text-color);margin-top:10px;line-height:1.4}
         @container report-card (max-width:600px){.controls{grid-template-columns:1fr}.preview{grid-template-columns:repeat(3,minmax(0,1fr))}.actions button{flex:1 1 auto}}
         @container report-card (max-width:380px){ha-card{padding:13px}.preview{grid-template-columns:1fr}.actions{display:grid;grid-template-columns:1fr}.actions button{width:100%}}
       </style>
       <div class="title">${escapeHtml(this._config.title)}</div><div class="sub">${escapeHtml(reportText(this._hass, "subtitle"))}</div>
       ${this._error ? `<div class="error">${escapeHtml(this._error)}</div>` : `
-      <div class="controls"><div class="field"><label>${escapeHtml(reportText(this._hass, "litter"))}</label><select id="litter">${litterOptions}</select></div><div class="field"><label>${escapeHtml(reportText(this._hass, "selection"))}</label><select id="puppy">${puppyOptions}</select></div><div class="field"><label>${escapeHtml(reportText(this._hass, "period"))}</label><select id="range"><option value="24h" ${this._range === "24h" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "hours24"))}</option><option value="3d" ${this._range === "3d" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "days3"))}</option><option value="7d" ${this._range === "7d" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "days7"))}</option><option value="14d" ${this._range === "14d" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "days14"))}</option><option value="30d" ${this._range === "30d" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "days30"))}</option><option value="all" ${this._range === "all" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "all"))}</option></select></div></div>
-      <div class="pdf-sections"><strong>${escapeHtml(reportText(this._hass, "pdfSections"))}</strong><label><input type="checkbox" data-pdf-section="summary" checked> ${escapeHtml(reportText(this._hass, "summarySection"))}</label><label><input type="checkbox" data-pdf-section="chart" checked> ${escapeHtml(reportText(this._hass, "chartSection"))}</label><label><input type="checkbox" data-pdf-section="measurements" checked> ${escapeHtml(reportText(this._hass, "measurementSection"))}</label><label><input type="checkbox" data-pdf-section="care" checked> ${escapeHtml(reportText(this._hass, "careSection"))}</label><label><input type="checkbox" data-pdf-section="attention" checked> ${escapeHtml(reportText(this._hass, "attentionSection"))}</label><label><input type="checkbox" data-pdf-section="owners" checked> Baasjes</label></div>
+      <div class="controls"><div class="field"><label>${escapeHtml(reportText(this._hass, "litter"))}</label><select id="litter">${litterOptions}</select></div><div class="field"><label>${escapeHtml(reportText(this._hass, "selection"))}</label><select id="puppy">${puppyOptions}</select></div><div class="field"><label>${escapeHtml(reportText(this._hass, "period"))}</label><select id="range"><option value="24h" ${this._range === "24h" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "hours24"))}</option><option value="3d" ${this._range === "3d" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "days3"))}</option><option value="7d" ${this._range === "7d" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "days7"))}</option><option value="14d" ${this._range === "14d" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "days14"))}</option><option value="30d" ${this._range === "30d" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "days30"))}</option><option value="all" ${this._range === "all" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "all"))}</option></select></div><div class="field"><label>${escapeHtml(reportText(this._hass, "profile"))}</label><select id="profile">${profileOptions}</select></div></div>
+      <div class="pdf-sections"><strong>${escapeHtml(reportText(this._hass, "pdfSections"))}</strong><label><input type="checkbox" data-pdf-section="summary" ${sections.summary ? "checked" : ""}> ${escapeHtml(reportText(this._hass, "summarySection"))}</label><label><input type="checkbox" data-pdf-section="chart" ${sections.chart ? "checked" : ""}> ${escapeHtml(reportText(this._hass, "chartSection"))}</label><label><input type="checkbox" data-pdf-section="measurements" ${sections.measurements ? "checked" : ""}> ${escapeHtml(reportText(this._hass, "measurementSection"))}</label><label><input type="checkbox" data-pdf-section="care" ${sections.care ? "checked" : ""}> ${escapeHtml(reportText(this._hass, "careSection"))}</label><label><input type="checkbox" data-pdf-section="attention" ${sections.attention ? "checked" : ""}> ${escapeHtml(reportText(this._hass, "attentionSection"))}</label><label><input type="checkbox" data-pdf-section="owners" ${sections.owners ? "checked" : ""}> ${escapeHtml(reportText(this._hass, "ownersSection"))}</label><label><input type="checkbox" data-pdf-section="owner_contact" ${sections.owner_contact ? "checked" : ""}> ${escapeHtml(reportText(this._hass, "ownerContactSection"))}</label><button class="secondary" id="save-profile" type="button">${escapeHtml(reportText(this._hass, "saveProfile"))}</button></div>
       <div class="preview"><div class="box"><span>${escapeHtml(reportText(this._hass, "puppies"))}</span><b>${selected.length}</b></div><div class="box"><span>${escapeHtml(reportText(this._hass, "measurements"))}</span><b>${measurementCount}</b></div><div class="box"><span>${escapeHtml(reportText(this._hass, "attention"))}</span><b>${warnings}</b></div></div>
       <div class="actions"><button id="pdf">${escapeHtml(reportText(this._hass, "pdf"))}</button><button class="secondary" id="csv">${escapeHtml(reportText(this._hass, "csv"))}</button><button class="secondary" id="json">${escapeHtml(reportText(this._hass, "json"))}</button></div>
       <div class="status">${escapeHtml(this._status)}</div><div class="note">${escapeHtml(reportText(this._hass, "note"))}</div>`}
@@ -243,6 +292,9 @@ class PuppyTrackerReportCard extends HTMLElement {
     this.shadowRoot.getElementById("litter")?.addEventListener("change", async (e) => { this._selectedLitterId = e.target.value; this._selectedPuppyId = "all"; await this._loadData(); });
     this.shadowRoot.getElementById("puppy")?.addEventListener("change", (e) => { this._selectedPuppyId = e.target.value; this._persistState(); this._render(); });
     this.shadowRoot.getElementById("range")?.addEventListener("change", (e) => { this._range = e.target.value; this._persistState(); this._render(); });
+    this.shadowRoot.getElementById("profile")?.addEventListener("change", (e) => this._applyProfile(e.target.value));
+    this.shadowRoot.querySelectorAll("[data-pdf-section]").forEach((input) => input.addEventListener("change", () => { this._sectionState = Object.fromEntries([...this.shadowRoot.querySelectorAll("[data-pdf-section]")].map((item) => [item.dataset.pdfSection, item.checked])); this._reportProfile = "custom"; this._persistState(); this._render(); }));
+    this.shadowRoot.getElementById("save-profile")?.addEventListener("click", () => this._saveCustomProfile());
     this.shadowRoot.getElementById("pdf")?.addEventListener("click", () => this._export("pdf"));
     this.shadowRoot.getElementById("csv")?.addEventListener("click", () => this._export("csv"));
     this.shadowRoot.getElementById("json")?.addEventListener("click", () => this._export("json"));

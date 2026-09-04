@@ -287,6 +287,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             puppy_id=call.data.get("puppy_id"),
             care_reminder_settings=care_reminder_settings,
             scheduler_data=scheduler_data,
+            owner_data=runtime.owners.get_backup_data() if scope == "full" and runtime.owners else None,
         )
         target.parent.mkdir(parents=True, exist_ok=True)
 

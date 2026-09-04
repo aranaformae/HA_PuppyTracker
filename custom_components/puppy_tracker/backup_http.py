@@ -57,6 +57,11 @@ def _download_response(
         puppy_id=puppy_id,
         care_reminder_settings=care_reminder_settings,
         scheduler_data=scheduler_data,
+        owner_data=(
+            getattr(runtime, "owners", None).get_backup_data()
+            if scope == "full" and getattr(runtime, "owners", None)
+            else None
+        ),
     )
     return web.Response(
         text=content,

@@ -1240,6 +1240,7 @@ async def websocket_integrity_check(
             vol.Optional("care", default=True): bool,
             vol.Optional("attention", default=True): bool,
             vol.Optional("owners", default=True): bool,
+            vol.Optional("owner_contact", default=False): bool,
         },
     }
 )
