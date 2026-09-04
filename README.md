@@ -2,7 +2,7 @@
 
 Puppy Tracker is a custom Home Assistant integration for managing litters, mother dogs and individual puppies. Weight tracking remains a first-class module, while the integration also provides chronological dossiers, temperature logging, recurring care reminders, age-based care programs, timeline views and safe backup/restore.
 
-> **Development status:** pre-1.0. The current development line is **0.23.x** on the stable `puppy_tracker` integration domain. Breaking changes are still possible before 1.0.
+> **Development status:** pre-1.0. The current development line is **0.24.x** on the stable `puppy_tracker` integration domain. Breaking changes are still possible before 1.0.
 
 ## Highlights
 
@@ -15,6 +15,7 @@ Puppy Tracker is a custom Home Assistant integration for managing litters, mothe
 - Generic chronological dossier records for litter, mother and puppy scopes.
 - Structured records for notes, temperature, vaccinations, tests, deworming, medication, vet visits, milestones and other events.
 - Quick Log for frequent day-to-day entries, including mother-dog and temperature logging.
+- Dedicated temperature card with scoped history, trend chart, observations and direct temperature entry.
 - Bulk dossier entry for multiple puppies.
 - Combined Timeline for weights and dossier history, including mother-dog records.
 - Derived vaccination/deworming follow-up actions.
@@ -205,7 +206,20 @@ history_limit: 10
 max_height: 520
 ```
 
-The Temperature card displays and records structured temperature notes for the selected litter, mother dog or puppy. The period, history length and maximum card height are configurable; the history remains scrollable on smaller screens.
+The Temperature card displays and records structured temperature notes for the selected litter, mother dog or puppy. The period, history length and maximum card height are configurable; the history remains scrollable on smaller screens. `litter_id` can be added when a dashboard contains more than one nest.
+
+| Option | Values | Default | Meaning |
+| --- | --- | --- | --- |
+| `title` | text | `Temperatuur` | Card heading |
+| `litter_id` | litter ID | automatic | Opens a specific nest instead of the first available nest |
+| `default_scope` | `litter`, `mother`, `puppy` | `litter` | Initial owner scope |
+| `default_range` | `24h`, `3d`, `7d`, `14d`, `all` | `3d` | Initial history period |
+| `history_limit` | 3-50 | `10` | Maximum number of history rows shown before scrolling |
+| `max_height` | 240-900 | `520` | Scrollable history height in pixels |
+
+The card keeps the regular owner selector available after loading. Selecting `puppy` shows a second selector for the active puppies. A measurement is stored as a normal `temperature` dossier record with `data.temperature_c`; the optional measurement method is stored as `data.method`, the observation as `data.observation` and the note is also retained in the record note field. Values outside 20.0-45.0 degrees C are rejected as an input safeguard. Existing Quick Log temperature entries appear automatically in the card because both surfaces use the same dossier record model.
+
+For a complete configuration and usage guide, see [`docs/temperature-card.md`](docs/temperature-card.md).
 
 ## Daily-use surfaces
 

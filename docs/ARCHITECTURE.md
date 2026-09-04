@@ -572,7 +572,7 @@ custom:puppy-tracker-temperature-card
 
 Mother scope is expected on Dossier, Quick Log, Timeline, Attention, Report/export and Recurring Reminders where the workflow logically supports a single owner. Bulk Dossier remains puppy-oriented because its purpose is one event applied to multiple puppies.
 
-The Temperature card is a focused temperature workflow. It reads structured `temperature` dossier records, supports litter, mother and puppy scope, offers a configurable history range, renders a compact color-safe SVG trend view and writes new readings through the same dossier APIs as the other cards. It is an additional presentation surface, not a separate temperature store.
+The Temperature card is a focused temperature workflow. It reads structured `temperature` dossier records, supports litter, mother and puppy scope, offers a configurable history range, renders a compact SVG trend view and writes new readings through the same dossier APIs as the other cards. It is an additional presentation surface, not a separate temperature store. Its history height and row limit are configurable so the card remains usable on phones and tablets.
 
 The recurring-reminder card must resolve the linked mother through the mother scope rather than requiring `litter.mother_id` in the ordinary litter payload.
 
