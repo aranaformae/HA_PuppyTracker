@@ -6,7 +6,7 @@ This document defines the architectural contract for Puppy Tracker age-based lit
 
 Age-based care programs schedule actions from each puppy's age. They are intentionally separate from generic recurring reminders: a late or missed age-based action must never shift later occurrences.
 
-Examples include ENS over days 3–17, ESI over days 5–17 and a one-time deworming action at a configured age.
+Examples include ENS over days 3–16, ESI over days 3–16 and a one-time deworming action at a configured age. The built-in starters are practical examples and are not veterinary protocols.
 
 ## Persistent program, derived occurrence, dossier result
 
@@ -117,6 +117,173 @@ A second active result for the same `care_occurrence_id` is rejected. Soft-delet
 
 The result API re-derives the requested occurrence from the authoritative program and puppy rather than trusting arbitrary schedule metadata supplied by the frontend.
 
+## Care-program templates
+
+`care_templates.py` owns a separate user-template store. The Care Programs card exposes four built-in, read-only starters:
+
+- ENS: 14 daily occurrences from age day 3, with step-by-step handling instructions;
+- ESI: 14 daily occurrences from age day 3, with one day-specific scent suggestion per age day;
+- deworming: occurrences at 2, 4, 6 and 8 weeks, with a veterinary disclaimer;
+- daily neonatal check: a daily check from age day 0 through day 14.
+
+Templates contain the fields needed to create a care program, including schedule, result fields, attention/notification settings, general instructions and optional `instructions_by_age`. Users can save an existing program as a user-owned template, edit it externally as JSON, download all visible templates and import them again. Built-in IDs are reserved and cannot be overwritten or deleted.
+
+Template imports are validated using the same care-program normalization rules as normal program creation. The WebSocket batch-save operation validates the complete file before persisting it, so an invalid template cannot leave a partially imported batch behind. A template is copied into a litter program; later edits to the template do not mutate programs that were already created from it.
+
+## How to build a care-program template
+
+A template is a reusable starting point for one protocol. It should describe
+what needs to happen, when it happens, what the user should record and whether
+an unfinished item should appear in the Attention card. It is configuration,
+not a diagnosis and not a replacement for a veterinarian's instructions.
+
+### 1. Start with the protocol goal
+
+Give the template a short, recognizable `name`, such as `ENS - rustige
+neonatale prikkels` or `Dagelijkse controle`. Use `description` for the purpose,
+scope and important safety context. Keep the description stable and concise;
+put the actual step-by-step workflow in `instructions`.
+
+### 2. Choose the dossier type
+
+Set `record_type` to the kind of dossier entry the completed action should
+create. Common values are `note`, `temperature`, `vaccination`, `test`,
+`deworming`, `medication`, `vet_visit`, `milestone` and `other`. Choose the
+most specific type available because it makes dossier filters, reports and
+follow-up actions more useful.
+
+### 3. Define the age schedule
+
+Use `schedule_type: range` for a protocol repeated over multiple age days and
+`schedule_type: once` for one age day. Age days are inclusive and are counted
+from each puppy's `birth_time`:
+
+```text
+start_age_days: 3
+end_age_days: 16
+interval_days: 1
+```
+
+This creates 14 occurrences: days 3 through 16. The interval must be a
+positive number of days. For an `once` template, `end_age_days` and
+`interval_days` are not needed; `start_age_days` is the target day. Add
+`time_of_day` only when the action should appear at a particular local time,
+for example `09:00`. Leave it empty when the whole local calendar day is
+acceptable.
+
+### 4. Write safe general instructions
+
+Put the procedure that applies every time in `instructions`. A useful format
+is:
+
+```text
+1. Prepare the materials and check that the puppy is warm and settled.
+2. Perform one short step at a time.
+3. Observe breathing, movement and stress signals.
+4. Stop when the puppy becomes distressed and record the response.
+```
+
+Instructions should tell the user what to do, what to observe and when to
+stop. Avoid embedding a puppy name, litter name, fixed date, dosage or other
+value that will be wrong when the template is reused. For medication,
+deworming or veterinary protocols, record that the product and dosage must be
+confirmed by the veterinarian rather than hard-coding a universal instruction.
+
+### 5. Add day-specific instructions when the protocol builds gradually
+
+Use `instructions_by_age` when the action changes by age day. The keys are age
+days as strings and the values are the instruction shown for that day's
+occurrence. The day-specific instruction supplements the general
+`instructions`; it does not replace the general safety guidance.
+
+For an ESI-style protocol, increase exposure gradually, use one clean and
+controlled scent at a time, allow the puppy to move away and never force
+contact. Do not use essential oils, perfume, smoke, cleaning products or loose
+small materials. The actual scent list is a local protocol choice and should
+be reviewed for puppy safety.
+
+### 6. Decide what completion records
+
+`result_fields` controls the fields shown when a user completes or misses an
+occurrence. Use any combination of:
+
+- `result` for a short outcome such as `rustig`, `goed` or `niet uitgevoerd`;
+- `score` for a simple numeric assessment where that is meaningful;
+- `note` for the observation or exception that needs more context.
+
+Keep the set small and purposeful. A result field is saved in the puppy's
+normal dossier record, so it remains available to reports and later review.
+
+### 7. Configure attention and notifications separately
+
+Set `counts_for_attention` to `true` when an open occurrence should be shown
+on the Attention card. Set it to `false` for an informational or optional
+protocol that should remain available in Today and the care-program view
+without adding pressure to the attention overview. Weight and health-related
+monitoring alerts are independent and remain visible even when a care program
+does not count for attention.
+
+`notifications_enabled` controls automatic notifications for this program.
+`notification_lead_minutes` optionally overrides the integration default. Use
+`0` for a notification at the due time, a larger value for an earlier warning,
+or leave it empty to use the integration fallback.
+
+### Complete JSON example
+
+The Care Programs card imports either a JSON object containing a `templates`
+array or a plain array. The following is a minimal complete template document
+that can be edited externally and imported. A ready-to-use copy is available
+at [`docs/examples/care-program-template-example.json`](examples/care-program-template-example.json):
+
+```json
+{
+  "format": "puppy_tracker_care_templates",
+  "version": 1,
+  "templates": [
+    {
+      "name": "Rustige aanraking - 14 dagen",
+      "title": "Rustige aanraking",
+      "description": "Dagelijkse korte aanraking voor gewenning, met aandacht voor warmte en stresssignalen.",
+      "record_type": "note",
+      "schedule_type": "range",
+      "start_age_days": 3,
+      "end_age_days": 16,
+      "interval_days": 1,
+      "time_of_day": "09:00",
+      "counts_for_attention": true,
+      "notifications_enabled": true,
+      "notification_lead_minutes": null,
+      "result_fields": ["result", "note"],
+      "instructions": "1. Neem de pup rustig op.\n2. Voer een korte aanraking uit.\n3. Observeer de reactie.\n4. Stop bij duidelijke stress en noteer de observatie.",
+      "instructions_by_age": {
+        "3": "Raak kort een pootje aan en houd de sessie zeer kort.",
+        "4": "Herhaal rustig en voeg alleen een tweede korte aanraking toe.",
+        "16": "Kies de rustige variant die bij deze pup het beste past."
+      }
+    }
+  ]
+}
+```
+
+The fields `id`, `revision`, `litter_id`, `created_at` and `updated_at` are
+not needed when creating a new template. When editing a downloaded custom
+template, keeping its `id` updates that template; removing it creates a new
+template. IDs beginning with `builtin_` are reserved for the built-in starters
+and are stripped or rejected during import.
+
+### Checklist before importing
+
+1. The title and name explain the protocol without relying on a specific nest.
+2. The age range and interval produce exactly the intended occurrence days.
+3. Every day-specific instruction uses an age inside the configured range.
+4. The general instructions contain safety and stop conditions.
+5. Result fields are limited to information that will actually be reviewed.
+6. Attention and notification settings match the intended urgency.
+7. Veterinary products, dosages and breed-specific claims are verified locally.
+
+The complete import is validated before it is saved. If one template is
+invalid, the batch is rejected and the existing templates remain unchanged.
+
 ## Derived status
 
 The backend derives occurrence status by exact `care_occurrence_id` matching against active puppy dossier records. Current states are:
@@ -181,7 +348,7 @@ Changes to age-based care programs must not silently alter:
 
 Automatic repair remains limited to cases where the intended result is unambiguous.
 
-Care programs are stored separately from the main Puppy Tracker database. Their inclusion in technical backup/restore therefore requires an explicit backup-version contract and ID-remapping rules; it must not be assumed merely because care results themselves already live in the dossier.
+Care programs and user-owned care-program templates are stored separately from the main Puppy Tracker database. Backup format v5 carries both stores in the scheduler envelope. A full restore validates and replaces them as part of the coordinated multi-store transaction; rollback restores the previous definitions if another store fails. Built-in templates remain code-defined and are always available regardless of the restored user-template store. Partial litter and puppy exports do not include scheduler definitions or templates.
 
 ## Tests
 

@@ -16,7 +16,7 @@ Use this checklist before a release that changes dashboard cards, frontend loadi
 - [ ] Upgrade Puppy Tracker from the previous released version through HACS.
 - [ ] Perform a full Home Assistant restart.
 - [ ] Open the Puppy Tracker dashboard from a cold Companion App start.
-- [ ] Confirm all seven cards appear without `Custom element doesn't exist`, `Configuratiefout`, or a delayed configuration error.
+- [ ] Confirm all configured Puppy Tracker cards appear without `Custom element doesn't exist`, `Configuratiefout`, or a delayed configuration error.
 - [ ] Leave the dashboard open for at least 30 seconds and confirm async/live updates do not make a card disappear.
 - [ ] Repeat once in Safari to catch browser-cache differences.
 
@@ -28,6 +28,8 @@ Use this checklist before a release that changes dashboard cards, frontend loadi
 - [ ] Start weighing session, save a weight, and reset the session.
 - [ ] Attention card loads alerts/upcoming actions after data arrives.
 - [ ] Dossier editor can be opened, typed in, and cancelled without losing unrelated dashboard state.
+- [ ] Owner card can create/edit/expand a contact and the notes field keeps its full text visible.
+- [ ] Care Programs card can load a template and show day-specific instructions where configured.
 
 ## iPad
 
@@ -65,6 +67,8 @@ Test in both Companion App and Safari where practical.
 - [ ] PDF download starts and the resulting PDF opens or can be shared/saved.
 - [ ] CSV download starts and produces the selected puppy/range data.
 - [ ] JSON backup download starts and contains the full litter backup.
+- [ ] Full backup includes owner/contact data and user-owned care-program templates.
+- [ ] PDF section switches can include or omit care results, owners and contact details as intended.
 - [ ] Repeated downloads do not leave the dashboard controls unresponsive.
 
 ## Final visual pass

@@ -18,12 +18,14 @@ Puppy Tracker provides authoritative JSON backup and restore from the integratio
 Use this for disaster recovery. A current full v5 backup contains the authoritative Puppy Tracker data and the portable configuration needed to reconstruct scheduled care:
 
 - complete main storage, including mother profiles, litters, puppies, measurement versions, dossier records, settings and audit history;
+- reusable owner/contact records and puppy links to those contacts;
 - portable care-reminder preferences such as category toggles and the default notification lead time;
 - age-based care-program definitions, including optional per-program notification lead-time overrides;
+- user-owned care-program templates, including general and day-specific instructions;
 - recurring-reminder definitions, including optional per-reminder notification lead-time overrides;
 - quarantined scheduler definitions preserved byte-for-byte as opaque compatibility data where possible.
 
-Scheduler definitions remain in their existing dedicated stores; the v5 backup envelope simply carries snapshots of those stores together with the main database so disaster recovery can restore them as one coordinated operation.
+Scheduler and template definitions remain in their existing dedicated stores; the v5 backup envelope carries snapshots of those stores, together with owner data and the main database, so disaster recovery can restore them as one coordinated operation. Built-in care templates are code-defined and are not replaced by a restore.
 
 Operational delivery/deduplication state is deliberately **not** included. That state describes what the current Home Assistant runtime already delivered and must be rebuilt after a restore instead of being transferred as user configuration.
 
@@ -100,11 +102,11 @@ Mother dossier exports follow the same explicit mapping rule for linked litter c
 
 ## Coordinated full restore
 
-A v5 **Replace all** restore is a coordinated multi-store transaction. The main Puppy Tracker storage, portable care-reminder settings, age-based care-program store and recurring-reminder store are treated as one restore operation.
+A v5 **Replace all** restore is a coordinated multi-store transaction. The main Puppy Tracker storage, owner/contact store, portable care-reminder settings, age-based care-program store, user-owned care-template store and recurring-reminder store are treated as one restore operation.
 
-If saving one of those stores fails, Puppy Tracker restores the snapshots of every store already touched by the transaction. This prevents a failed disaster recovery from leaving the main database and scheduler definitions at different points in time.
+If saving one of those stores fails, Puppy Tracker restores the snapshots of every store already touched by the transaction. This prevents a failed disaster recovery from leaving the main database, owner data, templates and scheduler definitions at different points in time.
 
-A v4 full backup predates portable scheduler-store snapshots. Restoring v4 therefore updates the main database and portable care-reminder preferences while leaving the current care-program and recurring-reminder stores untouched.
+A v4 full backup predates portable owner, template and scheduler-store snapshots. Restoring v4 therefore updates the main database and portable care-reminder preferences while leaving the current owner, care-template, care-program and recurring-reminder stores untouched.
 
 ## Disaster recovery
 
@@ -140,7 +142,7 @@ The imported puppy receives a new puppy ID. All of its measurement IDs, dossier 
 
 A litter backup can be imported as a new litter or its puppy/record contents can be added to an existing litter. Partial imports use new identifiers so they cannot replace an existing litter, puppy, measurement or dossier record by UUID collision.
 
-Scheduler definitions are intentionally not part of partial litter or puppy backups. Moving schedulers safely would require remapping their owner identities alongside the partial import rather than guessing ownership.
+Owner/contact records and scheduler/template definitions are intentionally not part of partial litter or puppy backups. Moving them safely would require remapping their references alongside the partial import rather than guessing ownership.
 
 ## Full backup merge
 

@@ -2,11 +2,12 @@
 
 Puppy Tracker is a custom Home Assistant integration for managing litters, mother dogs and individual puppies. Weight tracking remains a first-class module, while the integration also provides chronological dossiers, temperature logging, recurring care reminders, age-based care programs, timeline views and safe backup/restore.
 
-> **Development status:** pre-1.0. The current development line is **0.20.x** on the stable `puppy_tracker` integration domain. Breaking changes are still possible before 1.0.
+> **Development status:** pre-1.0. The current development line is **0.23.x** on the stable `puppy_tracker` integration domain. Breaking changes are still possible before 1.0.
 
 ## Highlights
 
 - Manage multiple litters, mother dogs and puppies from Home Assistant.
+- Maintain reusable owner/contact profiles with placement and payment tracking, then link one or more contacts to a puppy when the placement is known.
 - Stable UUID-based identities and persistent `.storage` data.
 - Dedicated litter, mother and puppy devices.
 - Specialised weight tracking with correction history, growth metrics and weighing sessions.
@@ -19,6 +20,7 @@ Puppy Tracker is a custom Home Assistant integration for managing litters, mothe
 - Derived vaccination/deworming follow-up actions.
 - Generic recurring reminders for a whole litter, mother dog or individual puppy.
 - Age-based litter care programs with deterministic per-puppy occurrences, including one-time ages and fixed age ranges such as ENS/ESI.
+- Built-in ENS, ESI, deworming and neonatal-care templates, with editable day-specific instructions and JSON template import/export.
 - Structured care-program results stored in the puppy dossier and included in PDF reports.
 - Attention and Today integration for upcoming, due-soon, due-today and overdue care.
 - Home Assistant persistent/mobile notifications with deduplication.
@@ -61,9 +63,13 @@ Puppy Tracker
 │   └── reminders[]
 └── age-based care program store
     └── programs[]
+├── care-program template store
+│   └── templates[] (user-owned; built-ins are read-only)
+└── owner/contact store
+    └── owners[]
 ```
 
-Mother dogs are persistent owners rather than duplicated litter text. This allows the same mother profile and dossier to span multiple litters while still allowing records and exports to be filtered by litter context.
+Mother dogs are persistent owners rather than duplicated litter text. This allows the same mother profile and dossier to span multiple litters while still allowing records and exports to be filtered by litter context. Reusable owner/contact profiles are stored separately as well; a puppy keeps only owner IDs so contact data can be edited once and linked later.
 
 ### Dossier records
 
@@ -114,6 +120,14 @@ The backend derives a deterministic occurrence for every active puppy and schedu
 
 Today and Attention show open care occurrences as upcoming, due today or overdue. Selecting an occurrence allows it to be recorded as **completed** or **missed**, with optional structured result, score and note fields according to the program configuration. The result is stored as a normal puppy dossier record; occurrence state is not a second results database.
 
+### Care-program templates
+
+The Care Programs card exposes built-in starter templates for ENS (14 days from age day 3), ESI (14 days from age day 3 with day-specific scent suggestions), deworming (2, 4, 6 and 8 weeks) and a daily neonatal check. Templates are starting points, not veterinary protocols: users can edit the schedule, notes, result fields, attention/notification settings and day-specific instructions before creating a litter program.
+
+Existing programs can be saved as user-owned templates. User templates can be edited by importing an updated JSON file or by saving a revised program as a new template; built-in templates cannot be overwritten or deleted. The card downloads a `puppy_tracker_care_templates` JSON document and imports templates as one validated batch, so an invalid file does not partially change the template store.
+
+For the field-by-field template design guide and a complete import example, see [`docs/CARE_PROGRAMS.md`](docs/CARE_PROGRAMS.md).
+
 Care notifications use the shared Puppy Tracker notification coordinator and `notify.*` delivery path. Open due-soon, due-today and overdue occurrences are actionable, delivery respects both the global notification setting and the program notification setting, and related puppy actions are grouped to avoid one push per puppy.
 
 ## Notifications and production testing
@@ -160,6 +174,7 @@ Puppy Tracker automatically registers its frontend modules. A full browser refre
 | Attention | `custom:puppy-tracker-attention-card` | Weight, recurring-reminder and age-based care attention |
 | Litter | `custom:puppy-tracker-litter-card` | Puppy/litter overview |
 | Report | `custom:puppy-tracker-report-card` | Reports and CSV/importable litter JSON/PDF export, including care-program results |
+| Owners | `custom:puppy-tracker-owner-card` | Manage reusable contacts and link them to puppies |
 | Dossier | `custom:puppy-tracker-dossier-card` | Litter, mother and puppy dossier records |
 | Quick Log | `custom:puppy-tracker-quick-log-card` | Fast litter/mother/puppy care logging |
 | Mobile Controls | `custom:puppy-tracker-mobile-card` | Touch-first weighing, Quick Log and today-care workflow |
@@ -199,6 +214,8 @@ Timeline, Today and Attention expose type/category chips for the items they disp
 
 **Mother scope** is first-class and reusable across litters. Mother records can be logged/viewed through Dossier, Quick Log and Timeline; mother actions can appear on Attention; mother JSON dossier export is available through Report & export; and a mother receives a Home Assistant device.
 
+**Owners and puppy identity** are separate from dossier ownership. Add `custom:puppy-tracker-owner-card` to manage contact records and later link them to a puppy. Owner details include name, e-mail, telephone, address, notes, role, placement status/date and payment status/date. A puppy's `chip_number` is an independent text field and is included in dashboard data, CSV export and per-puppy PDF reports.
+
 Growth-analysis settings are managed per nest through **Manage litter**. Each nest can override the minimum daily growth, weighing interval, monitoring age, first-day loss limit and an optional expected adult-weight range. Empty overrides use the global monitoring settings. The overview also shows each measured puppy's current position relative to the nest median, its normalized daily-growth tempo relative to the nest, the spread across its own recent growth periods, the measurement cadence, birth-weight recovery and configured growth milestones. Open milestones receive an estimated date from the current positive growth rate; the 200% milestone also shows a 14-day reference from birth. These estimates are monitoring context, not diagnoses or guaranteed forecasts. Breed profile and size class (including Labradoodle and Australian Labradoodle) are descriptive metadata in this first phase; they do not activate a fixed breed curve.
 
 For phone use, `custom:puppy-tracker-mobile-card` combines the existing weighing station, Quick Log and Today card behind large touch-friendly tabs. It reuses the same API contracts and action feedback as the full cards, so it is intended as a compact action surface rather than a second data store. Individual tabs can be disabled with `show_weighing`, `show_quick_log` and `show_today`.
@@ -219,7 +236,7 @@ Weight monitoring can flag no measurement, overdue weighing, excessive first-day
 - **JSON** is the authoritative technical backup/transfer format.
 - **PDF** is a user-facing report generated by the backend and includes structured age-based care results for each puppy within the selected report period.
 
-Current full JSON backups use **backup format v5** and include portable age-based care-program and recurring-reminder definitions alongside the authoritative main data. Restore remains backward compatible with production **v4** backups and supports storage schemas **7 and 8**; legacy schema-7 candidates are normalized to the current mother-aware schema before commit. Full v5 restore is coordinated across the main data and scheduler stores with rollback if any store save fails.
+Current full JSON backups use **backup format v5** and include portable age-based care-program definitions, recurring-reminder definitions, user-owned care-program templates, reusable owner/contact records and care-reminder preferences alongside the authoritative main data. Restore remains backward compatible with production **v4** backups and supports storage schemas **7 and 8**; legacy schema-7 candidates are normalized to the current mother-aware schema before commit. Full v5 restore is coordinated across the main data, scheduler, template and owner stores with rollback if any store save fails. Built-in care templates are code-defined and are not replaced by a backup restore.
 
 Data management validates imports before writing, provides dry-run previews and remaps identifiers for partial imports. Active scheduler ownership is also validated against the authoritative litter, puppy and mother identities before a full v5 backup or restore can be committed. See [`docs/backup-restore.md`](docs/backup-restore.md) for the detailed procedure and compatibility contract.
 
@@ -246,6 +263,9 @@ custom_components/puppy_tracker/
 ├── notifications.py
 ├── backup.py
 ├── pdf_export.py
+├── care_templates.py
+├── owners.py
+├── owner_api.py
 └── frontend/
     ├── puppy-tracker-dossier-card.js
     ├── puppy-tracker-today-card.js
@@ -256,6 +276,7 @@ custom_components/puppy_tracker/
     ├── puppy-tracker-report-card.js
     ├── puppy-tracker-recurring-reminder-card.js
     ├── puppy-tracker-care-program-card.js
+    ├── puppy-tracker-owner-card.js
     └── puppy-tracker-care-surfaces.js
 ```
 

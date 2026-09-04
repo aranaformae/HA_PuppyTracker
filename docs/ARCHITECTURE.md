@@ -57,9 +57,15 @@ RecurringReminderStore
 
 AgeBasedCareProgramStore
 └── programs{}
+
+CareProgramTemplateStore
+└── user-owned templates{}
+
+OwnerStore
+└── reusable owner/contact profiles{}
 ```
 
-The recurring-reminder and age-based-care stores are intentionally separate from the main dossier storage. Dossier records describe facts that happened; scheduling definitions describe future rules. Derived reminder/care occurrences are projections and are not persisted as a second task database.
+The recurring-reminder, age-based-care and care-template stores are intentionally separate from the main dossier storage. Owner/contact profiles are also reusable records outside the puppy profile. Dossier records describe facts that happened; scheduling definitions and templates describe future rules or reusable configuration. Derived reminder/care occurrences are projections and are not persisted as a second task database.
 
 ## Owner scopes
 
@@ -425,6 +431,36 @@ Age-based program persistence follows the same conservative pattern as recurring
 
 Diagnostics expose aggregate program and quarantine counts.
 
+### Care-program templates
+
+`CareProgramTemplateStore` contains only user-owned templates. Built-in ENS, ESI,
+deworming and neonatal-check templates are code-defined read-only starters and
+are merged into the list returned to the frontend. A template contains the
+program fields needed to create a litter care program, including optional
+`instructions_by_age` for day-specific guidance.
+
+The frontend can save a program as a template, download templates as a
+`puppy_tracker_care_templates` JSON document and import a complete template
+batch. Imported definitions pass the same normalization as care programs before
+they are persisted. Batch persistence is all-or-nothing; invalid input or a
+failed Home Assistant Store write leaves the previous template set unchanged.
+Creating a program copies template values, so later template changes do not
+rewrite existing programs.
+
+User templates are included in full backup format v5 and restored as part of the
+coordinated scheduler transaction. Partial litter/puppy transfers omit them.
+
+### Reusable owner/contact profiles
+
+`OwnerStore` contains reusable contact records. Puppies store an `owner_ids`
+reference list rather than embedding personal data, which allows contacts to be
+created and edited before a puppy is selected for placement. Owner records carry
+contact details plus role, placement status/date, payment status/date and notes.
+Full v5 backups include the owner store; partial transfers omit it because
+references cannot be remapped safely without an explicit owner-transfer flow.
+The owner's microchip value is a separate puppy `chip_number` text field and is
+not part of owner/contact storage.
+
 ## Notification architecture
 
 Notification delivery is a projection over authoritative monitoring/reminder/care state. Delivery state must never become scheduling truth.
@@ -482,6 +518,8 @@ Persistent rule stores attached to runtime data include:
 ```text
 puppy_tracker_recurring_reminders  (Store version 1)
 puppy_tracker_care_programs        (Store version 1)
+puppy_tracker_care_program_templates (Store version 1)
+puppy_tracker_owners               (Store version 1)
 ```
 
 The main `PuppyTrackerStorage` remains authoritative for profiles, litters, measurements, dossier records and settings.
@@ -578,7 +616,13 @@ does not remove the control or change the underlying data.
 - Mother dossier JSON export preserves persistent mother identity and can be filtered by litter context.
 - Care-result reporting reads structured dossier records, not notification state or a parallel result database.
 
-Recurring-reminder and age-based-care program definitions are stored outside the main Puppy Tracker database. Their backup/restore compatibility must therefore be treated explicitly. Backup format v5 carries these scheduler-store snapshots with their optional notification lead-time overrides, while older backups rely on normalization/backfilled defaults.
+Recurring-reminder, age-based-care and user-owned care-template definitions,
+as well as reusable owner/contact profiles, are stored outside the main Puppy
+Tracker database. Their backup/restore compatibility is explicit: backup format
+v5 carries snapshots of these stores, while older backups rely on normalization
+and leave stores that did not exist in the backup untouched. Full restore
+coordinates the stores and rolls back already-written stores when a later save
+fails. Built-in templates remain code-defined.
 
 Adding a normal preference to the existing main `settings` dictionary does not by itself change the backup envelope: full backups already carry that settings dictionary and normal storage loading backfills missing defaults. Changes to external scheduling stores remain a separate compatibility decision.
 
@@ -617,6 +661,7 @@ Regression tests should protect data meaning and cross-surface contracts, includ
 - measurement correction chains and birth-weight synchronisation;
 - monitoring metrics;
 - dossier ownership/CRUD and mother identity resolution;
+- owner/contact CRUD, puppy links and full-backup inclusion;
 - temperature structured-data rendering;
 - upcoming action derivation;
 - recurring-reminder normalization, interval/fixed-time/once scheduling and exact owner matching;
@@ -626,6 +671,7 @@ Regression tests should protect data meaning and cross-surface contracts, includ
 - missing puppy source-data warnings;
 - dossier-backed care completion/duplicate prevention;
 - scheduling-store quarantine, timestamp stability and failed-write rollback;
+- care-template validation, day-specific instructions, JSON batch import/export and failed-write rollback;
 - notification settings/default migration, deduplication, state isolation and error propagation;
 - frontend module load order;
 - real browser care-result flow from row to dialog to WebSocket save to immediate row removal;

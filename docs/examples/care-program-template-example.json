@@ -1,0 +1,30 @@
+{
+  "format": "puppy_tracker_care_templates",
+  "version": 1,
+  "templates": [
+    {
+      "name": "Rustige aanraking - 14 dagen",
+      "title": "Rustige aanraking",
+      "description": "Dagelijkse korte aanraking voor gewenning, met aandacht voor warmte en stresssignalen.",
+      "record_type": "note",
+      "schedule_type": "range",
+      "start_age_days": 3,
+      "end_age_days": 16,
+      "interval_days": 1,
+      "time_of_day": "09:00",
+      "counts_for_attention": true,
+      "notifications_enabled": true,
+      "notification_lead_minutes": null,
+      "result_fields": [
+        "result",
+        "note"
+      ],
+      "instructions": "1. Neem de pup rustig op.\n2. Voer een korte aanraking uit.\n3. Observeer de reactie.\n4. Stop bij duidelijke stress en noteer de observatie.",
+      "instructions_by_age": {
+        "3": "Raak kort een pootje aan en houd de sessie zeer kort.",
+        "4": "Herhaal rustig en voeg alleen een tweede korte aanraking toe.",
+        "16": "Kies de rustige variant die bij deze pup het beste past."
+      }
+    }
+  ]
+}
