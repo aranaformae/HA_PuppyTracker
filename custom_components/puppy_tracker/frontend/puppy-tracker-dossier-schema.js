@@ -1,4 +1,4 @@
-import { languageForHass, localize } from "./puppy-tracker-card-common.js";
+import { escapeHtml, languageForHass, localize } from "./puppy-tracker-card-common.js";
 
 export const RECORD_TYPES = [
   ["note", "note", "mdi:note-text-outline"],
@@ -24,6 +24,14 @@ export const BULK_RECORD_TYPES = [
 export const TYPE_META = Object.fromEntries(
   RECORD_TYPES.map(([value, labelKey, icon]) => [value, { labelKey, icon }]),
 );
+
+export function recordTypeOptions(hass, selectedType) {
+  const types = RECORD_TYPES.map(([value, labelKey]) => [value, localize(hass, labelKey)]);
+  if (selectedType && !types.some(([value]) => value === selectedType)) {
+    types.push([selectedType, selectedType.replaceAll("_", " ")]);
+  }
+  return types.map(([value, label]) => `<option value="${escapeHtml(value)}" ${value === selectedType ? "selected" : ""}>${escapeHtml(label)}</option>`).join("");
+}
 
 const SCHEMA_COPY = {
   en: {

@@ -144,7 +144,6 @@ function patchTimelineAllScope() {
       || copy(this, "Moederhond", "Mother");
     const motherEvents = (this.__allMotherRecordData?.records || [])
       .map((record) => motherTimelineEvent(this, record, ownerName));
-    this._selectedTypes?.add("temperature");
     return sortNewestFirst([...(events || []), ...motherEvents]);
   };
 

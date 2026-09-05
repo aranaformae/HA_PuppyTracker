@@ -2,9 +2,11 @@ import {
   escapeHtml,
   fetchLitters,
   languageForHass,
+  localize,
   selectDefaultLitter,
   subscribeUpdates,
 } from "./puppy-tracker-card-common.js";
+import { TYPE_META, recordTypeOptions } from "./puppy-tracker-dossier-schema.js";
 
 const TAG = "puppy-tracker-care-program-card";
 
@@ -46,7 +48,7 @@ function recordTypeLabel(card, value) {
     test: t(card, "Test", "Test"),
     other: t(card, "Overig", "Other"),
   };
-  return labels[value] || value || "note";
+  return labels[value] || (TYPE_META[value] ? localize(card._hass, TYPE_META[value].labelKey) : value) || "note";
 }
 
 function schedulesOverlap(left, right) {
@@ -103,7 +105,7 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
   }
 
   connectedCallback() {
-    if (this._hass && !this._litters.length) this._load();
+    if (this._hass) this._load();
   }
 
   disconnectedCallback() {
@@ -115,7 +117,8 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
   getGridOptions() { return { columns: 12, min_columns: 6 }; }
 
   async _load() {
-    if (!this._hass) return;
+    if (!this._hass || this._loading) return;
+    this._loading = true;
     try {
       const response = await fetchLitters(this._hass);
       this._litters = response?.litters || [];
@@ -127,11 +130,14 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
       const templateResponse = await this._hass.callWS({ type: "puppy_tracker/care_program_templates" });
       this._templates = templateResponse?.templates || [];
       if (!this._unsubscribe && this.isConnected) {
-        this._unsubscribe = await subscribeUpdates(this._hass, () => this._loadCurrent(), this);
+        this._unsubscribe = await subscribeUpdates(this._hass, () => {
+          if (!this._showEditor && !this._saving) return this._loadCurrent();
+        }, this);
       }
     } catch (error) {
       this._error = error?.message || t(this, "Zorgprogramma's konden niet worden geladen.", "Care programs could not be loaded.");
     }
+    this._loading = false;
     this._render();
   }
 
@@ -378,7 +384,7 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
         <label>${escapeHtml(t(this, "Stappen en instructies", "Steps and instructions"))}<textarea id="care-instructions" rows="5" placeholder="${escapeHtml(t(this, "Beschrijf stap voor stap wat er moet gebeuren", "Describe what should happen step by step"))}">${escapeHtml(draft.instructions)}</textarea></label>
         <details class="age-instructions" ${Object.keys(draft.instructions_by_age).length ? "open" : ""}><summary>${escapeHtml(t(this, "Dag-specifieke instructies", "Day-specific instructions"))}</summary><div id="age-instruction-list">${ageInstructionRows(this, draft.instructions_by_age)}</div><div id="age-instruction-error" class="error" hidden></div><button id="add-age-instruction" type="button"><ha-icon icon="mdi:plus"></ha-icon> ${escapeHtml(t(this, "Dag toevoegen", "Add day"))}</button></details>
         <div class="grid">
-          <label>${escapeHtml(t(this, "Type dossieritem", "Dossier type"))}<select id="care-record-type">${["note","deworming","vaccination","medication","milestone","test","other"].map((value) => `<option value="${value}" ${draft.record_type === value ? "selected" : ""}>${escapeHtml(recordTypeLabel(this, value))}</option>`).join("")}</select></label>
+          <label>${escapeHtml(t(this, "Type dossieritem", "Dossier type"))}<select id="care-record-type">${recordTypeOptions(this._hass, draft.record_type)}</select></label>
           <label>${escapeHtml(t(this, "Schema", "Schedule"))}<select id="care-schedule-type"><option value="once" ${draft.schedule_type === "once" ? "selected" : ""}>${escapeHtml(t(this, "Eenmalig op leeftijd", "Once at age"))}</option><option value="range" ${draft.schedule_type === "range" ? "selected" : ""}>${escapeHtml(t(this, "Leeftijdsperiode", "Age range"))}</option></select></label>
         </div>
         <div class="grid ages">

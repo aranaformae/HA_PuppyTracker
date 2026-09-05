@@ -59,7 +59,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       if (!this._selectedLitter && this._litters[0]) this._selectedLitter = this._litters[0].id;
       const data = await Promise.all(this._litters.map(async (litter) => {
         const result = await this._hass.callWS({ type: "puppy_tracker/data", litter_id: litter.id });
-        return (result.puppies || []).map((puppy) => ({ ...puppy, litter_name: litter.name || "Nest" }));
+        return (result.puppies || []).map((puppy) => ({ ...puppy, litter_id: litter.id, litter_name: litter.name || "Nest" }));
       }));
       this._puppies = data.flat(); this._loaded = true; this._render();
     } catch (error) { this._status = error.message; this._render(); }
@@ -81,7 +81,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
   async _link() {
     const puppy = this._puppies.find((item) => item.id === this._selectedPuppy); if (!puppy) return;
     const owner_ids = [...this.querySelectorAll("input[name=linked_owner]:checked")].map((input) => input.value);
-    try { await this._hass.callWS({ type: "puppy_tracker/owners/link", litter_id: this._selectedLitter, puppy_id: puppy.id, owner_ids }); this._status = "Koppeling opgeslagen"; await this._load(true); }
+    try { await this._hass.callWS({ type: "puppy_tracker/owners/link", litter_id: puppy.litter_id, puppy_id: puppy.id, owner_ids }); this._status = "Koppeling opgeslagen"; await this._load(true); }
     catch (error) { this._status = error.message; this._render(); }
   }
 
@@ -91,11 +91,12 @@ class PuppyTrackerOwnerCard extends HTMLElement {
 
   _render() {
     const selected = this._owners.find((owner) => owner.id === this._editing) || {};
-    const puppy = this._puppies.find((item) => item.id === this._selectedPuppy) || this._puppies[0];
-    if (!this._selectedPuppy && puppy) this._selectedPuppy = puppy.id;
+    const litterPuppies = this._puppies.filter((item) => item.litter_id === this._selectedLitter);
+    const puppy = litterPuppies.find((item) => item.id === this._selectedPuppy) || litterPuppies[0];
+    this._selectedPuppy = puppy?.id || "";
     const linked = new Set(puppy?.owner_ids || []);
     const litterOptions = this._litters.map((litter) => `<option value="${ownerEscape(litter.id)}" ${litter.id === this._selectedLitter ? "selected" : ""}>${ownerEscape(litter.name || "Nest")}</option>`).join("");
-    const puppyOptions = this._puppies.map((item) => `<option value="${ownerEscape(item.id)}" ${item.id === this._selectedPuppy ? "selected" : ""}>${ownerEscape(item.name || "Pup")}</option>`).join("");
+    const puppyOptions = litterPuppies.map((item) => `<option value="${ownerEscape(item.id)}" ${item.id === this._selectedPuppy ? "selected" : ""}>${ownerEscape(item.name || "Pup")}</option>`).join("");
     const owners = this._owners.map((owner) => {
       const expanded = owner.id === this._expandedOwnerId;
       const linkedPuppies = this._linkedPuppies(owner.id);
@@ -158,6 +159,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     this.querySelector("#link-litter")?.addEventListener("change", async (event) => { this._selectedLitter = event.target.value; this._selectedPuppy = ""; await this._load(true); });
     this.querySelector("#link-puppy")?.addEventListener("change", (event) => { this._selectedPuppy = event.target.value; this._render(); });
     this.querySelector("#link-save")?.addEventListener("click", () => this._link());
+    this.querySelector("#link-save").disabled = !puppy;
   }
 }
 

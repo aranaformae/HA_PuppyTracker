@@ -6,6 +6,7 @@ import {
   selectDefaultLitter,
   subscribeUpdates,
 } from "./puppy-tracker-card-common.js";
+import { recordTypeOptions } from "./puppy-tracker-dossier-schema.js";
 
 const TAG = "puppy-tracker-recurring-reminder-card";
 
@@ -81,7 +82,7 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
     if (!this._litters.length) this._load();
   }
   connectedCallback() {
-    if (this._hass && !this._litters.length) this._load();
+    if (this._hass) this._load();
   }
   disconnectedCallback() {
     if (this._unsubscribe) Promise.resolve(this._unsubscribe()).catch(() => undefined);
@@ -91,18 +92,22 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
   getGridOptions() { return { columns: 12, min_columns: 6 }; }
 
   async _load() {
-    if (!this._hass) return;
+    if (!this._hass || this._loading) return;
+    this._loading = true;
     try {
       const litters = await fetchLitters(this._hass);
       this._litters = litters?.litters || [];
       this._selectedLitterId = selectDefaultLitter(this._litters, this._selectedLitterId || this._config.litter_id);
       await this._loadCurrent();
       if (!this._unsubscribe && this.isConnected) {
-        this._unsubscribe = await subscribeUpdates(this._hass, () => this._loadCurrent(), this);
+        this._unsubscribe = await subscribeUpdates(this._hass, () => {
+          if (!this._showEditor && !this._saving) return this._loadCurrent();
+        }, this);
       }
     } catch (error) {
       this._error = error?.message || t(this, "Herinneringen konden niet worden geladen.", "Reminders could not be loaded.");
     }
+    this._loading = false;
     this._render();
   }
 
@@ -257,7 +262,7 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
         <label>${escapeHtml(t(this, "Eigenaar", "Owner"))}<select id="rem-owner">${owners.map((o) => `<option value="${escapeHtml(o.value)}" ${o.value === draft.owner ? "selected" : ""}>${escapeHtml(o.label)}</option>`).join("")}</select></label>
         <label>${escapeHtml(t(this, "Actie", "Action"))}<input id="rem-title" value="${escapeHtml(draft.title)}"></label>
         <label>${escapeHtml(t(this, "Dossieritem dat de actie afvinkt", "Dossier item that completes it"))}<select id="rem-type">
-          ${[["temperature",t(this,"Temperatuur","Temperature")],["medication",t(this,"Medicatie","Medication")],["note",t(this,"Notitie / andere actie","Note / other action")],["deworming",t(this,"Ontworming","Deworming")],["vaccination",t(this,"Vaccinatie","Vaccination")],["milestone",t(this,"Mijlpaal","Milestone")]].map(([v,l]) => `<option value="${v}" ${draft.record_type === v ? "selected" : ""}>${escapeHtml(l)}</option>`).join("")}
+          ${recordTypeOptions(this._hass, draft.record_type)}
         </select></label>
         <label>${escapeHtml(t(this, "Optioneel: exacte titel om te matchen", "Optional: exact title to match"))}<input id="rem-match-title" value="${escapeHtml(draft.match_title)}" placeholder="${escapeHtml(t(this,"Bijv. Voeding","E.g. Feeding"))}"></label>
         <label>${escapeHtml(t(this, "Herhaling", "Schedule"))}<select id="rem-mode">

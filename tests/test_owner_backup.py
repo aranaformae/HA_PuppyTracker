@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import pytest
+from copy import deepcopy
+from unittest.mock import AsyncMock
 
-from custom_components.puppy_tracker.owners import _normalize, normalize_owner_backup_data
+from custom_components.puppy_tracker.owners import OwnerStore, _normalize, normalize_owner_backup_data
 
 
 def test_owner_backup_normalizes_owner_records() -> None:
@@ -45,3 +47,34 @@ def test_owner_status_change_is_added_to_history() -> None:
 
     assert owner["status_history"][-1]["status"] == "reserved"
     assert owner["status_history"][-1]["changed_at"]
+
+
+@pytest.mark.asyncio
+async def test_owner_reload_and_restore_preserve_history_timestamps(hass) -> None:
+    owner = _normalize({"name": "Alex"}, owner_id="owner-1")
+    owner.update(created_at="2025-01-01T10:00:00+00:00", updated_at="2025-02-01T10:00:00+00:00")
+    snapshot = {"owners": {"owner-1": owner}}
+    store = OwnerStore(hass)
+    store._store.async_load = AsyncMock(return_value=deepcopy(snapshot))
+    store._store.async_save = AsyncMock()
+    await store.async_load()
+    assert store.get_backup_data() == snapshot
+    store._store.async_save.assert_not_awaited()
+    await store.async_restore_backup_data(snapshot)
+    assert store.get_backup_data() == snapshot
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("operation", ["create", "update", "delete"])
+async def test_failed_owner_write_keeps_original_data(hass, operation) -> None:
+    store = OwnerStore(hass)
+    store._store.async_save = AsyncMock()
+    owner = await store.async_upsert({"name": "Alex"})
+    before = store.get_backup_data()
+    store._store.async_save.side_effect = OSError("disk full")
+    with pytest.raises(OSError, match="disk full"):
+        if operation == "delete":
+            await store.async_delete(owner["id"])
+        else:
+            await store.async_upsert({"name": "Changed"}, owner["id"] if operation == "update" else None)
+    assert store.get_backup_data() == before

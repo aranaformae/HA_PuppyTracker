@@ -33,7 +33,7 @@ def normalize_owner_backup_data(data: Any) -> dict[str, Any]:
         owner_id = str(key)
         if not owner_id or not isinstance(value, dict):
             raise ValueError("Owner backup contains an invalid owner")
-        owners[owner_id] = _normalize(value, owner_id=owner_id)
+        owners[owner_id] = _normalize(value, owner_id=owner_id, preserve_timestamps=True)
     return {"owners": owners}
 
 
@@ -41,7 +41,7 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _normalize(data: dict[str, Any], *, owner_id: str | None = None, existing: dict[str, Any] | None = None) -> dict[str, Any]:
+def _normalize(data: dict[str, Any], *, owner_id: str | None = None, existing: dict[str, Any] | None = None, preserve_timestamps: bool = False) -> dict[str, Any]:
     """Normalize a contact without imposing a country-specific address format."""
     source = {**(existing or {}), **data}
     name = str(source.get("name") or "").strip()
@@ -92,8 +92,8 @@ def _normalize(data: dict[str, Any], *, owner_id: str | None = None, existing: d
         "payment_balance": str(source.get("payment_balance") or "").strip() or None,
         "contact_preference": contact_preference,
         "status_history": normalized_history,
-        "created_at": (existing or {}).get("created_at") or now,
-        "updated_at": now,
+        "created_at": (existing or {}).get("created_at") or (source.get("created_at") if preserve_timestamps else None) or now,
+        "updated_at": (source.get("updated_at") if preserve_timestamps else None) or now,
     }
 
 
@@ -118,7 +118,7 @@ class OwnerStore:
                 changed = True
                 continue
             try:
-                normalized = _normalize(raw, owner_id=str(owner_id))
+                normalized = _normalize(raw, owner_id=str(owner_id), preserve_timestamps=True)
             except ValueError:
                 changed = True
                 continue
@@ -160,13 +160,17 @@ class OwnerStore:
             if owner_id and existing is None:
                 raise ValueError("Unknown owner")
             owner = _normalize(data, owner_id=owner_id, existing=existing)
-            self._data["owners"][owner["id"]] = owner
-            await self._store.async_save(self._data)
+            candidate = deepcopy(self._data)
+            candidate["owners"][owner["id"]] = owner
+            await self._store.async_save(candidate)
+            self._data = candidate
             return deepcopy(owner)
 
     async def async_delete(self, owner_id: str) -> None:
         async with self._lock:
             if owner_id not in self._data["owners"]:
                 raise ValueError("Unknown owner")
-            del self._data["owners"][owner_id]
-            await self._store.async_save(self._data)
+            candidate = deepcopy(self._data)
+            del candidate["owners"][owner_id]
+            await self._store.async_save(candidate)
+            self._data = candidate

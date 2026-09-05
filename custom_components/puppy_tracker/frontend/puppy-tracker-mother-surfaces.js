@@ -63,7 +63,7 @@ function patchQuickLog() {
     const note = String(this._draft.note || "").trim();
     const typeMap = {
       note: "note",
-      feeding: "note",
+      feeding: "feeding",
       elimination: "note",
       medication: "medication",
       milestone: "milestone",
@@ -252,7 +252,6 @@ function patchTimeline() {
 
   Card.prototype._timelineEvents = function (...args) {
     if (this._scope !== "mother") return originalTimelineEvents.apply(this, args);
-    this._selectedTypes?.add("temperature");
     const ownerName = this.__motherRecordData?.owner?.name || motherName(this) || copy(this, "Moederhond", "Mother");
     return (this.__motherRecordData?.records || []).map((record) => mapMotherRecord(this, record, ownerName));
   };

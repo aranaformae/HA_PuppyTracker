@@ -40,14 +40,21 @@
         "puppy-tracker-summary-card.js",
         "puppy-tracker-today-card.js",
         "puppy-tracker-attention-card.js",
+        "puppy-tracker-recurring-attention.js",
+        "puppy-tracker-recurring-reminder-card.js",
+        "puppy-tracker-care-program-card.js",
         "puppy-tracker-care-surfaces.js",
         "puppy-tracker-today-qol.js",
         "puppy-tracker-care-skipped-warning.js",
         "puppy-tracker-attention-qol.js",
         "puppy-tracker-care-direct-action.js",
+        "puppy-tracker-recurring-mother-owner.js",
         "puppy-tracker-litter-card.js",
+        "puppy-tracker-litter-profile-note.js",
         "puppy-tracker-report-card.js",
+        "puppy-tracker-owner-card.js",
         "puppy-tracker-dossier-card.js",
+        "puppy-tracker-mother-dossier.js",
         "puppy-tracker-quick-log-card.js",
         "puppy-tracker-mobile-card.js",
         "puppy-tracker-bulk-dossier-card.js",
@@ -56,12 +63,25 @@
         "puppy-tracker-temperature-ui.js",
         "puppy-tracker-mother-surfaces.js",
         "puppy-tracker-report-scope.js",
+        "puppy-tracker-all-scope.js",
+        "puppy-tracker-ui-compact.js",
         "puppy-tracker-localization-bridge.js",
       ];
 
       window.__puppyTrackerModuleErrors = [];
 
+      // Focused legacy tests mount base surfaces; production regressions exercise
+      // every extension in the same order as Home Assistant's CARD_FILES.
+      const production = new URLSearchParams(location.search).has("production");
+      const extensions = new Set([
+        "puppy-tracker-recurring-attention.js", "puppy-tracker-recurring-reminder-card.js",
+        "puppy-tracker-care-program-card.js", "puppy-tracker-recurring-mother-owner.js",
+        "puppy-tracker-litter-profile-note.js", "puppy-tracker-owner-card.js",
+        "puppy-tracker-mother-dossier.js", "puppy-tracker-all-scope.js", "puppy-tracker-ui-compact.js",
+      ]);
+
       for (const filename of modules) {
+        if (!production && extensions.has(filename)) continue;
         try {
           await import(`${frontendBase}/${filename}`);
         } catch (error) {
