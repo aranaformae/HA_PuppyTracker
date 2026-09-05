@@ -35,8 +35,8 @@ def test_attention_and_today_are_both_patched() -> None:
     source = (FRONTEND / "puppy-tracker-care-surfaces.js").read_text()
     assert 'const TODAY_TAG = "puppy-tracker-today-card"' in source
     assert 'const ATTENTION_TAG = "puppy-tracker-attention-card"' in source
-    assert "patchToday();" in source
-    assert "patchAttention();" in source
+    assert "patchWhenDefined(TODAY_TAG, patchToday);" in source
+    assert "patchWhenDefined(ATTENTION_TAG, patchAttention);" in source
 
 
 def test_care_surfaces_wait_for_cards_when_modules_finish_out_of_order() -> None:
