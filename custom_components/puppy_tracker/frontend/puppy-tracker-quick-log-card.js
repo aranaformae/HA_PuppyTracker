@@ -132,6 +132,7 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
     return {
       title: "",
       show_litter_selector: true,
+      default_selected: "litter",
     };
   }
 
@@ -141,6 +142,19 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
         { name: "title", selector: { text: {} } },
         { name: "litter_id", selector: { text: {} } },
         { name: "puppy_id", selector: { text: {} } },
+        {
+          name: "default_selected",
+          selector: {
+            select: {
+              options: [
+                { value: "litter", label: "Hele nest" },
+                { value: "mother", label: "Moederhond" },
+                { value: "puppy", label: "Pup (puppy_id)" },
+              ],
+              mode: "dropdown",
+            },
+          },
+        },
         { name: "show_litter_selector", selector: { boolean: {} } },
       ],
     };
@@ -150,10 +164,12 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
     this._config = {
       title: "",
       show_litter_selector: true,
+      default_selected: "litter",
       ...config,
     };
     this._selectedLitterId = config.litter_id || this._selectedLitterId;
-    this._selectedPuppyId = config.puppy_id || this._selectedPuppyId;
+    this.__motherSelected = this._config.default_selected === "mother";
+    this._selectedPuppyId = this.__motherSelected ? null : (config.puppy_id || this._selectedPuppyId);
     this._render();
   }
 

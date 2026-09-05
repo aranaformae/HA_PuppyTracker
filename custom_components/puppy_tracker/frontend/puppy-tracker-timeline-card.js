@@ -300,6 +300,13 @@ class PuppyTrackerTimelineCard extends HTMLElement {
         { name: "title", selector: { text: {} } },
         { name: "show_litter_selector", selector: { boolean: {} } },
         {
+          name: "default_selected",
+          selector: { select: { mode: "dropdown", options: [
+            { value: "all", label: "Alles" }, { value: "litter", label: "Hele nest" },
+            { value: "mother", label: "Moederhond" }, { value: "puppy", label: "Pup (puppy_id)" },
+          ] } },
+        },
+        {
           name: "default_scope",
           selector: {
             select: {
@@ -331,10 +338,11 @@ class PuppyTrackerTimelineCard extends HTMLElement {
       ...config,
     };
     this._selectedLitterId = config.litter_id || this._selectedLitterId;
+    const configuredScope = config.default_selected || config.default_scope;
     this._scope = config.puppy_id
       ? "puppy"
-      : (Object.hasOwn(config, "default_scope") && ["all", "litter", "mother", "puppy"].includes(config.default_scope)
-        ? config.default_scope
+      : (["all", "litter", "mother", "puppy"].includes(configuredScope)
+        ? configuredScope
         : (this._state.scope || "litter"));
     this._selectedPuppyId = config.puppy_id || this._selectedPuppyId;
     this._render();

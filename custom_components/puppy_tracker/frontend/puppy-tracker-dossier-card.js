@@ -175,6 +175,20 @@ class PuppyTrackerDossierCard extends HTMLElement {
         { name: "show_profile_note", selector: { boolean: {} } },
         { name: "show_timeline_items", selector: { boolean: {} } },
         {
+          name: "default_selected",
+          selector: {
+            select: {
+              options: [
+                { value: "all", label: "Alles" },
+                { value: "litter", label: "Hele nest" },
+                { value: "mother", label: "Moederhond" },
+                { value: "puppy", label: "Pup (puppy_id)" },
+              ],
+              mode: "dropdown",
+            },
+          },
+        },
+        {
           name: "default_scope",
           selector: {
             select: {
@@ -202,8 +216,9 @@ class PuppyTrackerDossierCard extends HTMLElement {
       ...config,
     };
     this._selectedLitterId = config.litter_id || this._selectedLitterId;
-    const scope = Object.hasOwn(config, "default_scope") && ["all", "litter", "mother", "puppy"].includes(config.default_scope)
-      ? config.default_scope
+    const configuredScope = config.default_selected || config.default_scope;
+    const scope = ["all", "litter", "mother", "puppy"].includes(configuredScope)
+      ? configuredScope
       : (this._state.owner && this._state.owner !== "__litter__" ? "puppy" : "litter");
     this.__allSelected = !config.puppy_id && scope === "all";
     this.__motherSelected = !config.puppy_id && scope === "mother";

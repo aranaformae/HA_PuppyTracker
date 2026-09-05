@@ -415,6 +415,10 @@ class PuppyTrackerCard extends HTMLElement {
 
         const entityIds = {
           weight: this._entityForDevice(device.id, `${puppyId}_weight`),
+          previousWeight: this._entityForDevice(
+            device.id,
+            `${puppyId}_previous_weight`
+          ),
           growth24: this._entityForDevice(
             device.id,
             `${puppyId}_growth_24h_percent`
@@ -455,6 +459,7 @@ class PuppyTrackerCard extends HTMLElement {
           selected: (matchingOption || baseOption) === selectedOption,
           entityIds,
           weight: this._stateValue(entityIds.weight),
+          previousWeight: this._stateValue(entityIds.previousWeight, "—"),
           growth24: this._stateValue(entityIds.growth24),
           status: this._stateValue(entityIds.status, "Onbekend"),
           statusCode,
@@ -511,6 +516,14 @@ class PuppyTrackerCard extends HTMLElement {
     const value = Number(row.growth24);
     if (Number.isNaN(value)) return `${row.growth24}%`;
     return `${value > 0 ? "+" : ""}${value}%`;
+  }
+
+  _changeDisplay(row) {
+    const current = Number(row.weight);
+    const previous = Number(row.previousWeight);
+    if (!Number.isFinite(current) || !Number.isFinite(previous)) return "—";
+    const change = current - previous;
+    return `${change > 0 ? "+" : ""}${change} g`;
   }
 
   _focusWeightInput() {
@@ -850,6 +863,18 @@ class PuppyTrackerCard extends HTMLElement {
           <div>
             <span class="label">Laatst gewogen</span>
             <strong>${this._escape(lastState?.state || "Geen")}</strong>
+          </div>
+          <div>
+            <span class="label">Laatste weging geselecteerde pup</span>
+            <strong>${this._escape(selectedRow?.lastWeighed || "Geen")}</strong>
+          </div>
+          <div>
+            <span class="label">Vorige meting geselecteerde pup</span>
+            <strong>${this._escape(selectedRow?.previousWeight || "Geen")}${selectedRow?.previousWeight && selectedRow.previousWeight !== "—" ? " g" : ""}</strong>
+          </div>
+          <div>
+            <span class="label">Verschil met vorige meting</span>
+            <strong>${this._escape(selectedRow ? this._changeDisplay(selectedRow) : "—")}</strong>
           </div>
         </div>
       `;

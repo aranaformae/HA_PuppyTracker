@@ -89,6 +89,9 @@ class PuppyTrackerTemperatureCard extends HTMLElement {
     return { schema: [
       { name: "title", selector: { text: {} } },
       { name: "litter_id", selector: { text: {} } },
+      { name: "default_selected", selector: { select: { mode: "dropdown", options: [
+        { value: "litter", label: "Hele nest" }, { value: "mother", label: "Moederhond" }, { value: "puppy", label: "Pup (puppy_id)" },
+      ] } } },
       { name: "default_scope", selector: { select: { mode: "dropdown", options: [
         { value: "litter", label: "Whole litter" }, { value: "mother", label: "Mother" }, { value: "puppy", label: "Puppy" },
       ] } } },
@@ -103,7 +106,8 @@ class PuppyTrackerTemperatureCard extends HTMLElement {
   setConfig(config) {
     this._config = { ...PuppyTrackerTemperatureCard.getStubConfig(), ...config };
     this._selectedLitterId = config.litter_id || this._selectedLitterId;
-    this._scope = ["litter", "mother", "puppy"].includes(config.default_scope) ? config.default_scope : "litter";
+    const configuredScope = config.default_selected || config.default_scope;
+    this._scope = ["litter", "mother", "puppy"].includes(configuredScope) ? configuredScope : "litter";
     this._range = RANGE_HOURS[config.default_range] !== undefined ? config.default_range : "3d";
     this._render();
   }

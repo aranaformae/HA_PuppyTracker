@@ -589,11 +589,14 @@ Milestone projection is derived presentation data. The per-litter `milestone_pro
 
 ### Configurable initial card scope
 
-Dossier and Timeline accept a presentation-only `default_scope` card option with
+Dossier, Timeline, Temperature and Quick Log accept a presentation-only
+`default_selected` card option (with `default_scope` retained as a backwards-
+compatible alias) with
 the values `all`, `litter`, `mother` and `puppy`. The option controls the scope
 used during the initial load; the interactive scope selector remains available
-and changing it does not change persisted data. A configured `puppy_id` takes
-precedence over `default_scope` and selects that puppy directly. The aggregate
+and changing it does not change persisted data. A configured `puppy_id` selects
+that puppy directly, and `default_selected` takes precedence when both options
+are present. The aggregate
 `all` view combines litter and mother records where supported, while a
 mother-scoped dossier view is read-only because it is a history surface rather
 than an editing operation. Quick Log deliberately keeps an explicit single

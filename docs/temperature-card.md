@@ -10,6 +10,7 @@ Add this YAML to a Lovelace dashboard:
 type: custom:puppy-tracker-temperature-card
 title: Temperatuur
 default_scope: puppy
+default_selected: puppy
 default_range: 3d
 history_limit: 10
 max_height: 520
@@ -26,6 +27,7 @@ All settings are optional. The visual editor exposes the same settings where sup
 | `title` | text | `Temperatuur` | Heading shown at the top of the card |
 | `litter_id` | existing litter ID | first available litter | Selects the nest opened by default |
 | `default_scope` | `litter`, `mother`, `puppy` | `litter` | Selects the initial owner scope |
+| `default_selected` | `litter`, `mother`, `puppy` | unset | Selects the initial owner scope and takes precedence over `default_scope` |
 | `default_range` | `24h`, `3d`, `7d`, `14d`, `all` | `3d` | Selects the initial time range |
 | `history_limit` | integer 3-50 | `10` | Limits the number of history rows before scrolling |
 | `max_height` | integer 240-900 | `520` | Sets the history area's maximum height in pixels |

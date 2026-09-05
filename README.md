@@ -201,6 +201,7 @@ The card lets you select the whole litter, the linked mother dog or an active pu
 type: custom:puppy-tracker-temperature-card
 title: Temperatuur
 default_scope: puppy
+default_selected: puppy
 default_range: 3d
 history_limit: 10
 max_height: 520
@@ -213,6 +214,7 @@ The Temperature card displays and records structured temperature notes for the s
 | `title` | text | `Temperatuur` | Card heading |
 | `litter_id` | litter ID | automatic | Opens a specific nest instead of the first available nest |
 | `default_scope` | `litter`, `mother`, `puppy` | `litter` | Initial owner scope |
+| `default_selected` | `litter`, `mother`, `puppy` | unset | Preferred initial owner selection; takes precedence over `default_scope` |
 | `default_range` | `24h`, `3d`, `7d`, `14d`, `all` | `3d` | Initial history period |
 | `history_limit` | 3-50 | `10` | Maximum number of history rows shown before scrolling |
 | `max_height` | 240-900 | `520` | Scrollable history height in pixels |
@@ -227,14 +229,14 @@ For a complete configuration and usage guide, see [`docs/temperature-card.md`](d
 
 **Timeline** is a derived view over authoritative weight and dossier data. It can show litter, mother and puppy dossier history plus effective puppy weight measurements, with filtering and compact/collapsible presentation.
 
-The **Dossier** and **Timeline** cards support a configurable initial owner scope through `default_scope`. Valid values are `all`, `litter`, `mother` and `puppy`; the normal scope selector remains available after loading. For example:
+The **Dossier**, **Timeline**, **Temperature** and **Quick Log** cards support a configurable initial owner selection through `default_selected`. Valid values are `all` where supported, `litter`, `mother` and `puppy`; the normal selector remains available after loading. `default_scope` remains supported for existing dashboards. For example:
 
 ```yaml
 type: custom:puppy-tracker-dossier-card
-default_scope: mother
+default_selected: mother
 ```
 
-When `puppy_id` is configured, it takes precedence and the card opens on that puppy. `all` combines litter and mother records where the card supports that view. Quick Log remains an action form for one explicitly selected owner, so it does not use an aggregate default scope.
+When `puppy_id` is configured with `default_selected: puppy`, the card opens on that puppy. `all` combines litter and mother records where the card supports that view. Quick Log accepts `litter`, `mother` or `puppy`; for `puppy`, configure `puppy_id` as well.
 
 Timeline, Today and Attention expose type/category chips for the items they display. The chips use the same inclusive selection model across cards: **All** selects every available type, while clearing every chip intentionally shows no matching items. Temperature and age-based care entries are included in the available types when those entries exist. Attention and Today keep long lists usable with a scrollable area capped at 520px; Timeline can be configured with `show_timeline_items` to start with its item list shown or hidden while retaining the toggle.
 

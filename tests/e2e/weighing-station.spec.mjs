@@ -68,12 +68,14 @@ async function mountWeighingStation(page) {
       ["sensor.pt_last", "device-station", "puppy_tracker_session_last_puppy"],
       ["sensor.pt_message", "device-station", "puppy_tracker_session_message"],
       ["sensor.p1_weight", "device-puppy-1", "p1_weight"],
+      ["sensor.p1_previous", "device-puppy-1", "p1_previous_weight"],
       ["sensor.p1_growth", "device-puppy-1", "p1_growth_24h_percent"],
       ["sensor.p1_status", "device-puppy-1", "p1_status"],
       ["sensor.p1_age", "device-puppy-1", "p1_age"],
       ["sensor.p1_collar", "device-puppy-1", "p1_collar_color"],
       ["sensor.p1_last", "device-puppy-1", "p1_last_weighed"],
       ["sensor.p2_weight", "device-puppy-2", "p2_weight"],
+      ["sensor.p2_previous", "device-puppy-2", "p2_previous_weight"],
       ["sensor.p2_growth", "device-puppy-2", "p2_growth_24h_percent"],
       ["sensor.p2_status", "device-puppy-2", "p2_status"],
       ["sensor.p2_age", "device-puppy-2", "p2_age"],
@@ -114,17 +116,19 @@ async function mountWeighingStation(page) {
       "sensor.pt_last": makeState("sensor.pt_last", "Geen"),
       "sensor.pt_message": makeState("sensor.pt_message", ""),
       "sensor.p1_weight": makeState("sensor.p1_weight", "410"),
+      "sensor.p1_previous": makeState("sensor.p1_previous", "398"),
       "sensor.p1_growth": makeState("sensor.p1_growth", "4.2"),
       "sensor.p1_status": makeState("sensor.p1_status", "Goed", { status_code: "ok" }),
       "sensor.p1_age": makeState("sensor.p1_age", "2 d 4 u"),
       "sensor.p1_collar": makeState("sensor.p1_collar", "Red"),
       "sensor.p1_last": makeState("sensor.p1_last", now),
       "sensor.p2_weight": makeState("sensor.p2_weight", "395"),
+      "sensor.p2_previous": makeState("sensor.p2_previous", "390"),
       "sensor.p2_growth": makeState("sensor.p2_growth", "3.8"),
       "sensor.p2_status": makeState("sensor.p2_status", "Goed", { status_code: "ok" }),
       "sensor.p2_age": makeState("sensor.p2_age", "2 d 4 u"),
       "sensor.p2_collar": makeState("sensor.p2_collar", "Blue"),
-      "sensor.p2_last": makeState("sensor.p2_last", now),
+      "sensor.p2_last": makeState("sensor.p2_last", new Date(Date.now() - 3600000).toISOString()),
       "sensor.p3_weight": makeState("sensor.p3_weight", "430"),
       "sensor.p3_growth": makeState("sensor.p3_growth", "4.5"),
       "sensor.p3_status": makeState("sensor.p3_status", "Goed", { status_code: "ok" }),
@@ -242,6 +246,26 @@ test("shows the selected puppy collar color prominently", async ({ page }) => {
   await expect(nextIndicator).toContainText("Weigh now");
   await expect(nextIndicator).toContainText("Bob");
   await expect(nextCollar).toHaveCSS("background-color", "rgb(30, 136, 229)");
+});
+
+test("shows the last weighing moment for the selected puppy", async ({ page }) => {
+  await mountWeighingStation(page);
+
+  const details = page.locator("puppy-tracker-card .session-grid");
+  await expect(details).toContainText("Latest weighing for selected puppy");
+  const p1Last = await page.evaluate(() => window.__mockHass.states["sensor.p1_last"].state);
+  const p2Last = await page.evaluate(() => window.__mockHass.states["sensor.p2_last"].state);
+  await expect(details).toContainText(p1Last);
+  await expect(details).toContainText("398 g");
+  await expect(details).toContainText("+12 g");
+
+  await page.locator("puppy-tracker-card #puppy-select").selectOption("Bob (Blue)");
+  await notifyHassUpdate(page);
+
+  await expect(details).toContainText(p2Last);
+  await expect(details).toContainText("390 g");
+  await expect(details).toContainText("+5 g");
+  await expect(details).not.toContainText(p1Last);
 });
 
 test("litter and puppy selectors keep the chosen values", async ({ page }) => {
