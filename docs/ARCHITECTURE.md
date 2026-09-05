@@ -566,6 +566,7 @@ custom:puppy-tracker-summary-card
 custom:puppy-tracker-today-card
 custom:puppy-tracker-attention-card
 custom:puppy-tracker-care-program-card
+custom:puppy-tracker-care-execution-card
 custom:puppy-tracker-recurring-reminder-card
 custom:puppy-tracker-litter-card
 custom:puppy-tracker-report-card

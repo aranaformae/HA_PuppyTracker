@@ -49,6 +49,7 @@ CARD_FILES = (
     # Manage litter-specific age-based care schedules separately from generic
     # recurring reminders; occurrences remain derived from puppy birth times.
     "puppy-tracker-care-program-card.js",
+    "puppy-tracker-care-execution-card.js",
     # Enrich Today and Attention with open age-based care occurrences after the
     # base cards are defined; completion remains dossier-derived in the backend.
     "puppy-tracker-care-surfaces.js",

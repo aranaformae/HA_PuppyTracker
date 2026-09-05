@@ -183,6 +183,7 @@ Puppy Tracker automatically registers its frontend modules. A full browser refre
 | Timeline | `custom:puppy-tracker-timeline-card` | Combined weight + dossier chronology |
 | Recurring Reminders | `custom:puppy-tracker-recurring-reminder-card` | Create and manage generic recurring care rules |
 | Care Programs | `custom:puppy-tracker-care-program-card` | Manage age-based litter care programs such as ENS, ESI and age-specific care |
+| Care Execution | `custom:puppy-tracker-care-execution-card` | Execute open care actions independently of Today and Attention |
 | Temperature | `custom:puppy-tracker-temperature-card` | View and record temperature readings and observations per litter, mother or puppy |
 
 ### Recurring reminder card example
@@ -192,6 +193,26 @@ type: custom:puppy-tracker-recurring-reminder-card
 title: Herinneringen
 show_litter_selector: true
 ```
+
+### Care execution card example
+
+Use the execution card as a dedicated checklist. It deliberately shows open
+care occurrences independently of the Today and Attention cards, including
+programs whose `counts_for_attention` setting is disabled.
+
+```yaml
+type: custom:puppy-tracker-care-execution-card
+title: Zorgprogramma uitvoeren
+show_litter_selector: true
+max_items: 50
+days_ahead: 14
+```
+
+`days_ahead` limits future occurrences; overdue and due-today actions remain
+visible. Set it to `0` for today's and overdue actions only. `max_items` keeps
+the checklist usable on smaller screens. Each row can be recorded directly as
+`Uitgevoerd` or `Gemist` and uses the same care-occurrence result storage as
+the Today and Attention workflows.
 
 The card lets you select the whole litter, the linked mother dog or an active puppy as owner. In 0.16.1 and later, mother ownership is resolved through the persistent mother scope rather than relying on a `mother_id` field in the normal litter payload.
 

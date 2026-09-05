@@ -22,6 +22,12 @@ normal structured puppy dossier record
 
 `care_programs.py` owns persistent program definitions. `care_occurrences.py` derives occurrences from a program and puppy `birth_time`. `care_results.py` records outcomes through the normal dossier storage. `care_program_api.py` exposes the backend contract to frontend surfaces.
 
+The optional `custom:puppy-tracker-care-execution-card` is the dedicated daily
+execution workflow. It lists open occurrences and records `completed` or
+`missed` directly, regardless of `counts_for_attention`. This lets a dashboard
+keep Today and Attention focused on signal-only items while still providing a
+complete operational checklist.
+
 Concrete occurrences are not a second persistent task database. Results are not stored in reminder state.
 
 ## Schedule modes
