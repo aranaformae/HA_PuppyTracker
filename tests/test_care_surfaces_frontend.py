@@ -39,6 +39,14 @@ def test_attention_and_today_are_both_patched() -> None:
     assert "patchAttention();" in source
 
 
+def test_care_surfaces_wait_for_cards_when_modules_finish_out_of_order() -> None:
+    source = (FRONTEND / "puppy-tracker-care-surfaces.js").read_text()
+    assert "function patchWhenDefined(tag, patch)" in source
+    assert "customElements.whenDefined(tag)" in source
+    assert "patchWhenDefined(TODAY_TAG, patchToday);" in source
+    assert "patchWhenDefined(ATTENTION_TAG, patchAttention);" in source
+
+
 def test_attention_can_limit_care_items_to_today() -> None:
     source = (FRONTEND / "puppy-tracker-care-surfaces.js").read_text()
     assert "function isTodayItem(item)" in source

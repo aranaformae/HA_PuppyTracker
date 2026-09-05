@@ -220,5 +220,15 @@ function patchAttention() {
   proto.__careSurfacePatched = true;
 }
 
-patchToday();
-patchAttention();
+// Home Assistant can evaluate extra ES modules independently. Wait for the
+// card definitions so a faster care module cannot silently miss its patch.
+function patchWhenDefined(tag, patch) {
+  if (customElements.get(tag)) {
+    patch();
+    return;
+  }
+  customElements.whenDefined(tag).then(patch).catch(() => undefined);
+}
+
+patchWhenDefined(TODAY_TAG, patchToday);
+patchWhenDefined(ATTENTION_TAG, patchAttention);
