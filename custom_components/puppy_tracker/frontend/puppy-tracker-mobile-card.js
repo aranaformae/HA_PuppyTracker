@@ -47,7 +47,7 @@ class PuppyTrackerMobileCard extends HTMLElement {
   }
 
   static getStubConfig() {
-    return { title: "", tab: "weighing", show_weighing: true, show_quick_log: true, show_today: true, show_today_only: false };
+    return { title: "", tab: "weighing", show_weighing: true, show_quick_log: true, show_today: true, show_today_only: false, default_selected: "litter", puppy_id: "" };
   }
 
   static getConfigForm() {
@@ -57,6 +57,10 @@ class PuppyTrackerMobileCard extends HTMLElement {
       { name: "show_quick_log", selector: { boolean: {} } },
       { name: "show_today", selector: { boolean: {} } },
       { name: "show_today_only", selector: { boolean: {} } },
+      { name: "default_selected", selector: { select: { mode: "dropdown", options: [
+        { value: "litter", label: "Hele nest" }, { value: "mother", label: "Moederhond" }, { value: "puppy", label: "Pup (puppy_id)" },
+      ] } } },
+      { name: "puppy_id", selector: { text: {} } },
     ] };
   }
 
@@ -100,7 +104,12 @@ class PuppyTrackerMobileCard extends HTMLElement {
 
   _childConfig(tag) {
     if (tag === "puppy-tracker-card") return { title: text(this, "weighing"), show_puppies: true, show_details: false };
-    if (tag === "puppy-tracker-quick-log-card") return { title: text(this, "quickLog"), show_litter_selector: true };
+    if (tag === "puppy-tracker-quick-log-card") return {
+      title: text(this, "quickLog"),
+      show_litter_selector: true,
+      default_selected: this._config.default_selected,
+      puppy_id: this._config.puppy_id,
+    };
     return { title: text(this, "today"), show_litter_selector: true, show_today_only: this._config.show_today_only === true };
   }
 

@@ -306,20 +306,6 @@ class PuppyTrackerTimelineCard extends HTMLElement {
             { value: "mother", label: "Moederhond" }, { value: "puppy", label: "Pup (puppy_id)" },
           ] } },
         },
-        {
-          name: "default_scope",
-          selector: {
-            select: {
-              options: [
-                { value: "all", label: "Alles" },
-                { value: "litter", label: "Litter" },
-                { value: "mother", label: "Mother" },
-                { value: "puppy", label: "Puppy" },
-              ],
-              mode: "dropdown",
-            },
-          },
-        },
         { name: "max_items", selector: { number: { min: 25, max: 500, step: 25, mode: "box" } } },
         { name: "show_history_toggle", selector: { boolean: {} } },
         { name: "show_timeline_items", selector: { boolean: {} } },

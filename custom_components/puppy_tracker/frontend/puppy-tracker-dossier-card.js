@@ -188,20 +188,6 @@ class PuppyTrackerDossierCard extends HTMLElement {
             },
           },
         },
-        {
-          name: "default_scope",
-          selector: {
-            select: {
-              options: [
-                { value: "all", label: "Alles" },
-                { value: "litter", label: "Hele nest" },
-                { value: "mother", label: "Moederhond" },
-                { value: "puppy", label: "Pup" },
-              ],
-              mode: "dropdown",
-            },
-          },
-        },
       ],
     };
   }

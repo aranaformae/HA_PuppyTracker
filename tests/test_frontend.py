@@ -139,12 +139,12 @@ def test_dossier_and_timeline_expose_configurable_default_scopes() -> None:
     timeline = (frontend / TIMELINE_CARD).read_text(encoding="utf-8")
 
     for source in (dossier, timeline):
-        assert 'name: "default_scope"' in source
+        assert 'name: "default_selected"' in source
         assert 'config.default_scope' in source
     assert '{ value: "all", label: "Alles" }' in dossier
     assert '{ value: "mother", label: "Moederhond" }' in dossier
     assert '{ value: "all", label: "Alles" }' in timeline
-    assert '{ value: "mother", label: "Mother" }' in timeline
+    assert '{ value: "mother", label: "Moederhond" }' in timeline
 
 
 def test_dossier_and_quick_log_expose_feeding_record_type() -> None:
