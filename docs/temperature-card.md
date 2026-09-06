@@ -32,6 +32,11 @@ All settings are optional. The visual editor exposes the same settings where sup
 | `history_limit` | integer 3-50 | `10` | Limits the number of history rows before scrolling |
 | `max_height` | integer 240-900 | `520` | Sets the history area's maximum height in pixels |
 
+The measurement history is an independent scroll area. Once it reaches
+`max_height`, only the list of readings scrolls; the selectors, latest reading,
+chart and input controls remain visible. This keeps the card usable on a phone
+even when the selected period contains many readings.
+
 Example for a fixed mother-dog view:
 
 ```yaml

@@ -238,7 +238,7 @@ The Temperature card displays and records structured temperature notes for the s
 | `default_selected` | `litter`, `mother`, `puppy` | unset | Preferred initial owner selection; takes precedence over `default_scope` |
 | `default_range` | `24h`, `3d`, `7d`, `14d`, `all` | `3d` | Initial history period |
 | `history_limit` | 3-50 | `10` | Maximum number of history rows shown before scrolling |
-| `max_height` | 240-900 | `520` | Scrollable history height in pixels |
+| `max_height` | 240-900 | `520` | Maximum height of the scrollable measurement list in pixels; the rest of the card remains visible |
 
 The card keeps the regular owner selector available after loading. Selecting `puppy` shows a second selector for the active puppies. A measurement is stored as a normal `temperature` dossier record with `data.temperature_c`; the optional measurement method is stored as `data.method`, the observation as `data.observation` and the note is also retained in the record note field. Values outside 20.0-45.0 degrees C are rejected as an input safeguard. Existing Quick Log temperature entries appear automatically in the card because both surfaces use the same dossier record model.
 
