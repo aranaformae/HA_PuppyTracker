@@ -28,6 +28,16 @@ execution workflow. It lists open occurrences and records `completed` or
 keep Today and Attention focused on signal-only items while still providing a
 complete operational checklist.
 
+The execution card can be navigated by scheduled day. With
+`show_day_selector: true` (the default), it provides a date selector and
+previous/next day buttons and shows only open occurrences for the selected
+date. The card keeps its occurrence list at a maximum height of `60vh` and
+scrolls that list internally, so a long day does not push the rest of a mobile
+dashboard out of view. `show_day_selector: false` restores one continuous list
+over the loaded date range. `max_items` still limits the number of rows shown
+for the selected day, while `days_ahead` controls which future occurrences
+are loaded.
+
 Concrete occurrences are not a second persistent task database. Results are not stored in reminder state.
 
 ## Schedule modes

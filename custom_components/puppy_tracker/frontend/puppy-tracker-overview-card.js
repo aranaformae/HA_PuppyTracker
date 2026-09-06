@@ -1713,7 +1713,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
                     <span class="status-dot ${this._statusClass(row.statusCode)}"></span>
                     <div>
                       <strong>${this._escape(row.name)}</strong>
-                      <span>${this._escape(row.age)}</span>
+                      <span>${this._escape([row.age, row.collar].filter(Boolean).join(" · "))}</span>
                     </div>
                     <span class="status-pill ${this._statusClass(row.statusCode)}">${this._escape(
                 row.status
@@ -1721,8 +1721,10 @@ class PuppyTrackerOverviewCard extends HTMLElement {
                   </div>
                   <div class="puppy-metrics">
                     <div><span>Gewicht</span><strong>${this._formatNumber(row.weight, "g")}</strong></div>
+                    <div><span>Verschil</span><strong>${this._formatNumber(row.weightChange, "g", true)}</strong></div>
                     <div><span>24 uur</span><strong>${this._formatNumber(row.growth24, "%", true)}</strong></div>
                     <div><span>Sinds geboorte</span><strong>${this._formatNumber(row.growthBirth, "%", true)}</strong></div>
+                    <div><span>Laatste weging</span><strong>${this._escape(this._formatDateTime(row.lastWeighed))}</strong></div>
                   </div>
                   <div class="growth-analysis ${this._statusClass(row.analysis?.status_code)}">
                     <span>Analyse</span>
@@ -2396,7 +2398,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
 
         .puppy-metrics {
           display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
+          grid-template-columns: repeat(5, minmax(0, 1fr));
           gap: 8px;
           margin-top: 10px;
         }

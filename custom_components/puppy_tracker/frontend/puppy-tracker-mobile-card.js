@@ -103,7 +103,7 @@ class PuppyTrackerMobileCard extends HTMLElement {
   }
 
   _childConfig(tag) {
-    if (tag === "puppy-tracker-card") return { title: text(this, "weighing"), show_puppies: true, show_details: false };
+    if (tag === "puppy-tracker-card") return { title: text(this, "weighing"), show_puppies: true, show_details: true };
     if (tag === "puppy-tracker-quick-log-card") return {
       title: text(this, "quickLog"),
       show_litter_selector: true,

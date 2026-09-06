@@ -526,6 +526,18 @@ class PuppyTrackerCard extends HTMLElement {
     return `${change > 0 ? "+" : ""}${change} g`;
   }
 
+  _elapsedDisplay(value) {
+    if (!value) return "Geen meting";
+    const timestamp = new Date(value).getTime();
+    if (!Number.isFinite(timestamp)) return value;
+    const minutes = Math.max(0, Math.round((Date.now() - timestamp) / 60000));
+    if (minutes < 60) return `${minutes} min geleden`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} uur geleden`;
+    const days = Math.floor(hours / 24);
+    return `${days} ${days === 1 ? "dag" : "dagen"} geleden`;
+  }
+
   _focusWeightInput() {
     window.requestAnimationFrame(() => {
       window.queueMicrotask(() => {
@@ -867,6 +879,10 @@ class PuppyTrackerCard extends HTMLElement {
           <div>
             <span class="label">Laatste weging geselecteerde pup</span>
             <strong>${this._escape(selectedRow?.lastWeighed || "Geen")}</strong>
+          </div>
+          <div>
+            <span class="label">Tijd sinds laatste meting</span>
+            <strong>${this._escape(this._elapsedDisplay(selectedRow?.lastWeighed))}</strong>
           </div>
           <div>
             <span class="label">Vorige meting geselecteerde pup</span>

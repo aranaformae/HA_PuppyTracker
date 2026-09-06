@@ -206,13 +206,18 @@ title: Zorgprogramma uitvoeren
 show_litter_selector: true
 max_items: 50
 days_ahead: 14
+show_day_selector: true
 ```
 
 `days_ahead` limits future occurrences; overdue and due-today actions remain
 visible. Set it to `0` for today's and overdue actions only. `max_items` keeps
-the checklist usable on smaller screens. Each row can be recorded directly as
-`Uitgevoerd` or `Gemist` and uses the same care-occurrence result storage as
-the Today and Attention workflows.
+the checklist usable on smaller screens. `show_day_selector` adds a date
+selector plus previous/next day buttons; selecting a day shows only the open
+occurrences scheduled for that date. The list has a `60vh` maximum height and
+scrolls internally when there are many actions. Each row can be recorded
+directly as `Uitgevoerd` or `Gemist` and uses the same care-occurrence result
+storage as the Today and Attention workflows. Set `show_day_selector: false`
+when a dashboard should show the loaded open actions as one continuous list.
 
 The card lets you select the whole litter, the linked mother dog or an active puppy as owner. In 0.16.1 and later, mother ownership is resolved through the persistent mother scope rather than relying on a `mother_id` field in the normal litter payload.
 
@@ -245,6 +250,26 @@ The card keeps the regular owner selector available after loading. Selecting `pu
 For a complete configuration and usage guide, see [`docs/temperature-card.md`](docs/temperature-card.md).
 
 ## Daily-use surfaces
+
+### Weighing before save
+
+The regular Weighing Station card (`custom:puppy-tracker-card`) shows the
+selected puppy's current context before a value is saved: the previous
+measurement, the calculated difference from that measurement, the last weighing
+moment and the elapsed time since that weighing. The selected puppy's collar
+colour remains visible in the weighing context. The Mobile Controls card uses
+the same weighing surface and keeps these details enabled, so the phone view
+does not hide the pre-save comparison data.
+
+### Litter and Overview summaries
+
+The Litter and Tracker Overview cards expose the same practical per-puppy
+summary: current weight, difference from the previous measurement, 24-hour
+growth, growth since birth, last weighing and status. The Overview also keeps
+its growth analysis and technical metrics in the analysis sections. The Litter
+card keeps its compact/basic mode available through `show_details: false`; its
+expanded mode provides the additional puppy details without changing stored
+data.
 
 **Quick Log** supports litter, mother and puppy ownership and common structured actions. Temperature is stored as a real `temperature` dossier record with a Celsius value rather than only free text.
 

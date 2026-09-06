@@ -19,6 +19,27 @@ The architecture separates:
 
 A central rule is that persistent scheduling definitions and historical facts are different data classes. A reminder or care program may say what should happen; a dossier record says what actually happened.
 
+## Frontend presentation contracts
+
+The frontend cards are projections of the same authoritative entities and
+WebSocket data; they must not maintain a second measurement or care-result
+store. The Weighing Station card calculates the pre-save comparison from the
+selected puppy's current and previous weight entities and shows the last
+weighing timestamp plus elapsed time. The Mobile Controls card embeds that
+same card with the detail block enabled, so mobile and desktop expose the same
+save-context information.
+
+The Litter and Tracker Overview cards share the practical puppy summary fields:
+current weight, change from the previous measurement, 24-hour growth, growth
+since birth, last weighing and status. Overview-specific growth analysis stays
+in its analysis presentation and does not alter the shared summary contract.
+
+The Care Execution card is an operational projection of open care occurrences.
+It supports a selected scheduled date, previous/next date navigation and an
+internally scrollable list capped at `60vh`. Date selection changes only the
+frontend projection; completion still records the authoritative occurrence by
+program, puppy and occurrence ID.
+
 ## Integration identity
 
 ```text

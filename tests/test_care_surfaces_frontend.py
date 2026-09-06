@@ -63,6 +63,13 @@ def test_attention_setting_only_filters_care_occurrences() -> None:
     assert 'data-care-occurrence' in source
 
 
+def test_care_summary_has_a_scroll_fallback_outside_today_qol() -> None:
+    source = (FRONTEND / "puppy-tracker-care-surfaces.js").read_text()
+    assert ".care-summary{" in source
+    assert "max-height:520px" in source
+    assert "overflow-y:auto" in source
+
+
 def test_open_care_rows_launch_structured_result_entry() -> None:
     source = (FRONTEND / "puppy-tracker-care-surfaces.js").read_text()
     assert "function openResultEditor(card, item)" in source

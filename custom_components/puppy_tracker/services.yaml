@@ -143,3 +143,64 @@ record_weight:
       selector:
         text:
           multiline: true
+
+
+backup_to_file:
+  name: Backup naar bestand
+  description: Schrijf een importeerbare Puppy Tracker JSON-backup in de Home Assistant configuratiemap.
+  fields:
+    path:
+      name: Bestandspad
+      description: Relatief pad binnen de Home Assistant configuratiemap, bijvoorbeeld backups/puppy-tracker.json.
+      required: true
+      example: backups/puppy-tracker.json
+      selector:
+        text:
+
+    scope:
+      name: Backupbereik
+      description: Maak een volledige backup, van één nest of van één pup.
+      required: false
+      default: full
+      selector:
+        select:
+          options:
+            - label: Volledige backup
+              value: full
+            - label: Eén nest
+              value: litter
+            - label: Eén pup
+              value: puppy
+
+    litter_id:
+      name: Nest ID
+      description: Vereist voor een nest- of pup-backup.
+      required: false
+      selector:
+        text:
+
+    puppy_id:
+      name: Puppy ID
+      description: Vereist voor een pup-backup.
+      required: false
+      selector:
+        text:
+
+    include_timestamp:
+      name: Datum en tijd toevoegen
+      description: Voeg een UTC-datum en tijd aan de bestandsnaam toe zodat meerdere versies behouden blijven.
+      required: false
+      default: false
+      selector:
+        boolean:
+
+    keep_last:
+      name: Aantal versies bewaren
+      description: Verwijder oudere versies met dezelfde bestandsnaam. Leeg laten bewaart alle versies.
+      required: false
+      selector:
+        number:
+          min: 1
+          max: 3650
+          step: 1
+          mode: box
