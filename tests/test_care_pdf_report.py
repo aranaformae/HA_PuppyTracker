@@ -29,6 +29,7 @@ async def test_pdf_includes_structured_care_result(storage, install_litter) -> N
             "care_status": "completed",
             "care_result": "Rustig",
             "care_score": 4,
+            "care_instruction": "Geur 7 · duidelijker natuurlijk: droge aarde.",
             "care_data": {"stimulus": "tactiel"},
         },
     )
@@ -41,6 +42,8 @@ async def test_pdf_includes_structured_care_result(storage, install_litter) -> N
     assert b"ENS" in pdf
     assert b"Uitgevoerd" in pdf
     assert b"Rustig" in pdf
+    assert b"Geur 7" in pdf
+    assert b"droge aarde" in pdf
     # PDF table cells may wrap one logical value over multiple text operators.
     assert b"stimulus:" in pdf
     assert b"tactiel" in pdf

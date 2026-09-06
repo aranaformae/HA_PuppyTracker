@@ -618,13 +618,14 @@ def build_pdf_export(
                     status,
                     _care_result_text(data),
                     _format_care_score(data.get("care_score")),
+                    str(data.get("care_instruction") or ""),
                     str(record.get("note") or ""),
                 ])
             report.table(
-                ["Datum/tijd", "Programma", "Dag", "Status", "Resultaat", "Score", "Notitie"],
+                ["Datum/tijd", "Programma", "Dag", "Status", "Resultaat", "Score", "Dag-instructie", "Notitie"],
                 care_rows,
-                [75, 80, 35, 55, 85, 40, 141],
-                font_size=7.0,
+                [68, 72, 30, 48, 70, 35, 105, 83],
+                font_size=6.6,
             )
 
     report.ensure(40)

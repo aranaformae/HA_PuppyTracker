@@ -220,6 +220,12 @@ occurrence. Use any combination of:
 Keep the set small and purposeful. A result field is saved in the puppy's
 normal dossier record, so it remains available to reports and later review.
 
+The generated PDF report also includes the day-specific instruction that was
+active when the occurrence was recorded. For example, an ESI result can show
+the scheduled day, the used scent instruction, the observed response and the
+free note together. This preserves the protocol context if the template is
+edited later.
+
 ### 7. Configure attention and notifications separately
 
 Set `counts_for_attention` to `true` when an open occurrence should be shown
