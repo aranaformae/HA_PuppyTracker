@@ -32,20 +32,20 @@ def test_today_card_is_status_only_without_weighing_session_action() -> None:
 
 
 def test_collar_chart_color_layer_loads_after_overview_card() -> None:
-    """The color layer must patch the already-defined overview card."""
-    overview_index = CARD_FILES.index(OVERVIEW_CARD)
-    color_index = CARD_FILES.index(COLLAR_COLORS)
-    assert color_index > overview_index
+    """Collar colors are imported by their owners, not loaded as a patch."""
+    assert COLLAR_COLORS not in CARD_FILES
+    overview = (FRONTEND_DIR / OVERVIEW_CARD).read_text(encoding="utf-8")
+    assert 'import { collarColor } from "./puppy-tracker-collar-chart-colors.js";' in overview
 
 
 def test_chart_series_use_puppy_collar_color_with_safe_fallback() -> None:
     """Chart line, points and legend must share the puppy's collar color."""
     source = (FRONTEND_DIR / COLLAR_COLORS).read_text(encoding="utf-8")
 
-    assert "rows[index].collar" in source
-    assert '.chart-line { stroke: var(--series-color) !important; }' in source
-    assert '.chart-point { stroke: var(--series-color) !important; }' in source
-    assert '.legend-color { background: var(--series-color) !important; }' in source
+    overview = (FRONTEND_DIR / OVERVIEW_CARD).read_text(encoding="utf-8")
+    assert "color: collarColor(row.collar, index)" in overview
+    assert "--series-color:${this._escape(item.color)}" in overview
+    assert "collarColor(row.collar, index)" in overview
     assert "fallbackColor" in source
     assert 'globalThis.CSS?.supports?.("color", normalized)' in source
 

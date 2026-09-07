@@ -1,4 +1,6 @@
 // Puppy Tracker Overview Card v1.3.2
+import { collarColor } from "./puppy-tracker-collar-chart-colors.js";
+
 class PuppyTrackerOverviewCard extends HTMLElement {
   constructor() {
     super();
@@ -1282,6 +1284,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
         return {
           puppyId: row.puppyId,
           name: row.name,
+          color: collarColor(row.collar, index),
           unit: config.unit,
           index,
           points,
@@ -1405,7 +1408,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
                 data-value="${point.value}"
                 data-unit="${this._escape(item.unit)}"
                 data-measurement-id="${this._escape(point.measurementId || "")}"
-                style="--series-index:${item.index}"
+                style="--series-index:${item.index};--series-color:${this._escape(item.color)}"
               ></circle>`
           )
           .join("");
@@ -1414,7 +1417,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
           <polyline
             class="chart-line ${item.selected ? "selected" : ""}"
             points="${pointsString}"
-            style="--series-index:${item.index}"
+            style="--series-index:${item.index};--series-color:${this._escape(item.color)}"
           ></polyline>
           ${circles}
         `;
@@ -1922,7 +1925,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
                 <button class="legend-item ${row.puppyId === this._selectedPuppyId ? "selected" : ""}" data-puppy-id="${this._escape(
                 row.puppyId
               )}">
-                  <span class="legend-color" style="--series-index:${index}"></span>
+                  <span class="legend-color" style="--series-index:${index};--series-color:${this._escape(collarColor(row.collar, index))}"></span>
                   ${this._escape(row.name)}
                 </button>`
             )
@@ -2540,7 +2543,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
 
         .chart-line {
           fill: none;
-          stroke: hsl(calc(var(--series-index) * 63 + 205) 68% 52%);
+          stroke: var(--series-color, hsl(calc(var(--series-index) * 63 + 205) 68% 52%));
           stroke-width: 2.4;
           stroke-linecap: round;
           stroke-linejoin: round;
@@ -2555,7 +2558,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
 
         .chart-point {
           fill: var(--ha-card-background, var(--card-background-color, #fff));
-          stroke: hsl(calc(var(--series-index) * 63 + 205) 68% 52%);
+          stroke: var(--series-color, hsl(calc(var(--series-index) * 63 + 205) 68% 52%));
           stroke-width: 2.4;
           cursor: pointer;
           vector-effect: non-scaling-stroke;
@@ -2581,7 +2584,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
           width: 9px;
           height: 9px;
           border-radius: 50%;
-          background: hsl(calc(var(--series-index) * 63 + 205) 68% 52%);
+          background: var(--series-color, hsl(calc(var(--series-index) * 63 + 205) 68% 52%));
         }
 
         .chart-tooltip,

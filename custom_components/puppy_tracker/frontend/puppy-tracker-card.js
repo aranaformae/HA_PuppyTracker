@@ -639,6 +639,8 @@ class PuppyTrackerCard extends HTMLElement {
 
     const input = this.shadowRoot?.querySelector("#weight-input");
     const value = Number(input?.value ?? this._draftWeight ?? 0);
+    const puppy = this._puppyRows(station).find((row) => row.selected) || null;
+    const previousWeight = Number(puppy?.weight);
 
     if (!Number.isFinite(value) || value <= 0) {
       this._localMessage = "Voer eerst een geldig gewicht in.";
@@ -665,7 +667,43 @@ class PuppyTrackerCard extends HTMLElement {
       );
 
       this._draftWeight = null;
-      this._localMessage = "";
+      const locale =
+        this._hass?.locale?.language ||
+        this._hass?.language ||
+        navigator.language ||
+        "nl-NL";
+      const formatNumber = (number, maximumFractionDigits = 1) =>
+        new Intl.NumberFormat(locale, {
+          maximumFractionDigits,
+          minimumFractionDigits: 0,
+        }).format(number);
+      const formatSigned = (number, maximumFractionDigits = 1) => {
+        if (number === 0) return formatNumber(0, maximumFractionDigits);
+        return `${number > 0 ? "+" : "−"}${formatNumber(
+          Math.abs(number),
+          maximumFractionDigits
+        )}`;
+      };
+      const puppyName = puppy?.name || "Puppy";
+      const weightText = `${formatNumber(value, 0)} g`;
+      const isDutch = String(locale).toLowerCase().startsWith("nl");
+
+      if (!Number.isFinite(previousWeight) || previousWeight <= 0) {
+        this._localMessage = isDutch
+          ? `${puppyName}: ${weightText} opgeslagen · eerste meting.`
+          : `${puppyName}: ${weightText} saved · first measurement.`;
+      } else {
+        const gainGrams = value - previousWeight;
+        const growthPercent = (gainGrams / previousWeight) * 100;
+        const gainText = `${formatSigned(gainGrams, 0)} g`;
+        const percentText = `${formatSigned(growthPercent, 1)}%`;
+        const previousText = `${formatNumber(previousWeight, 0)} g`;
+        this._localMessage = isDutch
+          ? `${puppyName}: ${weightText} opgeslagen · ${gainText} (${percentText}) t.o.v. vorige meting van ${previousText}.`
+          : `${puppyName}: ${weightText} saved · ${gainText} (${percentText}) vs previous measurement of ${previousText}.`;
+      }
+      this._localMessageType = "success";
+      this._scheduleRender(true);
     } catch (err) {
       this._setError(err);
     }

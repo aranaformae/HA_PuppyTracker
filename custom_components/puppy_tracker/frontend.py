@@ -25,9 +25,6 @@ FRONTEND_URL = f"{FRONTEND_BASE_URL}/{FRONTEND_VERSION}"
 
 CARD_FILES = (
     "puppy-tracker-card.js",
-    # Reuse the selected puppy's current weight as the previous effective
-    # measurement and show the saved delta/percentage immediately after save.
-    "puppy-tracker-weighing-feedback.js",
     "puppy-tracker-overview-card.js",
     # Loaded directly after the overview card so structural integration updates
     # refresh its cached Home Assistant device/entity registries before history
@@ -37,9 +34,6 @@ CARD_FILES = (
     # filters. Older points stay horizontally reachable and the current instant
     # remains explicitly marked with a now-line and return-to-now action.
     "puppy-tracker-chart-time-navigation.js",
-    # Keep graph lines, points and legend markers tied to each puppy's physical
-    # collar color instead of assigning colors by series order.
-    "puppy-tracker-collar-chart-colors.js",
     "puppy-tracker-summary-card.js",
     "puppy-tracker-today-card.js",
     "puppy-tracker-attention-card.js",

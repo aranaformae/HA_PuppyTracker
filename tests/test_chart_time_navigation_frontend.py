@@ -19,14 +19,13 @@ def _source() -> str:
     ).read_text(encoding="utf-8")
 
 
-def test_chart_navigation_loads_after_overview_and_before_color_patch() -> None:
-    """Chart navigation must patch the overview before collar colors wrap render."""
+def test_chart_navigation_loads_after_overview_registry_refresh() -> None:
+    """Chart navigation wraps the overview after registry refresh support."""
     overview_index = CARD_FILES.index(OVERVIEW_CARD)
     registry_index = CARD_FILES.index(OVERVIEW_REGISTRY_REFRESH)
     navigation_index = CARD_FILES.index(CHART_TIME_NAVIGATION)
-    color_index = CARD_FILES.index(COLLAR_CHART_COLORS)
-
-    assert overview_index < registry_index < navigation_index < color_index
+    assert COLLAR_CHART_COLORS not in CARD_FILES
+    assert overview_index < registry_index < navigation_index
 
 
 def test_chart_ranges_are_viewports_not_history_filters() -> None:

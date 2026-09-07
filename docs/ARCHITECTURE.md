@@ -583,6 +583,13 @@ The backend remains source of truth for monitoring state, effective measurements
 
 Frontend compatibility layers may enrich presentation, but must not invent a second persistence model.
 
+Behavior owned by one card should live in that card instead of a late prototype
+patch. Shared stateless presentation rules may remain importable utilities. The
+collar-color mapper follows that model: weighing and overview import the same
+function, while chart series receive their color during normal rendering.
+Compatibility layers remain appropriate where one feature deliberately spans
+several independently registered cards and are consolidated incrementally.
+
 ## Frontend surfaces
 
 Current core element namespace includes:

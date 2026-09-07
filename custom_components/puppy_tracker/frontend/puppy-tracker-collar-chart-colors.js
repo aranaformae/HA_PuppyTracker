@@ -1,9 +1,7 @@
 // Keep puppy chart series visually tied to the physical collar color.
 // collar_color is intentionally free text, so common Dutch/English names are
 // normalized here while valid CSS colors (for example #2196f3) are accepted.
-const CARD_TAG = "puppy-tracker-overview-card";
-
-  const NAMED_COLORS = [
+const NAMED_COLORS = [
     [["lichtblauw", "lightblue", "skyblue"], "#42a5f5"],
     [["donkerblauw", "darkblue", "navy"], "#1565c0"],
     [["blauw", "blue"], "#1e88e5"],
@@ -37,7 +35,7 @@ const CARD_TAG = "puppy-tracker-overview-card";
 
   const fallbackColor = (index) => `hsl(${index * 63 + 205} 68% 52%)`;
 
-export function collarColor(value, index) {
+export function collarColor(value, index = 0) {
     const normalized = normalize(value);
     if (!normalized) return fallbackColor(index);
 
@@ -55,53 +53,3 @@ export function collarColor(value, index) {
     if (globalThis.CSS?.supports?.("color", normalized)) return normalized;
     return fallbackColor(index);
 }
-
-(() => {
-
-  const applyPatch = () => {
-    const CardClass = customElements.get(CARD_TAG);
-    if (!CardClass) return;
-
-    const prototype = CardClass.prototype;
-    if (prototype.__puppyTrackerCollarChartColorsPatched) return;
-    prototype.__puppyTrackerCollarChartColorsPatched = true;
-
-    prototype._applyCollarChartColors = function () {
-      const root = this.shadowRoot;
-      if (!root) return;
-
-      const rows = typeof this._puppyRows === "function" ? this._puppyRows() : [];
-      if (!rows.length) return;
-
-      if (!root.getElementById("puppy-tracker-collar-chart-colors")) {
-        const style = document.createElement("style");
-        style.id = "puppy-tracker-collar-chart-colors";
-        style.textContent = `
-          .chart-line { stroke: var(--series-color) !important; }
-          .chart-point { stroke: var(--series-color) !important; }
-          .legend-color { background: var(--series-color) !important; }
-        `;
-        root.appendChild(style);
-      }
-
-      root.querySelectorAll(".chart-line, .chart-point, .legend-color").forEach((element) => {
-        const index = Number.parseInt(element.style.getPropertyValue("--series-index"), 10);
-        if (!Number.isInteger(index) || !rows[index]) return;
-        element.style.setProperty("--series-color", collarColor(rows[index].collar, index));
-      });
-    };
-
-    const originalRender = prototype._render;
-    prototype._render = function (...args) {
-      const result = originalRender.apply(this, args);
-      this._applyCollarChartColors();
-      return result;
-    };
-  };
-
-  if (customElements.get(CARD_TAG)) {
-    applyPatch();
-  } else {
-    customElements.whenDefined(CARD_TAG).then(applyPatch);
-  }
-})();

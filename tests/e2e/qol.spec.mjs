@@ -27,44 +27,29 @@ test("Today card renders as status-only without weighing-session action", async 
 test("overview chart uses each puppy collar color for line point and legend", async ({ page }) => {
   await openFixture(page);
 
-  const result = await page.evaluate(() => {
+  const result = await page.evaluate(async () => {
+    const { collarColor } = await import(
+      "/custom_components/puppy_tracker/frontend/puppy-tracker-collar-chart-colors.js"
+    );
     const card = document.createElement("puppy-tracker-overview-card");
-    card._puppyRows = () => [
-      { puppyId: "blue", collar: "Blauw" },
-      { puppyId: "pink", collar: "Roze" },
+    card._metricConfig = () => ({ unit: "g" });
+    card._metricPoints = () => [{ time: Date.now(), value: 400 }];
+    const rows = [
+      { puppyId: "blue", name: "Blue", collar: "Blauw" },
+      { puppyId: "pink", name: "Pink", collar: "Roze" },
     ];
-
-    card.shadowRoot.innerHTML = `
-      <svg>
-        <polyline id="blue-line" class="chart-line" style="--series-index:0"></polyline>
-        <circle id="blue-point" class="chart-point" style="--series-index:0"></circle>
-        <polyline id="pink-line" class="chart-line" style="--series-index:1"></polyline>
-      </svg>
-      <span id="pink-legend" class="legend-color" style="--series-index:1"></span>
-    `;
-
-    card._applyCollarChartColors();
-
-    const color = (selector) => card.shadowRoot
-      .querySelector(selector)
-      ?.style.getPropertyValue("--series-color");
+    const series = card._chartSeries(rows);
 
     return {
-      blueLine: color("#blue-line"),
-      bluePoint: color("#blue-point"),
-      pinkLine: color("#pink-line"),
-      pinkLegend: color("#pink-legend"),
-      hasOverrideStyle: Boolean(
-        card.shadowRoot.querySelector("#puppy-tracker-collar-chart-colors")
-      ),
+      blueSeries: series[0]?.color,
+      pinkSeries: series[1]?.color,
+      pinkLegend: collarColor(rows[1].collar, 1),
     };
   });
 
-  expect(result.blueLine).toBe("#1e88e5");
-  expect(result.bluePoint).toBe("#1e88e5");
-  expect(result.pinkLine).toBe("#ec407a");
+  expect(result.blueSeries).toBe("#1e88e5");
+  expect(result.pinkSeries).toBe("#ec407a");
   expect(result.pinkLegend).toBe("#ec407a");
-  expect(result.hasOverrideStyle).toBe(true);
 });
 
 test("overview card exposes basic and advanced analysis visibility controls", async ({ page }) => {
