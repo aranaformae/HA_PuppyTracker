@@ -23,7 +23,7 @@ from .const import (
     DOMAIN,
     SIGNAL_DASHBOARD_UPDATE,
 )
-from .notification_delivery import async_send_notify_entities, normalize_notify_entities
+from .notification_delivery import async_clear_notify_entities, async_send_notify_entities, normalize_notify_entities
 from .recurring_reminder_api import async_reconcile_recurring_reminders
 from .recurring_reminders import RecurringReminderStore, reminder_status
 from .runtime import PuppyTrackerRuntimeData
@@ -100,6 +100,7 @@ class RecurringReminderNotificationManager:
                     reminder_id = str(item["id"])
                     if not notifications_enabled or item.get("status") not in {"due_soon", "overdue"}:
                         async_dismiss_persistent_notification(self.hass, self._notification_id(reminder_id))
+                        await async_clear_notify_entities(self.hass, notify_entities, self._notification_id(reminder_id))
                         self._states.pop(reminder_id, None)
                         continue
                     active.add(reminder_id)
@@ -121,9 +122,11 @@ class RecurringReminderNotificationManager:
                         notify_entities,
                         title,
                         message,
+                        notification_tag=self._notification_id(reminder_id),
                     )
                 for reminder_id in set(self._states) - active:
                     async_dismiss_persistent_notification(self.hass, self._notification_id(reminder_id))
+                    await async_clear_notify_entities(self.hass, notify_entities, self._notification_id(reminder_id))
                     self._states.pop(reminder_id, None)
 
             await async_check_care_notifications(self.hass, self.runtime)

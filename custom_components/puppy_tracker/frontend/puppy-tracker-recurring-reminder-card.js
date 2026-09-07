@@ -63,6 +63,8 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
     this._error = "";
     this._saving = false;
     this._unsubscribe = null;
+    this._loadSequence = 0;
+    this._deletedReminderIds = new Set();
   }
 
   static getStubConfig() { return { title: "", show_litter_selector: true }; }
@@ -113,15 +115,23 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
 
   async _loadCurrent() {
     if (!this._hass || !this._selectedLitterId) return;
+    const sequence = ++this._loadSequence;
     try {
       const [data, reminders] = await Promise.all([
         fetchLitterData(this._hass, this._selectedLitterId),
         this._hass.callWS({ type: "puppy_tracker/recurring_reminders", litter_id: this._selectedLitterId }),
       ]);
+      if (sequence !== this._loadSequence) return;
       this._litterData = data;
-      this._items = reminders?.reminders || [];
+      const loadedItems = reminders?.reminders || [];
+      const loadedIds = new Set(loadedItems.map((item) => String(item?.id || "")));
+      for (const id of this._deletedReminderIds) {
+        if (!loadedIds.has(id)) this._deletedReminderIds.delete(id);
+      }
+      this._items = loadedItems.filter((item) => !this._deletedReminderIds.has(String(item?.id || "")));
       this._error = "";
     } catch (error) {
+      if (sequence !== this._loadSequence) return;
       this._error = error?.message || t(this, "Herinneringen konden niet worden geladen.", "Reminders could not be loaded.");
     }
     this._render();
@@ -227,11 +237,13 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
 
   async _delete(id) {
     if (!id || this._saving) return;
+    const reminderId = String(id);
     this._saving = true;
     this._error = "";
     this._render();
     try {
-      await this._hass.callWS({ type: "puppy_tracker/recurring_reminder/delete", reminder_id: id });
+      await this._hass.callWS({ type: "puppy_tracker/recurring_reminder/delete", reminder_id: reminderId });
+      this._deletedReminderIds.add(reminderId);
       await this._loadCurrent();
     } catch (error) {
       this._error = error?.message || t(this, "Herinnering kon niet worden verwijderd.", "Reminder could not be deleted.");

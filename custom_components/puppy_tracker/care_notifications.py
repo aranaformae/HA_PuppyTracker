@@ -22,7 +22,7 @@ from .const import (
     DEFAULT_NOTIFY_ENTITIES,
     DOMAIN,
 )
-from .notification_delivery import async_send_notify_entities, normalize_notify_entities
+from .notification_delivery import async_clear_notify_entities, async_send_notify_entities, normalize_notify_entities
 from .runtime import PuppyTrackerRuntimeData
 
 DUE_STATUSES = {"due_soon", "due_today", "overdue"}
@@ -91,6 +91,7 @@ async def async_check_care_notifications(
     active_groups = set(groups)
     for stale in state["active_groups"] - active_groups:
         async_dismiss_persistent_notification(hass, _notification_id(stale))
+        await async_clear_notify_entities(hass, notify_entities, _notification_id(stale))
     state["active_groups"] = active_groups
 
     for key, items in groups.items():
@@ -110,7 +111,13 @@ async def async_check_care_notifications(
             if str(item.get("id") or "") not in state["notified_occurrences"]
         ]
         if fresh_ids:
-            await async_send_notify_entities(hass, notify_entities, title, message)
+            await async_send_notify_entities(
+                hass,
+                notify_entities,
+                title,
+                message,
+                notification_tag=_notification_id(key),
+            )
             state["notified_occurrences"].update(fresh_ids)
 
     open_ids = {

@@ -208,3 +208,12 @@ def test_frontend_exposes_reminder_card_and_all_owner_scopes() -> None:
     assert 'notification_lead_minutes:' in source
     assert 'rem-lead-minutes' in source
     assert 'async_reconcile_recurring_reminders' in api
+
+
+def test_frontend_ignores_stale_reminder_refreshes_after_delete() -> None:
+    source = (ROOT / "custom_components" / "puppy_tracker" / "frontend" / "puppy-tracker-recurring-reminder-card.js").read_text(encoding="utf-8")
+
+    assert "this._loadSequence = 0" in source
+    assert "this._deletedReminderIds = new Set()" in source
+    assert "if (sequence !== this._loadSequence) return;" in source
+    assert "this._deletedReminderIds.add(reminderId)" in source

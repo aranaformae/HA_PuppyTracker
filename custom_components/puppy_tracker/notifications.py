@@ -29,6 +29,7 @@ from .const import (
     SIGNAL_UPDATE,
 )
 from .metrics import calculate_puppy_status
+from .notification_delivery import async_clear_notify_entities
 from .runtime import PuppyTrackerRuntimeData
 from .session import SESSION_COMPLETED, get_session
 from .storage import PuppyTrackerStorage
@@ -273,6 +274,7 @@ class PuppyNotificationManager:
                 notify_entities,
                 title,
                 message,
+                notification_tag=self._puppy_notification_id(puppy_id),
             )
 
         if (
@@ -280,6 +282,11 @@ class PuppyNotificationManager:
             and previous is not None
             and previous.get("needs_attention", False)
         ):
+            await async_clear_notify_entities(
+                self.hass,
+                notify_entities,
+                self._puppy_notification_id(puppy_id),
+            )
             if notify_recovery:
                 message = self._recovery_message(puppy, status)
                 title = f"Puppy Tracker · {puppy.get('name', 'Puppy')}"
@@ -293,6 +300,7 @@ class PuppyNotificationManager:
                     notify_entities,
                     title,
                     message,
+                    notification_tag=self._puppy_notification_id(puppy_id),
                 )
             else:
                 async_dismiss_persistent_notification(
@@ -385,6 +393,7 @@ class PuppyNotificationManager:
                 notify_entities,
                 title,
                 message,
+                notification_tag=self._care_notification_id(state_key),
             )
 
         for state_key, previous in previous_states.items():
@@ -393,6 +402,11 @@ class PuppyNotificationManager:
 
             async_dismiss_persistent_notification(
                 self.hass,
+                self._care_notification_id(state_key),
+            )
+            await async_clear_notify_entities(
+                self.hass,
+                notify_entities,
                 self._care_notification_id(state_key),
             )
 
@@ -412,6 +426,7 @@ class PuppyNotificationManager:
                 notify_entities,
                 title,
                 message,
+                notification_tag=self._care_notification_id(state_key),
             )
 
         await care_store.async_replace_states(current_states)
@@ -505,6 +520,8 @@ class PuppyNotificationManager:
         notify_entities: list[str],
         title: str,
         message: str,
+        *,
+        notification_tag: str | None = None,
     ) -> None:
         """Send the same deduplicated event to configured notify entities."""
         targets = [
@@ -525,6 +542,7 @@ class PuppyNotificationManager:
                 {
                     "title": title,
                     "message": message.replace("**", ""),
+                    **({"data": {"tag": notification_tag}} if notification_tag else {}),
                 },
                 blocking=False,
                 target={"entity_id": targets},

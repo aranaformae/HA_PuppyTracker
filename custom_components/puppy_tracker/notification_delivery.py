@@ -25,6 +25,7 @@ async def async_send_notify_entities(
     message: str,
     *,
     strict: bool = False,
+    notification_tag: str | None = None,
 ) -> None:
     """Send one message to configured notify entities.
 
@@ -51,9 +52,31 @@ async def async_send_notify_entities(
                     "entity_id": entity_id,
                     "title": title,
                     "message": message,
+                    **({"data": {"tag": notification_tag}} if notification_tag else {}),
                 },
                 blocking=strict,
             )
         except Exception:
             if strict:
                 raise
+
+
+async def async_clear_notify_entities(
+    hass: HomeAssistant,
+    notify_entities: Iterable[object] | None,
+    notification_tag: str,
+) -> None:
+    """Ask supported notification targets to remove a tagged notification."""
+    targets = normalize_notify_entities(notify_entities)
+    if not targets or not notification_tag or not hass.services.has_service("notify", "send_message"):
+        return
+    for entity_id in targets:
+        try:
+            await hass.services.async_call(
+                "notify",
+                "send_message",
+                {"entity_id": entity_id, "message": "clear_notification", "data": {"tag": notification_tag}},
+                blocking=False,
+            )
+        except Exception:
+            continue
