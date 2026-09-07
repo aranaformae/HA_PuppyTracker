@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import suppress
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -40,21 +41,45 @@ class RecurringReminderNotificationManager:
         self.runtime = runtime
         self._unsub: list[CALLBACK_TYPE] = []
         self._task: asyncio.Task[Any] | None = None
+        self._check_scheduled = False
+        self._rerun_requested = False
+        self._stopping = False
         self._states: dict[str, tuple[str, str | None]] = {}
 
     async def async_start(self) -> None:
+        self._stopping = False
         self._unsub.append(async_dispatcher_connect(self.hass, SIGNAL_DASHBOARD_UPDATE, self._handle_signal))
         self._unsub.append(async_track_time_interval(self.hass, self._handle_interval, CHECK_INTERVAL))
         self._schedule()
 
     async def async_stop(self) -> None:
+        self._stopping = True
         for unsub in self._unsub:
             unsub()
         self._unsub.clear()
         if self._task is not None and not self._task.done():
             self._task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self._task
         self._task = None
-        async_clear_care_notifications(self.hass)
+        self._check_scheduled = False
+        self._rerun_requested = False
+
+        settings = self.runtime.storage.get_settings()
+        notify_entities = normalize_notify_entities(
+            settings.get("notify_entities", DEFAULT_NOTIFY_ENTITIES)
+        )
+        for reminder_id in tuple(self._states):
+            async_dismiss_persistent_notification(
+                self.hass, self._notification_id(reminder_id)
+            )
+            await async_clear_notify_entities(
+                self.hass, notify_entities, self._notification_id(reminder_id)
+            )
+        self._states.clear()
+        await async_clear_care_notifications(
+            self.hass, notify_entities=notify_entities
+        )
 
     @callback
     def _handle_signal(self, *args: Any) -> None:
@@ -66,72 +91,105 @@ class RecurringReminderNotificationManager:
 
     @callback
     def _schedule(self) -> None:
-        if self._task is not None and not self._task.done():
+        if self._stopping:
             return
-        self._task = self.hass.async_create_task(self.async_check())
+        if self._check_scheduled:
+            self._rerun_requested = True
+            return
+        self._check_scheduled = True
+        self._task = self.hass.async_create_task(self._async_check_runner())
+
+    async def _async_check_runner(self) -> None:
+        """Run again when state changes while a notification check is active."""
+        try:
+            while True:
+                self._rerun_requested = False
+                await self.async_check()
+                await asyncio.sleep(0)
+                if not self._rerun_requested:
+                    break
+        finally:
+            self._check_scheduled = False
+            self._task = None
+            if self._rerun_requested and not self._stopping:
+                self._rerun_requested = False
+                self._schedule()
 
     async def async_check(self) -> None:
-        try:
-            await async_reconcile_recurring_reminders(self.hass)
-            store = self.runtime.recurring_reminders
-            if isinstance(store, RecurringReminderStore):
-                settings = self.runtime.storage.get_settings()
-                notifications_enabled = bool(
-                    settings.get(
-                        "recurring_reminder_notifications_enabled",
-                        DEFAULT_RECURRING_REMINDER_NOTIFICATIONS_ENABLED,
-                    )
+        await async_reconcile_recurring_reminders(self.hass)
+        store = self.runtime.recurring_reminders
+        if isinstance(store, RecurringReminderStore):
+            settings = self.runtime.storage.get_settings()
+            notifications_enabled = bool(
+                settings.get(
+                    "recurring_reminder_notifications_enabled",
+                    DEFAULT_RECURRING_REMINDER_NOTIFICATIONS_ENABLED,
                 )
-                notify_entities = normalize_notify_entities(
-                    settings.get("notify_entities", DEFAULT_NOTIFY_ENTITIES)
+            )
+            notify_entities = normalize_notify_entities(
+                settings.get("notify_entities", DEFAULT_NOTIFY_ENTITIES)
+            )
+            default_lead_minutes = int(
+                settings.get(
+                    "notification_lead_minutes",
+                    DEFAULT_NOTIFICATION_LEAD_MINUTES,
                 )
-                default_lead_minutes = int(
-                    settings.get(
-                        "notification_lead_minutes",
-                        DEFAULT_NOTIFICATION_LEAD_MINUTES,
-                    )
+            )
+            active: set[str] = set()
+            for reminder in store.get_reminders():
+                item = reminder_status(
+                    reminder,
+                    notification_lead_minutes=default_lead_minutes,
                 )
-                active: set[str] = set()
-                for reminder in store.get_reminders():
-                    item = reminder_status(
-                        reminder,
-                        notification_lead_minutes=default_lead_minutes,
-                    )
-                    reminder_id = str(item["id"])
-                    if not notifications_enabled or item.get("status") not in {"due_soon", "overdue"}:
-                        async_dismiss_persistent_notification(self.hass, self._notification_id(reminder_id))
-                        await async_clear_notify_entities(self.hass, notify_entities, self._notification_id(reminder_id))
+                reminder_id = str(item["id"])
+                if not notifications_enabled or item.get("status") not in {
+                    "due_soon",
+                    "overdue",
+                }:
+                    if reminder_id in self._states:
+                        async_dismiss_persistent_notification(
+                            self.hass, self._notification_id(reminder_id)
+                        )
+                        await async_clear_notify_entities(
+                            self.hass,
+                            notify_entities,
+                            self._notification_id(reminder_id),
+                        )
                         self._states.pop(reminder_id, None)
-                        continue
-                    active.add(reminder_id)
-                    state = (str(item.get("status")), item.get("next_due_at"))
-                    if self._states.get(reminder_id) == state:
-                        continue
-                    self._states[reminder_id] = state
-                    owner = self._owner_name(item)
-                    message = self._message(item, owner)
-                    title = f"Puppy Tracker · {item.get('title') or 'Herinnering'}"
-                    async_create_persistent_notification(
-                        self.hass,
-                        message,
-                        title=title,
-                        notification_id=self._notification_id(reminder_id),
-                    )
-                    await async_send_notify_entities(
-                        self.hass,
-                        notify_entities,
-                        title,
-                        message,
-                        notification_tag=self._notification_id(reminder_id),
-                    )
-                for reminder_id in set(self._states) - active:
-                    async_dismiss_persistent_notification(self.hass, self._notification_id(reminder_id))
-                    await async_clear_notify_entities(self.hass, notify_entities, self._notification_id(reminder_id))
-                    self._states.pop(reminder_id, None)
+                    continue
+                active.add(reminder_id)
+                state = (str(item.get("status")), item.get("next_due_at"))
+                if self._states.get(reminder_id) == state:
+                    continue
+                self._states[reminder_id] = state
+                owner = self._owner_name(item)
+                message = self._message(item, owner)
+                title = f"Puppy Tracker · {item.get('title') or 'Herinnering'}"
+                async_create_persistent_notification(
+                    self.hass,
+                    message,
+                    title=title,
+                    notification_id=self._notification_id(reminder_id),
+                )
+                await async_send_notify_entities(
+                    self.hass,
+                    notify_entities,
+                    title,
+                    message,
+                    notification_tag=self._notification_id(reminder_id),
+                )
+            for reminder_id in set(self._states) - active:
+                async_dismiss_persistent_notification(
+                    self.hass, self._notification_id(reminder_id)
+                )
+                await async_clear_notify_entities(
+                    self.hass,
+                    notify_entities,
+                    self._notification_id(reminder_id),
+                )
+                self._states.pop(reminder_id, None)
 
-            await async_check_care_notifications(self.hass, self.runtime)
-        finally:
-            self._task = None
+        await async_check_care_notifications(self.hass, self.runtime)
 
     def _owner_name(self, reminder: dict[str, Any]) -> str:
         scope = reminder.get("owner_scope")

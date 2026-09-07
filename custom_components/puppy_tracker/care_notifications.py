@@ -53,6 +53,7 @@ async def async_check_care_notifications(
     )
     default_lead_minutes = _lead_minutes(settings.get("notification_lead_minutes"))
     groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    records_by_puppy: dict[tuple[str, str], list[dict[str, Any]]] = {}
 
     for program in store.get_programs():
         if (
@@ -73,11 +74,15 @@ async def async_check_care_notifications(
                 derived = derive_litter_care_occurrences(program, [puppy])
             except ValueError:
                 continue
-            records = runtime.storage.get_records(
-                litter_id,
-                str(puppy.get("id") or ""),
-                newest_first=False,
-            )
+            puppy_id = str(puppy.get("id") or "")
+            cache_key = (litter_id, puppy_id)
+            if cache_key not in records_by_puppy:
+                records_by_puppy[cache_key] = runtime.storage.get_records(
+                    litter_id,
+                    puppy_id,
+                    newest_first=False,
+                )
+            records = records_by_puppy[cache_key]
             for occurrence in derived:
                 item = care_occurrence_status(occurrence, records)
                 _apply_notification_lead(item, default_lead_minutes)
@@ -128,13 +133,19 @@ async def async_check_care_notifications(
     state["notified_occurrences"].intersection_update(open_ids)
 
 
-def async_clear_care_notifications(hass: HomeAssistant) -> None:
-    """Dismiss known persistent care notices and clear runtime dedup state."""
+async def async_clear_care_notifications(
+    hass: HomeAssistant, *, notify_entities: list[str] | None = None
+) -> None:
+    """Dismiss known care notices and clear runtime dedup state."""
     state = hass.data.pop(DATA_NOTIFICATION_STATE, None)
     if not state:
         return
     for key in state.get("active_groups", set()):
         async_dismiss_persistent_notification(hass, _notification_id(key))
+        if notify_entities:
+            await async_clear_notify_entities(
+                hass, notify_entities, _notification_id(key)
+            )
 
 
 def _lead_minutes(value: Any) -> int:

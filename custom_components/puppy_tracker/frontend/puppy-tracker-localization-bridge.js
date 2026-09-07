@@ -400,10 +400,21 @@ function patchCardPickerMetadata() {
   }
 }
 
-function scan(records = []) {
-  for (const record of records) {
-    if (record.type !== "childList") continue;
-    record.removedNodes.forEach(unwatchRemovedNode);
+function scanNode(node) {
+  if (!(node instanceof Element)) return;
+  if (TARGET_CARDS.includes(node.localName)) watchCard(node);
+  node.querySelectorAll?.(TARGET_CARDS.join(",")).forEach(watchCard);
+}
+
+function scan(records) {
+  if (records?.length) {
+    for (const record of records) {
+      if (record.type !== "childList") continue;
+      record.removedNodes.forEach(unwatchRemovedNode);
+      record.addedNodes.forEach(scanNode);
+    }
+    patchCardPickerMetadata();
+    return;
   }
 
   for (const tag of TARGET_CARDS) {

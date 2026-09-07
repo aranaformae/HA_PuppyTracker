@@ -26,6 +26,7 @@ The current suite covers the main backend, frontend contract and browser flows.
 | `test_temperature_frontend.py` / `test_temperature_card.py` | Structured temperature logging, localization and dedicated temperature-card contracts |
 | `test_owner_backup.py` / `test_recurring_mother_owner_frontend.py` | Reusable contact backup/restore, placement/payment fields, puppy links and owner-related frontend contracts |
 | `test_age_based_care_notifications.py` / `test_notification_settings_storage.py` | Notification settings, default lead-time fallback, care-program overrides, grouping and delivery contracts |
+| `test_notification_lifecycle.py` | Coalesced notification checks, transition-only mobile cleanup, inactive-owner cleanup and global notification shutdown |
 | `tests/e2e/*.spec.mjs` | Browser coverage for Lovelace cards across Chromium and WebKit projects |
 
 The Python tests protect backend behavior and static frontend contracts. Playwright covers Lovelace-card browser behavior across the configured Chromium/WebKit desktop, iPhone and iPad projects. HACS installation and Home Assistant Companion App push behavior still require manual release testing.

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import suppress
 from copy import deepcopy
 from datetime import datetime, timedelta
 import logging
@@ -91,12 +92,15 @@ class PuppyNotificationManager:
         self._unsub: list[CALLBACK_TYPE] = []
         self._check_lock = asyncio.Lock()
         self._pending_task: asyncio.Task[Any] | None = None
+        self._check_scheduled = False
         self._rerun_requested = False
+        self._stopping = False
         self._puppy_state: dict[str, dict[str, Any]] = {}
         self._last_session_completed_at: str | None = None
 
     async def async_start(self) -> None:
         """Start monitoring."""
+        self._stopping = False
         self._unsub.append(
             async_dispatcher_connect(
                 self.hass,
@@ -122,14 +126,23 @@ class PuppyNotificationManager:
 
     async def async_stop(self) -> None:
         """Stop monitoring callbacks."""
+        self._stopping = True
         for unsub in self._unsub:
             unsub()
         self._unsub.clear()
 
         if self._pending_task is not None and not self._pending_task.done():
             self._pending_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self._pending_task
         self._pending_task = None
+        self._check_scheduled = False
         self._rerun_requested = False
+        settings = self.storage.get_settings()
+        await self._async_dismiss_all_known_notifications(
+            list(settings.get("notify_entities", DEFAULT_NOTIFY_ENTITIES))
+        )
+        self._puppy_state.clear()
 
     @callback
     def _handle_signal(self, *args: Any) -> None:
@@ -142,10 +155,13 @@ class PuppyNotificationManager:
     @callback
     def _schedule_check(self) -> None:
         """Schedule a check without losing changes that arrive mid-check."""
-        if self._pending_task is not None and not self._pending_task.done():
+        if self._stopping:
+            return
+        if self._check_scheduled:
             self._rerun_requested = True
             return
 
+        self._check_scheduled = True
         self._pending_task = self.hass.async_create_task(
             self._async_check_runner()
         )
@@ -160,8 +176,9 @@ class PuppyNotificationManager:
                 if not self._rerun_requested:
                     break
         finally:
+            self._check_scheduled = False
             self._pending_task = None
-            if self._rerun_requested:
+            if self._rerun_requested and not self._stopping:
                 self._rerun_requested = False
                 self._schedule_check()
 
@@ -178,8 +195,15 @@ class PuppyNotificationManager:
 
             care_store = self.runtime.care_reminders
 
+            notify_entities = list(
+                settings.get(
+                    "notify_entities",
+                    DEFAULT_NOTIFY_ENTITIES,
+                )
+            )
+
             if not enabled:
-                self._dismiss_all_known_notifications()
+                await self._async_dismiss_all_known_notifications(notify_entities)
                 self._puppy_state.clear()
                 self._last_session_completed_at = None
                 if isinstance(care_store, CareReminderStore):
@@ -188,12 +212,6 @@ class PuppyNotificationManager:
 
             notify_recovery = bool(
                 settings.get("notify_recovery", DEFAULT_NOTIFY_RECOVERY)
-            )
-            notify_entities = list(
-                settings.get(
-                    "notify_entities",
-                    DEFAULT_NOTIFY_ENTITIES,
-                )
             )
             active_ids: set[str] = set()
 
@@ -223,6 +241,11 @@ class PuppyNotificationManager:
             for puppy_id in set(self._puppy_state) - active_ids:
                 async_dismiss_persistent_notification(
                     self.hass,
+                    self._puppy_notification_id(puppy_id),
+                )
+                await async_clear_notify_entities(
+                    self.hass,
+                    notify_entities,
                     self._puppy_notification_id(puppy_id),
                 )
                 self._puppy_state.pop(puppy_id, None)
@@ -667,25 +690,36 @@ class PuppyNotificationManager:
             "verschuldigd. De dossierplanning is bijgewerkt of de actie is afgehandeld."
         )
 
-    def _dismiss_all_known_notifications(self) -> None:
-        """Dismiss integration notifications when notifications are disabled."""
+    async def _async_dismiss_all_known_notifications(
+        self, notify_entities: list[str]
+    ) -> None:
+        """Dismiss persistent and tagged mobile integration notifications."""
         for litter_id, litter in self.storage.get_litters().items():
             async_dismiss_persistent_notification(
                 self.hass,
                 self._session_notification_id(litter_id),
             )
             for puppy_id in litter.get("puppies", {}):
+                notification_id = self._puppy_notification_id(puppy_id)
                 async_dismiss_persistent_notification(
                     self.hass,
-                    self._puppy_notification_id(puppy_id),
+                    notification_id,
                 )
+                if puppy_id in self._puppy_state:
+                    await async_clear_notify_entities(
+                        self.hass, notify_entities, notification_id
+                    )
 
         care_store = self.runtime.care_reminders
         if isinstance(care_store, CareReminderStore):
             for state_key in care_store.get_states():
+                notification_id = self._care_notification_id(state_key)
                 async_dismiss_persistent_notification(
                     self.hass,
-                    self._care_notification_id(state_key),
+                    notification_id,
+                )
+                await async_clear_notify_entities(
+                    self.hass, notify_entities, notification_id
                 )
 
     @staticmethod

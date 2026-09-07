@@ -1,8 +1,14 @@
 from pathlib import Path
 from datetime import datetime, timedelta
+from unittest.mock import MagicMock
 from zoneinfo import ZoneInfo
 
-from custom_components.puppy_tracker.care_notifications import _apply_notification_lead
+from custom_components.puppy_tracker.care_notifications import (
+    _apply_notification_lead,
+    async_check_care_notifications,
+)
+from custom_components.puppy_tracker.care_programs import AgeBasedCareProgramStore
+from custom_components.puppy_tracker.runtime import PuppyTrackerRuntimeData
 
 ROOT = Path(__file__).resolve().parents[1]
 CARE = ROOT / "custom_components" / "puppy_tracker" / "care_notifications.py"
@@ -13,7 +19,7 @@ def test_age_based_care_notifications_share_existing_coordinator_lifecycle() -> 
     recurring = RECURRING.read_text(encoding="utf-8")
     assert "async_check_care_notifications" in recurring
     assert "await async_check_care_notifications(self.hass, self.runtime)" in recurring
-    assert "async_clear_care_notifications(self.hass)" in recurring
+    assert "await async_clear_care_notifications(" in recurring
     assert "async_track_time_interval" in recurring
 
 
@@ -80,3 +86,29 @@ def test_age_based_care_notification_lead_uses_default_and_program_override(
 
     _apply_notification_lead(override, 60)
     assert override["status"] == "upcoming"
+
+
+async def test_care_notification_check_reads_each_puppy_history_once(
+    hass, storage, install_litter, monkeypatch
+) -> None:
+    """Multiple programs reuse one dossier snapshot per puppy and check."""
+    litter_id, puppy_id = install_litter()
+    storage._data["settings"]["notifications_enabled"] = True
+    store = AgeBasedCareProgramStore(hass)
+    store._data = {
+        "programs": {
+            "program-1": {"id": "program-1", "litter_id": litter_id},
+            "program-2": {"id": "program-2", "litter_id": litter_id},
+        }
+    }
+    runtime = PuppyTrackerRuntimeData(storage=storage, care_programs=store)
+    get_records = MagicMock(wraps=storage.get_records)
+    monkeypatch.setattr(storage, "get_records", get_records)
+    monkeypatch.setattr(
+        "custom_components.puppy_tracker.care_notifications.derive_litter_care_occurrences",
+        lambda program, puppies: [],
+    )
+
+    await async_check_care_notifications(hass, runtime)
+
+    get_records.assert_called_once_with(litter_id, puppy_id, newest_first=False)

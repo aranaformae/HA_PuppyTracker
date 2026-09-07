@@ -139,6 +139,8 @@ Notification controls are centralized under **Puppy Tracker → Configure → No
 
 When recurring-reminder notifications are enabled, Home Assistant persistent notifications can be created for due-soon/overdue reminders and configured `notify.*` targets can receive the same reminder. Delivery state is deduplicated so the same status/deadline is not intentionally sent repeatedly.
 
+Actionable notifications use stable tags. When the underlying warning or reminder is resolved, disabled, deleted, or becomes inactive, Puppy Tracker dismisses the Home Assistant persistent notification and sends a clear command to configured compatible `notify.*` targets. Recovery messages remain optional; when enabled, a recovery message may replace the cleared warning under the same tag.
+
 The default lead time is used when a recurring reminder or age-based care program leaves its own **Notify before / Melding vooraf** value empty. Per-item lead times accept 0 through 10080 minutes, so individual protocols can be silent until the exact due time or notify earlier than the integration default.
 
 **Send test notification** exercises the currently configured notification path on demand. The test remains available independently of the automatic recurring-reminder toggle, is clearly identified as a test and does not create, complete, postpone or otherwise mutate a recurring reminder, dossier entry or reminder-delivery deduplication state. Push/configuration failures are surfaced to the initiating options flow instead of being treated as a successful test.

@@ -500,7 +500,10 @@ The shared recurring notification coordinator:
 - reacts to Puppy Tracker dashboard update signals;
 - creates Home Assistant persistent notifications for actionable states;
 - optionally sends content to configured `notify.*` entities;
-- dismisses stale persistent notifications when an item is no longer actionable.
+- dismisses stale persistent notifications and clears compatible tagged mobile
+  notifications when an item is no longer actionable;
+- coalesces dashboard signals received during an active check into one immediate
+  follow-up run, so state transitions do not wait for the periodic interval.
 
 Generic recurring reminders and age-based care share the same coordinator lifecycle and shared `notification_delivery.py` helper rather than creating a second polling engine.
 
@@ -519,6 +522,10 @@ Age-based care delivery requires both the general Puppy Tracker notification set
 Open `due_soon`, `due_today` and `overdue` age-based occurrences are actionable for care delivery. Clocked upcoming occurrences enter `due_soon` when their scheduled local time falls inside the program-specific lead time, or the integration default when the program value is empty. Related puppy occurrences are grouped by program/age context instead of producing one push per puppy.
 
 Mobile care-delivery deduplication is currently runtime-only. An unresolved occurrence may be delivered again after integration/Home Assistant restart; reboot-persistent delivery deduplication is not currently an architectural guarantee.
+
+Within one care-notification pass, dossier records are loaded once per puppy and
+reused across all enabled programs for that puppy. This keeps storage reads tied
+to the number of puppies instead of the number of program/puppy combinations.
 
 ### Delivery helper and test notifications
 
