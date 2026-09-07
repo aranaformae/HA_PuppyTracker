@@ -11,6 +11,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
     this._devices = [];
     this._registryLoaded = false;
     this._registryLoading = false;
+    this._registryRefreshPromise = null;
     this._selectedLitterId = null;
     this._selectedPuppyId = null;
     this._rangeHours = 168;
@@ -565,9 +566,18 @@ class PuppyTrackerOverviewCard extends HTMLElement {
 
     try {
       const unsubscribe = await hass.connection.subscribeMessage(
-        () => {
+        async () => {
+          try {
+            await this._refreshRegistryAfterDataUpdate();
+          } catch (err) {
+            console.warn(
+              "Puppy Tracker Overview card: registry refresh failed",
+              err
+            );
+          }
           this._scheduleHistoryReload();
           this._scheduleMeasurementReload();
+          this._scheduleRender();
         },
         { type: "puppy_tracker/subscribe" }
       );
@@ -580,6 +590,32 @@ class PuppyTrackerOverviewCard extends HTMLElement {
       console.warn("Puppy Tracker Overview card: update subscription failed", err);
     } finally {
       this._dataSubscriptionPending = false;
+    }
+  }
+
+  async _refreshRegistryAfterDataUpdate() {
+    if (!this._hass) return;
+    if (this._registryRefreshPromise) {
+      await this._registryRefreshPromise;
+      return;
+    }
+
+    this._registryRefreshPromise = (async () => {
+      const [entities, devices] = await Promise.all([
+        this._hass.callWS({ type: "config/entity_registry/list" }),
+        this._hass.callWS({ type: "config/device_registry/list" }),
+      ]);
+      this._entities = Array.isArray(entities) ? entities : [];
+      this._devices = Array.isArray(devices) ? devices : [];
+      this._registryLoaded = true;
+      this._initializeSelection();
+      this._lastStateSignature = this._currentStateSignature();
+    })();
+
+    try {
+      await this._registryRefreshPromise;
+    } finally {
+      this._registryRefreshPromise = null;
     }
   }
 

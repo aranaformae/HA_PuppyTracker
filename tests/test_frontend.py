@@ -32,9 +32,8 @@ def test_frontend_module_url_inherits_versioned_path() -> None:
 
 
 def test_overview_registry_refresh_loads_after_overview_card() -> None:
-    """Registry refresh must patch the overview card after it is registered."""
-    overview_index = CARD_FILES.index(OVERVIEW_CARD)
-    assert CARD_FILES[overview_index + 1] == OVERVIEW_REGISTRY_REFRESH
+    """Registry refresh belongs to the overview card, not a prototype patch."""
+    assert OVERVIEW_REGISTRY_REFRESH not in CARD_FILES
 
 
 def test_overview_registry_refresh_reloads_device_and_entity_registries() -> None:
@@ -44,15 +43,16 @@ def test_overview_registry_refresh_reloads_device_and_entity_registries() -> Non
         / "custom_components"
         / "puppy_tracker"
         / "frontend"
-        / OVERVIEW_REGISTRY_REFRESH
+        / OVERVIEW_CARD
     ).read_text(encoding="utf-8")
 
     assert 'type: "config/entity_registry/list"' in source
     assert 'type: "config/device_registry/list"' in source
     assert "await this._refreshRegistryAfterDataUpdate();" in source
-    assert source.index("await this._refreshRegistryAfterDataUpdate();") < source.index(
-        "this._scheduleHistoryReload();"
-    )
+    subscription = source[source.index("async _subscribeToData()") :]
+    assert subscription.index(
+        "await this._refreshRegistryAfterDataUpdate();"
+    ) < subscription.index("this._scheduleHistoryReload();")
 
 
 def test_localization_bridge_loads_after_dashboard_cards() -> None:

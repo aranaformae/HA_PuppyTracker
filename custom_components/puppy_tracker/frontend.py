@@ -26,10 +26,6 @@ FRONTEND_URL = f"{FRONTEND_BASE_URL}/{FRONTEND_VERSION}"
 CARD_FILES = (
     "puppy-tracker-card.js",
     "puppy-tracker-overview-card.js",
-    # Loaded directly after the overview card so structural integration updates
-    # refresh its cached Home Assistant device/entity registries before history
-    # is reconciled. This keeps imported/new puppies visible without a reload.
-    "puppy-tracker-overview-registry-refresh.js",
     # Treat 24h/3d/7d/etc. as chart zoom levels instead of destructive history
     # filters. Older points stay horizontally reachable and the current instant
     # remains explicitly marked with a now-line and return-to-now action.

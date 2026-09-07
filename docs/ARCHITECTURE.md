@@ -587,6 +587,8 @@ Behavior owned by one card should live in that card instead of a late prototype
 patch. Shared stateless presentation rules may remain importable utilities. The
 collar-color mapper follows that model: weighing and overview import the same
 function, while chart series receive their color during normal rendering.
+The Overview card also owns its registry-refresh subscription directly, so an
+imported or newly created puppy is discovered before history is reloaded.
 Compatibility layers remain appropriate where one feature deliberately spans
 several independently registered cards and are consolidated incrementally.
 

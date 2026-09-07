@@ -22,10 +22,10 @@ def _source() -> str:
 def test_chart_navigation_loads_after_overview_registry_refresh() -> None:
     """Chart navigation wraps the overview after registry refresh support."""
     overview_index = CARD_FILES.index(OVERVIEW_CARD)
-    registry_index = CARD_FILES.index(OVERVIEW_REGISTRY_REFRESH)
     navigation_index = CARD_FILES.index(CHART_TIME_NAVIGATION)
     assert COLLAR_CHART_COLORS not in CARD_FILES
-    assert overview_index < registry_index < navigation_index
+    assert OVERVIEW_REGISTRY_REFRESH not in CARD_FILES
+    assert overview_index < navigation_index
 
 
 def test_chart_ranges_are_viewports_not_history_filters() -> None:
