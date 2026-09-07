@@ -33,8 +33,6 @@ CARD_FILES = (
     "puppy-tracker-summary-card.js",
     "puppy-tracker-today-card.js",
     "puppy-tracker-attention-card.js",
-    # Adds due generic reminders to the existing attention list.
-    "puppy-tracker-recurring-attention.js",
     "puppy-tracker-recurring-reminder-card.js",
     # Manage litter-specific age-based care schedules separately from generic
     # recurring reminders; occurrences remain derived from puppy birth times.
@@ -53,13 +51,7 @@ CARD_FILES = (
     # Make the existing care-result workflow explicit with a visible Complete
     # action on Today and Attention rows without creating a second result path.
     "puppy-tracker-care-direct-action.js",
-    # Resolve the persistent reusable mother id via the mother-scope API instead
-    # of assuming it exists in the regular litter payload.
-    "puppy-tracker-recurring-mother-owner.js",
     "puppy-tracker-litter-card.js",
-    # Loaded directly after the litter card. profile_note is already present in
-    # puppy_tracker/data; this module only presents it in the expanded details.
-    "puppy-tracker-litter-profile-note.js",
     "puppy-tracker-report-card.js",
     "puppy-tracker-owner-card.js",
     "puppy-tracker-dossier-card.js",
@@ -85,8 +77,8 @@ CARD_FILES = (
     # Adds a read-only aggregate "All" owner to Timeline and Dossier after the
     # mother patches are active, without weakening authoritative owner scopes.
     "puppy-tracker-all-scope.js",
-    # Loaded after all affected cards so it can patch their rendered layout and
-    # add compact show/hide and edit controls without duplicating card logic.
+    # Loaded after Dossier and Timeline to add their shared compact show/hide
+    # and edit controls. Overview imports its small layout helper directly.
     "puppy-tracker-ui-compact.js",
     # Loaded last: translates the older cards that still contain Dutch UI
     # literals while Attention and Dossier use localize() directly.

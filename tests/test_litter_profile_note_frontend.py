@@ -18,9 +18,17 @@ def _source() -> str:
 
 
 def test_profile_note_module_loads_after_litter_card() -> None:
-    """The enhancement must patch the litter card only after it is registered."""
-    assert PROFILE_NOTE_MODULE in CARD_FILES
-    assert CARD_FILES.index(PROFILE_NOTE_MODULE) == CARD_FILES.index(LITTER_CARD_MODULE) + 1
+    """The litter card imports its presentation enhancer directly."""
+    assert PROFILE_NOTE_MODULE not in CARD_FILES
+    source = (
+        Path(__file__).parents[1]
+        / "custom_components"
+        / "puppy_tracker"
+        / "frontend"
+        / LITTER_CARD_MODULE
+    ).read_text(encoding="utf-8")
+    assert 'import { enhanceLitterCard } from "./puppy-tracker-litter-profile-note.js";' in source
+    assert "enhanceLitterCard(this);" in source
 
 
 def test_profile_note_module_uses_existing_payload_and_safe_text() -> None:

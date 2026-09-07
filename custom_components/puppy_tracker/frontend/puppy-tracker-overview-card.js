@@ -1972,6 +1972,18 @@ class PuppyTrackerOverviewCard extends HTMLElement {
     `);
 
     this._bindEvents();
+    this._moveChartAfterSummary();
+  }
+
+  _moveChartAfterSummary() {
+    const summary = this.shadowRoot?.querySelector(".summary-grid");
+    const chart = this.shadowRoot?.querySelector(".chart-panel");
+    if (!chart) return;
+    if (summary) {
+      summary.after(chart);
+      return;
+    }
+    this.shadowRoot?.querySelector(".range-tabs")?.after(chart);
   }
 
   _bindRediscover() {

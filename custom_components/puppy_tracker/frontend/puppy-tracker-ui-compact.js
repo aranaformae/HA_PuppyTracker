@@ -4,7 +4,6 @@
 
 const DOSSIER_TAG = "puppy-tracker-dossier-card";
 const TIMELINE_TAG = "puppy-tracker-timeline-card";
-const OVERVIEW_TAG = "puppy-tracker-overview-card";
 
 function buttonLabel(card, nl, en) {
   const language = String(card?._hass?.language || card?._hass?.locale?.language || "nl").toLowerCase();
@@ -159,22 +158,6 @@ function compactTimeline(card) {
   };
 }
 
-function moveOverviewChart(card) {
-  const root = card?.shadowRoot;
-  if (!root) return;
-  const summary = root.querySelector(".summary-grid");
-  const chart = root.querySelector(".chart-panel");
-  if (!chart) return;
-
-  if (summary) {
-    summary.after(chart);
-    return;
-  }
-
-  const ranges = root.querySelector(".range-tabs");
-  if (ranges) ranges.after(chart);
-}
-
 function patch(tag, enhancer, marker) {
   const Card = customElements.get(tag);
   if (!Card || Card.prototype[marker]) return;
@@ -196,4 +179,3 @@ function patchWhenReady(tag, enhancer, marker) {
 
 patchWhenReady(DOSSIER_TAG, compactDossier, "__puppyTrackerCompactDossierPatched");
 patchWhenReady(TIMELINE_TAG, compactTimeline, "__puppyTrackerCompactTimelinePatched");
-patchWhenReady(OVERVIEW_TAG, moveOverviewChart, "__puppyTrackerOverviewLayoutPatched");

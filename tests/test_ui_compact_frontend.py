@@ -20,7 +20,6 @@ def test_compact_module_loads_after_affected_cards() -> None:
     assert MODULE in CARD_FILES
     assert CARD_FILES.index(MODULE) > CARD_FILES.index("puppy-tracker-dossier-card.js")
     assert CARD_FILES.index(MODULE) > CARD_FILES.index("puppy-tracker-timeline-card.js")
-    assert CARD_FILES.index(MODULE) > CARD_FILES.index("puppy-tracker-overview-card.js")
 
 
 def test_dossier_timeline_can_be_hidden_and_management_is_card_level() -> None:
@@ -37,11 +36,18 @@ def test_dossier_timeline_can_be_hidden_and_management_is_card_level() -> None:
 
 
 def test_overview_chart_is_moved_after_summary() -> None:
-    source = _source()
+    overview = (
+        Path(__file__).parents[1]
+        / "custom_components"
+        / "puppy_tracker"
+        / "frontend"
+        / "puppy-tracker-overview-card.js"
+    ).read_text(encoding="utf-8")
 
-    assert 'root.querySelector(".summary-grid")' in source
-    assert 'root.querySelector(".chart-panel")' in source
-    assert 'summary.after(chart)' in source
+    assert "_moveChartAfterSummary()" in overview
+    assert 'this.shadowRoot?.querySelector(".summary-grid")' in overview
+    assert 'this.shadowRoot?.querySelector(".chart-panel")' in overview
+    assert "summary.after(chart)" in overview
 
 
 def test_standalone_timeline_items_are_collapsible_and_scrollable() -> None:

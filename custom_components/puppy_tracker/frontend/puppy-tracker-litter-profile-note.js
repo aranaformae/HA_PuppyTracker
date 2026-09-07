@@ -2,7 +2,6 @@
 // Uses the existing puppy_tracker/data payload to enrich presentation without
 // changing storage or API contracts.
 
-const LITTER_CARD_TAG = "puppy-tracker-litter-card";
 const SPARK_BLOCKS = "▁▂▃▄▅▆▇█";
 
 function finite(value) {
@@ -323,7 +322,7 @@ function enhanceDetail(card, puppy) {
   }
 }
 
-function enhanceLitterCard(card) {
+export function enhanceLitterCard(card) {
   const puppies = Array.isArray(card?._data?.puppies) ? card._data.puppies : [];
   const byId = new Map(puppies.map((puppy) => [String(puppy?.id), puppy]));
 
@@ -335,20 +334,3 @@ function enhanceLitterCard(card) {
   const expanded = byId.get(String(card?._expandedPuppyId));
   if (expanded) enhanceDetail(card, expanded);
 }
-
-function patchLitterCard() {
-  const Card = customElements.get(LITTER_CARD_TAG);
-  if (!Card || Card.prototype.__puppyTrackerDataDisplayPatched) return;
-  const originalRender = Card.prototype._render;
-  if (typeof originalRender !== "function") return;
-
-  Card.prototype._render = function (...args) {
-    const result = originalRender.apply(this, args);
-    enhanceLitterCard(this);
-    return result;
-  };
-  Card.prototype.__puppyTrackerDataDisplayPatched = true;
-}
-
-if (customElements.get(LITTER_CARD_TAG)) patchLitterCard();
-else customElements.whenDefined(LITTER_CARD_TAG).then(patchLitterCard);

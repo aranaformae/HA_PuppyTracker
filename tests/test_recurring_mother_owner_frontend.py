@@ -12,14 +12,11 @@ def test_recurring_reminder_resolves_mother_from_mother_scope_api() -> None:
         / "custom_components"
         / "puppy_tracker"
         / "frontend"
-        / "puppy-tracker-recurring-mother-owner.js"
+        / "puppy-tracker-recurring-reminder-card.js"
     ).read_text(encoding="utf-8")
 
     assert '"puppy-tracker-recurring-reminder-card.js"' in frontend
-    assert '"puppy-tracker-recurring-mother-owner.js"' in frontend
-    assert frontend.index('"puppy-tracker-recurring-reminder-card.js"') < frontend.index(
-        '"puppy-tracker-recurring-mother-owner.js"'
-    )
+    assert '"puppy-tracker-recurring-mother-owner.js"' not in frontend
     assert 'type: "puppy_tracker/mother/records"' in source
     assert 'payload?.owner?.id' in source
     assert 'value: `mother:${mother.id}`' in source
@@ -32,8 +29,9 @@ def test_recurring_reminder_does_not_require_litter_mother_id() -> None:
         / "custom_components"
         / "puppy_tracker"
         / "frontend"
-        / "puppy-tracker-recurring-mother-owner.js"
+        / "puppy-tracker-recurring-reminder-card.js"
     ).read_text(encoding="utf-8")
 
     assert "litter?.mother" in source
-    assert "litter?.mother_id" not in source
+    assert ": this._motherOwner" in source
+    assert "async _fetchMotherOwner(data)" in source

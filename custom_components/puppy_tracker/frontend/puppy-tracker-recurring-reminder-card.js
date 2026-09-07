@@ -57,6 +57,7 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
     this._litters = [];
     this._selectedLitterId = null;
     this._litterData = null;
+    this._motherOwner = null;
     this._items = [];
     this._editing = null;
     this._showEditor = false;
@@ -123,6 +124,8 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
       ]);
       if (sequence !== this._loadSequence) return;
       this._litterData = data;
+      this._motherOwner = await this._fetchMotherOwner(data);
+      if (sequence !== this._loadSequence) return;
       const loadedItems = reminders?.reminders || [];
       const loadedIds = new Set(loadedItems.map((item) => String(item?.id || "")));
       for (const id of this._deletedReminderIds) {
@@ -137,11 +140,35 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
     this._render();
   }
 
+  async _fetchMotherOwner(data) {
+    const litter = data?.litter;
+    if (!this._hass || !this._selectedLitterId || !litter?.mother) return null;
+    try {
+      const payload = await this._hass.callWS({
+        type: "puppy_tracker/mother/records",
+        litter_id: this._selectedLitterId,
+        history_scope: "current",
+        include_deleted: false,
+      });
+      return payload?.owner?.id
+        ? {
+            id: String(payload.owner.id),
+            name: payload.owner.name || litter.mother,
+          }
+        : null;
+    } catch (_error) {
+      return null;
+    }
+  }
+
   _owners() {
     const litter = this._litterData?.litter;
     const result = [{ value: `litter:${this._selectedLitterId}`, scope: "litter", id: this._selectedLitterId, label: t(this, "Hele nest", "Whole litter") }];
-    if (litter?.mother_id) {
-      result.push({ value: `mother:${litter.mother_id}`, scope: "mother", id: litter.mother_id, label: `${t(this, "Moederhond", "Mother")} · ${litter.mother || t(this, "Moederhond", "Mother")}` });
+    const mother = litter?.mother_id
+      ? { id: litter.mother_id, name: litter.mother }
+      : this._motherOwner;
+    if (mother?.id) {
+      result.push({ value: `mother:${mother.id}`, scope: "mother", id: mother.id, label: `${t(this, "Moederhond", "Mother")} · ${mother.name || t(this, "Moederhond", "Mother")}` });
     }
     for (const puppy of (this._litterData?.puppies || []).filter((item) => item.active !== false)) {
       result.push({ value: `puppy:${puppy.id}`, scope: "puppy", id: puppy.id, label: `${t(this, "Pup", "Puppy")} · ${puppy.name || t(this, "Pup", "Puppy")}` });

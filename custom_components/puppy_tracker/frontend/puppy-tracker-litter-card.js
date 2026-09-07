@@ -14,6 +14,7 @@ import {
   statusTone,
   subscribeUpdates,
 } from "./puppy-tracker-card-common.js";
+import { enhanceLitterCard } from "./puppy-tracker-litter-profile-note.js";
 
 class PuppyTrackerLitterCard extends HTMLElement {
   constructor() {
@@ -256,6 +257,7 @@ class PuppyTrackerLitterCard extends HTMLElement {
       this._expandedPuppyId = this._expandedPuppyId === id ? null : id;
       this._render();
     }));
+    enhanceLitterCard(this);
   }
 }
 

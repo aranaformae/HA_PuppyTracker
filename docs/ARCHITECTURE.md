@@ -40,6 +40,16 @@ internally scrollable list capped at `60vh`. Date selection changes only the
 frontend projection; completion still records the authoritative occurrence by
 program, puppy and occurrence ID.
 
+Card-owned behavior is implemented by the card itself or by a helper imported
+directly by that card. In particular, Attention loads recurring reminders as
+part of its normal data cycle before filtering and item limits are applied, the
+Recurring Reminders card resolves its mother owner through the mother API, and
+the Litter card invokes its profile/detail presentation helper explicitly.
+Small reusable helpers such as collar colors are imported by their consumer,
+while one-card layout behavior remains on that card. Cross-card compatibility modules remain only
+where one feature deliberately coordinates several independently defined card
+surfaces; load order for those modules is documented in `frontend.py`.
+
 ## Integration identity
 
 ```text

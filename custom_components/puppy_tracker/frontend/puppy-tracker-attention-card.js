@@ -51,6 +51,21 @@ function actionTitleText(hass, action) {
   return key ? localize(hass, key) : action?.title || action?.label || localize(hass, "dossierItem");
 }
 
+function recurringStatusText(hass, item) {
+  const minutes = Number(item?.minutes_until_due);
+  if (item?.status === "overdue") {
+    const amount = Math.abs(minutes);
+    return amount < 60
+      ? languageForHass(hass) === "en" ? `${amount} min overdue` : `${amount} min te laat`
+      : languageForHass(hass) === "en" ? `${Math.floor(amount / 60)} h overdue` : `${Math.floor(amount / 60)} u te laat`;
+  }
+  if (item?.status === "due_soon") {
+    if (minutes <= 0) return languageForHass(hass) === "en" ? "Now" : "Nu";
+    return languageForHass(hass) === "en" ? `in ${minutes} min` : `over ${minutes} min`;
+  }
+  return "";
+}
+
 class PuppyTrackerAttentionCard extends HTMLElement {
   constructor() {
     super();
@@ -60,6 +75,7 @@ class PuppyTrackerAttentionCard extends HTMLElement {
     this._litters = [];
     this._selectedLitterId = null;
     this._data = null;
+    this._recurringReminders = [];
     this._loading = false;
     this._error = "";
     this._unsubscribe = null;
@@ -179,7 +195,15 @@ class PuppyTrackerAttentionCard extends HTMLElement {
   async _loadData(render = true) {
     if (!this._hass || !this._selectedLitterId) return;
     try {
-      this._data = await fetchLitterData(this._hass, this._selectedLitterId);
+      const [data, reminders] = await Promise.all([
+        fetchLitterData(this._hass, this._selectedLitterId),
+        this._hass.callWS({
+          type: "puppy_tracker/recurring_reminders",
+          litter_id: this._selectedLitterId,
+        }).catch(() => ({ reminders: [] })),
+      ]);
+      this._data = data;
+      this._recurringReminders = reminders?.reminders || [];
       this._error = "";
     } catch (err) {
       this._error = err?.message || localize(this._hass, "overviewCouldNotLoad");
@@ -235,6 +259,21 @@ class PuppyTrackerAttentionCard extends HTMLElement {
       });
     }
 
+    for (const item of this._recurringReminders) {
+      if (item.enabled === false || !["overdue", "due_soon"].includes(item.status)) continue;
+      entries.push({
+        kind: "recurring",
+        puppy_id: null,
+        recurring_id: item.id,
+        name: item.owner_name || (languageForHass(this._hass) === "en" ? "Reminder" : "Herinnering"),
+        collar_color: null,
+        tone: item.status === "overdue" ? "danger" : "warning",
+        icon: item.record_type === "temperature" ? "mdi:thermometer-alert" : "mdi:bell-ring-outline",
+        reason: item.title || (languageForHass(this._hass) === "en" ? "Recurring action" : "Terugkerende actie"),
+        status: recurringStatusText(this._hass, item),
+      });
+    }
+
     const maxItems = Math.max(5, Math.min(100, Number(this._config.max_items) || 25));
     const visibleEntries = entries.slice(0, maxItems);
     const selector = this._config.show_litter_selector !== false && this._litters.length > 1
@@ -245,8 +284,8 @@ class PuppyTrackerAttentionCard extends HTMLElement {
       ? `<div class="error">${escapeHtml(this._error)}</div>`
       : visibleEntries.length
         ? `<div class="list ${this._config.compact === true ? "compact" : ""}">${visibleEntries.map((entry) => `
-            <div class="row ${entry.tone}" ${entry.puppy_id ? `data-puppy="${escapeHtml(entry.puppy_id)}"` : ""}>
-              <div class="icon ${entry.kind === "dossier" ? "ha" : ""}">${entry.kind === "dossier" ? entry.icon : escapeHtml(entry.icon)}</div>
+            <div class="row ${entry.tone}" ${entry.puppy_id ? `data-puppy="${escapeHtml(entry.puppy_id)}"` : ""} ${entry.recurring_id ? `data-recurring-reminder="${escapeHtml(entry.recurring_id)}"` : ""}>
+              <div class="icon ${["dossier", "recurring"].includes(entry.kind) ? "ha" : ""}">${entry.kind === "dossier" ? entry.icon : entry.kind === "recurring" ? `<ha-icon icon="${escapeHtml(entry.icon)}"></ha-icon>` : escapeHtml(entry.icon)}</div>
               <div class="main"><div class="name">${escapeHtml(entry.name)}${entry.collar_color ? `<span class="collar">${escapeHtml(entry.collar_color)}</span>` : ""}</div><div class="reason">${escapeHtml(entry.reason)}</div></div>
               <div class="status">${escapeHtml(entry.status)}</div>
             </div>`).join("")}</div>`
