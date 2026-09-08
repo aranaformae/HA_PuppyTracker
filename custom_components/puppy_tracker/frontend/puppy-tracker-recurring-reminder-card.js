@@ -271,6 +271,8 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
     try {
       await this._hass.callWS({ type: "puppy_tracker/recurring_reminder/delete", reminder_id: reminderId });
       this._deletedReminderIds.add(reminderId);
+      this._editing = null;
+      this._showEditor = false;
       await this._loadCurrent();
     } catch (error) {
       this._error = error?.message || t(this, "Herinnering kon niet worden verwijderd.", "Reminder could not be deleted.");
@@ -337,7 +339,7 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
     }));
     this.shadowRoot.getElementById("cancel-reminder")?.addEventListener("click", () => { this._editing = null; this._showEditor = false; this._render(); });
     this.shadowRoot.getElementById("save-reminder")?.addEventListener("click", () => this._save());
-    this.shadowRoot.getElementById("delete-reminder")?.addEventListener("click", () => this._delete(this._editing?.id).then(() => { this._editing = null; this._showEditor = false; }));
+    this.shadowRoot.getElementById("delete-reminder")?.addEventListener("click", () => this._delete(this._editing?.id));
     this.shadowRoot.getElementById("rem-mode")?.addEventListener("change", () => {
       const value = this.shadowRoot.getElementById("rem-mode")?.value;
       this.shadowRoot.querySelectorAll(".mode").forEach((el) => { el.style.display = el.classList.contains(value) ? "grid" : "none"; });
