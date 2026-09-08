@@ -76,6 +76,20 @@ def test_mobile_control_card_is_registered_after_its_composed_cards() -> None:
     assert 'aria-pressed' in source
 
 
+def test_mobile_controls_preserve_scroll_and_programmatic_focus_does_not_scroll() -> None:
+    """Interactive rerenders must not move a mobile dashboard unexpectedly."""
+    frontend = Path(__file__).parents[1] / "custom_components" / "puppy_tracker" / "frontend"
+    common = (frontend / "puppy-tracker-card-common.js").read_text(encoding="utf-8")
+    mobile = (frontend / "puppy-tracker-mobile-card.js").read_text(encoding="utf-8")
+    dossier = (frontend / "puppy-tracker-dossier-card.js").read_text(encoding="utf-8")
+    quick_log = (frontend / "puppy-tracker-quick-log-card.js").read_text(encoding="utf-8")
+
+    assert "export function preserveScrollPosition" in common
+    assert "preserveScrollPosition(this" in mobile
+    assert "focus({ preventScroll: true })" in dossier
+    assert "focus({ preventScroll: true })" in quick_log
+
+
 def test_localization_bridge_covers_all_legacy_cards() -> None:
     """Every card that still contains Dutch UI literals is handled by the bridge."""
     source = (

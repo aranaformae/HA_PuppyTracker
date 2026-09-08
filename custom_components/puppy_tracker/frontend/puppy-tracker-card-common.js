@@ -22,6 +22,38 @@ export function saveCardState(card, state) {
   }
 }
 
+function composedParent(element) {
+  if (element?.parentElement) return element.parentElement;
+  const root = element?.getRootNode?.();
+  return root?.host || null;
+}
+
+export function preserveScrollPosition(element, update) {
+  const positions = [];
+  const seen = new Set();
+  let current = element;
+  while (current) {
+    if (!seen.has(current) && current.scrollHeight > current.clientHeight) {
+      positions.push([current, current.scrollLeft, current.scrollTop]);
+      seen.add(current);
+    }
+    current = composedParent(current);
+  }
+  const windowPosition = [window.scrollX, window.scrollY];
+  const restore = () => {
+    for (const [target, left, top] of positions) {
+      if (target.isConnected) target.scrollTo(left, top);
+    }
+    window.scrollTo(windowPosition[0], windowPosition[1]);
+  };
+
+  const result = update();
+  restore();
+  queueMicrotask(restore);
+  requestAnimationFrame(() => requestAnimationFrame(restore));
+  return result;
+}
+
 const CARD_TRANSLATIONS = {
   en: {
     add: "Add",

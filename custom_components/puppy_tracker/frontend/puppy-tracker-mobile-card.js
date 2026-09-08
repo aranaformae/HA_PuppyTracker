@@ -2,6 +2,7 @@ import {
   escapeHtml,
   languageForHass,
   loadCardState,
+  preserveScrollPosition,
   saveCardState,
 } from "./puppy-tracker-card-common.js";
 
@@ -90,10 +91,12 @@ class PuppyTrackerMobileCard extends HTMLElement {
 
   _selectTab(tab) {
     if (!this._availableTabs().includes(tab)) return;
-    this._tab = tab;
-    this._state = { ...this._state, tab };
-    saveCardState(this, this._state);
-    this._render();
+    preserveScrollPosition(this, () => {
+      this._tab = tab;
+      this._state = { ...this._state, tab };
+      saveCardState(this, this._state);
+      this._render();
+    });
   }
 
   _childForTab() {

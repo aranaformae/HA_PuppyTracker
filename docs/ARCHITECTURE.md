@@ -40,6 +40,12 @@ internally scrollable list capped at `60vh`. Date selection changes only the
 frontend projection; completion still records the authoritative occurrence by
 program, puppy and occurrence ID.
 
+Interactive card rerenders must preserve the surrounding dashboard scroll
+position. This includes both the browser viewport and scrollable Home Assistant
+view containers. Programmatic focus used when opening editors must use
+`preventScroll`, so exposing an input does not unexpectedly move a phone or
+tablet dashboard.
+
 Card-owned behavior is implemented by the card itself or by a helper imported
 directly by that card. In particular, Attention loads recurring reminders as
 part of its normal data cycle before filtering and item limits are applied, the

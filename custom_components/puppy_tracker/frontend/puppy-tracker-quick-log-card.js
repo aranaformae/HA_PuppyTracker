@@ -331,7 +331,7 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
     this._error = "";
     this._status = "";
     this._render();
-    queueMicrotask(() => this.shadowRoot?.getElementById("quick-note")?.focus());
+    queueMicrotask(() => this.shadowRoot?.getElementById("quick-note")?.focus({ preventScroll: true }));
   }
 
   _rememberOwner(presetId, ownerValue) {

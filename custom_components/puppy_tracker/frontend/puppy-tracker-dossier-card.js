@@ -395,7 +395,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
     };
     this._status = "";
     this._render();
-    queueMicrotask(() => this.shadowRoot?.getElementById("record-title")?.focus());
+    queueMicrotask(() => this.shadowRoot?.getElementById("record-title")?.focus({ preventScroll: true }));
   }
 
   _startEdit(record) {
@@ -411,7 +411,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
     };
     this._status = "";
     this._render();
-    queueMicrotask(() => this.shadowRoot?.getElementById("record-title")?.focus());
+    queueMicrotask(() => this.shadowRoot?.getElementById("record-title")?.focus({ preventScroll: true }));
   }
 
   async _finishEditor() {
@@ -714,7 +714,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
     this._profileEditing = true;
     this._status = "";
     this._render();
-    queueMicrotask(() => this.shadowRoot?.getElementById("profile-note")?.focus());
+    queueMicrotask(() => this.shadowRoot?.getElementById("profile-note")?.focus({ preventScroll: true }));
   }
 
   async _saveProfileNote() {
