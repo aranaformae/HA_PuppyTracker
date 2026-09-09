@@ -38,7 +38,9 @@ The Care Execution card is an operational projection of open care occurrences.
 It supports a selected scheduled date, previous/next date navigation and an
 internally scrollable list capped at `60vh`. Date selection changes only the
 frontend projection; completion still records the authoritative occurrence by
-program, puppy and occurrence ID.
+program, puppy and occurrence ID. Mobile Controls exposes this as a dedicated
+`Care today` tab, configured to the current day and without the extra date
+navigation so weighing and care execution can happen in one touch surface.
 
 Interactive card rerenders must preserve the surrounding dashboard scroll
 position. This includes both the browser viewport and scrollable Home Assistant

@@ -17,7 +17,7 @@ test("mobile tab changes preserve the dashboard scroll position", async ({ page 
     shell.append(innerSpacer);
 
     const card = document.createElement("puppy-tracker-mobile-card");
-    card.setConfig({ show_weighing: true, show_quick_log: true, show_today: true });
+    card.setConfig({ show_weighing: true, show_quick_log: true, show_today: true, show_care_today: true });
     shell.append(card);
 
     const innerFooter = document.createElement("div");
@@ -38,6 +38,8 @@ test("mobile tab changes preserve the dashboard scroll position", async ({ page 
   }));
   await page.locator("puppy-tracker-mobile-card [data-tab='quickLog']").click();
   await expect(page.locator("puppy-tracker-mobile-card [data-tab='quickLog']")).toHaveAttribute("aria-pressed", "true");
+  await page.locator("puppy-tracker-mobile-card [data-tab='care']").click();
+  await expect(page.locator("puppy-tracker-mobile-card [data-tab='care']")).toHaveAttribute("aria-pressed", "true");
   await page.waitForTimeout(100);
   const after = await page.evaluate(() => ({
     page: window.scrollY,

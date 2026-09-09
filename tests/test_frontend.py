@@ -86,6 +86,9 @@ def test_mobile_controls_preserve_scroll_and_programmatic_focus_does_not_scroll(
 
     assert "export function preserveScrollPosition" in common
     assert "preserveScrollPosition(this" in mobile
+    assert '"care"' in mobile
+    assert 'show_care_today' in mobile
+    assert 'show_day_selector: false' in mobile
     assert "focus({ preventScroll: true })" in dossier
     assert "focus({ preventScroll: true })" in quick_log
 
