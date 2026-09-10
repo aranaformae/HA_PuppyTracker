@@ -55,7 +55,8 @@ class PuppyTrackerCard extends HTMLElement {
   }
 
   connectedCallback() {
-    this._handleWindowScroll = () => {
+    if (this._handleDocumentScroll) return;
+    this._handleDocumentScroll = () => {
       this._scrolling = true;
       if (this._scrollReleaseTimer) window.clearTimeout(this._scrollReleaseTimer);
       this._scrollReleaseTimer = window.setTimeout(() => {
@@ -63,15 +64,21 @@ class PuppyTrackerCard extends HTMLElement {
         this._scrolling = false;
         if (this._renderPending && !this._interactionActive && !this._editingWeight) {
           this._renderPending = false;
-          this._scheduleRender(true);
+          this._scheduleRender();
         }
-      }, 180);
+      }, 300);
     };
-    window.addEventListener("scroll", this._handleWindowScroll, { passive: true });
+    document.addEventListener("scroll", this._handleDocumentScroll, {
+      capture: true,
+      passive: true,
+    });
   }
 
   disconnectedCallback() {
-    if (this._handleWindowScroll) window.removeEventListener("scroll", this._handleWindowScroll);
+    if (this._handleDocumentScroll) {
+      document.removeEventListener("scroll", this._handleDocumentScroll, true);
+      this._handleDocumentScroll = null;
+    }
     if (this._scrollReleaseTimer) window.clearTimeout(this._scrollReleaseTimer);
     this._scrollReleaseTimer = null;
   }
@@ -510,7 +517,13 @@ class PuppyTrackerCard extends HTMLElement {
       .sort()
       .map((entityId) => {
         const state = this._state(entityId);
-        return `${entityId}:${state?.state || ""}:${state?.last_updated || ""}`;
+        const attributes = state?.attributes || {};
+        const visibleAttributes = {
+          options: Array.isArray(attributes.options) ? attributes.options : undefined,
+          percentage: attributes.percentage,
+          status_code: attributes.status_code,
+        };
+        return `${entityId}:${state?.state || ""}:${JSON.stringify(visibleAttributes)}`;
       })
       .join("|");
   }
@@ -568,7 +581,7 @@ class PuppyTrackerCard extends HTMLElement {
     window.requestAnimationFrame(() => {
       window.queueMicrotask(() => {
         const input = this.shadowRoot?.querySelector("#weight-input");
-        if (input && !input.disabled) input.focus();
+        if (input && !input.disabled) input.focus({ preventScroll: true });
       });
     });
   }

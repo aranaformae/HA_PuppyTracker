@@ -49,3 +49,45 @@ test("mobile tab changes preserve the dashboard scroll position", async ({ page 
   expect(Math.abs(after.page - before.page)).toBeLessThanOrEqual(1);
   expect(Math.abs(after.shell - before.shell)).toBeLessThanOrEqual(1);
 });
+
+test("weighing state updates wait until nested dashboard scrolling stops", async ({ page }) => {
+  await page.goto("/tests/e2e/cards.html?production");
+  const result = await page.evaluate(async () => {
+    await customElements.whenDefined("puppy-tracker-card");
+
+    const shell = document.createElement("div");
+    shell.style.cssText = "height:180px;overflow:auto";
+    const spacer = document.createElement("div");
+    spacer.style.height = "300px";
+    shell.append(spacer);
+
+    const card = document.createElement("puppy-tracker-card");
+    card._registryLoaded = true;
+    card._station = () => ({ ids: {} });
+    card._currentStateSignature = () => card._hass?.states?.test?.state || "";
+    let renders = 0;
+    card._render = () => { renders += 1; };
+    shell.append(card);
+
+    const footer = document.createElement("div");
+    footer.style.height = "300px";
+    shell.append(footer);
+    document.body.append(shell);
+    shell.scrollTop = 120;
+    shell.dispatchEvent(new Event("scroll"));
+
+    card.hass = { states: { test: { state: "one" } } };
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    const during = { renders, scrollTop: shell.scrollTop };
+
+    await new Promise((resolve) => setTimeout(resolve, 360));
+    const after = { renders, scrollTop: shell.scrollTop };
+    shell.remove();
+    return { during, after };
+  });
+
+  expect(result.during.renders).toBe(0);
+  expect(result.during.scrollTop).toBe(120);
+  expect(result.after.renders).toBe(1);
+  expect(result.after.scrollTop).toBe(120);
+});
