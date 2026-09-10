@@ -76,8 +76,10 @@ class PuppyTrackerMobileCard extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
-    this.shadowRoot?.querySelectorAll("puppy-tracker-card, puppy-tracker-quick-log-card, puppy-tracker-today-card, puppy-tracker-care-execution-card")
-      .forEach((child) => { child.hass = hass; });
+    const child = this.shadowRoot?.querySelector(
+      "puppy-tracker-card, puppy-tracker-quick-log-card, puppy-tracker-today-card, puppy-tracker-care-execution-card"
+    );
+    if (child) preserveScrollPosition(this, () => { child.hass = hass; });
   }
 
   connectedCallback() { this._render(); }
