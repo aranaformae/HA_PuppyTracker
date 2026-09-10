@@ -65,11 +65,34 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
   async _selectLitter(id) {
     this._selectedLitterId = id;
     this._loading = true;
-    this._render();
     try { await this._loadOccurrences(); this._error = ""; }
     catch (error) { this._error = error?.message || t(this, "Zorgacties konden niet worden geladen.", "Care actions could not be loaded."); }
     this._loading = false;
     this._render();
+  }
+
+  _updateActionState() {
+    this.shadowRoot?.querySelectorAll("button[data-action]").forEach((button) => {
+      button.disabled = Boolean(this._busyId);
+    });
+  }
+
+  _updateStatusMessage() {
+    const card = this.shadowRoot?.querySelector("ha-card");
+    if (!card) return;
+    let status = card.querySelector(".status-message");
+    if (!this._status) {
+      status?.remove();
+      return;
+    }
+    if (!status) {
+      status = document.createElement("div");
+      status.className = "status-message";
+      status.setAttribute("role", "status");
+      status.style.cssText = "margin-top:12px;padding:9px 10px;border-radius:9px;background:var(--secondary-background-color);color:var(--primary-text-color)";
+      card.prepend(status);
+    }
+    status.textContent = this._status;
   }
 
   async _record(item, status) {
@@ -77,7 +100,8 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
     this._busyId = item.id;
     this._error = "";
     this._status = "";
-    this._render();
+    this._updateActionState();
+    this._updateStatusMessage();
     try {
       await this._hass.callWS({ type: "puppy_tracker/care_occurrence/record", program_id: item.program_id, puppy_id: item.puppy_id, occurrence_id: item.id, status });
       this._status = t(this, `${item.title || "Zorgactie"} opgeslagen voor ${item.puppy_name || "de pup"}.`, `${item.title || "Care action"} saved for ${item.puppy_name || "the puppy"}.`);
