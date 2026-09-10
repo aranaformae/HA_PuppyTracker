@@ -79,7 +79,9 @@ class PuppyTrackerMobileCard extends HTMLElement {
     const child = this.shadowRoot?.querySelector(
       "puppy-tracker-card, puppy-tracker-quick-log-card, puppy-tracker-today-card, puppy-tracker-care-execution-card"
     );
-    if (child) preserveScrollPosition(this, () => { child.hass = hass; });
+    // Home Assistant sends hass updates while the user may still be scrolling.
+    // Do not call window.scrollTo here; iOS Safari can report a stale scrollY.
+    if (child) child.hass = hass;
   }
 
   connectedCallback() { this._render(); }
