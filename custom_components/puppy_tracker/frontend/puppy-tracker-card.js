@@ -24,6 +24,7 @@ class PuppyTrackerCard extends HTMLElement {
     this._optimisticLitterOption = null;
     this._optimisticPuppyOption = null;
     this._lastStateSignature = "";
+    this._viewStructureKey = "";
   }
 
   static getStubConfig() {
@@ -51,6 +52,7 @@ class PuppyTrackerCard extends HTMLElement {
       show_details: true,
       ...config,
     };
+    this._viewStructureKey = "";
     this._render();
   }
 
@@ -768,9 +770,239 @@ class PuppyTrackerCard extends HTMLElement {
       .replaceAll("'", "&#039;");
   }
 
+  _structureKey(station) {
+    return JSON.stringify({
+      ids: station?.ids || {},
+      showPuppies: this._config.show_puppies !== false,
+      showDetails: this._config.show_details !== false,
+    });
+  }
+
+  _setText(id, value) {
+    const element = this.shadowRoot?.querySelector(`#${id}`);
+    if (element) element.textContent = String(value ?? "");
+  }
+
+  _setHidden(id, hidden) {
+    const element = this.shadowRoot?.querySelector(`#${id}`);
+    if (element) element.hidden = Boolean(hidden);
+  }
+
+  _setOptions(select, options, selected) {
+    if (!select) return;
+    const values = [...select.options].map((option) => option.value);
+    const nextValues = options.map(String);
+    if (values.length !== nextValues.length || values.some((value, index) => value !== nextValues[index])) {
+      select.replaceChildren(...nextValues.map((value) => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = value;
+        return option;
+      }));
+    }
+    if (this.shadowRoot?.activeElement !== select && selected && nextValues.includes(String(selected))) {
+      select.value = String(selected);
+    }
+  }
+
+  _patchPuppyRows(rows, station) {
+    const list = this.shadowRoot?.querySelector("#puppy-list");
+    const empty = this.shadowRoot?.querySelector("#puppy-empty");
+    if (!list) return;
+
+    const existing = new Map(
+      [...list.querySelectorAll("button[data-puppy-id]")].map((row) => [row.dataset.puppyId, row])
+    );
+    const seen = new Set();
+
+    rows.forEach((row) => {
+      let element = existing.get(row.puppyId);
+      if (!element) {
+        element = document.createElement("button");
+        element.type = "button";
+        element.innerHTML = `
+          <span class="status-dot"></span>
+          <span class="puppy-main"><span class="puppy-name"></span><span class="puppy-meta"></span></span>
+          <span class="metric"><strong></strong><span>gewicht</span></span>
+          <span class="metric growth"><strong></strong><span>24 uur</span></span>
+          <span class="row-status"></span>
+        `;
+        element.addEventListener("pointerdown", () => this._beginInteraction());
+        element.addEventListener("touchstart", () => this._beginInteraction(), { passive: true });
+        element.addEventListener("pointerup", () => this._endInteraction());
+        element.addEventListener("pointercancel", () => this._endInteraction());
+        element.addEventListener("click", () => {
+          const option = element.dataset.puppyOption;
+          this._draftWeight = null;
+          this._optimisticPuppyOption = option;
+          this._interactionActive = false;
+          this._renderPending = false;
+          this._patchView(station);
+          this._select(station.ids.puppy, option).then(() => {
+            this._endInteraction(0);
+            this._focusWeightInput();
+          });
+        });
+      }
+      seen.add(row.puppyId);
+      element.dataset.puppyId = row.puppyId;
+      element.dataset.puppyOption = row.option;
+      element.className = `puppy-row${row.selected ? " selected" : ""}`;
+      const stateClass = this._statusClass(row.statusCode);
+      element.querySelector(".status-dot").className = `status-dot ${stateClass}`;
+      element.querySelector(".puppy-name").textContent = row.name;
+      element.querySelector(".puppy-meta").textContent = row.age;
+      element.querySelector(".metric strong").textContent = this._weightDisplay(row);
+      const growth = element.querySelector(".growth");
+      growth.className = `metric growth ${stateClass}`;
+      growth.querySelector("strong").textContent = this._growthDisplay(row);
+      const rowStatus = element.querySelector(".row-status");
+      rowStatus.className = `row-status ${stateClass}`;
+      rowStatus.textContent = row.status;
+      list.append(element);
+    });
+
+    [...existing.values()].forEach((element) => {
+      if (!seen.has(element.dataset.puppyId)) element.remove();
+    });
+    const showList = this._config.show_puppies !== false;
+    list.hidden = !showList;
+    if (empty) {
+      empty.hidden = !showList || rows.length > 0;
+      empty.textContent = "Geen actieve pups gevonden voor dit nest.";
+    }
+  }
+
+  _patchView(station) {
+    const litterState = this._state(station.ids.litter);
+    const puppyState = this._state(station.ids.puppy);
+    const sessionState = this._state(station.ids.session);
+    const progressState = this._state(station.ids.progress);
+    const remainingState = this._state(station.ids.remaining);
+    const nextState = this._state(station.ids.next);
+    const lastState = this._state(station.ids.last);
+    const messageState = this._state(station.ids.message);
+    const weightState = this._state(station.ids.weight);
+    const litterOptions = Array.isArray(litterState?.attributes?.options) ? litterState.attributes.options : [];
+    const puppyOptions = Array.isArray(puppyState?.attributes?.options) ? puppyState.attributes.options : [];
+
+    if (this._draftWeight === null) {
+      const stateWeight = Number(weightState?.state);
+      this._draftWeight = Number.isFinite(stateWeight) ? stateWeight : 0;
+    }
+
+    const rows = this._puppyRows(station);
+    const selectedRow = rows.find((row) => row.selected) || null;
+    const selectedRowIndex = selectedRow ? rows.indexOf(selectedRow) : -1;
+    const backendNextRow = this._rowForLabel(rows, String(nextState?.state || "").trim());
+    const nextDistinctRow = this._nextDistinctRow(rows, remainingState, selectedRow, backendNextRow);
+    const bottomIndicatorRow = nextDistinctRow || selectedRow || backendNextRow;
+    const bottomIndicatorMode = nextDistinctRow ? "next" : "current";
+    const bottomIndicatorLabel = bottomIndicatorMode === "next" ? "Volgende pup" : "Nu te wegen";
+    const bottomIndicatorAriaLabel = `${bottomIndicatorLabel}: ${bottomIndicatorRow?.name || ""}`;
+    const bottomIndicatorIndex = bottomIndicatorRow ? rows.indexOf(bottomIndicatorRow) : -1;
+    const sessionStatus = sessionState?.state || "Niet gestart";
+    const isActive = sessionStatus === "Bezig";
+    const isComplete = sessionStatus === "Voltooid";
+    const percentage = this._progress(station);
+    const sourceMessage = messageState?.state || "";
+    const message = this._localMessage || sourceMessage;
+    const messageType = this._localMessage
+      ? this._localMessageType
+      : sourceMessage.includes("bevestigen")
+      ? "warning"
+      : isComplete
+      ? "success"
+      : "info";
+    const missingControls = [
+      !station.ids.start ? "Weegsessie starten" : null,
+      !station.ids.save ? "Gewicht opslaan" : null,
+      !station.ids.reset ? "Weegsessie resetten" : null,
+      !station.ids.weight ? "Gewicht invoeren" : null,
+    ].filter(Boolean);
+    const backendWarning = missingControls.length
+      ? `Niet gevonden in Home Assistant: ${missingControls.join(", ")}. Herlaad de integratie en vernieuw daarna het dashboard.`
+      : "";
+
+    this._setText("card-title", this._config.title || "Puppy weegstation");
+    this._setText("progress-count", progressState?.state || "0 / 0");
+    const progressBar = this.shadowRoot?.querySelector("#progress-bar");
+    if (progressBar) progressBar.style.width = `${percentage}%`;
+    const litterSelect = this.shadowRoot?.querySelector("#litter-select");
+    const puppySelect = this.shadowRoot?.querySelector("#puppy-select");
+    this._setOptions(litterSelect, litterOptions, this._optimisticLitterOption || litterState?.state);
+    this._setOptions(puppySelect, puppyOptions, this._optimisticPuppyOption || puppyState?.state);
+    if (litterSelect) litterSelect.disabled = isActive;
+    const weightInput = this.shadowRoot?.querySelector("#weight-input");
+    if (weightInput && this.shadowRoot?.activeElement !== weightInput && !this._editingWeight) {
+      weightInput.value = this._draftWeight || "";
+    }
+
+    const sessionBadge = this.shadowRoot?.querySelector("#session-badge");
+    if (sessionBadge) {
+      sessionBadge.textContent = sessionStatus;
+      sessionBadge.className = `session-badge ${isActive ? "active" : isComplete ? "complete" : "idle"}`;
+    }
+    const currentIndicator = this.shadowRoot?.querySelector("#current-puppy-indicator");
+    if (currentIndicator) {
+      currentIndicator.hidden = !selectedRow;
+      currentIndicator.setAttribute("aria-label", `Nu geselecteerd: ${selectedRow?.name || ""}`);
+      this._setText("current-puppy-name", selectedRow?.name || "");
+      const currentCollar = this.shadowRoot?.querySelector("#current-puppy-collar");
+      if (currentCollar) currentCollar.style.backgroundColor = collarColor(selectedRow?.collar, selectedRowIndex);
+    }
+    const nextIndicator = this.shadowRoot?.querySelector("#next-puppy-indicator");
+    if (nextIndicator) {
+      nextIndicator.hidden = !bottomIndicatorRow;
+      nextIndicator.setAttribute("aria-label", bottomIndicatorAriaLabel);
+      this._setText("next-puppy-label", bottomIndicatorLabel);
+      this._setText("next-puppy-name", bottomIndicatorRow?.name || "");
+      const nextCollar = this.shadowRoot?.querySelector("#next-puppy-collar");
+      if (nextCollar) nextCollar.style.backgroundColor = collarColor(bottomIndicatorRow?.collar, bottomIndicatorIndex);
+    }
+
+    this._setText("remaining-value", remainingState?.state || "Geen");
+    this._setText("next-label", bottomIndicatorLabel);
+    this._setText("next-value", bottomIndicatorRow?.name || nextState?.state || "Geen");
+    this._setText("last-value", lastState?.state || "Geen");
+    this._setText("selected-last-value", selectedRow?.lastWeighed || "Geen");
+    this._setText("elapsed-value", this._elapsedDisplay(selectedRow?.lastWeighed));
+    this._setText("selected-previous-value", `${selectedRow?.previousWeight || "Geen"}${selectedRow?.previousWeight && selectedRow.previousWeight !== "—" ? " g" : ""}`);
+    this._setText("change-value", selectedRow ? this._changeDisplay(selectedRow) : "—");
+
+    const backendElement = this.shadowRoot?.querySelector("#backend-warning");
+    if (backendElement) {
+      backendElement.hidden = !backendWarning;
+      backendElement.textContent = backendWarning;
+    }
+    const messageElement = this.shadowRoot?.querySelector("#local-message");
+    if (messageElement) {
+      messageElement.hidden = !message;
+      messageElement.className = `message ${messageType}`;
+      messageElement.textContent = message;
+    }
+    const save = this.shadowRoot?.querySelector("#save-weight");
+    if (save) save.disabled = !station.ids.save;
+    const start = this.shadowRoot?.querySelector("#start-session");
+    if (start) start.disabled = isActive || !station.ids.start;
+    const reset = this.shadowRoot?.querySelector("#reset-session");
+    if (reset) reset.disabled = !station.ids.reset;
+    this._patchPuppyRows(rows, station);
+  }
+
   _render() {
+    const station = this._station();
+    if (station && this.shadowRoot?.querySelector(".card") && this._viewStructureKey === this._structureKey(station)) {
+      this._patchView(station);
+      return;
+    }
+    this._renderFull();
+  }
+
+  _renderFull() {
     if (!this.shadowRoot) return;
     this._renderPending = false;
+    this._viewStructureKey = "";
 
     if (!this._hass) {
       this.shadowRoot.innerHTML = this._shell(
@@ -833,22 +1065,18 @@ class PuppyTrackerCard extends HTMLElement {
     const bottomIndicatorLabel = bottomIndicatorMode === "next" ? "Volgende pup" : "Nu te wegen";
     const bottomIndicatorAriaLabel = `${bottomIndicatorLabel}: ${bottomIndicatorRow?.name || ""}`;
     const bottomIndicatorIndex = bottomIndicatorRow ? rows.indexOf(bottomIndicatorRow) : -1;
-    const currentPuppyIndicator = selectedRow
-      ? `
-        <div class="current-puppy" id="current-puppy-indicator" role="status" aria-label="Nu geselecteerd: ${this._escape(selectedRow.name)}">
-          <span class="current-puppy-collar" id="current-puppy-collar" style="background-color:${this._escape(collarColor(selectedRow.collar, selectedRowIndex))}"></span>
-          <span class="current-puppy-label"><small>Nu geselecteerd</small><strong>${this._escape(selectedRow.name)}</strong></span>
-        </div>
-      `
-      : "";
-    const nextPuppyIndicator = bottomIndicatorRow
-      ? `
-        <div class="next-puppy" id="next-puppy-indicator" role="status" aria-label="${this._escape(bottomIndicatorAriaLabel)}">
-          <span class="next-puppy-collar" id="next-puppy-collar" style="background-color:${this._escape(collarColor(bottomIndicatorRow.collar, bottomIndicatorIndex))}"></span>
-          <span class="next-puppy-label"><small>${this._escape(bottomIndicatorLabel)}</small><strong>${this._escape(bottomIndicatorRow.name)}</strong></span>
-        </div>
-      `
-      : "";
+    const currentPuppyIndicator = `
+      <div class="current-puppy" id="current-puppy-indicator" role="status" aria-label="Nu geselecteerd: ${this._escape(selectedRow?.name || "")}" ${selectedRow ? "" : "hidden"}>
+        <span class="current-puppy-collar" id="current-puppy-collar" style="background-color:${this._escape(collarColor(selectedRow?.collar, selectedRowIndex))}"></span>
+        <span class="current-puppy-label"><small>Nu geselecteerd</small><strong id="current-puppy-name">${this._escape(selectedRow?.name || "")}</strong></span>
+      </div>
+    `;
+    const nextPuppyIndicator = `
+      <div class="next-puppy" id="next-puppy-indicator" role="status" aria-label="${this._escape(bottomIndicatorAriaLabel)}" ${bottomIndicatorRow ? "" : "hidden"}>
+        <span class="next-puppy-collar" id="next-puppy-collar" style="background-color:${this._escape(collarColor(bottomIndicatorRow?.collar, bottomIndicatorIndex))}"></span>
+        <span class="next-puppy-label"><small id="next-puppy-label">${this._escape(bottomIndicatorLabel)}</small><strong id="next-puppy-name">${this._escape(bottomIndicatorRow?.name || "")}</strong></span>
+      </div>
+    `;
     const percentage = this._progress(station);
 
     const status = sessionState?.state || "Niet gestart";
@@ -902,15 +1130,12 @@ class PuppyTrackerCard extends HTMLElement {
       </select>
     `;
 
-    const puppyRows = rows.length
-      ? `
-        <div class="puppy-list">
+    const puppyRows = `
+        <div class="puppy-list" id="puppy-list" ${this._config.show_puppies === false ? "hidden" : ""}>
           ${rows
             .map(
               (row) => `
-                <button class="puppy-row ${row.selected ? "selected" : ""}" data-puppy-option="${this._escape(
-                row.option
-              )}">
+                <button type="button" class="puppy-row ${row.selected ? "selected" : ""}" data-puppy-id="${this._escape(row.puppyId)}" data-puppy-option="${this._escape(row.option)}">
                   <span class="status-dot ${this._statusClass(row.statusCode)}"></span>
                   <span class="puppy-main">
                     <span class="puppy-name">${this._escape(row.name)}</span>
@@ -932,10 +1157,8 @@ class PuppyTrackerCard extends HTMLElement {
             )
             .join("")}
         </div>
-      `
-      : this._config.show_puppies === false
-      ? ""
-      : `<div class="empty small">Geen actieve pups gevonden voor dit nest.</div>`;
+        <div class="empty small" id="puppy-empty" ${this._config.show_puppies === false || rows.length ? "hidden" : ""}>Geen actieve pups gevonden voor dit nest.</div>
+      `;
 
     const details = this._config.show_details === false
       ? ""
@@ -943,31 +1166,31 @@ class PuppyTrackerCard extends HTMLElement {
         <div class="session-grid">
           <div>
             <span class="label">Nog te wegen</span>
-            <strong>${this._escape(remainingState?.state || "Geen")}</strong>
+            <strong id="remaining-value">${this._escape(remainingState?.state || "Geen")}</strong>
           </div>
           <div>
-            <span class="label">${this._escape(bottomIndicatorLabel)}</span>
-            <strong>${this._escape(bottomIndicatorRow?.name || nextState?.state || "Geen")}</strong>
+            <span class="label" id="next-label">${this._escape(bottomIndicatorLabel)}</span>
+            <strong id="next-value">${this._escape(bottomIndicatorRow?.name || nextState?.state || "Geen")}</strong>
           </div>
           <div>
             <span class="label">Laatst gewogen</span>
-            <strong>${this._escape(lastState?.state || "Geen")}</strong>
+            <strong id="last-value">${this._escape(lastState?.state || "Geen")}</strong>
           </div>
           <div>
             <span class="label">Laatste weging geselecteerde pup</span>
-            <strong>${this._escape(selectedRow?.lastWeighed || "Geen")}</strong>
+            <strong id="selected-last-value">${this._escape(selectedRow?.lastWeighed || "Geen")}</strong>
           </div>
           <div>
             <span class="label">Tijd sinds laatste meting</span>
-            <strong>${this._escape(this._elapsedDisplay(selectedRow?.lastWeighed))}</strong>
+            <strong id="elapsed-value">${this._escape(this._elapsedDisplay(selectedRow?.lastWeighed))}</strong>
           </div>
           <div>
             <span class="label">Vorige meting geselecteerde pup</span>
-            <strong>${this._escape(selectedRow?.previousWeight || "Geen")}${selectedRow?.previousWeight && selectedRow.previousWeight !== "—" ? " g" : ""}</strong>
+            <strong id="selected-previous-value">${this._escape(selectedRow?.previousWeight || "Geen")}${selectedRow?.previousWeight && selectedRow.previousWeight !== "—" ? " g" : ""}</strong>
           </div>
           <div>
             <span class="label">Verschil met vorige meting</span>
-            <strong>${this._escape(selectedRow ? this._changeDisplay(selectedRow) : "—")}</strong>
+            <strong id="change-value">${this._escape(selectedRow ? this._changeDisplay(selectedRow) : "—")}</strong>
           </div>
         </div>
       `;
@@ -976,11 +1199,11 @@ class PuppyTrackerCard extends HTMLElement {
       <div class="header">
         <div>
           <div class="eyebrow">Puppy Tracker</div>
-          <h2>${this._escape(this._config.title || "Puppy weegstation")}</h2>
+          <h2 id="card-title">${this._escape(this._config.title || "Puppy weegstation")}</h2>
         </div>
         <div class="header-status">
           ${currentPuppyIndicator}
-          <span class="session-badge ${isActive ? "active" : isComplete ? "complete" : "idle"}">
+          <span class="session-badge ${isActive ? "active" : isComplete ? "complete" : "idle"}" id="session-badge">
             ${this._escape(status)}
           </span>
         </div>
@@ -989,10 +1212,10 @@ class PuppyTrackerCard extends HTMLElement {
       <div class="progress-wrap">
         <div class="progress-top">
           <span>Voortgang</span>
-          <strong>${this._escape(progressState?.state || "0 / 0")}</strong>
+          <strong id="progress-count">${this._escape(progressState?.state || "0 / 0")}</strong>
         </div>
         <div class="progress-track">
-          <div class="progress-bar" style="width:${percentage}%"></div>
+          <div class="progress-bar" id="progress-bar" style="width:${percentage}%"></div>
         </div>
       </div>
 
@@ -1031,20 +1254,21 @@ class PuppyTrackerCard extends HTMLElement {
 
       ${
         backendWarning
-          ? `<div class="message error">${this._escape(backendWarning)}</div>`
-          : ""
+          ? `<div class="message error" id="backend-warning">${this._escape(backendWarning)}</div>`
+          : `<div class="message error" id="backend-warning" hidden></div>`
       }
 
       ${
         message
-          ? `<div class="message ${messageType}">${this._escape(message)}</div>`
-          : ""
+          ? `<div class="message ${messageType}" id="local-message">${this._escape(message)}</div>`
+          : `<div class="message info" id="local-message" hidden></div>`
       }
 
       ${puppyRows}
       ${nextPuppyIndicator}
     `);
 
+    this._viewStructureKey = this._structureKey(station);
     this._bindEvents(station);
   }
 
