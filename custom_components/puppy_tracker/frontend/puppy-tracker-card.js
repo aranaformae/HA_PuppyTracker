@@ -19,6 +19,8 @@ class PuppyTrackerCard extends HTMLElement {
     this._interactionActive = false;
     this._interactionReleaseTimer = null;
     this._renderScheduled = false;
+    this._scrolling = false;
+    this._scrollReleaseTimer = null;
     this._optimisticLitterOption = null;
     this._optimisticPuppyOption = null;
     this._lastStateSignature = "";
@@ -50,6 +52,28 @@ class PuppyTrackerCard extends HTMLElement {
       ...config,
     };
     this._render();
+  }
+
+  connectedCallback() {
+    this._handleWindowScroll = () => {
+      this._scrolling = true;
+      if (this._scrollReleaseTimer) window.clearTimeout(this._scrollReleaseTimer);
+      this._scrollReleaseTimer = window.setTimeout(() => {
+        this._scrollReleaseTimer = null;
+        this._scrolling = false;
+        if (this._renderPending && !this._interactionActive && !this._editingWeight) {
+          this._renderPending = false;
+          this._scheduleRender(true);
+        }
+      }, 180);
+    };
+    window.addEventListener("scroll", this._handleWindowScroll, { passive: true });
+  }
+
+  disconnectedCallback() {
+    if (this._handleWindowScroll) window.removeEventListener("scroll", this._handleWindowScroll);
+    if (this._scrollReleaseTimer) window.clearTimeout(this._scrollReleaseTimer);
+    this._scrollReleaseTimer = null;
   }
 
   set hass(hass) {
@@ -123,7 +147,8 @@ class PuppyTrackerCard extends HTMLElement {
 
     if (
       !force &&
-      (this._interactionActive ||
+      (this._scrolling ||
+        this._interactionActive ||
         this._editingWeight ||
         this._interactiveControlFocused())
     ) {
@@ -139,7 +164,8 @@ class PuppyTrackerCard extends HTMLElement {
 
       if (
         !force &&
-        (this._interactionActive ||
+        (this._scrolling ||
+          this._interactionActive ||
           this._editingWeight ||
           this._interactiveControlFocused())
       ) {
