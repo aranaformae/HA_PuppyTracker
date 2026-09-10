@@ -14,6 +14,8 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
     this._occurrences = [];
     this._loading = false;
     this._error = "";
+    this._status = "";
+    this._busyId = null;
     this._selectedDate = null;
   }
 
@@ -71,11 +73,21 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
   }
 
   async _record(item, status) {
+    if (!item || this._busyId) return;
+    this._busyId = item.id;
+    this._error = "";
+    this._status = "";
+    this._render();
     try {
       await this._hass.callWS({ type: "puppy_tracker/care_occurrence/record", program_id: item.program_id, puppy_id: item.puppy_id, occurrence_id: item.id, status });
+      this._status = t(this, `${item.title || "Zorgactie"} opgeslagen voor ${item.puppy_name || "de pup"}.`, `${item.title || "Care action"} saved for ${item.puppy_name || "the puppy"}.`);
       await this._loadOccurrences();
+    } catch (error) {
+      this._error = error?.message || t(this, "Zorgactie kon niet worden opgeslagen.", "Care action could not be saved.");
+    } finally {
+      this._busyId = null;
       this._render();
-    } catch (error) { this._error = error?.message || t(this, "Zorgactie kon niet worden opgeslagen.", "Care action could not be saved."); this._render(); }
+    }
   }
 
   _today() {
@@ -118,9 +130,17 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
     this._ensureSelectedDate();
     const dateOptions = this._dateOptions().map((date) => `<option value="${escapeHtml(date)}" ${date === this._selectedDate ? "selected" : ""}>${escapeHtml(this._formatDate(date))}</option>`).join("");
     const selectedIndex = this._dateOptions().indexOf(this._selectedDate);
-    const rows = this._visibleOccurrences().map((item) => `<div class="row ${item.status === "overdue" ? "danger" : item.status === "due_today" ? "warning" : ""}"><div class="main"><strong>${escapeHtml(item.title || t(this, "Zorgactie", "Care action"))}</strong><span>${escapeHtml(item.puppy_name || t(this, "Pup", "Puppy"))} · ${escapeHtml(item.scheduled_date || "")} · ${escapeHtml(item.status === "overdue" ? t(this, "Te laat", "Overdue") : item.status === "due_today" ? t(this, "Vandaag", "Today") : t(this, `Over ${item.days_until_due} dagen`, `In ${item.days_until_due} days`))}</span>${item.instructions ? `<small>${escapeHtml(item.instructions)}</small>` : ""}</div><div class="actions"><button data-action="completed" data-id="${escapeHtml(item.id || "")}">${escapeHtml(t(this, "Uitgevoerd", "Completed"))}</button><button class="secondary" data-action="missed" data-id="${escapeHtml(item.id || "")}">${escapeHtml(t(this, "Gemist", "Missed"))}</button></div></div>`).join("");
+    const rows = this._visibleOccurrences().map((item) => `<div class="row ${item.status === "overdue" ? "danger" : item.status === "due_today" ? "warning" : ""}"><div class="main"><strong>${escapeHtml(item.title || t(this, "Zorgactie", "Care action"))}</strong><span>${escapeHtml(item.puppy_name || t(this, "Pup", "Puppy"))} · ${escapeHtml(item.scheduled_date || "")} · ${escapeHtml(item.status === "overdue" ? t(this, "Te laat", "Overdue") : item.status === "due_today" ? t(this, "Vandaag", "Today") : t(this, `Over ${item.days_until_due} dagen`, `In ${item.days_until_due} days`))}</span>${item.instructions ? `<small>${escapeHtml(item.instructions)}</small>` : ""}</div><div class="actions"><button data-action="completed" data-id="${escapeHtml(item.id || "")}" ${this._busyId ? "disabled" : ""}>${escapeHtml(t(this, "Uitgevoerd", "Completed"))}</button><button class="secondary" data-action="missed" data-id="${escapeHtml(item.id || "")}" ${this._busyId ? "disabled" : ""}>${escapeHtml(t(this, "Gemist", "Missed"))}</button></div></div>`).join("");
     const daySelector = this._config.show_day_selector !== false ? `<div class="day-controls"><button id="previous-day" title="${escapeHtml(t(this, "Vorige dag", "Previous day"))}" ${selectedIndex <= 0 ? "disabled" : ""}>‹</button><select id="day-select" aria-label="${escapeHtml(t(this, "Dag", "Day"))}">${dateOptions}</select><button id="next-day" title="${escapeHtml(t(this, "Volgende dag", "Next day"))}" ${selectedIndex < 0 || selectedIndex >= this._dateOptions().length - 1 ? "disabled" : ""}>›</button></div>` : "";
     this.shadowRoot.innerHTML = `<ha-card><div class="head"><div><div class="title">${escapeHtml(title)}</div><div class="sub">${escapeHtml(t(this, "Los van Aandacht en Vandaag", "Independent of Attention and Today"))}</div></div><div class="selectors">${selector}${daySelector}</div></div>${this._error ? `<div class="error">${escapeHtml(this._error)}</div>` : ""}${this._loading ? `<div class="state">${escapeHtml(t(this, "Laden…", "Loading…"))}</div>` : `<div class="rows">${rows || `<div class="empty">${escapeHtml(t(this, "Geen openstaande zorgacties op deze dag.", "No open care actions on this day."))}</div>`}</div>`}</ha-card><style>:host{display:block}ha-card{padding:18px}.head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.title{font-size:1.25rem;font-weight:700}.sub,span,small{color:var(--secondary-text-color)}.selectors,.day-controls{display:flex;gap:6px;align-items:center}.selectors{justify-content:flex-end;flex-wrap:wrap}select{min-height:38px;max-width:48%;background:var(--card-background-color);color:var(--primary-text-color)}.day-controls select{max-width:145px}.day-controls button{min-width:38px;min-height:38px;border:1px solid var(--divider-color);border-radius:8px;background:var(--secondary-background-color);color:var(--primary-text-color);font-size:20px;cursor:pointer}.day-controls button:disabled{opacity:.4;cursor:default}.rows{max-height:60vh;overflow-y:auto;overscroll-behavior:contain;padding-right:3px}.row{display:flex;justify-content:space-between;gap:12px;margin-top:10px;padding:12px;border:1px solid var(--divider-color);border-radius:10px}.main{min-width:0;display:grid;gap:4px}.main strong{font-size:1rem}.main span{font-size:.85rem}.main small{white-space:pre-wrap;overflow-wrap:anywhere}.danger{border-color:var(--error-color)}.warning{border-color:var(--warning-color,var(--primary-color))}.actions{display:flex;gap:6px;align-items:center}.actions button{border:0;border-radius:8px;padding:8px 10px;background:var(--primary-color);color:var(--text-primary-color,#fff);cursor:pointer}.actions .secondary{background:var(--secondary-background-color);color:var(--primary-text-color)}.empty,.state,.error{margin-top:14px}.error{color:var(--error-color)}@media(max-width:600px){.head{display:grid}.selectors{justify-content:flex-start}.selectors>select{max-width:none;width:100%}.day-controls{width:100%}.day-controls select{max-width:none;flex:1}.row{display:grid}.actions{justify-content:flex-start;flex-wrap:wrap}}</style>`;
+    if (this._status) {
+      const status = document.createElement("div");
+      status.className = "status-message";
+      status.setAttribute("role", "status");
+      status.textContent = this._status;
+      status.style.cssText = "margin-top:12px;padding:9px 10px;border-radius:9px;background:var(--secondary-background-color);color:var(--primary-text-color)";
+      this.shadowRoot.querySelector("ha-card")?.prepend(status);
+    }
     this.shadowRoot.querySelector("#litter-select")?.addEventListener("change", (event) => this._selectLitter(event.target.value));
     this.shadowRoot.querySelector("#day-select")?.addEventListener("change", (event) => { this._selectedDate = event.target.value; this._render(); });
     this.shadowRoot.querySelector("#previous-day")?.addEventListener("click", () => { const dates = this._dateOptions(); const index = dates.indexOf(this._selectedDate); if (index > 0) { this._selectedDate = dates[index - 1]; this._render(); } });
