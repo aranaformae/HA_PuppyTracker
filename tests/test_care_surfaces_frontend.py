@@ -35,8 +35,10 @@ def test_attention_and_today_are_both_patched() -> None:
     source = (FRONTEND / "puppy-tracker-care-surfaces.js").read_text()
     assert 'const TODAY_TAG = "puppy-tracker-today-card"' in source
     assert 'const ATTENTION_TAG = "puppy-tracker-attention-card"' in source
+    assert 'const CARE_EXECUTION_TAG = "puppy-tracker-care-execution-card"' in source
     assert "patchWhenDefined(TODAY_TAG, patchToday);" in source
     assert "patchWhenDefined(ATTENTION_TAG, patchAttention);" in source
+    assert "patchWhenDefined(CARE_EXECUTION_TAG, patchCareExecution);" in source
 
 
 def test_care_surfaces_wait_for_cards_when_modules_finish_out_of_order() -> None:
@@ -91,6 +93,8 @@ def test_care_result_save_refreshes_backend_derived_status() -> None:
     assert record_call < refresh
     assert "data-care-occurrence" in source
     assert "wireCareRows(this);" in source
+    assert "card._loadOccurrences()" in source
+    assert "card.__careOccurrences || card._occurrences" in source
 
 
 def test_skipped_puppies_are_not_silently_hidden() -> None:

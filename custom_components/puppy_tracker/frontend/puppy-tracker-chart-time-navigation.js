@@ -218,7 +218,7 @@
                   data-value="${point.value}"
                   data-unit="${this._escape(item.unit)}"
                   data-measurement-id="${this._escape(point.measurementId || "")}"
-                  style="--series-index:${item.index}"
+                  style="--series-index:${item.index};--series-color:${this._escape(item.color)}"
                 ></circle>`
             )
             .join("");
@@ -227,7 +227,7 @@
             <polyline
               class="chart-line ${item.selected ? "selected" : ""}"
               points="${pointsString}"
-              style="--series-index:${item.index}"
+              style="--series-index:${item.index};--series-color:${this._escape(item.color)}"
             ></polyline>
             ${circles}
           `;

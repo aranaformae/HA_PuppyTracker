@@ -89,6 +89,39 @@ test("chart ranges behave as zoom levels without dropping older points", async (
   expect(result.range24.hasBackNow).toBe(true);
 });
 
+test("chart time navigation preserves collar colors for percentage metrics", async ({ page }) => {
+  await openFixture(page);
+
+  const result = await page.evaluate(() => {
+    const element = document.createElement("puppy-tracker-overview-card");
+    element._historyLoading = false;
+    element._historyError = "";
+    element._selectedPuppyId = "p1";
+    element._rangeHours = 0;
+    element._metricConfig = () => ({ unit: "%" });
+    element._metricPoints = () => [
+      { time: Date.now() - 3600000, value: 4, measurementId: "one" },
+      { time: Date.now(), value: 5, measurementId: "two" },
+    ];
+    const row = { puppyId: "p1", name: "Pink", collar: "Roze", entityIds: {} };
+    const styles = {};
+    for (const metric of ["growth24", "growthBirth"]) {
+      element._metric = metric;
+      element.shadowRoot.innerHTML = element._chartSvg([row]);
+      styles[metric] = {
+        line: element.shadowRoot.querySelector(".chart-line")?.getAttribute("style") || "",
+        point: element.shadowRoot.querySelector(".chart-point")?.getAttribute("style") || "",
+      };
+    }
+    return styles;
+  });
+
+  expect(result.growth24.line).toContain("--series-color:#ec407a");
+  expect(result.growth24.point).toContain("--series-color:#ec407a");
+  expect(result.growthBirth.line).toContain("--series-color:#ec407a");
+  expect(result.growthBirth.point).toContain("--series-color:#ec407a");
+});
+
 test("growth chart renders the milestone projection window around its central estimate", async ({ page }) => {
   await openFixture(page);
 

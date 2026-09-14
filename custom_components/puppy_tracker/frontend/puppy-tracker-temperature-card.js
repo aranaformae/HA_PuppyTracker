@@ -9,6 +9,7 @@ import {
   selectDefaultLitter,
   subscribeUpdates,
 } from "./puppy-tracker-card-common.js";
+import { collarColor } from "./puppy-tracker-collar-chart-colors.js";
 
 const RANGE_HOURS = { "24h": 24, "3d": 72, "7d": 168, "14d": 336, all: null };
 
@@ -313,6 +314,14 @@ class PuppyTrackerTemperatureCard extends HTMLElement {
     }
   }
 
+  _temperatureChartColor() {
+    if (this._scope !== "puppy") return "";
+    const puppies = this._litterData?.puppies || [];
+    const puppyIndex = puppies.findIndex((puppy) => puppy?.id === this._selectedPuppyId);
+    const puppy = puppyIndex >= 0 ? puppies[puppyIndex] : null;
+    return puppy ? collarColor(puppy.collar_color, puppyIndex) : "";
+  }
+
   _chart(records) {
     if (records.length < 1) return `<div class="empty">${escapeHtml(text(this, "noMeasurement"))}</div>`;
     const points = [...records].sort((left, right) => (dateValue(left.occurred_at)?.getTime() || 0) - (dateValue(right.occurred_at)?.getTime() || 0));
@@ -327,6 +336,9 @@ class PuppyTrackerTemperatureCard extends HTMLElement {
     const pad = 22;
     const minTime = dateValue(points[0].occurred_at)?.getTime() || 0;
     const maxTime = dateValue(points[points.length - 1].occurred_at)?.getTime() || minTime + 1;
+    const seriesColor = this._temperatureChartColor();
+    const lineStyle = seriesColor ? ` style="stroke:${escapeHtml(seriesColor)}"` : "";
+    const pointStyle = seriesColor ? ` style="fill:${escapeHtml(seriesColor)}"` : "";
     const path = points.map((item, index) => {
       const time = dateValue(item.occurred_at)?.getTime() || minTime;
       const x = pad + ((time - minTime) / Math.max(1, maxTime - minTime)) * (width - pad * 2);
@@ -337,13 +349,13 @@ class PuppyTrackerTemperatureCard extends HTMLElement {
       const time = dateValue(item.occurred_at)?.getTime() || minTime;
       const x = pad + ((time - minTime) / Math.max(1, maxTime - minTime)) * (width - pad * 2);
       const y = pad + (1 - (item.value - min) / span) * (height - pad * 2);
-      return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" tabindex="0"><title>${escapeHtml(item.value.toLocaleString(languageForHass(this._hass) === "en" ? "en-US" : "nl-NL", { maximumFractionDigits: 1 }))} °C · ${escapeHtml(formatDateTime(item.occurred_at, "—", this._hass))}</title></circle>`;
+      return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" tabindex="0"${pointStyle}><title>${escapeHtml(item.value.toLocaleString(languageForHass(this._hass) === "en" ? "en-US" : "nl-NL", { maximumFractionDigits: 1 }))} °C · ${escapeHtml(formatDateTime(item.occurred_at, "—", this._hass))}</title></circle>`;
     }).join("");
     const thresholdLines = this._config.show_thresholds ? [thresholdLow, thresholdHigh].filter(Number.isFinite).map((value) => {
       const y = pad + (1 - (value - min) / span) * (height - pad * 2);
       return `<line class="threshold" x1="${pad}" y1="${y.toFixed(1)}" x2="${width - pad}" y2="${y.toFixed(1)}"><title>${value.toLocaleString("nl-NL", { maximumFractionDigits: 1 })} °C</title></line>`;
     }).join("") : "";
-    return `<div class="chart-wrap"><div class="chart-scale"><span>${max.toLocaleString("nl-NL", { maximumFractionDigits: 1 })} °C</span><span>${min.toLocaleString("nl-NL", { maximumFractionDigits: 1 })} °C</span></div><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(text(this, "chart"))}"><line x1="${pad}" y1="${pad}" x2="${pad}" y2="${height - pad}"/><line x1="${pad}" y1="${height - pad}" x2="${width - pad}" y2="${height - pad}"/>${thresholdLines}<path d="${path}"/><g>${dots}</g></svg></div>`;
+    return `<div class="chart-wrap"><div class="chart-scale"><span>${max.toLocaleString("nl-NL", { maximumFractionDigits: 1 })} °C</span><span>${min.toLocaleString("nl-NL", { maximumFractionDigits: 1 })} °C</span></div><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(text(this, "chart"))}"><line x1="${pad}" y1="${pad}" x2="${pad}" y2="${height - pad}"/><line x1="${pad}" y1="${height - pad}" x2="${width - pad}" y2="${height - pad}"/>${thresholdLines}<path d="${path}"${lineStyle}/><g>${dots}</g></svg></div>`;
   }
 
   _render() {

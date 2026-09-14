@@ -2,6 +2,7 @@ import { escapeHtml, languageForHass } from "./puppy-tracker-card-common.js";
 
 const TODAY_TAG = "puppy-tracker-today-card";
 const ATTENTION_TAG = "puppy-tracker-attention-card";
+const CARE_EXECUTION_TAG = "puppy-tracker-care-execution-card";
 
 function t(card, nl, en) {
   return languageForHass(card?._hass) === "en" ? en : nl;
@@ -130,7 +131,11 @@ function openResultEditor(card, item) {
         note: overlay.querySelector(".care-result-note")?.value?.trim() || undefined,
       });
       close();
-      await card._loadData();
+      if (typeof card._loadData === "function") await card._loadData();
+      else if (typeof card._loadOccurrences === "function") {
+        await card._loadOccurrences();
+        card._render();
+      }
     } catch (err) {
       if (error) {
         error.textContent = err?.message || t(card, "Resultaat kon niet worden opgeslagen.", "Result could not be saved.");
@@ -145,14 +150,36 @@ function openResultEditor(card, item) {
 function wireCareRows(card) {
   const root = card?.shadowRoot;
   if (!root) return;
+  const occurrences = card.__careOccurrences || card._occurrences || [];
   root.querySelectorAll("[data-care-occurrence]").forEach((row) => {
     row.classList.add("care-clickable");
-    row.addEventListener("click", () => {
+    row.addEventListener("click", (event) => {
+      if (event.target?.closest?.("button, a, select, input, textarea")) return;
       const id = row.dataset.careOccurrence;
-      const item = (card.__careOccurrences || []).find((candidate) => candidate.id === id);
+      const item = occurrences.find((candidate) => candidate.id === id);
       if (item) openResultEditor(card, item);
     });
   });
+}
+
+function patchCareExecution() {
+  const ctor = customElements.get(CARE_EXECUTION_TAG);
+  const proto = ctor?.prototype;
+  if (!proto || proto.__careExecutionSurfacePatched) return;
+  const originalRender = proto._render;
+  if (typeof originalRender !== "function") return;
+  proto._render = function (...args) {
+    const result = originalRender.apply(this, args);
+    const root = this.shadowRoot;
+    if (!root) return result;
+    root.querySelectorAll(".row").forEach((row) => {
+      const action = row.querySelector("button[data-action][data-id]");
+      if (action?.dataset.id) row.dataset.careOccurrence = action.dataset.id;
+    });
+    wireCareRows(this);
+    return result;
+  };
+  proto.__careExecutionSurfacePatched = true;
 }
 
 function patchToday() {
@@ -232,3 +259,4 @@ function patchWhenDefined(tag, patch) {
 
 patchWhenDefined(TODAY_TAG, patchToday);
 patchWhenDefined(ATTENTION_TAG, patchAttention);
+patchWhenDefined(CARE_EXECUTION_TAG, patchCareExecution);

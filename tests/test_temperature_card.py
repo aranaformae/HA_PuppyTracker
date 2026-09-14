@@ -35,3 +35,14 @@ def test_temperature_card_has_scrollable_history_and_svg_chart() -> None:
     assert "overflow:auto" in source
     assert "<svg viewBox=" in source
     assert "role=\"img\"" in source
+
+
+def test_temperature_chart_uses_the_selected_puppys_collar_color() -> None:
+    """Puppy-scoped temperature charts must match the shared chart palette."""
+    source = CARD.read_text(encoding="utf-8")
+
+    assert 'import { collarColor } from "./puppy-tracker-collar-chart-colors.js";' in source
+    assert "_temperatureChartColor" in source
+    assert "collarColor(puppy.collar_color, puppyIndex)" in source
+    assert 'stroke:${escapeHtml(seriesColor)}' in source
+    assert 'fill:${escapeHtml(seriesColor)}' in source

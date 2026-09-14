@@ -14,7 +14,7 @@ test("temperature card shows selected puppy readings and saves a note", async ({
       p2: [],
     };
     const puppies = [
-      { id: "p1", name: "Alice", active: true, records: records.p1 },
+      { id: "p1", name: "Alice", collar_color: "Roze", active: true, records: records.p1 },
       { id: "p2", name: "Bob", active: true, records: records.p2 },
     ];
     const clone = (value) => JSON.parse(JSON.stringify(value));
@@ -45,6 +45,8 @@ test("temperature card shows selected puppy readings and saves a note", async ({
   const card = page.locator("puppy-tracker-temperature-card");
   await expect(card.locator("#scope-select")).toHaveValue("puppy");
   await expect(card.locator("section.latest strong")).toHaveText("38,4 °C");
+  await expect(card.locator(".chart-wrap path")).toHaveAttribute("style", /stroke:#ec407a/);
+  await expect(card.locator(".chart-wrap circle")).toHaveAttribute("style", /fill:#ec407a/);
   await expect(card.getByText("Rustig", { exact: true })).toBeVisible();
   await card.locator("#add-temperature").click();
   await card.locator("#temperature-value").fill("38.6");

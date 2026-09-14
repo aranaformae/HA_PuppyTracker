@@ -46,3 +46,11 @@ def test_chart_navigation_exposes_now_marker_and_return_action() -> None:
     assert 'class="chart-now-label"' in source
     assert 'class="chart-back-now"' in source
     assert "_chartScrollToNowPending" in source
+
+
+def test_chart_navigation_preserves_puppy_collar_colors() -> None:
+    """The alternate SVG renderer must pass the resolved series color through."""
+    source = _source()
+
+    assert '--series-color:${this._escape(item.color)}' in source
+    assert source.count('--series-color:${this._escape(item.color)}') == 2
