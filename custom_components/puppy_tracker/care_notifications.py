@@ -200,15 +200,27 @@ def _message(items: list[dict[str, Any]]) -> str:
     else:
         timing = "is achterstallig"
     if len(items) == 1:
-        return (
+        message = (
             f"**{first.get('title', 'Zorgactie')} · dag {age_days}** voor "
             f"**{puppy_names[0]}** {timing}. Open Today of Aandacht om het resultaat vast te leggen."
         )
-    return (
-        f"**{first.get('title', 'Zorgactie')} · dag {age_days}** {timing} voor "
-        f"**{len(items)} pups**: {', '.join(puppy_names)}. "
-        "Open Today of Aandacht om resultaten vast te leggen."
-    )
+    else:
+        message = (
+            f"**{first.get('title', 'Zorgactie')} · dag {age_days}** {timing} voor "
+            f"**{len(items)} pups**: {', '.join(puppy_names)}. "
+            "Open Today of Aandacht om resultaten vast te leggen."
+        )
+
+    instructions: list[str] = []
+    seen: set[str] = set()
+    for item in items:
+        instruction = str(item.get("instructions") or "").strip()
+        if instruction and instruction not in seen:
+            instructions.append(instruction)
+            seen.add(instruction)
+    if instructions:
+        message += "\n\n**Instructie voor deze dag:**\n" + "\n\n".join(instructions)
+    return message
 
 
 def _notification_id(group_key: str) -> str:

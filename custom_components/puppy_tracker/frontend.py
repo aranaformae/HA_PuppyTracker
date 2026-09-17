@@ -74,8 +74,9 @@ CARD_FILES = (
     # whole-litter scope for puppy-only exports. Loaded after mother support so
     # the selector order stays All -> Whole litter -> Mother -> puppies.
     "puppy-tracker-report-scope.js",
-    # Adds a read-only aggregate "All" owner to Timeline and Dossier after the
-    # mother patches are active, without weakening authoritative owner scopes.
+    # Adds an aggregate "All" owner to Timeline and Dossier after the mother
+    # patches are active. Dossier items retain their source owner context so
+    # existing records can be edited without weakening backend validation.
     "puppy-tracker-all-scope.js",
     # Loaded after Dossier and Timeline to add their shared compact show/hide
     # and edit controls. Overview imports its small layout helper directly.

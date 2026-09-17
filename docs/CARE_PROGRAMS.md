@@ -210,7 +210,10 @@ confirmed by the veterinarian rather than hard-coding a universal instruction.
 Use `instructions_by_age` when the action changes by age day. The keys are age
 days as strings and the values are the instruction shown for that day's
 occurrence. The day-specific instruction supplements the general
-`instructions`; it does not replace the general safety guidance.
+`instructions`; it does not replace the general safety guidance. It is shown
+with the occurrence in the execution/dashboard views and is included in the
+Home Assistant and mobile notification when that occurrence becomes
+actionable.
 
 For an ESI-style protocol, increase exposure gradually, use one clean and
 controlled scent at a time, allow the puppy to move away and never force

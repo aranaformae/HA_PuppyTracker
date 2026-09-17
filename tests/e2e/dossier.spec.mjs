@@ -1,12 +1,12 @@
 import { expect, test } from "@playwright/test";
 
-async function openFixture(page) {
-  await page.goto("/tests/e2e/cards.html");
+async function openFixture(page, { production = false } = {}) {
+  await page.goto(production ? "/tests/e2e/cards.html?production" : "/tests/e2e/cards.html");
   await page.waitForFunction(() => window.__puppyTrackerReady === true);
 }
 
-async function mountDossier(page, { compact = false } = {}) {
-  await openFixture(page);
+async function mountDossier(page, { compact = false, production = false } = {}) {
+  await openFixture(page, { production });
   if (compact) {
     await page.evaluate(() => import("/custom_components/puppy_tracker/frontend/puppy-tracker-ui-compact.js"));
   }
@@ -14,6 +14,24 @@ async function mountDossier(page, { compact = false } = {}) {
   await page.evaluate(() => {
     const now = new Date().toISOString();
     const records = [];
+    const motherRecords = [
+      {
+        id: "m1",
+        type: "note",
+        scope: "mother",
+        litter_id: "l1",
+        mother_id: "mother-1",
+        puppy_id: null,
+        occurred_at: now,
+        created_at: now,
+        updated_at: now,
+        deleted: false,
+        deleted_at: null,
+        title: "Mother note",
+        note: "Mother context",
+        data: {},
+      },
+    ];
     const calls = [];
     const puppies = [
       {
@@ -50,6 +68,12 @@ async function mountDossier(page, { compact = false } = {}) {
       note: message.note ?? existing?.note ?? "",
       data: clone(message.data ?? existing?.data ?? {}),
     });
+
+    const assertPuppyOwner = (record, message) => {
+      if ((record.puppy_id || null) !== (message.puppy_id || null)) {
+        throw new Error("Record owner mismatch");
+      }
+    };
 
     const hass = {
       locale: { language: "en" },
@@ -97,6 +121,16 @@ async function mountDossier(page, { compact = false } = {}) {
           };
         }
 
+        if (message.type === "puppy_tracker/mother/records") {
+          return {
+            can_manage_records: true,
+            owner: { scope: "mother", id: "mother-1", name: "Luna", profile_note: "" },
+            records: clone(
+              motherRecords.filter((record) => message.include_deleted || !record.deleted)
+            ),
+          };
+        }
+
         if (message.type === "puppy_tracker/record/add") {
           const record = recordForMessage(message);
           records.push(record);
@@ -106,6 +140,7 @@ async function mountDossier(page, { compact = false } = {}) {
         if (message.type === "puppy_tracker/record/update") {
           const index = records.findIndex((record) => record.id === message.record_id);
           if (index < 0) throw new Error("Record not found");
+          assertPuppyOwner(records[index], message);
           records[index] = recordForMessage(message, records[index]);
           return { record: clone(records[index]) };
         }
@@ -125,6 +160,7 @@ async function mountDossier(page, { compact = false } = {}) {
         if (message.type === "puppy_tracker/record/delete") {
           const record = records.find((item) => item.id === message.record_id);
           if (!record) throw new Error("Record not found");
+          assertPuppyOwner(record, message);
           record.deleted = true;
           record.deleted_at = new Date().toISOString();
           record.updated_at = record.deleted_at;
@@ -134,6 +170,40 @@ async function mountDossier(page, { compact = false } = {}) {
         if (message.type === "puppy_tracker/record/restore") {
           const record = records.find((item) => item.id === message.record_id);
           if (!record) throw new Error("Record not found");
+          assertPuppyOwner(record, message);
+          record.deleted = false;
+          record.deleted_at = null;
+          record.updated_at = new Date().toISOString();
+          return { record: clone(record) };
+        }
+
+        if (message.type === "puppy_tracker/mother/record/update") {
+          const index = motherRecords.findIndex((record) => record.id === message.record_id);
+          if (index < 0) throw new Error("Mother record not found");
+          motherRecords[index] = {
+            ...motherRecords[index],
+            type: message.record_type,
+            occurred_at: message.occurred_at || motherRecords[index].occurred_at,
+            title: message.title ?? null,
+            note: message.note ?? null,
+            data: clone(message.data ?? {}),
+            updated_at: new Date().toISOString(),
+          };
+          return { record: clone(motherRecords[index]) };
+        }
+
+        if (message.type === "puppy_tracker/mother/record/delete") {
+          const record = motherRecords.find((item) => item.id === message.record_id);
+          if (!record) throw new Error("Mother record not found");
+          record.deleted = true;
+          record.deleted_at = new Date().toISOString();
+          record.updated_at = record.deleted_at;
+          return { record: clone(record) };
+        }
+
+        if (message.type === "puppy_tracker/mother/record/restore") {
+          const record = motherRecords.find((item) => item.id === message.record_id);
+          if (!record) throw new Error("Mother record not found");
           record.deleted = false;
           record.deleted_at = null;
           record.updated_at = new Date().toISOString();
@@ -223,6 +293,63 @@ test("dossier create, edit, delete and restore flow", async ({ page }) => {
   );
 });
 
+test("dossier edits each source owner from the combined scope", async ({ page }) => {
+  page.on("dialog", (dialog) => dialog.accept());
+  const card = await mountDossier(page, { production: true });
+
+  await card.locator("#add-record").click();
+  await card.locator("#record-title").fill("Combined puppy check");
+  await card.locator("#record-note").fill("Puppy source");
+  await card.locator("#record-save").click();
+  const puppyRecordId = await page.evaluate(() => window.__dossierRecords.at(-1).id);
+
+  await card.locator("#owner-select").selectOption("__all__");
+  await expect(card.locator("#toggle-dossier-manage")).toBeVisible();
+  await card.locator("#toggle-dossier-manage").click();
+  const puppyRecord = card.locator(".record").filter({ hasText: "Combined puppy check" });
+  await expect(puppyRecord.locator(".aggregate-owner-badge")).toHaveText("Puppy · Alice");
+  await puppyRecord.locator(".edit-record").click();
+  await card.locator("#record-title").fill("Combined puppy check updated");
+  await card.locator("#record-save").click();
+
+  const puppyUpdate = await page.evaluate((recordId) =>
+    window.__dossierCalls.find((call) => call.type === "puppy_tracker/record/update" && call.record_id === recordId),
+  puppyRecordId);
+  expect(puppyUpdate).toMatchObject({ record_id: puppyRecordId, puppy_id: "p1" });
+
+  const motherRecord = card.locator(".record").filter({ hasText: "Mother note" });
+  await expect(motherRecord.locator(".aggregate-owner-badge")).toHaveText("Mother · Luna");
+  await motherRecord.locator(".edit-record").click();
+  await card.locator("#record-title").fill("Mother note updated");
+  await card.locator("#record-save").click();
+
+  await expect(card.getByText("Mother note updated", { exact: true })).toBeVisible();
+  await expect(
+    page.locator("body").getByText("Mother context", { exact: true }),
+  ).toHaveCount(1);
+  const motherUpdate = await page.evaluate(() =>
+    window.__dossierCalls.find((call) => call.type === "puppy_tracker/mother/record/update"),
+  );
+  expect(motherUpdate).toMatchObject({ record_id: "m1", litter_id: "l1" });
+
+  const updatedPuppyRecord = card.locator(".record").filter({ hasText: "Combined puppy check updated" });
+  await updatedPuppyRecord.locator(".delete-record").click();
+  await expect(card.getByText("Combined puppy check updated", { exact: true })).toHaveCount(0);
+  await card.locator("#show-deleted").check();
+  const deletedPuppyRecord = card.locator(".record").filter({ hasText: "Combined puppy check updated" });
+  await deletedPuppyRecord.locator(".restore-record").click();
+  await expect(card.getByText("Combined puppy check updated", { exact: true })).toBeVisible();
+
+  const deleteCall = await page.evaluate((recordId) =>
+    window.__dossierCalls.find((call) => call.type === "puppy_tracker/record/delete" && call.record_id === recordId),
+  puppyRecordId);
+  const restoreCall = await page.evaluate((recordId) =>
+    window.__dossierCalls.find((call) => call.type === "puppy_tracker/record/restore" && call.record_id === recordId),
+  puppyRecordId);
+  expect(deleteCall).toMatchObject({ record_id: puppyRecordId, puppy_id: "p1" });
+  expect(restoreCall).toMatchObject({ record_id: puppyRecordId, puppy_id: "p1" });
+});
+
 test("dossier hides internal care program identifiers", async ({ page }) => {
   const card = await mountDossier(page);
 
@@ -270,6 +397,66 @@ test("dossier hides internal care program identifiers", async ({ page }) => {
   await expect(card.getByText("Care result", { exact: true })).toHaveCount(0);
   await expect(card.getByText("2251b89c-0f0d-47e0-bcba-abe69e91e773", { exact: true })).toHaveCount(0);
   await expect(card.getByText("internal-ref", { exact: true })).toHaveCount(0);
+});
+
+test("dossier shows and edits user-facing care result fields", async ({ page }) => {
+  const card = await mountDossier(page);
+
+  await card.evaluate((element) => {
+    const record = {
+      id: "care-edit-record",
+      type: "test",
+      scope: "puppy",
+      litter_id: "l1",
+      puppy_id: "p1",
+      occurred_at: "2026-09-01T17:47:00Z",
+      title: "ENS",
+      note: "Goed opgepakt",
+      deleted: false,
+      data: {
+        test_name: "Neurological stimulation",
+        care_program_id: "ens",
+        care_program_revision: 1,
+        care_occurrence_id: "ens:p1:3",
+        care_age_days: 3,
+        care_scheduled_at: "2026-09-01T14:00:00+02:00",
+        care_instruction: "Geur 3: droge aarde.",
+        care_status: "completed",
+        care_result: "Rustig",
+        care_score: 4,
+        care_data: { stimulus: "tactiel" },
+      },
+    };
+    window.__dossierRecords.push(record);
+    element._recordData.records = [record];
+    element._render();
+  });
+
+  const record = card.locator(".record").filter({ hasText: "ENS" });
+  await expect(record.getByText("Care day", { exact: true })).toBeVisible();
+  await expect(record.getByText("Instruction for this day", { exact: true })).toBeVisible();
+  await expect(record.getByText("Rustig", { exact: true })).toBeVisible();
+  await expect(record.getByText("tactiel", { exact: true })).toBeVisible();
+
+  await record.locator(".edit-record").click();
+  await expect(card.locator("#record-care-result")).toHaveValue("Rustig");
+  await expect(card.locator("#record-care-score")).toHaveValue("4");
+  await expect(card.locator("#record-care-status")).toHaveValue("completed");
+  await card.locator("#record-care-result").fill("Gevoelig");
+  await card.locator("#record-care-score").fill("3.5");
+  await card.locator("#record-care-status").selectOption("missed");
+  await card.locator("#record-save").click();
+
+  const update = await page.evaluate(() =>
+    window.__dossierCalls.find((call) => call.type === "puppy_tracker/record/update" && call.record_id === "care-edit-record"),
+  );
+  expect(update.data).toMatchObject({
+    care_status: "missed",
+    care_result: "Gevoelig",
+    care_score: 3.5,
+    care_age_days: 3,
+    care_instruction: "Geur 3: droge aarde.",
+  });
 });
 
 test("dossier can change a record owner and keeps the record identity", async ({ page }) => {

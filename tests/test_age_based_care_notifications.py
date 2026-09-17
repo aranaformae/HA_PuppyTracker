@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 
 from custom_components.puppy_tracker.care_notifications import (
     _apply_notification_lead,
+    _message,
     async_check_care_notifications,
 )
 from custom_components.puppy_tracker.care_programs import AgeBasedCareProgramStore
@@ -55,6 +56,29 @@ def test_age_based_care_notification_delivery_uses_shared_notify_helper() -> Non
     assert "normalize_notify_entities" in source
     assert "async_create_persistent_notification" in source
     assert "async_dismiss_persistent_notification" in source
+
+
+def test_age_based_care_notification_message_includes_day_specific_instructions() -> None:
+    message = _message([
+        {
+            "title": "ESI",
+            "age_days": 5,
+            "puppy_name": "Luna",
+            "status": "due_today",
+            "instructions": "Geur 5: droge aarde.",
+        },
+        {
+            "title": "ESI",
+            "age_days": 5,
+            "puppy_name": "Milo",
+            "status": "due_today",
+            "instructions": "Geur 5: droge aarde.",
+        },
+    ])
+
+    assert "**Instructie voor deze dag:**" in message
+    assert "Geur 5: droge aarde." in message
+    assert message.count("Geur 5: droge aarde.") == 1
 
 
 def test_age_based_care_notification_lead_uses_default_and_program_override(

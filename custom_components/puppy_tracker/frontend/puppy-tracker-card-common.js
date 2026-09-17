@@ -68,8 +68,15 @@ const CARD_TRANSLATIONS = {
     attentionCardDescription: "Shows weight alerts and upcoming dossier actions.",
     attentionDataLoadFailed: "Attention data could not be loaded.",
     cancel: "Cancel",
+    careAdditionalData: "Additional care data",
+    careAgeDay: "Care day",
+    careInstruction: "Instruction for this day",
     careResult: "Result",
+    careResultPlaceholder: "For example calm, good or no reaction",
     careScore: "Score",
+    careScheduledAt: "Scheduled for",
+    careStatus: "Status",
+    completed: "Completed",
     chooseLitter: "Choose litter",
     collarColor: "Collar color",
     confirmDeleteRecord: "Delete dossier item \"{title}\"? You can restore it later.",
@@ -124,6 +131,7 @@ const CARD_TRANSLATIONS = {
     milestonePlaceholder: "For example eyes open",
     milestoneCategory: "Category",
     milestoneCategoryPlaceholder: "For example development or socialization",
+    missed: "Missed",
     medication: "Medication",
     mother: "Mother",
     medicationPlaceholder: "Medication name",
@@ -214,8 +222,15 @@ const CARD_TRANSLATIONS = {
     attentionCardDescription: "Toont gewichtswaarschuwingen en aankomende dossieracties.",
     attentionDataLoadFailed: "Aandachtsgegevens konden niet worden geladen.",
     cancel: "Annuleren",
+    careAdditionalData: "Aanvullende zorggegevens",
+    careAgeDay: "Zorgdag",
+    careInstruction: "Instructie voor deze dag",
     careResult: "Resultaat",
+    careResultPlaceholder: "Bijvoorbeeld rustig, goed of geen reactie",
     careScore: "Score",
+    careScheduledAt: "Gepland voor",
+    careStatus: "Status",
+    completed: "Uitgevoerd",
     chooseLitter: "Nest kiezen",
     collarColor: "Halsbandkleur",
     confirmDeleteRecord: "Dossieritem \"{title}\" verwijderen? Je kunt het later herstellen.",
@@ -270,6 +285,7 @@ const CARD_TRANSLATIONS = {
     milestonePlaceholder: "Bijvoorbeeld ogen open",
     milestoneCategory: "Categorie",
     milestoneCategoryPlaceholder: "Bijvoorbeeld ontwikkeling of socialisatie",
+    missed: "Gemist",
     medication: "Medicatie",
     mother: "Moederhond",
     medicationPlaceholder: "Naam geneesmiddel",
@@ -632,6 +648,19 @@ export async function addDossierRecord(hass, litterId, puppyId, record) {
   return hass.callWS(message);
 }
 
+export async function updateMotherDossierRecord(hass, litterId, recordId, record) {
+  return hass.callWS({
+    type: `${DOMAIN}/mother/record/update`,
+    litter_id: litterId,
+    record_id: recordId,
+    record_type: record.record_type,
+    occurred_at: record.occurred_at || undefined,
+    title: record.title || null,
+    note: record.note || null,
+    data: record.data || {},
+  });
+}
+
 export async function updateDossierRecord(hass, litterId, puppyId, recordId, record) {
   const message = {
     type: `${DOMAIN}/record/update`,
@@ -670,6 +699,14 @@ export async function deleteDossierRecord(hass, litterId, puppyId, recordId) {
   return hass.callWS(message);
 }
 
+export async function deleteMotherDossierRecord(hass, litterId, recordId) {
+  return hass.callWS({
+    type: `${DOMAIN}/mother/record/delete`,
+    litter_id: litterId,
+    record_id: recordId,
+  });
+}
+
 export async function restoreDossierRecord(hass, litterId, puppyId, recordId) {
   const message = {
     type: `${DOMAIN}/record/restore`,
@@ -678,4 +715,12 @@ export async function restoreDossierRecord(hass, litterId, puppyId, recordId) {
   };
   if (puppyId) message.puppy_id = puppyId;
   return hass.callWS(message);
+}
+
+export async function restoreMotherDossierRecord(hass, litterId, recordId) {
+  return hass.callWS({
+    type: `${DOMAIN}/mother/record/restore`,
+    litter_id: litterId,
+    record_id: recordId,
+  });
 }

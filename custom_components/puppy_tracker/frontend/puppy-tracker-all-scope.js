@@ -172,11 +172,14 @@ function ownerLabel(card, scope, name = null) {
   return copy(card, "Hele nest", "Whole litter");
 }
 
-function decorateRecord(record, scope, name = null) {
+function decorateRecord(record, scope, name = null, puppyId = null) {
+  const recordId = String(record?.id || "");
   return {
     ...(record || {}),
     __aggregate_owner_scope: scope,
     __aggregate_owner_name: name,
+    __aggregate_owner_puppy_id: scope === "puppy" ? (puppyId || record?.puppy_id || null) : null,
+    __aggregate_record_key: `${scope}:${recordId}`,
   };
 }
 
@@ -190,26 +193,7 @@ function patchDossierAllScope() {
   const originalRender = Card.prototype._render;
 
   Card.prototype._loadLitterAndRecords = async function (render = true) {
-    if (this.__motherSelected) {
-      if (!this._hass || !this._selectedLitterId) {
-        this._litterData = null;
-        this._recordData = null;
-        if (render) this._render();
-        return;
-      }
-
-      this._litterData = await fetchLitterData(this._hass, this._selectedLitterId);
-      const motherRecords = await fetchMotherRecords(this, false);
-      const ownerName = motherRecords?.owner?.name || this._litterData?.litter?.mother || copy(this, "Moederhond", "Mother");
-      this._selectedPuppyId = null;
-      this._recordData = {
-        records: sortNewestFirst((motherRecords?.records || []).map((record) => decorateRecord(record, "mother", ownerName))),
-        actions: { actions: [] },
-        can_manage_records: false,
-      };
-      if (render) this._render();
-      return;
-    }
+    if (this.__motherSelected) return originalLoad.call(this, render);
     if (!this.__allSelected) return originalLoad.call(this, render);
     if (!this._hass || !this._selectedLitterId) {
       this._litterData = null;
@@ -221,13 +205,13 @@ function patchDossierAllScope() {
     this._litterData = await fetchLitterData(this._hass, this._selectedLitterId);
     this._selectedPuppyId = null;
     this.__motherSelected = false;
-    this._showDeleted = false;
+    const includeDeleted = this._showDeleted && Boolean(this._litterData?.can_manage_records);
 
     const puppies = this._litterData?.puppies || [];
     const [litterRecords, motherRecords, ...puppyResponses] = await Promise.all([
-      fetchRecords(this._hass, this._selectedLitterId, null, false),
-      fetchMotherRecords(this, false),
-      ...puppies.map((puppy) => fetchRecords(this._hass, this._selectedLitterId, puppy.id, false)),
+      fetchRecords(this._hass, this._selectedLitterId, null, includeDeleted),
+      fetchMotherRecords(this, includeDeleted),
+      ...puppies.map((puppy) => fetchRecords(this._hass, this._selectedLitterId, puppy.id, includeDeleted)),
     ]);
 
     const records = [];
@@ -240,15 +224,22 @@ function patchDossierAllScope() {
     puppyResponses.forEach((response, index) => {
       const puppy = puppies[index];
       for (const record of response?.records || []) {
-        records.push(decorateRecord(record, "puppy", puppy?.name || null));
+        records.push(decorateRecord(record, "puppy", puppy?.name || null, puppy?.id || null));
       }
     });
 
+    const canManageRecords = Boolean(
+      this._litterData?.can_manage_records
+      && litterRecords?.can_manage_records !== false
+      && motherRecords?.can_manage_records !== false
+      && puppyResponses.every((response) => response?.can_manage_records !== false),
+    );
     this._recordData = {
       records: sortNewestFirst(records),
       actions: { actions: [] },
-      can_manage_records: false,
+      can_manage_records: canManageRecords,
     };
+    if (!canManageRecords) this._showDeleted = false;
     if (render) this._render();
   };
 
@@ -336,7 +327,8 @@ function patchDossierAllScope() {
       select.value = ALL_VALUE;
       const records = this._recordData?.records || [];
       root.querySelectorAll(".record").forEach((element, index) => {
-        const record = records[index];
+        const recordKey = element.dataset.recordKey;
+        const record = records.find((item) => (item.__aggregate_record_key || item.id) === recordKey) || records[index];
         const heading = element.querySelector(".record-heading");
         if (!record || !heading || heading.querySelector(".aggregate-owner-badge")) return;
         const badge = document.createElement("span");

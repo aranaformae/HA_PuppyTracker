@@ -539,6 +539,12 @@ Age-based care delivery requires both the general Puppy Tracker notification set
 
 Open `due_soon`, `due_today` and `overdue` age-based occurrences are actionable for care delivery. Clocked upcoming occurrences enter `due_soon` when their scheduled local time falls inside the program-specific lead time, or the integration default when the program value is empty. Related puppy occurrences are grouped by program/age context instead of producing one push per puppy.
 
+The notification message includes the occurrence's resolved `instructions` value.
+This means an `instructions_by_age` entry is shown in both the Home Assistant
+persistent notification and the configured mobile `notify.*` delivery for that
+day. When grouped puppy occurrences carry the same instruction, it is rendered
+only once.
+
 Mobile care-delivery deduplication is currently runtime-only. An unresolved occurrence may be delivered again after integration/Home Assistant restart; reboot-persistent delivery deduplication is not currently an architectural guarantee.
 
 Within one care-notification pass, dossier records are loaded once per puppy and
@@ -653,13 +659,23 @@ used during the initial load; the interactive scope selector remains available
 and changing it does not change persisted data. A configured `puppy_id` selects
 that puppy directly, and `default_selected` takes precedence when both options
 are present. The aggregate
-`all` view combines litter and mother records where supported, while a
-mother-scoped dossier view is read-only because it is a history surface rather
-than an editing operation. Quick Log deliberately keeps an explicit single
-owner selection because applying an aggregate default to a new log entry could
-store the action under the wrong owner.
+`all` view combines litter, mother and puppy records where supported. Existing
+items in that combined Dossier view keep an internal source scope and source
+puppy id, so edit, delete, restore and owner-change actions are sent to the
+correct owner API. The add action is intentionally available only after a
+specific litter, mother or puppy scope is selected; this prevents a new item
+from being stored under an implicit owner. Quick Log deliberately keeps an
+explicit single owner selection because applying an aggregate default to a new
+log entry could store the action under the wrong owner.
 
 Today and Attention consume backend-derived age-based occurrence status. Recording a care result must refresh occurrences and render the refreshed state immediately; a completed row must not remain stale until another dashboard event.
+
+The Dossier card presents care-result records with their user-facing metadata:
+care day, scheduled time, status, result, score, resolved day-specific
+instruction and additional care data. Editing an existing care-result record
+allows status, result and score changes through the normal record-update path;
+the occurrence and program identifiers remain preserved but are not rendered as
+user-facing fields.
 
 ### Shared category filtering and list presentation
 

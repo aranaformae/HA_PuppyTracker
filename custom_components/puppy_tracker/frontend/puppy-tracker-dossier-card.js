@@ -2,6 +2,7 @@ import {
   addDossierRecord,
   changeDossierRecordOwner,
   deleteDossierRecord,
+  deleteMotherDossierRecord,
   escapeHtml,
   fetchLitterData,
   fetchLitters,
@@ -11,10 +12,12 @@ import {
   loadCardState,
   localize,
   restoreDossierRecord,
+  restoreMotherDossierRecord,
   selectDefaultLitter,
   saveCardState,
   subscribeUpdates,
   updateDossierRecord,
+  updateMotherDossierRecord,
   updateProfileNote,
 } from "./puppy-tracker-card-common.js";
 import {
@@ -38,15 +41,20 @@ const INTERNAL_DATA_KEYS = new Set([
   "care_program_id",
   "care_program_revision",
   "care_occurrence_id",
-  "care_age_days",
-  "care_scheduled_at",
-  "care_instruction",
-  "care_status",
-  "care_data",
   "reference_id",
   "reference_type",
   "source_id",
   "source_type",
+]);
+
+const CARE_DETAIL_KEYS = new Set([
+  "care_age_days",
+  "care_scheduled_at",
+  "care_instruction",
+  "care_status",
+  "care_result",
+  "care_score",
+  "care_data",
 ]);
 
 const DATA_LABEL_KEYS = {
@@ -54,6 +62,21 @@ const DATA_LABEL_KEYS = {
   care_score: "careScore",
   temperature: "temperature",
 };
+
+function isCareResultRecord(record) {
+  return Boolean(record?.data && typeof record.data === "object" && !Array.isArray(record.data)
+    && record.data.care_occurrence_id);
+}
+
+function hasDisplayValue(value) {
+  return value !== null && value !== undefined && value !== "";
+}
+
+function careStatusLabel(hass, value) {
+  if (value === "completed") return localize(hass, "completed");
+  if (value === "missed") return localize(hass, "missed");
+  return displayDataValue(value, hass);
+}
 
 function displayDataValue(value, hass = null) {
   if (value === null || value === undefined || value === "") return "";
@@ -239,8 +262,34 @@ class PuppyTrackerDossierCard extends HTMLElement {
     return Boolean(this._recordData?.can_manage_records ?? this._litterData?.can_manage_records);
   }
 
+  get _canAddRecord() {
+    // An aggregate view has no unambiguous owner for a new item. Existing
+    // items retain their source context and can still be edited there.
+    return this._canManage && !this.__allSelected;
+  }
+
   get _selectedPuppy() {
     return (this._litterData?.puppies || []).find((item) => item.id === this._selectedPuppyId) || null;
+  }
+
+  _recordOwnerContext(record = null) {
+    const fallbackScope = this.__motherSelected
+      ? "mother"
+      : this._selectedPuppyId
+        ? "puppy"
+        : "litter";
+    const scope = record?.owner_scope
+      || record?.__aggregate_owner_scope
+      || record?.scope
+      || fallbackScope;
+    const puppyId = scope === "puppy"
+      ? (record?.owner_puppy_id
+        || record?.__aggregate_owner_puppy_id
+        || record?.puppy_id
+        || this._selectedPuppyId
+        || null)
+      : null;
+    return { scope, puppyId };
   }
 
   async _loadInitial() {
@@ -383,7 +432,9 @@ class PuppyTrackerDossierCard extends HTMLElement {
   }
 
   _startAdd() {
+    if (!this._canAddRecord) return;
     this._profileEditing = false;
+    const ownerContext = this._recordOwnerContext();
     this._editor = {
       mode: "add",
       id: null,
@@ -392,6 +443,9 @@ class PuppyTrackerDossierCard extends HTMLElement {
       title: "",
       note: "",
       data: {},
+      owner_scope: ownerContext.scope,
+      owner_puppy_id: ownerContext.puppyId,
+      owner_name: this._selectedPuppy?.name || this._litterData?.litter?.name || null,
     };
     this._status = "";
     this._render();
@@ -400,6 +454,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
 
   _startEdit(record) {
     this._profileEditing = false;
+    const ownerContext = this._recordOwnerContext(record);
     this._editor = {
       mode: "edit",
       id: record.id,
@@ -408,6 +463,13 @@ class PuppyTrackerDossierCard extends HTMLElement {
       title: record.title || "",
       note: record.note || "",
       data: { ...(record.data || {}) },
+      owner_scope: ownerContext.scope,
+      owner_puppy_id: ownerContext.puppyId,
+      owner_name: record.__aggregate_owner_name
+        || record.puppy_name
+        || this._selectedPuppy?.name
+        || this._litterData?.litter?.name
+        || null,
     };
     this._status = "";
     this._render();
@@ -442,7 +504,22 @@ class PuppyTrackerDossierCard extends HTMLElement {
       const input = this.shadowRoot?.getElementById(`record-data-${field.key}`);
       if (input) data[field.key] = input.value;
     }
+    this._captureCareEditorState(data);
     this._editor.data = data;
+  }
+
+  _captureCareEditorState(data) {
+    if (!isCareResultRecord(this._editor)) return;
+
+    const statusInput = this.shadowRoot?.getElementById("record-care-status");
+    const resultInput = this.shadowRoot?.getElementById("record-care-result");
+    const scoreInput = this.shadowRoot?.getElementById("record-care-score");
+    if (statusInput) data.care_status = statusInput.value || "completed";
+    if (resultInput) data.care_result = resultInput.value.trim() || null;
+    if (scoreInput) {
+      const value = scoreInput.value.trim();
+      data.care_score = value === "" ? null : Number(value);
+    }
   }
 
   _collectEditorData(recordType) {
@@ -455,6 +532,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
       const value = input?.value?.trim() || "";
       if (value) data[field.key] = value;
     }
+    this._captureCareEditorState(data);
     return data;
   }
 
@@ -485,6 +563,72 @@ class PuppyTrackerDossierCard extends HTMLElement {
       </div>`;
   }
 
+  _renderCareEditorFields(data = {}) {
+    if (!isCareResultRecord({ data })) return "";
+
+    const status = data.care_status || "completed";
+    const score = data.care_score ?? "";
+    const scheduledAt = data.care_scheduled_at
+      ? formatDateTime(data.care_scheduled_at, data.care_scheduled_at, this._hass)
+      : "";
+    const context = [
+      hasDisplayValue(data.care_age_days)
+        ? `<div><span>${escapeHtml(localize(this._hass, "careAgeDay"))}</span><strong>${escapeHtml(displayDataValue(data.care_age_days, this._hass))}</strong></div>`
+        : "",
+      scheduledAt
+        ? `<div><span>${escapeHtml(localize(this._hass, "careScheduledAt"))}</span><strong>${escapeHtml(scheduledAt)}</strong></div>`
+        : "",
+      data.care_instruction
+        ? `<div class="care-editor-instruction"><span>${escapeHtml(localize(this._hass, "careInstruction"))}</span><strong>${escapeHtml(data.care_instruction)}</strong></div>`
+        : "",
+    ].filter(Boolean).join("");
+
+    return `
+      <div class="typed-section care-editor-section">
+        <div class="typed-title">${escapeHtml(localize(this._hass, "careResult"))}</div>
+        ${context ? `<div class="care-editor-context">${context}</div>` : ""}
+        <div class="typed-grid">
+          <label class="typed-field">${escapeHtml(localize(this._hass, "careStatus"))} <span class="optional">${escapeHtml(localize(this._hass, "optional"))}</span>
+            <select id="record-care-status"><option value="completed" ${status === "completed" ? "selected" : ""}>${escapeHtml(localize(this._hass, "completed"))}</option><option value="missed" ${status === "missed" ? "selected" : ""}>${escapeHtml(localize(this._hass, "missed"))}</option></select>
+          </label>
+          <label class="typed-field">${escapeHtml(localize(this._hass, "careResult"))} <span class="optional">${escapeHtml(localize(this._hass, "optional"))}</span>
+            <input id="record-care-result" type="text" value="${escapeHtml(data.care_result ?? "")}" placeholder="${escapeHtml(localize(this._hass, "careResultPlaceholder"))}">
+          </label>
+          <label class="typed-field">${escapeHtml(localize(this._hass, "careScore"))} <span class="optional">${escapeHtml(localize(this._hass, "optional"))}</span>
+            <input id="record-care-score" type="number" step="0.1" value="${escapeHtml(score)}">
+          </label>
+        </div>
+      </div>`;
+  }
+
+  _renderCareResultRows(record) {
+    if (!isCareResultRecord(record)) return [];
+    const data = record.data;
+    const rows = [];
+    const addRow = (label, value, className = "") => {
+      if (!hasDisplayValue(value)) return;
+      rows.push(`<div class="record-data-row ${className}"><span>${escapeHtml(label)}</span><strong>${escapeHtml(displayDataValue(value, this._hass))}</strong></div>`);
+    };
+
+    addRow(localize(this._hass, "careAgeDay"), data.care_age_days);
+    if (hasDisplayValue(data.care_scheduled_at)) {
+      addRow(localize(this._hass, "careScheduledAt"), formatDateTime(data.care_scheduled_at, data.care_scheduled_at, this._hass));
+    }
+    if (hasDisplayValue(data.care_status)) addRow(localize(this._hass, "careStatus"), careStatusLabel(this._hass, data.care_status));
+    addRow(localize(this._hass, "careResult"), data.care_result);
+    addRow(localize(this._hass, "careScore"), data.care_score);
+    if (hasDisplayValue(data.care_instruction)) {
+      addRow(localize(this._hass, "careInstruction"), data.care_instruction, "care-instruction-row");
+    }
+
+    if (data.care_data && typeof data.care_data === "object" && !Array.isArray(data.care_data)) {
+      for (const [key, value] of Object.entries(data.care_data)) {
+        if (hasDisplayValue(value)) addRow(`${localize(this._hass, "careAdditionalData")} · ${dataLabel(this._hass, key)}`, value);
+      }
+    }
+    return rows;
+  }
+
   _renderRecordData(record) {
     const data = record?.data;
     if (!data || typeof data !== "object" || Array.isArray(data)) return "";
@@ -501,10 +645,13 @@ class PuppyTrackerDossierCard extends HTMLElement {
       rows.push(`<div class="record-data-row"><span>${escapeHtml(fieldLabel(this._hass, field))}</span><strong>${escapeHtml(value)}</strong></div>`);
     }
 
+    rows.push(...this._renderCareResultRows(record));
+
     for (const [key, raw] of Object.entries(data)) {
       if (
         renderedKeys.has(key)
         || INTERNAL_DATA_KEYS.has(key)
+        || CARE_DETAIL_KEYS.has(key)
         || raw === null
         || raw === undefined
         || raw === ""
@@ -599,22 +746,35 @@ class PuppyTrackerDossierCard extends HTMLElement {
     this._status = this._editor.mode === "edit" ? localize(this._hass, "dossierItemSave") : localize(this._hass, "dossierItemAdd");
     this._render();
     try {
+      const ownerContext = this._recordOwnerContext(this._editor);
       if (this._editor.mode === "edit") {
-        await updateDossierRecord(
-          this._hass,
-          this._selectedLitterId,
-          this._selectedPuppyId,
-          this._editor.id,
-          payload
-        );
+        if (ownerContext.scope === "mother") {
+          await updateMotherDossierRecord(this._hass, this._selectedLitterId, this._editor.id, payload);
+        } else {
+          await updateDossierRecord(
+            this._hass,
+            this._selectedLitterId,
+            ownerContext.puppyId,
+            this._editor.id,
+            payload,
+          );
+        }
         this._status = localize(this._hass, "dossierItemUpdated");
       } else {
-        await addDossierRecord(
-          this._hass,
-          this._selectedLitterId,
-          this._selectedPuppyId,
-          payload
-        );
+        if (ownerContext.scope === "mother") {
+          await this._hass.callWS({
+            type: "puppy_tracker/mother/record/add",
+            litter_id: this._selectedLitterId,
+            ...payload,
+          });
+        } else {
+          await addDossierRecord(
+            this._hass,
+            this._selectedLitterId,
+            ownerContext.puppyId,
+            payload,
+          );
+        }
         this._status = localize(this._hass, "dossierItemAdded");
       }
       this._editor = null;
@@ -636,7 +796,12 @@ class PuppyTrackerDossierCard extends HTMLElement {
     this._error = "";
     this._render();
     try {
-      await deleteDossierRecord(this._hass, this._selectedLitterId, this._selectedPuppyId, record.id);
+      const ownerContext = this._recordOwnerContext(record);
+      if (ownerContext.scope === "mother") {
+        await deleteMotherDossierRecord(this._hass, this._selectedLitterId, record.id);
+      } else {
+        await deleteDossierRecord(this._hass, this._selectedLitterId, ownerContext.puppyId, record.id);
+      }
       this._status = localize(this._hass, "dossierItemDeleted");
       await this._loadLitterAndRecords(false);
     } catch (err) {
@@ -649,14 +814,12 @@ class PuppyTrackerDossierCard extends HTMLElement {
 
   async _changeOwner(record) {
     if (!this._canManage || this._saving) return;
-    const sourceScope = record?.scope || record?.__aggregate_owner_scope || (
-      this.__motherSelected ? "mother" : this._selectedPuppyId ? "puppy" : "litter"
-    );
+    const { scope: sourceScope, puppyId: sourcePuppyId } = this._recordOwnerContext(record);
     const owners = [
       { scope: "litter", id: null, name: this._litterData?.litter?.name || localize(this._hass, "litterDossier") },
       ...(this._litterData?.litter?.mother ? [{ scope: "mother", id: null, name: `${localize(this._hass, "mother")} · ${this._litterData.litter.mother}` }] : []),
       ...(this._litterData?.puppies || []).map((puppy) => ({ scope: "puppy", id: puppy.id, name: `${localize(this._hass, "puppy")} · ${puppy.name || puppy.id}` })),
-    ].filter((owner) => owner.scope !== sourceScope || (owner.scope === "puppy" && owner.id !== (record?.puppy_id || this._selectedPuppyId)));
+    ].filter((owner) => owner.scope !== sourceScope || (owner.scope === "puppy" && owner.id !== sourcePuppyId));
     const choices = owners.map((owner, index) => `${index}: ${owner.name}`).join("\n");
     const answer = window.prompt(`${localize(this._hass, "changeOwnerPrompt")}\n\n${choices}`);
     if (answer === null) return;
@@ -675,7 +838,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
       await changeDossierRecordOwner(
         this._hass,
         this._selectedLitterId,
-        sourceScope === "puppy" ? (record?.puppy_id || this._selectedPuppyId) : null,
+        sourceScope === "puppy" ? sourcePuppyId : null,
         record.id,
         target.scope === "puppy" ? target.id : null,
         { sourceScope, targetScope: target.scope },
@@ -697,7 +860,12 @@ class PuppyTrackerDossierCard extends HTMLElement {
     this._error = "";
     this._render();
     try {
-      await restoreDossierRecord(this._hass, this._selectedLitterId, this._selectedPuppyId, record.id);
+      const ownerContext = this._recordOwnerContext(record);
+      if (ownerContext.scope === "mother") {
+        await restoreMotherDossierRecord(this._hass, this._selectedLitterId, record.id);
+      } else {
+        await restoreDossierRecord(this._hass, this._selectedLitterId, ownerContext.puppyId, record.id);
+      }
       this._status = localize(this._hass, "dossierItemRestored");
       await this._loadLitterAndRecords(false);
     } catch (err) {
@@ -819,7 +987,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
     return `
       <section class="panel editor-panel">
         <div class="panel-head">
-          <div><div class="panel-title">${escapeHtml(editing ? localize(this._hass, "editDossierItem") : localize(this._hass, "newDossierItem"))}</div><div class="hint">${escapeHtml(this._selectedPuppy?.name || this._litterData?.litter?.name || localize(this._hass, "litter"))}</div></div>
+          <div><div class="panel-title">${escapeHtml(editing ? localize(this._hass, "editDossierItem") : localize(this._hass, "newDossierItem"))}</div><div class="hint">${escapeHtml(this._editor.owner_name || this._selectedPuppy?.name || this._litterData?.litter?.name || localize(this._hass, "litter"))}</div></div>
         </div>
         <div class="form-grid">
           <label>${escapeHtml(localize(this._hass, "type"))}
@@ -836,6 +1004,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
           <textarea id="record-note" rows="4" placeholder="${escapeHtml(localize(this._hass, "detailsPlaceholder"))}">${escapeHtml(this._editor.note)}</textarea>
         </label>
         ${this._renderTypeFields(this._editor.record_type, this._editor.data)}
+        ${this._renderCareEditorFields(this._editor.data)}
         <div class="form-actions">
           <button class="secondary" id="record-cancel" ${this._saving ? "disabled" : ""}>${escapeHtml(localize(this._hass, "cancel"))}</button>
           <button class="primary" id="record-save" ${this._saving ? "disabled" : ""}>${escapeHtml(editing ? localize(this._hass, "saveChanges") : localize(this._hass, "add"))}</button>
@@ -847,8 +1016,9 @@ class PuppyTrackerDossierCard extends HTMLElement {
     const deleted = Boolean(record.deleted);
     const title = record.title || humanizeType(record.type, this._hass);
     const typeLabel = humanizeType(record.type, this._hass);
+    const recordKey = record.__aggregate_record_key || record.id;
     return `
-      <article class="record ${deleted ? "deleted" : ""}">
+      <article class="record ${deleted ? "deleted" : ""}" data-record-key="${escapeHtml(recordKey)}">
         <div class="record-icon"><ha-icon icon="${escapeHtml(iconForType(record.type))}"></ha-icon></div>
         <div class="record-body">
           <div class="record-top">
@@ -859,8 +1029,8 @@ class PuppyTrackerDossierCard extends HTMLElement {
           ${record.note ? `<div class="record-note">${escapeHtml(record.note)}</div>` : ""}
           ${this._canManage ? `<div class="record-actions">
             ${deleted
-              ? `<button class="text-button restore-record" data-id="${escapeHtml(record.id)}"><ha-icon icon="mdi:restore"></ha-icon> ${escapeHtml(localize(this._hass, "restore"))}</button>`
-              : `<button class="text-button edit-record" data-id="${escapeHtml(record.id)}"><ha-icon icon="mdi:pencil-outline"></ha-icon> ${escapeHtml(localize(this._hass, "editDossierItem"))}</button><button class="text-button move-record" data-id="${escapeHtml(record.id)}"><ha-icon icon="mdi:account-switch-outline"></ha-icon> ${escapeHtml(localize(this._hass, "changeOwner"))}</button><button class="text-button danger delete-record" data-id="${escapeHtml(record.id)}"><ha-icon icon="mdi:delete-outline"></ha-icon> ${escapeHtml(localize(this._hass, "delete"))}</button>`}
+              ? `<button class="text-button restore-record" data-id="${escapeHtml(record.id)}" data-record-key="${escapeHtml(recordKey)}"><ha-icon icon="mdi:restore"></ha-icon> ${escapeHtml(localize(this._hass, "restore"))}</button>`
+              : `<button class="text-button edit-record" data-id="${escapeHtml(record.id)}" data-record-key="${escapeHtml(recordKey)}"><ha-icon icon="mdi:pencil-outline"></ha-icon> ${escapeHtml(localize(this._hass, "editDossierItem"))}</button><button class="text-button move-record" data-id="${escapeHtml(record.id)}" data-record-key="${escapeHtml(recordKey)}"><ha-icon icon="mdi:account-switch-outline"></ha-icon> ${escapeHtml(localize(this._hass, "changeOwner"))}</button><button class="text-button danger delete-record" data-id="${escapeHtml(record.id)}" data-record-key="${escapeHtml(recordKey)}"><ha-icon icon="mdi:delete-outline"></ha-icon> ${escapeHtml(localize(this._hass, "delete"))}</button>`}
           </div>` : ""}
         </div>
       </article>`;
@@ -899,11 +1069,11 @@ class PuppyTrackerDossierCard extends HTMLElement {
           button{font:inherit;cursor:pointer;border-radius:10px;min-height:38px;padding:0 12px;border:1px solid var(--divider-color);background:transparent;color:var(--primary-text-color);display:inline-flex;align-items:center;justify-content:center;gap:6px}button:disabled{opacity:.55;cursor:default}.primary{background:var(--primary-color);border-color:var(--primary-color);color:var(--text-primary-color,#fff);font-weight:600}.secondary{background:var(--secondary-background-color)}.icon-button{width:38px;padding:0;border-radius:50%}.text-button{min-height:30px;padding:3px 7px;border:0;font-size:12px;color:var(--primary-color)}.text-button.danger{color:var(--error-color)}
           .panel{border:1px solid var(--divider-color);border-radius:14px;padding:13px;margin:12px 0;background:color-mix(in srgb,var(--card-background-color) 96%,var(--primary-color) 4%)}.panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:9px}.panel-title{font-weight:650;font-size:15px}.hint{font-size:11px;color:var(--secondary-text-color);margin-top:2px}.profile-text{white-space:pre-wrap;line-height:1.45;font-size:14px}.empty{padding:24px 12px;text-align:center;color:var(--secondary-text-color);font-size:13px}.empty.compact{padding:4px 0;text-align:left}
           .followup-count{min-width:28px;height:28px;padding:0 8px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:var(--secondary-background-color);font-size:12px;font-weight:650}.followup-summary{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 9px}.summary-chip{font-size:10px;padding:3px 7px;border-radius:999px;background:var(--secondary-background-color);color:var(--secondary-text-color)}.summary-chip.danger{color:var(--error-color);background:color-mix(in srgb,var(--error-color) 9%,transparent)}.summary-chip.warning{color:var(--warning-color,var(--primary-color));background:color-mix(in srgb,var(--warning-color,var(--primary-color)) 9%,transparent)}.followup-list{display:grid;gap:7px}.followup-row{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:9px;align-items:center;padding:8px 9px;border:1px solid var(--divider-color);border-radius:11px}.followup-icon{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--secondary-background-color);color:var(--primary-color)}.followup-icon ha-icon{--mdc-icon-size:18px}.followup-main{display:flex;flex-direction:column;gap:2px;min-width:0}.followup-main strong{font-size:13px;overflow-wrap:anywhere}.followup-main span{font-size:11px;color:var(--secondary-text-color);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.followup-date{display:flex;flex-direction:column;align-items:flex-end;gap:1px;white-space:nowrap}.followup-date strong{font-size:12px}.followup-date span{font-size:10px;color:var(--secondary-text-color)}.followup-row.danger{border-color:color-mix(in srgb,var(--error-color) 38%,var(--divider-color));background:color-mix(in srgb,var(--error-color) 7%,transparent)}.followup-row.danger .followup-date span{color:var(--error-color);font-weight:650}.followup-row.warning{border-color:color-mix(in srgb,var(--warning-color,var(--primary-color)) 32%,var(--divider-color))}.followup-row.warning .followup-date span{color:var(--warning-color,var(--primary-color));font-weight:650}
-          .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}label{display:block;font-size:12px;color:var(--secondary-text-color);margin-bottom:10px}label input,label select,label textarea{margin-top:5px;color:var(--primary-text-color)}.optional{font-weight:400;opacity:.75}.required{font-weight:600;color:var(--error-color);font-size:10px}.form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}.typed-section{margin:2px 0 12px;padding-top:10px;border-top:1px solid var(--divider-color)}.typed-title{font-size:12px;font-weight:650;color:var(--secondary-text-color);margin-bottom:8px}.typed-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}.typed-field.wide{grid-column:1/-1}
+          .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}label{display:block;font-size:12px;color:var(--secondary-text-color);margin-bottom:10px}label input,label select,label textarea{margin-top:5px;color:var(--primary-text-color)}.optional{font-weight:400;opacity:.75}.required{font-weight:600;color:var(--error-color);font-size:10px}.form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}.typed-section{margin:2px 0 12px;padding-top:10px;border-top:1px solid var(--divider-color)}.typed-title{font-size:12px;font-weight:650;color:var(--secondary-text-color);margin-bottom:8px}.typed-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}.typed-field.wide{grid-column:1/-1}.care-editor-context{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 10px;margin:0 0 10px;padding:8px 10px;border-radius:10px;background:var(--secondary-background-color)}.care-editor-context>div{min-width:0;display:flex;flex-direction:column;gap:2px}.care-editor-context span{font-size:10px;color:var(--secondary-text-color)}.care-editor-context strong{font-size:12px;font-weight:550;overflow-wrap:anywhere}.care-editor-instruction{grid-column:1/-1}.care-editor-instruction strong{white-space:pre-wrap}
           .timeline-head{display:flex;justify-content:space-between;align-items:end;gap:10px;margin:16px 0 8px}.timeline-title{font-size:16px;font-weight:650}.timeline-sub{font-size:11px;color:var(--secondary-text-color);margin-top:2px}.toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--secondary-text-color);cursor:pointer}.toggle input{width:16px;min-height:16px;margin:0;padding:0}.category-filters{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 8px}.category-filter{min-height:32px;padding:0 9px;border-radius:999px;font-size:12px;background:var(--secondary-background-color)}.category-filter ha-icon{--mdc-icon-size:16px}.category-filter.active{background:var(--primary-color);border-color:var(--primary-color);color:var(--text-primary-color,#fff)}
-          .dossier-timeline-scroll{max-height:520px;overflow-y:auto;overflow-x:hidden;padding-right:4px;overscroll-behavior:contain}.timeline{display:flex;flex-direction:column}.record{position:relative;display:grid;grid-template-columns:38px minmax(0,1fr);gap:10px;padding:12px 0}.record:not(:last-child){border-bottom:1px solid var(--divider-color)}.record.deleted{opacity:.62}.record-icon{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--secondary-background-color);color:var(--primary-color)}.record-icon ha-icon{--mdc-icon-size:20px}.record-body{min-width:0}.record-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.record-heading{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}.record-heading strong{font-size:14px}.record time{font-size:11px;color:var(--secondary-text-color);white-space:nowrap}.type-badge,.deleted-badge{font-size:10px;padding:2px 6px;border-radius:999px;background:var(--secondary-background-color);color:var(--secondary-text-color)}.deleted-badge{color:var(--error-color)}.record-data{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 14px;margin-top:7px;padding:8px 10px;border-radius:10px;background:var(--secondary-background-color)}.record-data-row{min-width:0;display:flex;flex-direction:column;gap:1px}.record-data-row span{font-size:10px;color:var(--secondary-text-color)}.record-data-row strong{font-size:12px;font-weight:550;overflow-wrap:anywhere}.record-note{margin-top:6px;white-space:pre-wrap;line-height:1.42;font-size:13px}.record-actions{display:flex;gap:2px;margin-top:6px;flex-wrap:wrap}
+          .dossier-timeline-scroll{max-height:520px;overflow-y:auto;overflow-x:hidden;padding-right:4px;overscroll-behavior:contain}.timeline{display:flex;flex-direction:column}.record{position:relative;display:grid;grid-template-columns:38px minmax(0,1fr);gap:10px;padding:12px 0}.record:not(:last-child){border-bottom:1px solid var(--divider-color)}.record.deleted{opacity:.62}.record-icon{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--secondary-background-color);color:var(--primary-color)}.record-icon ha-icon{--mdc-icon-size:20px}.record-body{min-width:0}.record-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.record-heading{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}.record-heading strong{font-size:14px}.record time{font-size:11px;color:var(--secondary-text-color);white-space:nowrap}.type-badge,.deleted-badge{font-size:10px;padding:2px 6px;border-radius:999px;background:var(--secondary-background-color);color:var(--secondary-text-color)}.deleted-badge{color:var(--error-color)}.record-data{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 14px;margin-top:7px;padding:8px 10px;border-radius:10px;background:var(--secondary-background-color)}.record-data-row{min-width:0;display:flex;flex-direction:column;gap:1px}.record-data-row span{font-size:10px;color:var(--secondary-text-color)}.record-data-row strong{font-size:12px;font-weight:550;overflow-wrap:anywhere}.care-instruction-row{grid-column:1/-1}.care-instruction-row strong{white-space:pre-wrap}.record-note{margin-top:6px;white-space:pre-wrap;line-height:1.42;font-size:13px}.record-actions{display:flex;gap:2px;margin-top:6px;flex-wrap:wrap}
           .message{font-size:12px;margin:8px 0;padding:8px 10px;border-radius:10px;background:var(--secondary-background-color)}.error{color:var(--error-color);background:color-mix(in srgb,var(--error-color) 10%,transparent)}.status{color:var(--secondary-text-color)}
-          @container dossier-card (max-width:620px){.top{flex-direction:column}.selectors{width:100%;justify-content:stretch}.selectors select{max-width:none;flex:1}.toolbar{align-items:flex-end}.owner{flex:1;flex-direction:column;align-items:stretch;gap:3px}.owner select{min-width:0}.tools{flex:0 0 auto}.form-grid,.typed-grid{grid-template-columns:1fr}.typed-field.wide{grid-column:auto}.record-data{grid-template-columns:1fr}.record-top{flex-direction:column;gap:3px}.record time{white-space:normal}.followup-row{grid-template-columns:32px minmax(0,1fr)}.followup-date{grid-column:2;align-items:flex-start;flex-direction:row;gap:6px}}
+          @container dossier-card (max-width:620px){.top{flex-direction:column}.selectors{width:100%;justify-content:stretch}.selectors select{max-width:none;flex:1}.toolbar{align-items:flex-end}.owner{flex:1;flex-direction:column;align-items:stretch;gap:3px}.owner select{min-width:0}.tools{flex:0 0 auto}.form-grid,.typed-grid,.care-editor-context{grid-template-columns:1fr}.typed-field.wide{grid-column:auto}.care-editor-instruction{grid-column:auto}.record-data{grid-template-columns:1fr}.care-instruction-row{grid-column:auto}.record-top{flex-direction:column;gap:3px}.record time{white-space:normal}.followup-row{grid-template-columns:32px minmax(0,1fr)}.followup-date{grid-column:2;align-items:flex-start;flex-direction:row;gap:6px}}
           @container dossier-card (max-width:430px){ha-card{padding:13px}.toolbar{flex-direction:column;align-items:stretch}.tools{justify-content:space-between}.tools button.primary{flex:1}.timeline-head{align-items:flex-start;flex-direction:column}.record{grid-template-columns:32px minmax(0,1fr)}.record-icon{width:30px;height:30px}.record-icon ha-icon{--mdc-icon-size:18px}}
         </style>
         <div class="top">
@@ -913,7 +1083,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
         <div class="toolbar">
           <div class="owner"><label for="owner-select">${escapeHtml(localize(this._hass, "dossierFor"))}</label><select id="owner-select" ${!litter ? "disabled" : ""}>${ownerOptions}</select></div>
           <div class="tools">
-            ${this._canManage ? `<button class="primary" id="add-record" ${this._saving || !litter ? "disabled" : ""}><ha-icon icon="mdi:plus"></ha-icon> ${escapeHtml(localize(this._hass, "add"))}</button>` : ""}
+            ${this._canAddRecord ? `<button class="primary" id="add-record" ${this._saving || !litter ? "disabled" : ""}><ha-icon icon="mdi:plus"></ha-icon> ${escapeHtml(localize(this._hass, "add"))}</button>` : ""}
           </div>
         </div>
         ${this._error ? `<div class="message error">${escapeHtml(this._error)}</div>` : ""}
@@ -926,7 +1096,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
           ${this._canManage ? `<label class="toggle"><input id="show-deleted" type="checkbox" ${this._showDeleted ? "checked" : ""}> ${escapeHtml(localize(this._hass, "showDeleted"))}</label>` : ""}
         </div>
         ${this._renderCategoryFilters(availableCategoryTypes, selectedCategoryTypes)}
-        <div class="dossier-timeline-scroll">${this._loading ? `<div class="empty">${escapeHtml(localize(this._hass, "loading"))}</div>` : records.length ? (visibleRecords.length ? `<div class="timeline">${visibleRecords.map((record) => this._renderRecord(record)).join("")}</div>` : `<div class="empty"><div>${escapeHtml(localize(this._hass, "noDossierItemsInCategories"))}</div><button type="button" class="text-button" id="clear-category-filters">${escapeHtml(localize(this._hass, "clearFilters"))}</button></div>`) : `<div class="empty">${escapeHtml(localize(this._hass, "noDossierItems", { owner: ownerName }))}${this._canManage ? escapeHtml(localize(this._hass, "noDossierItemsCanAdd")) : ""}</div>`}</div>
+        <div class="dossier-timeline-scroll">${this._loading ? `<div class="empty">${escapeHtml(localize(this._hass, "loading"))}</div>` : records.length ? (visibleRecords.length ? `<div class="timeline">${visibleRecords.map((record) => this._renderRecord(record)).join("")}</div>` : `<div class="empty"><div>${escapeHtml(localize(this._hass, "noDossierItemsInCategories"))}</div><button type="button" class="text-button" id="clear-category-filters">${escapeHtml(localize(this._hass, "clearFilters"))}</button></div>`) : `<div class="empty">${escapeHtml(localize(this._hass, "noDossierItems", { owner: ownerName }))}${this._canAddRecord ? escapeHtml(localize(this._hass, "noDossierItemsCanAdd")) : ""}</div>`}</div>
       </ha-card>`;
 
     this.shadowRoot.getElementById("litter-select")?.addEventListener("change", (event) => this._selectLitter(event.target.value));
@@ -963,12 +1133,16 @@ class PuppyTrackerDossierCard extends HTMLElement {
       this._loading = true;
       this._render();
       try {
-        this._recordData = await fetchRecords(
-          this._hass,
-          this._selectedLitterId,
-          this._selectedPuppyId,
-          this._showDeleted
-        );
+        if (this.__allSelected || this.__motherSelected) {
+          await this._loadLitterAndRecords(false);
+        } else {
+          this._recordData = await fetchRecords(
+            this._hass,
+            this._selectedLitterId,
+            this._selectedPuppyId,
+            this._showDeleted,
+          );
+        }
         this._error = "";
       } catch (err) {
         this._error = err?.message || localize(this._hass, "deletedItemsLoadFailed");
@@ -984,25 +1158,25 @@ class PuppyTrackerDossierCard extends HTMLElement {
 
     for (const button of this.shadowRoot.querySelectorAll(".edit-record")) {
       button.addEventListener("click", () => {
-        const record = visibleRecords.find((item) => item.id === button.dataset.id);
+        const record = visibleRecords.find((item) => (item.__aggregate_record_key || item.id) === (button.dataset.recordKey || button.dataset.id));
         if (record) this._startEdit(record);
       });
     }
     for (const button of this.shadowRoot.querySelectorAll(".delete-record")) {
       button.addEventListener("click", () => {
-        const record = visibleRecords.find((item) => item.id === button.dataset.id);
+        const record = visibleRecords.find((item) => (item.__aggregate_record_key || item.id) === (button.dataset.recordKey || button.dataset.id));
         if (record) this._deleteRecord(record);
       });
     }
     for (const button of this.shadowRoot.querySelectorAll(".move-record")) {
       button.addEventListener("click", () => {
-        const record = visibleRecords.find((item) => item.id === button.dataset.id);
+        const record = visibleRecords.find((item) => (item.__aggregate_record_key || item.id) === (button.dataset.recordKey || button.dataset.id));
         if (record) this._changeOwner(record);
       });
     }
     for (const button of this.shadowRoot.querySelectorAll(".restore-record")) {
       button.addEventListener("click", () => {
-        const record = visibleRecords.find((item) => item.id === button.dataset.id);
+        const record = visibleRecords.find((item) => (item.__aggregate_record_key || item.id) === (button.dataset.recordKey || button.dataset.id));
         if (record) this._restoreRecord(record);
       });
     }

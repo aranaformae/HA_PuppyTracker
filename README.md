@@ -12,7 +12,9 @@ Puppy Tracker is a custom Home Assistant integration for managing litters, mothe
 - Dedicated litter, mother and puppy devices.
 - Specialised weight tracking with correction history, growth metrics and weighing sessions.
 - Per-litter growth-analysis overrides with global fallback; breed and size metadata are stored for future analysis and are not treated as veterinary diagnoses.
-- Generic chronological dossier records for litter, mother and puppy scopes.
+- Generic chronological dossier records for litter, mother and puppy scopes;
+  the combined Dossier scope keeps existing items editable against their
+  original owner while requiring a specific scope for new items.
 - Structured records for notes, temperature, vaccinations, tests, deworming, medication, vet visits, milestones and other events.
 - Quick Log for frequent day-to-day entries, including mother-dog and temperature logging.
 - Dedicated temperature card with scoped history, trend chart, observations and direct temperature entry.
@@ -129,7 +131,7 @@ Existing programs can be saved as user-owned templates. User templates can be ed
 
 For the field-by-field template design guide and a complete import example, see [`docs/CARE_PROGRAMS.md`](docs/CARE_PROGRAMS.md).
 
-Care notifications use the shared Puppy Tracker notification coordinator and `notify.*` delivery path. Open due-soon, due-today and overdue occurrences are actionable, delivery respects both the global notification setting and the program notification setting, and related puppy actions are grouped to avoid one push per puppy.
+Care notifications use the shared Puppy Tracker notification coordinator and `notify.*` delivery path. Open due-soon, due-today and overdue occurrences are actionable, delivery respects both the global notification setting and the program notification setting, and related puppy actions are grouped to avoid one push per puppy. When a program has an age-specific instruction, that instruction is included in the persistent and mobile notification for that day.
 
 ## Notifications and production testing
 
@@ -187,6 +189,12 @@ Puppy Tracker automatically registers its frontend modules. A full browser refre
 | Care Programs | `custom:puppy-tracker-care-program-card` | Manage age-based litter care programs such as ENS, ESI and age-specific care |
 | Care Execution | `custom:puppy-tracker-care-execution-card` | Execute open care actions independently of Today and Attention |
 | Temperature | `custom:puppy-tracker-temperature-card` | View and record temperature readings and observations per litter, mother or puppy |
+
+Expanded care-program result records in the Dossier card show the care day,
+scheduled time, status, result, score, day-specific instruction and additional
+care data. When record management is enabled, status, result and score can be
+adjusted from the same editor; program and source identifiers remain hidden as
+technical metadata.
 
 ### Recurring reminder card example
 

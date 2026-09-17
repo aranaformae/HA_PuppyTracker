@@ -33,8 +33,9 @@ def test_timeline_all_scope_combines_mother_with_litter_and_puppies() -> None:
     assert '"Alles (incl. moeder)"' in source
 
 
-def test_dossier_all_scope_is_read_only_aggregate() -> None:
+def test_dossier_all_scope_keeps_owner_context_for_crud() -> None:
     source = _read("custom_components/puppy_tracker/frontend/puppy-tracker-all-scope.js")
+    dossier = _read("custom_components/puppy_tracker/frontend/puppy-tracker-dossier-card.js")
 
     assert "fetchLitterData" in source
     assert "fetchRecords" in source
@@ -42,7 +43,14 @@ def test_dossier_all_scope_is_read_only_aggregate() -> None:
     assert 'decorateRecord(record, "litter"' in source
     assert 'decorateRecord(record, "mother"' in source
     assert 'decorateRecord(record, "puppy"' in source
-    assert 'can_manage_records: false' in source
+    assert "__aggregate_owner_puppy_id" in source
+    assert "__aggregate_record_key" in source
+    assert "canManageRecords" in source
+    assert "updateMotherDossierRecord" in dossier
+    assert "deleteMotherDossierRecord" in dossier
+    assert "restoreMotherDossierRecord" in dossier
+    assert "_recordOwnerContext" in dossier
+    assert "this._canManage && !this.__allSelected" in dossier
     assert 'if (this.__allSelected) return "";' in source
     assert '"Alles (nest + moeder + pups)"' in source
 
