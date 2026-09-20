@@ -129,6 +129,12 @@ The scheduled timestamp and actual event timestamp have different meanings. `car
 
 Current result capabilities include optional result, score and note fields plus extensible structured care data.
 
+The Dossier card renders the user-facing result context without exposing
+technical program/source identifiers. It shows age day, scheduled time, status,
+result, score, resolved day-specific instruction and additional care data.
+Status, result and score can be corrected through the normal record editor;
+program revision and occurrence identity remain unchanged.
+
 A second active result for the same `care_occurrence_id` is rejected. Soft-deleted dossier records do not count as completion.
 
 The result API re-derives the requested occurrence from the authoritative program and puppy rather than trusting arbitrary schedule metadata supplied by the frontend.
@@ -345,9 +351,16 @@ Related occurrences are grouped by program/age context so a litter does not rece
 
 Current mobile deduplication state is runtime-only. An unresolved occurrence may therefore be delivered again after the integration/Home Assistant is restarted; reboot-persistent delivery deduplication is not part of the current contract.
 
+See [Notifications](NOTIFICATIONS.md) for the normal configuration, clearing
+and production-test workflow.
+
 ## Reporting
 
-Care outcomes are normal dossier records, so reporting reads the dossier rather than reconstructing results from reminder state. PDF reports include care-program results inside the selected report period, including age day, completed/missed status, structured result data, score and note where present.
+Care outcomes are normal dossier records, so reporting reads the dossier rather
+than reconstructing results from reminder state. PDF reports include
+care-program results inside the selected report period, including age day,
+completed/missed status, structured result data, score, note and the
+day-specific instruction stored with the result where present.
 
 ## Diagnostics
 

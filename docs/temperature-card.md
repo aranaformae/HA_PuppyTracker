@@ -9,11 +9,18 @@ Add this YAML to a Lovelace dashboard:
 ```yaml
 type: custom:puppy-tracker-temperature-card
 title: Temperatuur
-default_scope: puppy
 default_selected: puppy
 default_range: 3d
 history_limit: 10
 max_height: 520
+chart_height: 170
+history_sort: newest
+show_selectors: true
+show_thresholds: false
+show_latest: true
+show_chart: true
+show_history: true
+show_editor: true
 ```
 
 The integration serves and registers the card automatically. After installing or upgrading Puppy Tracker, perform a full browser or Companion App refresh if Home Assistant still shows an old card definition.
@@ -26,11 +33,21 @@ All settings are optional. The visual editor exposes the same settings where sup
 | --- | --- | --- | --- |
 | `title` | text | `Temperatuur` | Heading shown at the top of the card |
 | `litter_id` | existing litter ID | first available litter | Selects the nest opened by default |
-| `default_scope` | `litter`, `mother`, `puppy` | `litter` | Selects the initial owner scope |
 | `default_selected` | `litter`, `mother`, `puppy` | unset | Selects the initial owner scope and takes precedence over `default_scope` |
+| `default_scope` | `litter`, `mother`, `puppy` | `litter` | Backwards-compatible alias for the initial owner scope |
 | `default_range` | `24h`, `3d`, `7d`, `14d`, `all` | `3d` | Selects the initial time range |
 | `history_limit` | integer 3-50 | `10` | Limits the number of history rows before scrolling |
 | `max_height` | integer 240-900 | `520` | Sets the history area's maximum height in pixels |
+| `chart_height` | integer 100-500 | `170` | Sets the chart height in pixels |
+| `history_sort` | `newest`, `oldest` | `newest` | Controls history row order |
+| `show_selectors` | boolean | `true` | Shows litter, owner, puppy and period selectors |
+| `show_thresholds` | boolean | `false` | Draws configured low/high reference lines in the chart |
+| `threshold_low` | number 30-45 | `37.5` | Low chart reference in degrees Celsius |
+| `threshold_high` | number 30-45 | `39.5` | High chart reference in degrees Celsius |
+| `show_latest` | boolean | `true` | Shows the latest-reading summary |
+| `show_chart` | boolean | `true` | Shows the temperature chart |
+| `show_history` | boolean | `true` | Shows the measurement history |
+| `show_editor` | boolean | `true` | Shows the add button and entry form |
 
 The measurement history is an independent scroll area. Once it reaches
 `max_height`, only the list of readings scrolls; the selectors, latest reading,
@@ -42,7 +59,7 @@ Example for a fixed mother-dog view:
 ```yaml
 type: custom:puppy-tracker-temperature-card
 title: Luna temperatuur
-default_scope: mother
+default_selected: mother
 default_range: 24h
 max_height: 360
 ```
@@ -52,10 +69,13 @@ Example for a compact puppy view in a mobile dashboard:
 ```yaml
 type: custom:puppy-tracker-temperature-card
 title: Pup temperatuur
-default_scope: puppy
+default_selected: puppy
 default_range: 3d
 history_limit: 6
 max_height: 360
+show_thresholds: true
+threshold_low: 37.5
+threshold_high: 39.5
 ```
 
 ## Using the card
@@ -68,7 +88,12 @@ The card provides these controls:
 - Period selector for the last 24 hours, 3, 7 or 14 days, or all available history.
 - Add-temperature action with temperature, date/time, measurement method/location and observation/note fields.
 
-The latest reading is shown separately from the history. The trend chart uses the selected period. The history shows date/time, value, optional method/location and the full observation text. Long notes wrap within the row and the history area scrolls instead of expanding the complete dashboard indefinitely.
+The latest reading is shown separately from the history. The trend chart uses
+the selected period. Optional threshold lines are visual references only; they
+do not create warnings or replace veterinary guidance. The history shows
+date/time, value, optional method/location and the full observation text. Long
+notes wrap within the row and the history area scrolls instead of expanding the
+complete dashboard indefinitely.
 
 ## Data and ownership
 

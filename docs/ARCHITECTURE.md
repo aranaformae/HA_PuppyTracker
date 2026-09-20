@@ -2,6 +2,11 @@
 
 This document describes the architectural direction and current pre-1.0 contracts of Puppy Tracker.
 
+User-facing setup and card instructions live outside this document. See the
+[documentation index](README.md), [dashboard card reference](DASHBOARD_CARDS.md)
+and [notification guide](NOTIFICATIONS.md). Keeping implementation contracts
+here prevents the root README from becoming a second architecture manual.
+
 ## Goal
 
 Puppy Tracker is a Home Assistant integration for maintaining litter, mother-dog and puppy care data while retaining specialised, high-quality puppy weight tracking.
@@ -57,6 +62,14 @@ Small reusable helpers such as collar colors are imported by their consumer,
 while one-card layout behavior remains on that card. Cross-card compatibility modules remain only
 where one feature deliberately coordinates several independently defined card
 surfaces; load order for those modules is documented in `frontend.py`.
+
+`frontend.py` is the authoritative registration and compatibility load order.
+Base cards load before deliberate cross-card layers such as care surfaces,
+temperature/mother support, aggregate owner scopes, compact list presentation
+and the localization bridge. A new one-card behavior should not depend on being
+patched into a prototype later in that sequence. Existing compatibility layers
+are consolidated into their owning card incrementally and their order remains a
+tested contract until that consolidation is complete.
 
 ## Integration identity
 
@@ -216,9 +229,10 @@ The Timeline may display weight events beside dossier records, but authoritative
 The Overview card keeps analysis data available independently of presentation.
 Per-card options `show_advanced_analysis`, `show_growth_milestones` and
 `show_milestone_chart_annotations` control detail panels, milestone progress
-rows and chart annotations respectively. They default to enabled for backward
-compatibility, and are presentation-only options that do not affect metrics,
-storage or other card instances.
+rows and chart annotations respectively. Advanced analysis defaults to hidden;
+milestones and their chart annotations default to visible. These are
+presentation-only options that do not affect metrics, storage or other card
+instances.
 
 ## Dossier record envelope
 
@@ -501,7 +515,8 @@ coordinated scheduler transaction. Partial litter/puppy transfers omit them.
 `OwnerStore` contains reusable contact records. Puppies store an `owner_ids`
 reference list rather than embedding personal data, which allows contacts to be
 created and edited before a puppy is selected for placement. Owner records carry
-contact details plus role, placement status/date, payment status/date and notes.
+contact details plus role, preferred contact method, placement status/date,
+payment status/date, payment amount/balance/method, status history and notes.
 Full v5 backups include the owner store; partial transfers omit it because
 references cannot be remapped safely without an explicit owner-transfer flow.
 The owner's microchip value is a separate puppy `chip_number` text field and is
@@ -631,6 +646,7 @@ custom:puppy-tracker-care-execution-card
 custom:puppy-tracker-recurring-reminder-card
 custom:puppy-tracker-litter-card
 custom:puppy-tracker-report-card
+custom:puppy-tracker-owner-card
 custom:puppy-tracker-dossier-card
 custom:puppy-tracker-quick-log-card
 custom:puppy-tracker-mobile-card
@@ -641,11 +657,24 @@ custom:puppy-tracker-temperature-card
 
 Mother scope is expected on Dossier, Quick Log, Timeline, Attention, Report/export and Recurring Reminders where the workflow logically supports a single owner. Bulk Dossier remains puppy-oriented because its purpose is one event applied to multiple puppies.
 
-The Temperature card is a focused temperature workflow. It reads structured `temperature` dossier records, supports litter, mother and puppy scope, offers a configurable history range, renders a compact SVG trend view and writes new readings through the same dossier APIs as the other cards. It is an additional presentation surface, not a separate temperature store. Its history height and row limit are configurable so the card remains usable on phones and tablets.
+The Temperature card is a focused temperature workflow. It reads structured
+`temperature` dossier records, supports litter, mother and puppy scope, offers
+a configurable history range, renders a compact SVG trend view and writes new
+readings through the same dossier APIs as the other cards. It is an additional
+presentation surface, not a separate temperature store. Selectors, latest
+reading, chart, visual threshold lines, history and editor are independently
+configurable. Chart height, history order, history height and row limit are
+also presentation options so one card can be compact while another remains a
+complete temperature workstation.
 
 The recurring-reminder card must resolve the linked mother through the mother scope rather than requiring `litter.mother_id` in the ordinary litter payload.
 
-Presentation density is configured per Lovelace card instance. The Overview card exposes independent switches for advanced analysis, growth milestones and chart annotations. The Litter card uses `show_details` to control secondary growth columns and expandable per-puppy metadata; all of these options default to the current detailed presentation for backward compatibility.
+Presentation density is configured per Lovelace card instance. The Overview
+card exposes independent switches for advanced analysis, growth milestones and
+chart annotations. Advanced analysis defaults to hidden while milestone rows
+and annotations remain visible. The Litter card uses `show_details` to control
+secondary growth columns and expandable per-puppy metadata and defaults to its
+detailed presentation.
 
 Milestone projection is derived presentation data. The per-litter `milestone_projection_measurements` setting selects 2 to 8 recent valid growth periods, with 4 as the default. The backend returns the mean daily growth, an uncertainty range, a confidence level and an irregular-cadence flag; the original single-date estimate remains available for clients that only understand `estimated_at`.
 
@@ -687,9 +716,9 @@ acknowledge, complete or otherwise mutate records or occurrences. Temperature an
 age-based care types must be offered when present, so they cannot disappear merely
 because they are not part of an older static type list.
 
-Attention keeps open and acknowledged items in independently scrollable lists with
-a maximum height of 520px. Today applies the same maximum to its combined activity
-area. Timeline retains its category filters even when timeline items are configured
+Attention keeps its item list internally scrollable with a maximum height of
+`60vh`. Today caps its combined activity area at 520px. Timeline retains its
+category filters even when timeline items are configured
 to start hidden; `show_timeline_items` controls the initial presentation only and
 does not remove the control or change the underlying data.
 

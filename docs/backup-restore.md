@@ -53,7 +53,10 @@ Export downloads use a signed Home Assistant URL that expires after 10 minutes. 
 
 ## Automated file backups
 
-The `puppy_tracker.backup_to_file` Home Assistant service writes an importable JSON backup to a file from an automation. The path must be inside the Home Assistant configuration directory and must end in `.json`.
+The `puppy_tracker.backup_to_file` Home Assistant action writes an importable
+JSON backup to a file. It is available in **Developer tools -> Actions** and can
+also be called from an automation. The path must be inside the Home Assistant
+configuration directory and must end in `.json`.
 
 ```yaml
 action:
@@ -76,6 +79,10 @@ action:
 ```
 
 `keep_last` is optional and only applies when `include_timestamp` is `true`. It retains the newest number of timestamped files matching the configured filename and removes older matching backups; unrelated files in the directory are left untouched.
+
+The action fields have Home Assistant UI selectors, so scope, timestamping and
+retention can be configured without writing YAML. YAML remains useful when the
+same action is part of a scheduled automation.
 
 The diagnostic sensor `sensor.puppy_tracker_laatste_backup` changes to `ok` after a successful backup or `error` after a failed attempt. The attributes `last_backup_at`, `path`, `scope`, `file_count` and `last_error` can be used by automations for monitoring.
 

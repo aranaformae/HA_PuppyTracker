@@ -208,6 +208,11 @@ Creates a minimal valid litter and puppy tree directly in the in-memory store. T
 
 ## Important regression scenarios
 
+The technical contracts behind these scenarios are documented in
+[`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md). Card configuration and manual
+touch-device checks live in [`docs/DASHBOARD_CARDS.md`](../docs/DASHBOARD_CARDS.md)
+and [`docs/ios-ipados-release-checklist.md`](../docs/ios-ipados-release-checklist.md).
+
 ### Mixed timezone ordering
 
 A timestamp must be sorted by its actual instant, not by its ISO string.

@@ -26,6 +26,9 @@ Use this checklist before a release that changes dashboard cards, frontend loadi
 - [ ] Litter and puppy selectors open and commit the selected value on the first interaction.
 - [ ] Weight input accepts numeric input and keeps focus while Home Assistant state updates arrive.
 - [ ] Start weighing session, save a weight, and reset the session.
+- [ ] Scroll below the Mobile Controls card, leave the Weighing tab active for at least 30 seconds and confirm background updates do not move the page to the top.
+- [ ] Switch among Weighing, Quick Log, Today and Care today and confirm the surrounding dashboard keeps its scroll position.
+- [ ] Complete a Care today item, enter configured result/score/note values and confirm the dialog closes without moving the page.
 - [ ] Attention card loads alerts/upcoming actions after data arrives.
 - [ ] Temperature card loads the selected nest, owner scope and period without clipped selectors.
 - [ ] Temperature card can save a reading with an observation and shows it in the latest-reading area and history.
@@ -41,6 +44,7 @@ Use this checklist before a release that changes dashboard cards, frontend loadi
 - [ ] Native selectors, date/time inputs, text fields, and textareas remain responsive.
 - [ ] Temperature history scrolls inside the card and long observations remain readable without horizontal overflow.
 - [ ] Weight input and dossier form focus are not lost during live updates.
+- [ ] Mobile Controls keeps its current tab and dashboard scroll position during live updates in portrait and landscape.
 
 ## Dossier
 
@@ -51,6 +55,8 @@ Use this checklist before a release that changes dashboard cards, frontend loadi
 - [ ] Move a dossier record between puppy, mother and litter owners and confirm it appears only under the new owner.
 - [ ] Change record type while editing and confirm entered values are preserved where expected.
 - [ ] Edit an existing record.
+- [ ] Open the aggregate All scope and edit/delete/restore an existing litter, mother and puppy record.
+- [ ] Open a care-program result and verify status, result, score and day-specific instruction are visible; edit the supported result fields.
 - [ ] Soft-delete a record.
 - [ ] Enable deleted items and restore the record.
 - [ ] Edit a profile note and save it.
