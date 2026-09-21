@@ -185,6 +185,27 @@ test("logs a temperature for the selected mother instead of the whole litter", a
   }));
 });
 
+test("logs a structured temperature for the selected puppy with an optional observation", async ({ page }) => {
+  const card = await mountQuickLog(page, "en");
+
+  await card.locator("#owner-select").selectOption("p2");
+  await card.locator('[data-preset="temperature"]').click();
+  await card.locator("#quick-temperature").fill("37.9");
+  await card.locator("#quick-note").fill("Sleeping after feeding");
+  await card.locator("#quick-save").click();
+
+  const calls = await recordAddCalls(page);
+  expect(calls).toHaveLength(1);
+  expect(calls[0]).toEqual(expect.objectContaining({
+    litter_id: "l1",
+    puppy_id: "p2",
+    record_type: "temperature",
+    title: "Temperature",
+    note: "Sleeping after feeding",
+    data: { temperature_c: 37.9 },
+  }));
+});
+
 test("switching presets preserves unsaved input", async ({ page }) => {
   const card = await mountQuickLog(page, "en");
 
@@ -225,4 +246,5 @@ test("Quick Log is localized in Dutch", async ({ page }) => {
   await expect(card.getByText("Ontlasting / urine", { exact: true })).toBeVisible();
   await expect(card.getByText("Medicatie", { exact: true })).toBeVisible();
   await expect(card.getByText("Mijlpaal", { exact: true })).toBeVisible();
+  await expect(card.getByText("Temperatuur", { exact: true })).toBeVisible();
 });

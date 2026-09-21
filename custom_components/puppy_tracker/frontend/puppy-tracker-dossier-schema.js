@@ -14,6 +14,7 @@ export const RECORD_TYPES = [
 ];
 
 export const BULK_RECORD_TYPES = [
+  ["temperature", "temperature"],
   ["deworming", "deworming"],
   ["vaccination", "vaccination"],
   ["test", "test"],

@@ -6,13 +6,17 @@ import {
   fireNavigate,
   languageForHass,
   localize,
-  loadCardState,
-  saveCardState,
+  requestLitterChange,
   selectDefaultLitter,
+  runCardLoadHooks,
+  runCardRenderHooks,
   statusIcon,
   statusTone,
   subscribeUpdates,
 } from "./puppy-tracker-card-common.js";
+import "./puppy-tracker-care-surfaces.js";
+import "./puppy-tracker-attention-qol.js";
+import "./puppy-tracker-mother-surfaces.js";
 
 function actionStatusText(hass, action) {
   const days = Number(action?.days_until_due ?? action?.days_until);
@@ -82,8 +86,6 @@ class PuppyTrackerAttentionCard extends HTMLElement {
     this._subscriptionPending = false;
     this._refreshing = false;
     this._refreshAgain = false;
-    this._state = loadCardState(this, { litterId: null });
-    this._selectedLitterId = this._state.litterId || null;
   }
 
   static getStubConfig() {
@@ -208,6 +210,7 @@ class PuppyTrackerAttentionCard extends HTMLElement {
     } catch (err) {
       this._error = err?.message || localize(this._hass, "overviewCouldNotLoad");
     }
+    await runCardLoadHooks(this);
     if (render) this._render();
   }
 
@@ -304,8 +307,8 @@ class PuppyTrackerAttentionCard extends HTMLElement {
       </ha-card>`;
 
     this.shadowRoot.getElementById("litter-select")?.addEventListener("change", async (event) => {
+      if (!requestLitterChange(this, event.target.value)) return;
       this._selectedLitterId = event.target.value;
-      saveCardState(this, { ...this._state, litterId: this._selectedLitterId });
       await this._loadData();
     });
     if (this._config.navigate_path) {
@@ -314,13 +317,10 @@ class PuppyTrackerAttentionCard extends HTMLElement {
         row.addEventListener("click", () => fireNavigate(this, this._config.navigate_path));
       });
     }
+    runCardRenderHooks(this);
   }
 }
 
 if (!customElements.get("puppy-tracker-attention-card")) {
   customElements.define("puppy-tracker-attention-card", PuppyTrackerAttentionCard);
-}
-window.customCards = window.customCards || [];
-if (!window.customCards.some((card) => card.type === "puppy-tracker-attention-card")) {
-  window.customCards.push({ type: "puppy-tracker-attention-card", name: "Puppy Tracker Attention", description: localize(null, "attentionCardDescription") });
 }

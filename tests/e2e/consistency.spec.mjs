@@ -42,7 +42,7 @@ async function mount(page, tag, config = {}, overrides = {}) {
 }
 
 test("production timeline keeps no categories selected for mother and all scopes", async ({ page }) => {
-  const card = await mount(page, "puppy-tracker-timeline-card", { default_scope: "mother" });
+  const card = await mount(page, "puppy-tracker-timeline-card", { default_selected: "mother" });
   await expect(card.locator('[data-filter-type="feeding"]')).toBeVisible();
   await expect(card.locator('.timeline-item[data-event-type="feeding"]')).toHaveCount(1);
   await card.locator('[data-filter-type="__all__"]').click();
@@ -67,7 +67,7 @@ test("mother Quick Log saves feeding under the feeding category", async ({ page 
 });
 
 test("temperature editor keeps text and focus through a live update", async ({ page }) => {
-  const card = await mount(page, "puppy-tracker-temperature-card", { default_scope: "puppy" });
+  const card = await mount(page, "puppy-tracker-temperature-card", { default_selected: "puppy" });
   await expect(card.locator("#add-temperature")).toBeEnabled();
   await card.locator("#add-temperature").click();
   await card.locator("#temperature-value").fill("38.6");
@@ -81,14 +81,14 @@ test("temperature editor keeps text and focus through a live update", async ({ p
 });
 
 test("temperature history can reveal records beyond its initial row limit", async ({ page }) => {
-  const card = await mount(page, "puppy-tracker-temperature-card", { default_scope: "puppy", history_limit: 3 });
+  const card = await mount(page, "puppy-tracker-temperature-card", { default_selected: "puppy", history_limit: 3 });
   await expect(card.locator(".history-row")).toHaveCount(3);
   await card.locator("#temperature-history-more").click();
   await expect(card.locator(".history-row")).toHaveCount(12);
 });
 
 test("temperature cannot fall back to the litter when no puppy exists", async ({ page }) => {
-  const card = await mount(page, "puppy-tracker-temperature-card", { default_scope: "puppy" }, { puppies: [] });
+  const card = await mount(page, "puppy-tracker-temperature-card", { default_selected: "puppy" }, { puppies: [] });
   await expect(card.locator("#add-temperature")).toBeDisabled();
   await page.evaluate(async () => { window.card._draft = { temperature_c: "38.5", occurred_at: new Date().toISOString() }; await window.card._save(); });
   expect(await page.evaluate(() => window.calls.filter(c => c.type.endsWith("/record/add")))).toEqual([]);
@@ -156,4 +156,31 @@ test("owner linking filters puppies by litter and sends the puppy's litter", asy
   await card.locator('[name="linked_owner"]').check();
   await card.locator("#link-save").click();
   await expect.poll(() => page.evaluate(() => window.calls.find(c => c.type === "puppy_tracker/owners/link"))).toMatchObject({ litter_id: "l2", puppy_id: "p-l2", owner_ids: ["o1"] });
+});
+
+test("owner dates and stored values are labeled and localized", async ({ page }) => {
+  await page.goto("/tests/e2e/cards.html?production=1");
+  await page.waitForFunction(() => window.__puppyTrackerReady);
+  await page.evaluate(() => {
+    const owner = { id: "o1", name: "Alex", role: "owner", placement_status: "reserved", placement_date: "2026-09-01", payment_status: "registration_fee", payment_date: "2026-09-02", notes: "A long note that must remain completely visible." };
+    const card = document.createElement("puppy-tracker-owner-card");
+    card.setConfig({});
+    document.querySelector("#cards").append(card);
+    card.hass = {
+      language: "en", locale: { language: "en" },
+      callWS: async (message) => {
+        if (message.type === "puppy_tracker/owners/list") return { owners: [owner] };
+        if (message.type === "puppy_tracker/litters") return { litters: [] };
+        throw new Error(message.type);
+      },
+    };
+  });
+  const card = page.locator("puppy-tracker-owner-card");
+  await card.locator("[data-toggle-owner='o1']").click();
+  await expect(card.locator(".owner-detail")).toContainText("Reserved");
+  await expect(card.locator(".owner-detail")).toContainText("Registration fee");
+  await expect(card.locator(".owner-detail .notes")).toContainText("A long note that must remain completely visible.");
+  await card.locator("[data-edit='o1']").click();
+  await expect(card.locator('label:has-text("Placement date") input[name="placement_date"]')).toHaveValue("2026-09-01");
+  await expect(card.locator('label:has-text("Payment date") input[name="payment_date"]')).toHaveValue("2026-09-02");
 });

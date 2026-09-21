@@ -248,6 +248,23 @@ test("shows the selected puppy collar color prominently", async ({ page }) => {
   await expect(nextCollar).toHaveCSS("background-color", "rgb(30, 136, 229)");
 });
 
+test("weighing station localizes sensor-backed status without the legacy bridge", async ({ page }) => {
+  await mountWeighingStation(page);
+
+  const card = page.locator("puppy-tracker-card");
+  await expect(card.locator("#card-title")).toHaveText("Puppy weighing station");
+  await expect(card.locator("#session-badge")).toHaveText("Not started");
+  await expect(card.locator(".puppy-row").first()).toContainText("2 d 4 h");
+  await expect(card.locator(".puppy-row").first()).toContainText("Good");
+  await expect(card.locator("#weight-input")).toHaveAttribute("placeholder", "e.g. 428");
+
+  await notifyHassUpdate(page, { entityId: "sensor.pt_session", state: "Bezig" });
+  await notifyHassUpdate(page, { entityId: "sensor.pt_message", state: "Weegsessie gestart" });
+
+  await expect(card.locator("#session-badge")).toHaveText("In progress");
+  await expect(card.locator("#local-message")).toHaveText("Weighing session started");
+});
+
 test("shows the last weighing moment for the selected puppy", async ({ page }) => {
   await mountWeighingStation(page);
 

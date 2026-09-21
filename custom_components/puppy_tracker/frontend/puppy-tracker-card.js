@@ -1,5 +1,151 @@
 // Puppy Tracker Card v1.3.1
 import { collarColor } from "./puppy-tracker-collar-chart-colors.js";
+import { announceLitterChange, languageForHass } from "./puppy-tracker-card-common.js";
+
+const WEIGHING_TEXT = {
+  nl: {
+    actionFailed: "De actie kon niet worden uitgevoerd.",
+    completed: "Voltooid",
+    differencePrevious: "Verschil met vorige meting",
+    elapsedSinceLast: "Tijd sinds laatste meting",
+    enterValidWeight: "Voer eerst een geldig gewicht in.",
+    firstMeasurement: "{puppy}: {weight} opgeslagen · eerste meting.",
+    hours24: "24 uur",
+    hoursAgo: "{count} uur geleden",
+    inProgress: "Bezig",
+    lastWeighed: "Laatst gewogen",
+    latestSelected: "Laatste weging geselecteerde pup",
+    litter: "Nest",
+    loadingHomeAssistant: "Home Assistant laden…",
+    metricWeight: "gewicht",
+    minutesAgo: "{count} min geleden",
+    missingControls: "Niet gevonden in Home Assistant: {controls}. Herlaad de integratie en vernieuw daarna het dashboard.",
+    missingEntity: "De entity voor {label} is niet gevonden. Herlaad de Puppy Tracker-integratie en vernieuw daarna het dashboard.",
+    missingSelect: "De bijbehorende select-entity is niet gevonden.",
+    nextPuppy: "Volgende pup",
+    noActivePuppies: "Geen actieve pups gevonden voor dit nest.",
+    noMeasurement: "Geen meting",
+    none: "Geen",
+    notStarted: "Niet gestart",
+    nowSelected: "Nu geselecteerd",
+    previousSelected: "Vorige meting geselecteerde pup",
+    progress: "Voortgang",
+    puppy: "Puppy",
+    rediscover: "Opnieuw zoeken",
+    registryFailed: "De kaart kon de Puppy Tracker-entities niet automatisch vinden.",
+    remaining: "Nog te wegen",
+    resetSession: "Reset sessie",
+    resetSessionAction: "Weegsessie resetten",
+    saveWeight: "Gewicht opslaan",
+    savedCompared: "{puppy}: {weight} opgeslagen · {gain} ({percent}) t.o.v. vorige meting van {previous}.",
+    searchHint: "Controleer of de integratie geladen is en herlaad daarna de kaart.",
+    searching: "Puppy Tracker zoeken…",
+    startSession: "Start weegsessie",
+    startSessionAction: "Weegsessie starten",
+    stationNotFound: "Puppy weegstation niet gevonden",
+    statusFirst24h: "Eerste 24 uur",
+    statusLowGrowth: "Lage groei",
+    statusNoMeasurement: "Geen meting",
+    statusOk: "Goed",
+    statusUnknown: "Onbekend",
+    statusWeighDue: "Weging nodig",
+    statusWeightLoss: "Gewichtsverlies",
+    title: "Puppy weegstation",
+    weight: "Gewicht",
+    weightInput: "Gewicht invoeren",
+    weightPlaceholder: "bijv. 428",
+    weighNow: "Nu te wegen",
+    dayAgo: "1 dag geleden",
+    daysAgo: "{count} dagen geleden",
+  },
+  en: {
+    actionFailed: "The action could not be completed.",
+    completed: "Completed",
+    differencePrevious: "Difference from previous measurement",
+    elapsedSinceLast: "Time since last measurement",
+    enterValidWeight: "Enter a valid weight first.",
+    firstMeasurement: "{puppy}: {weight} saved · first measurement.",
+    hours24: "24 hours",
+    hoursAgo: "{count} hours ago",
+    inProgress: "In progress",
+    lastWeighed: "Last weighed",
+    latestSelected: "Latest weighing for selected puppy",
+    litter: "Litter",
+    loadingHomeAssistant: "Loading Home Assistant…",
+    metricWeight: "weight",
+    minutesAgo: "{count} min ago",
+    missingControls: "Not found in Home Assistant: {controls}. Reload the integration and then refresh the dashboard.",
+    missingEntity: "The entity for {label} was not found. Reload the Puppy Tracker integration and then refresh the dashboard.",
+    missingSelect: "The associated select entity was not found.",
+    nextPuppy: "Next puppy",
+    noActivePuppies: "No active puppies found for this litter.",
+    noMeasurement: "No measurement",
+    none: "None",
+    notStarted: "Not started",
+    nowSelected: "Selected now",
+    previousSelected: "Previous measurement for selected puppy",
+    progress: "Progress",
+    puppy: "Puppy",
+    rediscover: "Search again",
+    registryFailed: "The card could not automatically find the Puppy Tracker entities.",
+    remaining: "Still to weigh",
+    resetSession: "Reset session",
+    resetSessionAction: "reset weighing session",
+    saveWeight: "Save weight",
+    savedCompared: "{puppy}: {weight} saved · {gain} ({percent}) vs previous measurement of {previous}.",
+    searchHint: "Check that the integration is loaded, then reload the card.",
+    searching: "Searching for Puppy Tracker…",
+    startSession: "Start weighing session",
+    startSessionAction: "start weighing session",
+    stationNotFound: "Puppy weighing station not found",
+    statusFirst24h: "First 24 hours",
+    statusLowGrowth: "Low growth",
+    statusNoMeasurement: "No measurement",
+    statusOk: "Good",
+    statusUnknown: "Unknown",
+    statusWeighDue: "Weighing due",
+    statusWeightLoss: "Weight loss",
+    title: "Puppy weighing station",
+    weight: "Weight",
+    weightInput: "weight input",
+    weightPlaceholder: "e.g. 428",
+    weighNow: "Weigh now",
+    dayAgo: "1 day ago",
+    daysAgo: "{count} days ago",
+  },
+};
+
+function weighingText(hass, key, replacements = {}) {
+  const language = languageForHass(hass);
+  const template = WEIGHING_TEXT[language]?.[key] ?? WEIGHING_TEXT.nl[key] ?? key;
+  return Object.entries(replacements).reduce(
+    (result, [name, value]) => result.replaceAll(`{${name}}`, String(value ?? "")),
+    template,
+  );
+}
+
+function configHass() {
+  return document.querySelector("home-assistant")?.hass || null;
+}
+
+const WEIGHING_ERRORS_EN = new Map([
+  ["Er is al een actieve weegsessie. Rond deze af of reset hem eerst.", "A weighing session is already active. Complete or reset it first."],
+  ["Er zijn geen actieve nesten.", "There are no active litters."],
+  ["Selecteer eerst een nest.", "Select a litter first."],
+  ["Selecteer eerst een puppy.", "Select a puppy first."],
+  ["Voer eerst een gewicht groter dan 0 gram in.", "Enter a weight greater than 0 grams first."],
+  ["De geselecteerde puppy bestaat niet meer.", "The selected puppy no longer exists."],
+  ["De geselecteerde puppy is gearchiveerd.", "The selected puppy is archived."],
+  ["Mogelijke dubbele meting. Druk binnen 30 seconden nogmaals op Gewicht opslaan om te bevestigen.", "Possible duplicate measurement. Press Save weight again within 30 seconds to confirm."],
+  ["Tijdens een actieve weegsessie kan het nest niet worden gewijzigd.", "The litter cannot be changed during an active weighing session."],
+]);
+
+function localizeWeighingError(hass, value) {
+  const original = String(value || "");
+  return languageForHass(hass) === "en"
+    ? (WEIGHING_ERRORS_EN.get(original) || original)
+    : original;
+}
 
 class PuppyTrackerCard extends HTMLElement {
   constructor() {
@@ -25,11 +171,12 @@ class PuppyTrackerCard extends HTMLElement {
     this._optimisticPuppyOption = null;
     this._lastStateSignature = "";
     this._viewStructureKey = "";
+    this._announcedLitterId = "";
   }
 
   static getStubConfig() {
     return {
-      title: "Puppy weegstation",
+      title: weighingText(configHass(), "title"),
       show_puppies: true,
       show_details: true,
     };
@@ -47,7 +194,7 @@ class PuppyTrackerCard extends HTMLElement {
 
   setConfig(config) {
     this._config = {
-      title: "Puppy weegstation",
+      title: null,
       show_puppies: true,
       show_details: true,
       ...config,
@@ -94,6 +241,7 @@ class PuppyTrackerCard extends HTMLElement {
     }
 
     const station = this._station();
+    this._announceSelectedLitter(station);
     let optimisticChanged = false;
     if (
       this._optimisticLitterOption &&
@@ -198,6 +346,66 @@ class PuppyTrackerCard extends HTMLElement {
     };
   }
 
+  _t(key, replacements = {}) {
+    return weighingText(this._hass, key, replacements);
+  }
+
+  _sessionPresentation(value) {
+    const normalized = String(value || "").trim().toLowerCase();
+    if (["bezig", "in progress", "active"].includes(normalized)) {
+      return { code: "active", label: this._t("inProgress") };
+    }
+    if (["voltooid", "completed", "complete"].includes(normalized)) {
+      return { code: "complete", label: this._t("completed") };
+    }
+    return { code: "idle", label: this._t("notStarted") };
+  }
+
+  _statusLabel(row) {
+    const key = {
+      first_24h: "statusFirst24h",
+      first_day_excess_weight_loss: "statusWeightLoss",
+      low_growth: "statusLowGrowth",
+      no_measurement: "statusNoMeasurement",
+      ok: "statusOk",
+      weigh_due: "statusWeighDue",
+      weight_loss: "statusWeightLoss",
+    }[row?.statusCode];
+    return key ? this._t(key) : (row?.status || this._t("statusUnknown"));
+  }
+
+  _noneDisplay(value) {
+    const normalized = String(value || "").trim().toLowerCase();
+    return !normalized || ["geen", "none"].includes(normalized)
+      ? this._t("none")
+      : value;
+  }
+
+  _ageDisplay(value) {
+    const original = String(value || "");
+    if (languageForHass(this._hass) !== "en") return original;
+    return original
+      .replace(/\b(\d+)\s+u\b/g, "$1 h")
+      .replace(/\b(\d+)\s+dagen\b/g, "$1 days")
+      .replace(/\b(\d+)\s+weken\b/g, "$1 weeks")
+      .replace(/\b(\d+)\s+maanden\b/g, "$1 months");
+  }
+
+  _sessionMessage(value) {
+    const original = String(value || "");
+    if (languageForHass(this._hass) !== "en") return original;
+    if (original === "Nog geen weegsessie gestart") return "No weighing session started yet";
+    if (original === "Weegsessie gestart") return "Weighing session started";
+    if (original === "Geen melding") return "No message";
+    let match = original.match(/^(.+): ([\d.,]+) g opgeslagen$/);
+    if (match) return `${match[1]}: ${match[2]} g saved`;
+    match = original.match(/^Weegsessie voltooid: (\d+) van (\d+) pups gewogen$/);
+    if (match) return `Weighing session completed: ${match[1]} of ${match[2]} puppies weighed`;
+    match = original.match(/^(.+) is minder dan 2 minuten geleden gewogen\. Druk nogmaals op Gewicht opslaan om ([\d.,]+) g te bevestigen\.$/);
+    if (match) return `${match[1]} was weighed less than 2 minutes ago. Press Save weight again to confirm ${match[2]} g.`;
+    return original;
+  }
+
   async _loadRegistry() {
     if (!this._hass || this._registryLoading) return;
 
@@ -213,10 +421,10 @@ class PuppyTrackerCard extends HTMLElement {
       this._devices = Array.isArray(devices) ? devices : [];
       this._registryLoaded = true;
       this._localMessage = "";
+      this._announceSelectedLitter(this._station());
     } catch (err) {
       console.error("Puppy Tracker card: registry discovery failed", err);
-      this._localMessage =
-        "De kaart kon de Puppy Tracker-entities niet automatisch vinden.";
+      this._localMessage = this._t("registryFailed");
       this._localMessageType = "error";
     } finally {
       this._registryLoading = false;
@@ -425,6 +633,15 @@ class PuppyTrackerCard extends HTMLElement {
     );
   }
 
+  _announceSelectedLitter(station) {
+    const device = this._selectedLitterDevice(station);
+    const identifier = this._deviceIdentifier(device, "litter_");
+    const litterId = identifier?.slice("litter_".length) || "";
+    if (!litterId || litterId === this._announcedLitterId) return;
+    this._announcedLitterId = litterId;
+    announceLitterChange(this, litterId);
+  }
+
   _puppyRows(station) {
     const litterDevice = this._selectedLitterDevice(station);
     if (!litterDevice) return [];
@@ -496,7 +713,7 @@ class PuppyTrackerCard extends HTMLElement {
           weight: this._stateValue(entityIds.weight),
           previousWeight: this._stateValue(entityIds.previousWeight, "—"),
           growth24: this._stateValue(entityIds.growth24),
-          status: this._stateValue(entityIds.status, "Onbekend"),
+          status: this._stateValue(entityIds.status, this._t("statusUnknown")),
           statusCode,
           age: this._stateValue(entityIds.age),
           lastWeighed: this._stateValue(entityIds.lastWeighed, ""),
@@ -568,15 +785,15 @@ class PuppyTrackerCard extends HTMLElement {
   }
 
   _elapsedDisplay(value) {
-    if (!value) return "Geen meting";
+    if (!value) return this._t("noMeasurement");
     const timestamp = new Date(value).getTime();
     if (!Number.isFinite(timestamp)) return value;
     const minutes = Math.max(0, Math.round((Date.now() - timestamp) / 60000));
-    if (minutes < 60) return `${minutes} min geleden`;
+    if (minutes < 60) return this._t("minutesAgo", { count: minutes });
     const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours} uur geleden`;
+    if (hours < 24) return this._t("hoursAgo", { count: hours });
     const days = Math.floor(hours / 24);
-    return `${days} ${days === 1 ? "dag" : "dagen"} geleden`;
+    return days === 1 ? this._t("dayAgo") : this._t("daysAgo", { count: days });
   }
 
   _focusWeightInput() {
@@ -624,14 +841,14 @@ class PuppyTrackerCard extends HTMLElement {
   }
 
   async _select(entityId, option) {
-    if (!this._hass) return;
+    if (!this._hass) return false;
 
     if (!entityId) {
-      this._setError(new Error("De bijbehorende select-entity is niet gevonden."));
-      return;
+      this._setError(new Error(this._t("missingSelect")));
+      return false;
     }
 
-    if (!option) return;
+    if (!option) return false;
 
     try {
       await this._hass.callService(
@@ -641,21 +858,23 @@ class PuppyTrackerCard extends HTMLElement {
         { entity_id: entityId }
       );
       this._localMessage = "";
+      return true;
     } catch (err) {
       if (entityId === this._station()?.ids?.litter) this._optimisticLitterOption = null;
       if (entityId === this._station()?.ids?.puppy) this._optimisticPuppyOption = null;
       this._setError(err);
       this._scheduleRender(true);
+      return false;
     }
   }
 
-  async _press(entityId, label = "knop") {
+  async _press(entityId, label = "button") {
     if (!this._hass) return;
 
     if (!entityId) {
       this._setError(
         new Error(
-          `De entity voor ${label} is niet gevonden. Herlaad de Puppy Tracker-integratie en vernieuw daarna het dashboard.`
+          this._t("missingEntity", { label })
         )
       );
       return;
@@ -684,7 +903,7 @@ class PuppyTrackerCard extends HTMLElement {
     const previousWeight = Number(puppy?.weight);
 
     if (!Number.isFinite(value) || value <= 0) {
-      this._localMessage = "Voer eerst een geldig gewicht in.";
+      this._localMessage = this._t("enterValidWeight");
       this._localMessageType = "error";
       this._scheduleRender();
       return;
@@ -727,21 +946,21 @@ class PuppyTrackerCard extends HTMLElement {
       };
       const puppyName = puppy?.name || "Puppy";
       const weightText = `${formatNumber(value, 0)} g`;
-      const isDutch = String(locale).toLowerCase().startsWith("nl");
-
       if (!Number.isFinite(previousWeight) || previousWeight <= 0) {
-        this._localMessage = isDutch
-          ? `${puppyName}: ${weightText} opgeslagen · eerste meting.`
-          : `${puppyName}: ${weightText} saved · first measurement.`;
+        this._localMessage = this._t("firstMeasurement", { puppy: puppyName, weight: weightText });
       } else {
         const gainGrams = value - previousWeight;
         const growthPercent = (gainGrams / previousWeight) * 100;
         const gainText = `${formatSigned(gainGrams, 0)} g`;
         const percentText = `${formatSigned(growthPercent, 1)}%`;
         const previousText = `${formatNumber(previousWeight, 0)} g`;
-        this._localMessage = isDutch
-          ? `${puppyName}: ${weightText} opgeslagen · ${gainText} (${percentText}) t.o.v. vorige meting van ${previousText}.`
-          : `${puppyName}: ${weightText} saved · ${gainText} (${percentText}) vs previous measurement of ${previousText}.`;
+        this._localMessage = this._t("savedCompared", {
+          puppy: puppyName,
+          weight: weightText,
+          gain: gainText,
+          percent: percentText,
+          previous: previousText,
+        });
       }
       this._localMessageType = "success";
       this._scheduleRender(true);
@@ -754,9 +973,9 @@ class PuppyTrackerCard extends HTMLElement {
     const message =
       err?.message ||
       err?.body?.message ||
-      "De actie kon niet worden uitgevoerd.";
+      this._t("actionFailed");
 
-    this._localMessage = message;
+    this._localMessage = localizeWeighingError(this._hass, message);
     this._localMessageType = "error";
     this._scheduleRender();
   }
@@ -775,6 +994,7 @@ class PuppyTrackerCard extends HTMLElement {
       ids: station?.ids || {},
       showPuppies: this._config.show_puppies !== false,
       showDetails: this._config.show_details !== false,
+      language: languageForHass(this._hass),
     });
   }
 
@@ -805,7 +1025,7 @@ class PuppyTrackerCard extends HTMLElement {
     }
   }
 
-  _patchPuppyRows(rows, station) {
+  _updatePuppyRows(rows, station) {
     const list = this.shadowRoot?.querySelector("#puppy-list");
     const empty = this.shadowRoot?.querySelector("#puppy-empty");
     if (!list) return;
@@ -823,8 +1043,8 @@ class PuppyTrackerCard extends HTMLElement {
         element.innerHTML = `
           <span class="status-dot"></span>
           <span class="puppy-main"><span class="puppy-name"></span><span class="puppy-meta"></span></span>
-          <span class="metric"><strong></strong><span>gewicht</span></span>
-          <span class="metric growth"><strong></strong><span>24 uur</span></span>
+          <span class="metric"><strong></strong><span>${this._escape(this._t("metricWeight"))}</span></span>
+          <span class="metric growth"><strong></strong><span>${this._escape(this._t("hours24"))}</span></span>
           <span class="row-status"></span>
         `;
         element.addEventListener("pointerdown", () => this._beginInteraction());
@@ -837,7 +1057,7 @@ class PuppyTrackerCard extends HTMLElement {
           this._optimisticPuppyOption = option;
           this._interactionActive = false;
           this._renderPending = false;
-          this._patchView(station);
+          this._updateView(station);
           this._select(station.ids.puppy, option).then(() => {
             this._endInteraction(0);
             this._focusWeightInput();
@@ -851,14 +1071,14 @@ class PuppyTrackerCard extends HTMLElement {
       const stateClass = this._statusClass(row.statusCode);
       element.querySelector(".status-dot").className = `status-dot ${stateClass}`;
       element.querySelector(".puppy-name").textContent = row.name;
-      element.querySelector(".puppy-meta").textContent = row.age;
+      element.querySelector(".puppy-meta").textContent = this._ageDisplay(row.age);
       element.querySelector(".metric strong").textContent = this._weightDisplay(row);
       const growth = element.querySelector(".growth");
       growth.className = `metric growth ${stateClass}`;
       growth.querySelector("strong").textContent = this._growthDisplay(row);
       const rowStatus = element.querySelector(".row-status");
       rowStatus.className = `row-status ${stateClass}`;
-      rowStatus.textContent = row.status;
+      rowStatus.textContent = this._statusLabel(row);
       list.append(element);
     });
 
@@ -869,11 +1089,11 @@ class PuppyTrackerCard extends HTMLElement {
     list.hidden = !showList;
     if (empty) {
       empty.hidden = !showList || rows.length > 0;
-      empty.textContent = "Geen actieve pups gevonden voor dit nest.";
+      empty.textContent = this._t("noActivePuppies");
     }
   }
 
-  _patchView(station) {
+  _updateView(station) {
     const litterState = this._state(station.ids.litter);
     const puppyState = this._state(station.ids.puppy);
     const sessionState = this._state(station.ids.session);
@@ -898,12 +1118,12 @@ class PuppyTrackerCard extends HTMLElement {
     const nextDistinctRow = this._nextDistinctRow(rows, remainingState, selectedRow, backendNextRow);
     const bottomIndicatorRow = nextDistinctRow || selectedRow || backendNextRow;
     const bottomIndicatorMode = nextDistinctRow ? "next" : "current";
-    const bottomIndicatorLabel = bottomIndicatorMode === "next" ? "Volgende pup" : "Nu te wegen";
+    const bottomIndicatorLabel = this._t(bottomIndicatorMode === "next" ? "nextPuppy" : "weighNow");
     const bottomIndicatorAriaLabel = `${bottomIndicatorLabel}: ${bottomIndicatorRow?.name || ""}`;
     const bottomIndicatorIndex = bottomIndicatorRow ? rows.indexOf(bottomIndicatorRow) : -1;
-    const sessionStatus = sessionState?.state || "Niet gestart";
-    const isActive = sessionStatus === "Bezig";
-    const isComplete = sessionStatus === "Voltooid";
+    const session = this._sessionPresentation(sessionState?.state);
+    const isActive = session.code === "active";
+    const isComplete = session.code === "complete";
     const percentage = this._progress(station);
     const sourceMessage = messageState?.state || "";
     const message = this._localMessage || sourceMessage;
@@ -915,16 +1135,16 @@ class PuppyTrackerCard extends HTMLElement {
       ? "success"
       : "info";
     const missingControls = [
-      !station.ids.start ? "Weegsessie starten" : null,
-      !station.ids.save ? "Gewicht opslaan" : null,
-      !station.ids.reset ? "Weegsessie resetten" : null,
-      !station.ids.weight ? "Gewicht invoeren" : null,
+      !station.ids.start ? this._t("startSessionAction") : null,
+      !station.ids.save ? this._t("saveWeight") : null,
+      !station.ids.reset ? this._t("resetSessionAction") : null,
+      !station.ids.weight ? this._t("weightInput") : null,
     ].filter(Boolean);
     const backendWarning = missingControls.length
-      ? `Niet gevonden in Home Assistant: ${missingControls.join(", ")}. Herlaad de integratie en vernieuw daarna het dashboard.`
+      ? this._t("missingControls", { controls: missingControls.join(", ") })
       : "";
 
-    this._setText("card-title", this._config.title || "Puppy weegstation");
+    this._setText("card-title", this._config.title ?? this._t("title"));
     this._setText("progress-count", progressState?.state || "0 / 0");
     const progressBar = this.shadowRoot?.querySelector("#progress-bar");
     if (progressBar) progressBar.style.width = `${percentage}%`;
@@ -940,13 +1160,13 @@ class PuppyTrackerCard extends HTMLElement {
 
     const sessionBadge = this.shadowRoot?.querySelector("#session-badge");
     if (sessionBadge) {
-      sessionBadge.textContent = sessionStatus;
+      sessionBadge.textContent = session.label;
       sessionBadge.className = `session-badge ${isActive ? "active" : isComplete ? "complete" : "idle"}`;
     }
     const currentIndicator = this.shadowRoot?.querySelector("#current-puppy-indicator");
     if (currentIndicator) {
       currentIndicator.hidden = !selectedRow;
-      currentIndicator.setAttribute("aria-label", `Nu geselecteerd: ${selectedRow?.name || ""}`);
+      currentIndicator.setAttribute("aria-label", `${this._t("nowSelected")}: ${selectedRow?.name || ""}`);
       this._setText("current-puppy-name", selectedRow?.name || "");
       const currentCollar = this.shadowRoot?.querySelector("#current-puppy-collar");
       if (currentCollar) currentCollar.style.backgroundColor = collarColor(selectedRow?.collar, selectedRowIndex);
@@ -961,13 +1181,13 @@ class PuppyTrackerCard extends HTMLElement {
       if (nextCollar) nextCollar.style.backgroundColor = collarColor(bottomIndicatorRow?.collar, bottomIndicatorIndex);
     }
 
-    this._setText("remaining-value", remainingState?.state || "Geen");
+    this._setText("remaining-value", this._noneDisplay(remainingState?.state));
     this._setText("next-label", bottomIndicatorLabel);
-    this._setText("next-value", bottomIndicatorRow?.name || nextState?.state || "Geen");
-    this._setText("last-value", lastState?.state || "Geen");
-    this._setText("selected-last-value", selectedRow?.lastWeighed || "Geen");
+    this._setText("next-value", bottomIndicatorRow?.name || this._noneDisplay(nextState?.state));
+    this._setText("last-value", this._noneDisplay(lastState?.state));
+    this._setText("selected-last-value", selectedRow?.lastWeighed || this._t("none"));
     this._setText("elapsed-value", this._elapsedDisplay(selectedRow?.lastWeighed));
-    this._setText("selected-previous-value", `${selectedRow?.previousWeight || "Geen"}${selectedRow?.previousWeight && selectedRow.previousWeight !== "—" ? " g" : ""}`);
+    this._setText("selected-previous-value", `${selectedRow?.previousWeight || this._t("none")}${selectedRow?.previousWeight && selectedRow.previousWeight !== "—" ? " g" : ""}`);
     this._setText("change-value", selectedRow ? this._changeDisplay(selectedRow) : "—");
 
     const backendElement = this.shadowRoot?.querySelector("#backend-warning");
@@ -979,7 +1199,7 @@ class PuppyTrackerCard extends HTMLElement {
     if (messageElement) {
       messageElement.hidden = !message;
       messageElement.className = `message ${messageType}`;
-      messageElement.textContent = message;
+      messageElement.textContent = this._localMessage ? message : this._sessionMessage(message);
     }
     const save = this.shadowRoot?.querySelector("#save-weight");
     if (save) save.disabled = !station.ids.save;
@@ -987,13 +1207,13 @@ class PuppyTrackerCard extends HTMLElement {
     if (start) start.disabled = isActive || !station.ids.start;
     const reset = this.shadowRoot?.querySelector("#reset-session");
     if (reset) reset.disabled = !station.ids.reset;
-    this._patchPuppyRows(rows, station);
+    this._updatePuppyRows(rows, station);
   }
 
   _render() {
     const station = this._station();
     if (station && this.shadowRoot?.querySelector(".card") && this._viewStructureKey === this._structureKey(station)) {
-      this._patchView(station);
+      this._updateView(station);
       return;
     }
     this._renderFull();
@@ -1006,14 +1226,14 @@ class PuppyTrackerCard extends HTMLElement {
 
     if (!this._hass) {
       this.shadowRoot.innerHTML = this._shell(
-        `<div class="loading">Home Assistant laden…</div>`
+        `<div class="loading">${this._escape(this._t("loadingHomeAssistant"))}</div>`
       );
       return;
     }
 
     if (this._registryLoading) {
       this.shadowRoot.innerHTML = this._shell(
-        `<div class="loading">Puppy Tracker zoeken…</div>`
+        `<div class="loading">${this._escape(this._t("searching"))}</div>`
       );
       return;
     }
@@ -1023,9 +1243,9 @@ class PuppyTrackerCard extends HTMLElement {
     if (!station) {
       this.shadowRoot.innerHTML = this._shell(`
         <div class="empty">
-          <strong>Puppy weegstation niet gevonden</strong>
-          <span>Controleer of de integratie geladen is en herlaad daarna de kaart.</span>
-          <button class="secondary" id="rediscover">Opnieuw zoeken</button>
+          <strong>${this._escape(this._t("stationNotFound"))}</strong>
+          <span>${this._escape(this._t("searchHint"))}</span>
+          <button class="secondary" id="rediscover">${this._escape(this._t("rediscover"))}</button>
         </div>
       `);
       this._bindRediscover();
@@ -1062,13 +1282,13 @@ class PuppyTrackerCard extends HTMLElement {
     const nextDistinctRow = this._nextDistinctRow(rows, remainingState, selectedRow, backendNextRow);
     const bottomIndicatorRow = nextDistinctRow || selectedRow || backendNextRow;
     const bottomIndicatorMode = nextDistinctRow ? "next" : "current";
-    const bottomIndicatorLabel = bottomIndicatorMode === "next" ? "Volgende pup" : "Nu te wegen";
+    const bottomIndicatorLabel = this._t(bottomIndicatorMode === "next" ? "nextPuppy" : "weighNow");
     const bottomIndicatorAriaLabel = `${bottomIndicatorLabel}: ${bottomIndicatorRow?.name || ""}`;
     const bottomIndicatorIndex = bottomIndicatorRow ? rows.indexOf(bottomIndicatorRow) : -1;
     const currentPuppyIndicator = `
-      <div class="current-puppy" id="current-puppy-indicator" role="status" aria-label="Nu geselecteerd: ${this._escape(selectedRow?.name || "")}" ${selectedRow ? "" : "hidden"}>
+      <div class="current-puppy" id="current-puppy-indicator" role="status" aria-label="${this._escape(this._t("nowSelected"))}: ${this._escape(selectedRow?.name || "")}" ${selectedRow ? "" : "hidden"}>
         <span class="current-puppy-collar" id="current-puppy-collar" style="background-color:${this._escape(collarColor(selectedRow?.collar, selectedRowIndex))}"></span>
-        <span class="current-puppy-label"><small>Nu geselecteerd</small><strong id="current-puppy-name">${this._escape(selectedRow?.name || "")}</strong></span>
+        <span class="current-puppy-label"><small>${this._escape(this._t("nowSelected"))}</small><strong id="current-puppy-name">${this._escape(selectedRow?.name || "")}</strong></span>
       </div>
     `;
     const nextPuppyIndicator = `
@@ -1079,9 +1299,9 @@ class PuppyTrackerCard extends HTMLElement {
     `;
     const percentage = this._progress(station);
 
-    const status = sessionState?.state || "Niet gestart";
-    const isActive = status === "Bezig";
-    const isComplete = status === "Voltooid";
+    const session = this._sessionPresentation(sessionState?.state);
+    const isActive = session.code === "active";
+    const isComplete = session.code === "complete";
 
     const sourceMessage = messageState?.state || "";
     const message = this._localMessage || sourceMessage;
@@ -1094,14 +1314,14 @@ class PuppyTrackerCard extends HTMLElement {
       : "info";
 
     const missingControls = [
-      !station.ids.start ? "Weegsessie starten" : null,
-      !station.ids.save ? "Gewicht opslaan" : null,
-      !station.ids.reset ? "Weegsessie resetten" : null,
-      !station.ids.weight ? "Gewicht invoeren" : null,
+      !station.ids.start ? this._t("startSessionAction") : null,
+      !station.ids.save ? this._t("saveWeight") : null,
+      !station.ids.reset ? this._t("resetSessionAction") : null,
+      !station.ids.weight ? this._t("weightInput") : null,
     ].filter(Boolean);
 
     const backendWarning = missingControls.length
-      ? `Niet gevonden in Home Assistant: ${missingControls.join(", ")}. Herlaad de integratie en vernieuw daarna het dashboard.`
+      ? this._t("missingControls", { controls: missingControls.join(", ") })
       : "";
 
     const litterSelect = `
@@ -1139,25 +1359,25 @@ class PuppyTrackerCard extends HTMLElement {
                   <span class="status-dot ${this._statusClass(row.statusCode)}"></span>
                   <span class="puppy-main">
                     <span class="puppy-name">${this._escape(row.name)}</span>
-                    <span class="puppy-meta">${this._escape(row.age)}</span>
+                    <span class="puppy-meta">${this._escape(this._ageDisplay(row.age))}</span>
                   </span>
                   <span class="metric">
                     <strong>${this._escape(this._weightDisplay(row))}</strong>
-                    <span>gewicht</span>
+                    <span>${this._escape(this._t("metricWeight"))}</span>
                   </span>
                   <span class="metric growth ${this._statusClass(row.statusCode)}">
                     <strong>${this._escape(this._growthDisplay(row))}</strong>
-                    <span>24 uur</span>
+                    <span>${this._escape(this._t("hours24"))}</span>
                   </span>
                   <span class="row-status ${this._statusClass(row.statusCode)}">${this._escape(
-                row.status
+                this._statusLabel(row)
               )}</span>
                 </button>
               `
             )
             .join("")}
         </div>
-        <div class="empty small" id="puppy-empty" ${this._config.show_puppies === false || rows.length ? "hidden" : ""}>Geen actieve pups gevonden voor dit nest.</div>
+        <div class="empty small" id="puppy-empty" ${this._config.show_puppies === false || rows.length ? "hidden" : ""}>${this._escape(this._t("noActivePuppies"))}</div>
       `;
 
     const details = this._config.show_details === false
@@ -1165,31 +1385,31 @@ class PuppyTrackerCard extends HTMLElement {
       : `
         <div class="session-grid">
           <div>
-            <span class="label">Nog te wegen</span>
-            <strong id="remaining-value">${this._escape(remainingState?.state || "Geen")}</strong>
+            <span class="label">${this._escape(this._t("remaining"))}</span>
+            <strong id="remaining-value">${this._escape(this._noneDisplay(remainingState?.state))}</strong>
           </div>
           <div>
             <span class="label" id="next-label">${this._escape(bottomIndicatorLabel)}</span>
-            <strong id="next-value">${this._escape(bottomIndicatorRow?.name || nextState?.state || "Geen")}</strong>
+            <strong id="next-value">${this._escape(bottomIndicatorRow?.name || this._noneDisplay(nextState?.state))}</strong>
           </div>
           <div>
-            <span class="label">Laatst gewogen</span>
-            <strong id="last-value">${this._escape(lastState?.state || "Geen")}</strong>
+            <span class="label">${this._escape(this._t("lastWeighed"))}</span>
+            <strong id="last-value">${this._escape(this._noneDisplay(lastState?.state))}</strong>
           </div>
           <div>
-            <span class="label">Laatste weging geselecteerde pup</span>
-            <strong id="selected-last-value">${this._escape(selectedRow?.lastWeighed || "Geen")}</strong>
+            <span class="label">${this._escape(this._t("latestSelected"))}</span>
+            <strong id="selected-last-value">${this._escape(selectedRow?.lastWeighed || this._t("none"))}</strong>
           </div>
           <div>
-            <span class="label">Tijd sinds laatste meting</span>
+            <span class="label">${this._escape(this._t("elapsedSinceLast"))}</span>
             <strong id="elapsed-value">${this._escape(this._elapsedDisplay(selectedRow?.lastWeighed))}</strong>
           </div>
           <div>
-            <span class="label">Vorige meting geselecteerde pup</span>
-            <strong id="selected-previous-value">${this._escape(selectedRow?.previousWeight || "Geen")}${selectedRow?.previousWeight && selectedRow.previousWeight !== "—" ? " g" : ""}</strong>
+            <span class="label">${this._escape(this._t("previousSelected"))}</span>
+            <strong id="selected-previous-value">${this._escape(selectedRow?.previousWeight || this._t("none"))}${selectedRow?.previousWeight && selectedRow.previousWeight !== "—" ? " g" : ""}</strong>
           </div>
           <div>
-            <span class="label">Verschil met vorige meting</span>
+            <span class="label">${this._escape(this._t("differencePrevious"))}</span>
             <strong id="change-value">${this._escape(selectedRow ? this._changeDisplay(selectedRow) : "—")}</strong>
           </div>
         </div>
@@ -1199,19 +1419,19 @@ class PuppyTrackerCard extends HTMLElement {
       <div class="header">
         <div>
           <div class="eyebrow">Puppy Tracker</div>
-          <h2 id="card-title">${this._escape(this._config.title || "Puppy weegstation")}</h2>
+          <h2 id="card-title">${this._escape(this._config.title ?? this._t("title"))}</h2>
         </div>
         <div class="header-status">
           ${currentPuppyIndicator}
           <span class="session-badge ${isActive ? "active" : isComplete ? "complete" : "idle"}" id="session-badge">
-            ${this._escape(status)}
+            ${this._escape(session.label)}
           </span>
         </div>
       </div>
 
       <div class="progress-wrap">
         <div class="progress-top">
-          <span>Voortgang</span>
+          <span>${this._escape(this._t("progress"))}</span>
           <strong id="progress-count">${this._escape(progressState?.state || "0 / 0")}</strong>
         </div>
         <div class="progress-track">
@@ -1221,33 +1441,33 @@ class PuppyTrackerCard extends HTMLElement {
 
       <div class="selectors">
         <label>
-          <span>Nest</span>
+          <span>${this._escape(this._t("litter"))}</span>
           ${litterSelect}
         </label>
         <label>
-          <span>Puppy</span>
+          <span>${this._escape(this._t("puppy"))}</span>
           ${puppySelect}
         </label>
       </div>
 
       <div class="weight-entry">
         <label class="weight-field">
-          <span>Gewicht</span>
+          <span>${this._escape(this._t("weight"))}</span>
           <div class="weight-input-wrap">
             <input id="weight-input" type="number" min="1" max="10000" step="1" inputmode="numeric" value="${this._escape(
               this._draftWeight || ""
-            )}" placeholder="bijv. 428">
+            )}" placeholder="${this._escape(this._t("weightPlaceholder"))}">
             <span>g</span>
           </div>
         </label>
         <button class="primary save" id="save-weight" ${!station.ids.save ? "disabled" : ""}>
-          ✓ Gewicht opslaan
+          ✓ ${this._escape(this._t("saveWeight"))}
         </button>
       </div>
 
       <div class="session-actions">
-        <button class="secondary" id="start-session" ${isActive || !station.ids.start ? "disabled" : ""}>▶ Start weegsessie</button>
-        <button class="secondary danger-outline" id="reset-session" ${!station.ids.reset ? "disabled" : ""}>↻ Reset sessie</button>
+        <button class="secondary" id="start-session" ${isActive || !station.ids.start ? "disabled" : ""}>▶ ${this._escape(this._t("startSession"))}</button>
+        <button class="secondary danger-outline" id="reset-session" ${!station.ids.reset ? "disabled" : ""}>↻ ${this._escape(this._t("resetSession"))}</button>
       </div>
 
       ${details}
@@ -1260,7 +1480,7 @@ class PuppyTrackerCard extends HTMLElement {
 
       ${
         message
-          ? `<div class="message ${messageType}" id="local-message">${this._escape(message)}</div>`
+          ? `<div class="message ${messageType}" id="local-message">${this._escape(this._localMessage ? message : this._sessionMessage(message))}</div>`
           : `<div class="message info" id="local-message" hidden></div>`
       }
 
@@ -1323,7 +1543,8 @@ class PuppyTrackerCard extends HTMLElement {
       this._renderPending = false;
       this._scheduleRender(true);
 
-      this._select(station.ids.litter, option).then(() => {
+      this._select(station.ids.litter, option).then((selected) => {
+        if (selected) this._announceSelectedLitter(station);
         this._endInteraction(0);
       });
     });
@@ -1392,14 +1613,14 @@ class PuppyTrackerCard extends HTMLElement {
 
     start?.addEventListener("click", () => {
       this._beginInteraction();
-      this._press(station.ids.start, "Weegsessie starten").finally(() =>
+      this._press(station.ids.start, this._t("startSessionAction")).finally(() =>
         this._endInteraction(350)
       );
     });
 
     reset?.addEventListener("click", () => {
       this._beginInteraction();
-      this._press(station.ids.reset, "Weegsessie resetten").finally(() =>
+      this._press(station.ids.reset, this._t("resetSessionAction")).finally(() =>
         this._endInteraction(350)
       );
     });
@@ -1973,15 +2194,4 @@ class PuppyTrackerCard extends HTMLElement {
 
 if (!customElements.get("puppy-tracker-card")) {
   customElements.define("puppy-tracker-card", PuppyTrackerCard);
-}
-
-window.customCards = window.customCards || [];
-
-if (!window.customCards.some((card) => card.type === "puppy-tracker-card")) {
-  window.customCards.push({
-    type: "puppy-tracker-card",
-    name: "Puppy Tracker",
-    description: "Weegsessies en groeimonitoring voor puppy's.",
-    preview: true,
-  });
 }

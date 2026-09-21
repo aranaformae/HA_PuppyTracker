@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 test("mobile tab changes preserve the dashboard scroll position", async ({ page }) => {
   await page.goto("/tests/e2e/cards.html?production");
   await page.evaluate(async () => {
-    await customElements.whenDefined("puppy-tracker-mobile-card");
+    await customElements.whenDefined("puppy-tracker-workspace-card");
     document.body.style.margin = "0";
     const spacer = document.createElement("div");
     spacer.style.height = "900px";
@@ -16,8 +16,8 @@ test("mobile tab changes preserve the dashboard scroll position", async ({ page 
     innerSpacer.style.height = "140px";
     shell.append(innerSpacer);
 
-    const card = document.createElement("puppy-tracker-mobile-card");
-    card.setConfig({ show_weighing: true, show_quick_log: true, show_today: true, show_care_today: true });
+    const card = document.createElement("puppy-tracker-workspace-card");
+    card.setConfig({ preset: "mobile" });
     shell.append(card);
 
     const innerFooter = document.createElement("div");
@@ -36,10 +36,19 @@ test("mobile tab changes preserve the dashboard scroll position", async ({ page 
     page: window.scrollY,
     shell: document.getElementById("dashboard-scroll-shell").scrollTop,
   }));
-  await page.locator("puppy-tracker-mobile-card [data-tab='quickLog']").click();
-  await expect(page.locator("puppy-tracker-mobile-card [data-tab='quickLog']")).toHaveAttribute("aria-pressed", "true");
-  await page.locator("puppy-tracker-mobile-card [data-tab='care']").click();
-  await expect(page.locator("puppy-tracker-mobile-card [data-tab='care']")).toHaveAttribute("aria-pressed", "true");
+  const workspace = page.locator("puppy-tracker-workspace-card");
+  if (page.viewportSize().width <= 600) {
+    await workspace.locator("#workspace-tab-select").selectOption("quickLog");
+  } else {
+    await workspace.locator("[data-tab='quickLog']").click();
+  }
+  await expect(page.locator("puppy-tracker-workspace-card [data-tab='quickLog']")).toHaveAttribute("aria-selected", "true");
+  if (page.viewportSize().width <= 600) {
+    await workspace.locator("#workspace-tab-select").selectOption("care");
+  } else {
+    await workspace.locator("[data-tab='care']").click();
+  }
+  await expect(page.locator("puppy-tracker-workspace-card [data-tab='care']")).toHaveAttribute("aria-selected", "true");
   await page.waitForTimeout(100);
   const after = await page.evaluate(() => ({
     page: window.scrollY,

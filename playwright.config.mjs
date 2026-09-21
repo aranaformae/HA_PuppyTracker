@@ -12,7 +12,7 @@ export default defineConfig({
     timeout: 5_000,
   },
   fullyParallel: false,
-  workers: process.env.CI ? 1 : undefined,
+  workers: process.env.CI ? 1 : 2,
   reporter: process.env.CI
     ? [["line"], ["html", { open: "never" }]]
     : "list",

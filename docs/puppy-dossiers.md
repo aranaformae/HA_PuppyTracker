@@ -14,11 +14,11 @@ Every dossier record belongs to exactly one owner scope within its litter:
 | `mother` | The persistent mother-dog profile linked to the litter |
 | `puppy` | One specific puppy |
 
-The Dossier, Quick Log, Timeline and Temperature cards use these same scopes.
+The Dossier, Quick Log, Timeline and Temperature surfaces use these same scopes.
 Reminder completion also matches the exact scope: a mother's temperature record
 does not complete a whole-litter or puppy reminder.
 
-The Dossier and Timeline cards can show **All** as an aggregate view. Existing
+The Dossier and Timeline surfaces can show **All** as an aggregate view. Existing
 records can be edited, deleted, restored or moved there because their source
 owner remains known. To add a new record, first select the intended litter,
 mother or puppy owner.

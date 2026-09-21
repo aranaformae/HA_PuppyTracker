@@ -37,7 +37,7 @@ test("temperature card shows selected puppy readings and saves a note", async ({
     };
     const Card = customElements.get("puppy-tracker-temperature-card");
     const card = document.createElement("puppy-tracker-temperature-card");
-    card.setConfig({ default_scope: "puppy", default_range: "all" });
+    card.setConfig({ default_selected: "puppy", default_range: "all" });
     document.querySelector("#cards").append(card);
     card.hass = hass;
   });

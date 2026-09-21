@@ -7,9 +7,6 @@ async function openFixture(page, { production = false } = {}) {
 
 async function mountDossier(page, { compact = false, production = false } = {}) {
   await openFixture(page, { production });
-  if (compact) {
-    await page.evaluate(() => import("/custom_components/puppy_tracker/frontend/puppy-tracker-ui-compact.js"));
-  }
 
   await page.evaluate(() => {
     const now = new Date().toISOString();
@@ -33,6 +30,7 @@ async function mountDossier(page, { compact = false, production = false } = {}) 
       },
     ];
     const calls = [];
+    let motherProfileNote = "";
     const puppies = [
       {
         id: "p1",
@@ -124,11 +122,32 @@ async function mountDossier(page, { compact = false, production = false } = {}) 
         if (message.type === "puppy_tracker/mother/records") {
           return {
             can_manage_records: true,
-            owner: { scope: "mother", id: "mother-1", name: "Luna", profile_note: "" },
+            owner: { scope: "mother", id: "mother-1", name: "Luna", profile_note: motherProfileNote },
             records: clone(
               motherRecords.filter((record) => message.include_deleted || !record.deleted)
             ),
           };
+        }
+
+        if (message.type === "puppy_tracker/mother/record/add") {
+          const record = {
+            id: `m${motherRecords.length + 1}`,
+            type: message.record_type || "note",
+            scope: "mother",
+            litter_id: message.litter_id,
+            mother_id: "mother-1",
+            puppy_id: null,
+            occurred_at: message.occurred_at || now,
+            created_at: now,
+            updated_at: now,
+            deleted: false,
+            deleted_at: null,
+            title: message.title ?? "",
+            note: message.note ?? "",
+            data: clone(message.data ?? {}),
+          };
+          motherRecords.push(record);
+          return { record: clone(record) };
         }
 
         if (message.type === "puppy_tracker/record/add") {
@@ -210,6 +229,11 @@ async function mountDossier(page, { compact = false, production = false } = {}) 
           return { record: clone(record) };
         }
 
+        if (message.type === "puppy_tracker/mother/profile_note/update") {
+          motherProfileNote = message.profile_note || "";
+          return { profile_note: message.profile_note || null };
+        }
+
         if (message.type === "puppy_tracker/profile_note/update") {
           const puppy = puppies.find((item) => item.id === message.puppy_id);
           if (puppy) puppy.profile_note = message.profile_note || "";
@@ -235,6 +259,7 @@ async function mountDossier(page, { compact = false, production = false } = {}) 
   await expect(card.locator("#owner-select")).toBeVisible();
   await card.locator("#owner-select").selectOption("p1");
   await expect(card.locator("#add-record")).toBeVisible();
+  if (!compact) await card.locator("#toggle-dossier-manage").click();
   return card;
 }
 
@@ -305,7 +330,6 @@ test("dossier edits each source owner from the combined scope", async ({ page })
 
   await card.locator("#owner-select").selectOption("__all__");
   await expect(card.locator("#toggle-dossier-manage")).toBeVisible();
-  await card.locator("#toggle-dossier-manage").click();
   const puppyRecord = card.locator(".record").filter({ hasText: "Combined puppy check" });
   await expect(puppyRecord.locator(".aggregate-owner-badge")).toHaveText("Puppy · Alice");
   await puppyRecord.locator(".edit-record").click();
@@ -348,6 +372,48 @@ test("dossier edits each source owner from the combined scope", async ({ page })
   puppyRecordId);
   expect(deleteCall).toMatchObject({ record_id: puppyRecordId, puppy_id: "p1" });
   expect(restoreCall).toMatchObject({ record_id: puppyRecordId, puppy_id: "p1" });
+});
+
+test("mother dossier owns records, profile note and cross-litter history directly", async ({ page }) => {
+  page.on("dialog", (dialog) => dialog.accept());
+  const card = await mountDossier(page);
+
+  await card.locator("#owner-select").selectOption("__mother__");
+  await expect(card.locator("#mother-history-scope")).toBeVisible();
+  await expect(card.getByText("Mother note", { exact: true })).toBeVisible();
+  await expect(card.getByText("Mother profile", { exact: true })).toBeVisible();
+
+  await card.locator("#add-record").click();
+  await card.locator("#record-title").fill("Mother check");
+  await card.locator("#record-note").fill("Mother remains calm");
+  await card.locator("#record-save").click();
+  await expect(card.getByText("Mother check", { exact: true })).toBeVisible();
+
+  await card.locator("#profile-edit").click();
+  await card.locator("#profile-note").fill("Healthy mother");
+  await card.locator("#profile-save").click();
+  await expect(card.getByText("Healthy mother", { exact: true })).toBeVisible();
+
+  await card.locator("#mother-history-scope").selectOption("all");
+  await expect.poll(() => page.evaluate(() => window.__dossierCalls.some(
+    (call) => call.type === "puppy_tracker/mother/records" && call.history_scope === "all",
+  ))).toBe(true);
+
+  const added = card.locator(".record").filter({ hasText: "Mother check" });
+  await added.locator(".delete-record").click();
+  await expect(card.getByText("Mother check", { exact: true })).toHaveCount(0);
+  await card.locator("#show-deleted").check();
+  const deleted = card.locator(".record").filter({ hasText: "Mother check" });
+  await deleted.locator(".restore-record").click();
+  await expect(card.getByText("Mother check", { exact: true })).toBeVisible();
+
+  const mutationTypes = await page.evaluate(() => window.__dossierCalls.map((call) => call.type));
+  expect(mutationTypes).toEqual(expect.arrayContaining([
+    "puppy_tracker/mother/record/add",
+    "puppy_tracker/mother/profile_note/update",
+    "puppy_tracker/mother/record/delete",
+    "puppy_tracker/mother/record/restore",
+  ]));
 });
 
 test("dossier hides internal care program identifiers", async ({ page }) => {

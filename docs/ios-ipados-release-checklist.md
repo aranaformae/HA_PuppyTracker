@@ -26,15 +26,15 @@ Use this checklist before a release that changes dashboard cards, frontend loadi
 - [ ] Litter and puppy selectors open and commit the selected value on the first interaction.
 - [ ] Weight input accepts numeric input and keeps focus while Home Assistant state updates arrive.
 - [ ] Start weighing session, save a weight, and reset the session.
-- [ ] Scroll below the Mobile Controls card, leave the Weighing tab active for at least 30 seconds and confirm background updates do not move the page to the top.
+- [ ] Scroll below a Workspace with `preset: mobile`, leave the Weighing tab active for at least 30 seconds and confirm background updates do not move the page to the top.
 - [ ] Switch among Weighing, Quick Log, Today and Care today and confirm the surrounding dashboard keeps its scroll position.
 - [ ] Complete a Care today item, enter configured result/score/note values and confirm the dialog closes without moving the page.
-- [ ] Attention card loads alerts/upcoming actions after data arrives.
-- [ ] Temperature card loads the selected nest, owner scope and period without clipped selectors.
-- [ ] Temperature card can save a reading with an observation and shows it in the latest-reading area and history.
-- [ ] Dossier editor can be opened, typed in, and cancelled without losing unrelated dashboard state.
+- [ ] The Home preset Attention tab loads alerts/upcoming actions after data arrives.
+- [ ] The Journal preset Temperature tab loads the selected nest, owner scope and period without clipped selectors.
+- [ ] Temperature can save a reading with an observation and shows it in the latest-reading area and history.
+- [ ] The Journal Dossier editor can be opened, typed in, and cancelled without losing unrelated dashboard state.
 - [ ] Owner card can create/edit/expand a contact and the notes field keeps its full text visible.
-- [ ] Care Programs card can load a template and show day-specific instructions where configured.
+- [ ] The Care preset Programs tab can load a template and show day-specific instructions where configured.
 
 ## iPad
 
@@ -44,7 +44,7 @@ Use this checklist before a release that changes dashboard cards, frontend loadi
 - [ ] Native selectors, date/time inputs, text fields, and textareas remain responsive.
 - [ ] Temperature history scrolls inside the card and long observations remain readable without horizontal overflow.
 - [ ] Weight input and dossier form focus are not lost during live updates.
-- [ ] Mobile Controls keeps its current tab and dashboard scroll position during live updates in portrait and landscape.
+- [ ] The Mobile preset keeps its current tab and dashboard scroll position during live updates in portrait and landscape.
 
 ## Dossier
 

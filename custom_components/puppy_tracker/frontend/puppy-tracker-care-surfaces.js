@@ -1,4 +1,5 @@
-import { escapeHtml, languageForHass } from "./puppy-tracker-card-common.js";
+import { escapeHtml, languageForHass, registerCardHooks } from "./puppy-tracker-card-common.js";
+import { findCareOccurrence, openCareResultEditor } from "./puppy-tracker-care-result-editor.js";
 
 const TODAY_TAG = "puppy-tracker-today-card";
 const ATTENTION_TAG = "puppy-tracker-attention-card";
@@ -48,6 +49,7 @@ function tone(item) {
 async function loadCare(card) {
   if (!card?._hass || !card?._selectedLitterId) {
     card.__careOccurrences = [];
+    card.__careSkipped = [];
     return;
   }
   try {
@@ -59,21 +61,8 @@ async function loadCare(card) {
     card.__careSkipped = response?.skipped || [];
   } catch (_error) {
     card.__careOccurrences = [];
+    card.__careSkipped = [];
   }
-}
-
-function patchLoad(proto) {
-  if (!proto || proto.__careLoadPatched) return;
-  const original = proto._loadData;
-  if (typeof original !== "function") return;
-  proto._loadData = async function (...args) {
-    const shouldRender = args[0] !== false;
-    const result = await original.apply(this, args);
-    await loadCare(this);
-    if (shouldRender) this._render();
-    return result;
-  };
-  proto.__careLoadPatched = true;
 }
 
 function careIcon(item) {
@@ -84,147 +73,148 @@ function careIcon(item) {
   return "mdi:calendar-heart";
 }
 
-function closeResultEditor(card) {
-  card.shadowRoot?.querySelector(".care-result-overlay")?.remove();
+function uniqueSkipped(items) {
+  const byPuppy = new Map();
+  for (const item of items || []) {
+    const puppyId = String(item?.puppy_id || "");
+    if (!puppyId || byPuppy.has(puppyId)) continue;
+    byPuppy.set(puppyId, item);
+  }
+  return [...byPuppy.values()];
 }
 
-function openResultEditor(card, item) {
-  const root = card?.shadowRoot;
-  if (!root || !item) return;
-  closeResultEditor(card);
-  const fields = new Set(item.result_fields || []);
-  const overlay = document.createElement("div");
-  overlay.className = "care-result-overlay";
-  overlay.innerHTML = `<style>
-    .care-result-overlay{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.45);display:grid;place-items:center;padding:18px}.care-result-dialog{width:min(460px,100%);max-height:calc(100vh - 36px);overflow:auto;background:var(--card-background-color);color:var(--primary-text-color);border-radius:16px;padding:18px;box-shadow:0 12px 38px rgba(0,0,0,.35)}.care-result-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.care-result-title{font-size:1.15rem;font-weight:700}.care-result-sub{font-size:.82rem;color:var(--secondary-text-color);margin-top:3px}.care-result-dialog label{display:grid;gap:5px;margin-top:12px;font-size:.84rem;font-weight:600}.care-result-dialog input,.care-result-dialog select,.care-result-dialog textarea{box-sizing:border-box;width:100%;border:1px solid var(--divider-color);border-radius:10px;padding:9px 10px;background:var(--card-background-color);color:var(--primary-text-color);font:inherit}.care-result-dialog textarea{min-height:72px;resize:vertical}.care-result-instructions{margin-top:12px;padding:10px 12px;border-left:3px solid var(--primary-color);background:var(--secondary-background-color);border-radius:8px}.care-result-instructions-title{font-size:.8rem;font-weight:700;color:var(--secondary-text-color);margin-bottom:5px}.care-result-instructions-text{white-space:pre-wrap;overflow-wrap:anywhere}.care-result-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}.care-result-actions button,.care-result-close{border:0;border-radius:10px;padding:9px 13px;font:inherit;cursor:pointer}.care-result-close{padding:6px;background:transparent;color:var(--secondary-text-color)}.care-result-save{background:var(--primary-color);color:var(--text-primary-color,#fff);font-weight:600}.care-result-error{margin-top:10px;color:var(--error-color);font-size:.85rem}
-  </style><div class="care-result-dialog">
-    <div class="care-result-head"><div><div class="care-result-title">${escapeHtml(item.title || t(card, "Zorgactie", "Care action"))}</div><div class="care-result-sub">${escapeHtml(item.puppy_name || t(card, "Pup", "Puppy"))} · ${escapeHtml(t(card, `dag ${item.age_days}`, `day ${item.age_days}`))}</div></div><button class="care-result-close" aria-label="${escapeHtml(t(card,"Sluiten","Close"))}">✕</button></div>
-    <label>${escapeHtml(t(card,"Status","Status"))}<select class="care-result-status"><option value="completed">${escapeHtml(t(card,"Uitgevoerd","Completed"))}</option><option value="missed">${escapeHtml(t(card,"Gemist","Missed"))}</option></select></label>
-    ${fields.has("result") ? `<label>${escapeHtml(t(card,"Resultaat / reactie","Result / response"))}<input class="care-result-value" placeholder="${escapeHtml(t(card,"Bijv. rustig / neutraal / gevoelig","E.g. calm / neutral / sensitive"))}"></label>` : ""}
-    ${fields.has("score") ? `<label>${escapeHtml(t(card,"Score","Score"))}<input class="care-result-score" type="number" step="0.1"></label>` : ""}
-    ${item.instructions ? `<div class="care-result-instructions" role="note"><div class="care-result-instructions-title">${escapeHtml(t(card,"Instructie voor deze dag","Instruction for this day"))}</div><div class="care-result-instructions-text">${escapeHtml(item.instructions)}</div></div>` : ""}
-    ${fields.has("note") ? `<label>${escapeHtml(t(card,"Observatie / notitie","Observation / note"))}<textarea class="care-result-note" placeholder="${escapeHtml(t(card,"Noteer wat je ziet of pas de aanpak hier aan","Record what you observe or note an adjusted approach"))}"></textarea></label>` : ""}
-    <div class="care-result-error" hidden></div>
-    <div class="care-result-actions"><button class="care-result-cancel">${escapeHtml(t(card,"Annuleren","Cancel"))}</button><button class="care-result-save">${escapeHtml(t(card,"Opslaan","Save"))}</button></div>
-  </div>`;
-  root.appendChild(overlay);
+function skippedWarningText(card, skipped) {
+  const missingBirth = skipped.filter((item) => item?.reason_code === "missing_birth_time");
+  const other = skipped.filter((item) => item?.reason_code !== "missing_birth_time");
+  const parts = [];
+  if (missingBirth.length) {
+    const names = missingBirth.map((item) => item?.puppy_name || t(card, "Pup", "Puppy")).join(", ");
+    parts.push(t(
+      card,
+      `Geen zorgplanning voor ${names}: geboortetijd ontbreekt.`,
+      `No care schedule for ${names}: birth time is missing.`,
+    ));
+  }
+  if (other.length) {
+    const names = other.map((item) => item?.puppy_name || t(card, "Pup", "Puppy")).join(", ");
+    parts.push(t(
+      card,
+      `Zorgplanning kon niet worden berekend voor ${names}. Controleer het programma.`,
+      `Care schedule could not be calculated for ${names}. Check the program.`,
+    ));
+  }
+  return parts.join(" ");
+}
 
-  const close = () => closeResultEditor(card);
-  overlay.querySelector(".care-result-close")?.addEventListener("click", close);
-  overlay.querySelector(".care-result-cancel")?.addEventListener("click", close);
-  overlay.addEventListener("click", (event) => { if (event.target === overlay) close(); });
-  overlay.querySelector(".care-result-save")?.addEventListener("click", async () => {
-    const button = overlay.querySelector(".care-result-save");
-    const error = overlay.querySelector(".care-result-error");
-    if (button) button.disabled = true;
-    if (error) error.hidden = true;
-    try {
-      const scoreRaw = overlay.querySelector(".care-result-score")?.value;
-      await card._hass.callWS({
-        type: "puppy_tracker/care_occurrence/record",
-        program_id: item.program_id,
-        puppy_id: item.puppy_id,
-        occurrence_id: item.id,
-        status: overlay.querySelector(".care-result-status")?.value || "completed",
-        result: overlay.querySelector(".care-result-value")?.value?.trim() || undefined,
-        score: scoreRaw === undefined || scoreRaw === "" ? undefined : Number(scoreRaw),
-        note: overlay.querySelector(".care-result-note")?.value?.trim() || undefined,
-      });
-      close();
-      if (typeof card._loadData === "function") await card._loadData();
-      else if (typeof card._loadOccurrences === "function") {
-        await card._loadOccurrences();
-        card._render();
-      }
-    } catch (err) {
-      if (error) {
-        error.textContent = err?.message || t(card, "Resultaat kon niet worden opgeslagen.", "Result could not be saved.");
-        error.hidden = false;
-      }
-    } finally {
-      if (button) button.disabled = false;
+function renderSkippedWarning(card) {
+  const root = card?.shadowRoot;
+  if (!root) return;
+  root.querySelector(".care-skipped-warning")?.remove();
+  const skipped = uniqueSkipped(card.__careSkipped || []);
+  if (!skipped.length) return;
+
+  root.querySelector(".all-ok")?.remove();
+  const warning = document.createElement("div");
+  warning.className = "care-skipped-warning";
+  warning.innerHTML = `<style>
+    .care-skipped-warning{margin-top:12px;display:flex;gap:9px;align-items:flex-start;padding:10px 12px;border:1px solid var(--warning-color,var(--primary-color));border-radius:10px;background:var(--secondary-background-color);font-size:.84rem;line-height:1.35}.care-skipped-warning ha-icon{flex:0 0 auto;color:var(--warning-color,var(--primary-color))}
+  </style><ha-icon icon="mdi:alert-circle-outline"></ha-icon><div>${escapeHtml(skippedWarningText(card, skipped))}</div>`;
+  root.querySelector("ha-card")?.appendChild(warning);
+}
+
+function ensureDirectActionStyle(card) {
+  const root = card?.shadowRoot;
+  if (!root || root.querySelector("#puppy-tracker-care-direct-action-style")) return;
+  const style = document.createElement("style");
+  style.id = "puppy-tracker-care-direct-action-style";
+  style.textContent = `
+    .care-direct-action{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:30px;border:0;border-radius:8px;padding:0 9px;background:var(--primary-color);color:var(--text-primary-color,#fff);font:inherit;font-size:.76rem;font-weight:700;cursor:pointer;white-space:nowrap}
+    .care-direct-action:hover{filter:brightness(1.05)}
+    .care-direct-action ha-icon{--mdc-icon-size:16px}
+    .care-row[data-care-occurrence]{grid-template-columns:24px minmax(0,1fr) auto auto!important}
+    .list>.row[data-care-occurrence],.attention-ack-list>.row[data-care-occurrence]{grid-template-columns:34px minmax(0,1fr) auto auto 32px!important}
+    @container attention-card (max-width:520px){
+      .list>.row[data-care-occurrence],.attention-ack-list>.row[data-care-occurrence]{grid-template-columns:34px minmax(0,1fr) auto 32px!important}
+      .list>.row[data-care-occurrence]>.status,.attention-ack-list>.row[data-care-occurrence]>.status{display:none}
+      .care-direct-action{padding:0 8px}
     }
+  `;
+  root.append(style);
+}
+
+function addDirectActionButtons(card) {
+  const root = card?.shadowRoot;
+  if (!root) return;
+  ensureDirectActionStyle(card);
+  root.querySelectorAll("[data-care-occurrence]").forEach((row) => {
+    if (row.querySelector(":scope > .care-direct-action")) return;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "care-direct-action";
+    button.title = t(card, "Zorgactie uitvoeren", "Complete care action");
+    button.setAttribute("aria-label", button.title);
+    button.innerHTML = `<ha-icon icon="mdi:check-circle-outline"></ha-icon><span>${escapeHtml(t(card, "Uitvoeren", "Complete"))}</span>`;
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const item = findCareOccurrence(card, row.dataset.careOccurrence);
+      if (item) openCareResultEditor(card, item);
+    });
+    const acknowledge = row.querySelector(":scope > .attention-ack-button");
+    if (acknowledge) row.insertBefore(button, acknowledge);
+    else row.append(button);
   });
 }
 
 function wireCareRows(card) {
   const root = card?.shadowRoot;
   if (!root) return;
-  const occurrences = card.__careOccurrences || card._occurrences || [];
   root.querySelectorAll("[data-care-occurrence]").forEach((row) => {
     row.classList.add("care-clickable");
     row.addEventListener("click", (event) => {
       if (event.target?.closest?.("button, a, select, input, textarea")) return;
-      const id = row.dataset.careOccurrence;
-      const item = occurrences.find((candidate) => candidate.id === id);
-      if (item) openResultEditor(card, item);
+      const item = findCareOccurrence(card, row.dataset.careOccurrence);
+      if (item) openCareResultEditor(card, item);
     });
   });
 }
 
-function patchCareExecution() {
-  const ctor = customElements.get(CARE_EXECUTION_TAG);
-  const proto = ctor?.prototype;
-  if (!proto || proto.__careExecutionSurfacePatched) return;
-  const originalRender = proto._render;
-  if (typeof originalRender !== "function") return;
-  proto._render = function (...args) {
-    const result = originalRender.apply(this, args);
-    const root = this.shadowRoot;
-    if (!root) return result;
+function renderCareExecution(card) {
+    const root = card.shadowRoot;
+    if (!root) return;
     root.querySelectorAll(".row").forEach((row) => {
       const action = row.querySelector("button[data-action][data-id]");
       if (action?.dataset.id) row.dataset.careOccurrence = action.dataset.id;
     });
-    wireCareRows(this);
-    return result;
-  };
-  proto.__careExecutionSurfacePatched = true;
+    wireCareRows(card);
 }
 
-function patchToday() {
-  const ctor = customElements.get(TODAY_TAG);
-  const proto = ctor?.prototype;
-  if (!proto || proto.__careSurfacePatched) return;
-  patchLoad(proto);
-  const originalRender = proto._render;
-  proto._render = function (...args) {
-    const result = originalRender.apply(this, args);
-    const root = this.shadowRoot;
-    if (!root) return result;
-    const items = openItems(this).filter((item) => ["overdue", "due_today", "upcoming"].includes(item.status));
+function renderToday(card) {
+    const root = card.shadowRoot;
+    if (!root) return;
+    const items = openItems(card).filter((item) => ["overdue", "due_today", "upcoming"].includes(item.status));
     const relevant = items
       .filter((item) => item.status !== "upcoming" || Number(item.days_until_due) <= 7)
-      .filter((item) => this._config?.show_today_only !== true || isTodayItem(item));
+      .filter((item) => card._config?.show_today_only !== true || isTodayItem(item));
     root.querySelector(".care-summary")?.remove();
-    if (!relevant.length) return result;
+    if (!relevant.length) return;
     const section = document.createElement("div");
     section.className = "care-summary";
     section.innerHTML = `<style>
     .care-summary{margin-top:14px;border-top:1px solid var(--divider-color);padding-top:12px;max-height:520px;overflow-y:auto;overscroll-behavior:contain}.care-title{font-weight:700;margin-bottom:8px}.care-list{display:grid;gap:7px}.care-row{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px 9px;border-radius:10px;background:var(--secondary-background-color)}.care-row.danger .care-state{color:var(--error-color)}.care-row.warning .care-state{color:var(--warning-color,var(--primary-color))}.care-main{min-width:0}.care-main strong{display:block}.care-main span{font-size:.78rem;color:var(--secondary-text-color)}.care-instructions{display:block;margin-top:4px;color:var(--primary-text-color);white-space:pre-wrap;overflow-wrap:anywhere}.care-state{font-size:.78rem;font-weight:600;white-space:nowrap}.care-clickable{cursor:pointer}
-    </style><div class="care-title">${escapeHtml(t(this, "Zorgprogramma", "Care program"))}</div><div class="care-list">${relevant.map((item) => `<div class="care-row ${tone(item)}" data-care-occurrence="${escapeHtml(item.id || "")}"><ha-icon icon="${careIcon(item)}"></ha-icon><div class="care-main"><strong>${escapeHtml(item.title || "")}</strong><span>${escapeHtml(item.puppy_name || t(this, "Pup", "Puppy"))} · ${escapeHtml(t(this, `dag ${item.age_days}`, `day ${item.age_days}`))}</span>${item.instructions ? `<small class="care-instructions">${escapeHtml(item.instructions)}</small>` : ""}</div><div class="care-state">${escapeHtml(statusText(this, item))}</div></div>`).join("")}</div>`;
+    </style><div class="care-title">${escapeHtml(t(card, "Zorgprogramma", "Care program"))}</div><div class="care-list">${relevant.map((item) => `<div class="care-row ${tone(item)}" data-care-occurrence="${escapeHtml(item.id || "")}"><ha-icon icon="${careIcon(item)}"></ha-icon><div class="care-main"><strong>${escapeHtml(item.title || "")}</strong><span>${escapeHtml(item.puppy_name || t(card, "Pup", "Puppy"))} · ${escapeHtml(t(card, `dag ${item.age_days}`, `day ${item.age_days}`))}</span>${item.instructions ? `<small class="care-instructions">${escapeHtml(item.instructions)}</small>` : ""}</div><div class="care-state">${escapeHtml(statusText(card, item))}</div></div>`).join("")}</div>`;
     root.querySelector("ha-card")?.appendChild(section);
-    wireCareRows(this);
-    return result;
-  };
-  proto.__careSurfacePatched = true;
+    wireCareRows(card);
 }
 
-function patchAttention() {
-  const ctor = customElements.get(ATTENTION_TAG);
-  const proto = ctor?.prototype;
-  if (!proto || proto.__careSurfacePatched) return;
-  patchLoad(proto);
-  const originalRender = proto._render;
-  proto._render = function (...args) {
-    const result = originalRender.apply(this, args);
-    const root = this.shadowRoot;
-    if (!root) return result;
+function renderAttention(card) {
+    const root = card.shadowRoot;
+    if (!root) return;
     root.querySelectorAll("[data-care-occurrence]").forEach((row) => row.remove());
-    const items = attentionItems(this)
+    const items = attentionItems(card)
       .filter((item) => item.status === "overdue" || item.status === "due_today" || (item.status === "upcoming" && Number(item.days_until_due) <= 3))
-      .filter((item) => this._config?.show_today_only !== true || isTodayItem(item));
-    if (!items.length) return result;
+      .filter((item) => card._config?.show_today_only !== true || isTodayItem(item));
+    if (!items.length) return;
     let list = root.querySelector(".list");
     const allOk = root.querySelector(".all-ok");
     if (!list) {
@@ -237,26 +227,16 @@ function patchAttention() {
       const row = document.createElement("div");
       row.className = `row ${tone(item)}`;
       row.dataset.careOccurrence = item.id || "";
-      row.innerHTML = `<div class="icon ha"><ha-icon icon="${careIcon(item)}"></ha-icon></div><div class="main"><div class="name">${escapeHtml(item.puppy_name || t(this, "Pup", "Puppy"))}</div><div class="reason">${escapeHtml(item.title || "")} · ${escapeHtml(t(this, `dag ${item.age_days}`, `day ${item.age_days}`))}</div></div><div class="status">${escapeHtml(statusText(this, item))}</div>`;
+      row.innerHTML = `<div class="icon ha"><ha-icon icon="${careIcon(item)}"></ha-icon></div><div class="main"><div class="name">${escapeHtml(item.puppy_name || t(card, "Pup", "Puppy"))}</div><div class="reason">${escapeHtml(item.title || "")} · ${escapeHtml(t(card, `dag ${item.age_days}`, `day ${item.age_days}`))}</div></div><div class="status">${escapeHtml(statusText(card, item))}</div>`;
       list.appendChild(row);
     }
-    wireCareRows(this);
-    this.__applyAttentionFilters?.();
-    return result;
-  };
-  proto.__careSurfacePatched = true;
+    wireCareRows(card);
 }
 
-// Home Assistant can evaluate extra ES modules independently. Wait for the
-// card definitions so a faster care module cannot silently miss its patch.
-function patchWhenDefined(tag, patch) {
-  if (customElements.get(tag)) {
-    patch();
-    return;
-  }
-  customElements.whenDefined(tag).then(patch).catch(() => undefined);
-}
-
-patchWhenDefined(TODAY_TAG, patchToday);
-patchWhenDefined(ATTENTION_TAG, patchAttention);
-patchWhenDefined(CARE_EXECUTION_TAG, patchCareExecution);
+registerCardHooks(TODAY_TAG, { priority: 100, afterLoad: loadCare, afterRender: renderToday });
+registerCardHooks(ATTENTION_TAG, { priority: 100, afterLoad: loadCare, afterRender: renderAttention });
+registerCardHooks(CARE_EXECUTION_TAG, { priority: 100, afterRender: renderCareExecution });
+registerCardHooks(TODAY_TAG, { priority: 300, afterRender: renderSkippedWarning });
+registerCardHooks(ATTENTION_TAG, { priority: 300, afterRender: renderSkippedWarning });
+registerCardHooks(TODAY_TAG, { priority: 500, afterRender: addDirectActionButtons });
+registerCardHooks(ATTENTION_TAG, { priority: 500, afterRender: addDirectActionButtons });

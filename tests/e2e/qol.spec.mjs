@@ -85,6 +85,50 @@ test("overview card exposes basic and advanced analysis visibility controls", as
   expect(result.config).toEqual({ analysis: false, milestones: false, annotations: false });
 });
 
+test("overview card owns English localization without changing user titles", async ({ page }) => {
+  await openFixture(page);
+
+  const result = await page.evaluate(() => {
+    document.documentElement.lang = "en";
+    const constructor = customElements.get("puppy-tracker-overview-card");
+    const schema = constructor?.getConfigForm?.()?.schema || [];
+    const rangeOptions = schema.find((item) => item.name === "default_range")
+      ?.selector?.select?.options || [];
+
+    const card = document.createElement("puppy-tracker-overview-card");
+    card._hass = { language: "en", locale: { language: "en" } };
+    card._setContent(`
+      <h2>Milky Way Nest</h2>
+      <span>Groeimijlpalen</span>
+      <span>Aanhoudend lage groei</span>
+      <span>Verdubbeling binnen 14 dagen</span>
+      <span>Geschat 20-09, 12:00</span>
+      <span>+1.5 %-punt</span>
+      <button title="Actieve metingen exporteren als CSV" aria-label="Voortgang naar mijlpaal">CSV</button>
+    `);
+
+    return {
+      rangeLabels: rangeOptions.map((item) => item.label),
+      text: card.shadowRoot?.textContent || "",
+      title: card.shadowRoot?.querySelector("h2")?.textContent,
+      exportTitle: card.shadowRoot?.querySelector("button")?.title,
+      progressLabel: card.shadowRoot?.querySelector("button")?.getAttribute("aria-label"),
+      dataQuality: card._dataQualityLabel("limited"),
+    };
+  });
+
+  expect(result.rangeLabels).toEqual(["24 hours", "3 days", "7 days", "14 days", "30 days", "All"]);
+  expect(result.text).toContain("Growth milestones");
+  expect(result.text).toContain("Sustained low growth");
+  expect(result.text).toContain("Doubling within 14 days");
+  expect(result.text).toContain("Estimated 20-09, 12:00");
+  expect(result.text).toContain("+1.5 percentage points");
+  expect(result.title).toBe("Milky Way Nest");
+  expect(result.exportTitle).toBe("Export active measurements as CSV");
+  expect(result.progressLabel).toBe("Progress toward milestone");
+  expect(result.dataQuality).toBe("Beperkt");
+});
+
 test("litter card exposes a compact detail visibility control", async ({ page }) => {
   await openFixture(page);
   const result = await page.evaluate(() => {
@@ -99,6 +143,60 @@ test("litter card exposes a compact detail visibility control", async ({ page })
     };
   });
   expect(result).toEqual({ option: "show_details", config: false });
+});
+
+test("litter card localizes its own expanded growth details", async ({ page }) => {
+  await openFixture(page);
+  await page.evaluate(() => {
+    const card = document.createElement("puppy-tracker-litter-card");
+    card._hass = { language: "en", locale: { language: "en" } };
+    card.setConfig({ show_details: true });
+    card._litters = [{ id: "litter-1", name: "Autumn litter" }];
+    card._selectedLitterId = "litter-1";
+    card._data = {
+      litter: {
+        id: "litter-1",
+        name: "Autumn litter",
+        summary: { active_puppies: 1, attention_count: 0, weigh_due_count: 0, average_weight: 420 },
+      },
+      puppies: [{
+        id: "puppy-1",
+        name: "Blue",
+        sex: "male",
+        birth_time: "2026-09-18T08:00:00Z",
+        birth_weight: 350,
+        profile_note: "Calm and curious",
+        measurements: [
+          { timestamp: "2026-09-18T08:00:00Z", weight: 350 },
+          { timestamp: "2026-09-20T08:00:00Z", weight: 420 },
+        ],
+        summary: {
+          status_code: "ok",
+          current_weight: 420,
+          previous_weight: 390,
+          change_grams: 30,
+          growth_24h_grams: 30,
+          growth_24h_percent: 7.7,
+          growth_birth_percent: 20,
+          hours_since_weighing: 2,
+          last_weighed: "2026-09-20T08:00:00Z",
+          measurement_count: 2,
+        },
+      }],
+    };
+    document.querySelector("#cards").append(card);
+    card._render();
+  });
+
+  const card = page.locator("puppy-tracker-litter-card");
+  await expect(card.locator(".title")).toContainText("Litter overview");
+  await expect(card.locator('#sort-select option[value="growth24"]')).toHaveText("Growth 24h");
+  await expect(card.getByText("On track", { exact: true })).toBeVisible();
+  await card.locator(".puppy-row").click();
+  await expect(card.getByText("Previous measurement", { exact: true })).toBeVisible();
+  await expect(card.getByText("Weight development since birth", { exact: true })).toBeVisible();
+  await expect(card.getByText("Profile note", { exact: true })).toBeVisible();
+  await expect(card.getByText("Vorige meting", { exact: true })).toHaveCount(0);
 });
 
 test("Attention keeps unacknowledged alerts visible and acknowledged alerts collapsed", async ({ page }) => {

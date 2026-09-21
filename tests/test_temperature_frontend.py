@@ -4,17 +4,17 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND = ROOT / "custom_components" / "puppy_tracker" / "frontend"
 FRONTEND_PY = ROOT / "custom_components" / "puppy_tracker" / "frontend.py"
-TEMPERATURE_UI = FRONTEND / "puppy-tracker-temperature-ui.js"
 SCHEMA = FRONTEND / "puppy-tracker-dossier-schema.js"
+QUICK_LOG = FRONTEND / "puppy-tracker-quick-log-card.js"
 
 
-def test_temperature_ui_module_loads_after_logging_cards() -> None:
+def test_temperature_support_is_owned_by_the_logging_cards() -> None:
     source = FRONTEND_PY.read_text(encoding="utf-8")
     assert '"puppy-tracker-quick-log-card.js"' in source
     assert '"puppy-tracker-bulk-dossier-card.js"' in source
     assert '"puppy-tracker-timeline-card.js"' in source
-    assert '"puppy-tracker-temperature-ui.js"' in source
-    assert source.index('"puppy-tracker-timeline-card.js"') < source.index('"puppy-tracker-temperature-ui.js"')
+    assert '"puppy-tracker-temperature-ui.js"' not in source
+    assert not (FRONTEND / "puppy-tracker-temperature-ui.js").exists()
 
 
 def test_temperature_is_structured_dossier_type() -> None:
@@ -25,21 +25,21 @@ def test_temperature_is_structured_dossier_type() -> None:
 
 
 def test_quick_log_supports_temperature_value() -> None:
-    source = TEMPERATURE_UI.read_text(encoding="utf-8")
-    assert 'data-preset = "temperature"' in source or 'dataset.preset = "temperature"' in source
-    assert 'record_type: "temperature"' in source
-    assert 'data: { temperature_c: temperature }' in source
+    source = QUICK_LOG.read_text(encoding="utf-8")
+    assert 'id: "temperature", recordType: "temperature"' in source
+    assert 'data: preset.id === "temperature" ? { temperature_c: temperature } : {}' in source
     assert 'id="quick-temperature"' in source
-    assert "this.__saveMotherQuickLog()" in source
+    assert 'type: "puppy_tracker/mother/record/add"' in source
 
 
 def test_bulk_log_adds_temperature_type() -> None:
-    source = TEMPERATURE_UI.read_text(encoding="utf-8")
-    assert 'BULK_RECORD_TYPES.unshift(["temperature", "temperature"])' in source
+    source = SCHEMA.read_text(encoding="utf-8")
+    assert 'export const BULK_RECORD_TYPES = [' in source
+    assert '["temperature", "temperature"]' in source
 
 
 def test_timeline_promotes_temperature_and_displays_value() -> None:
-    source = TEMPERATURE_UI.read_text(encoding="utf-8")
+    source = (FRONTEND / "puppy-tracker-timeline-card.js").read_text(encoding="utf-8")
     assert 'event?.raw_type !== "temperature"' in source
     assert 'type: "temperature"' in source
     assert '`${formatted} °C`' in source
@@ -47,6 +47,8 @@ def test_timeline_promotes_temperature_and_displays_value() -> None:
 
 
 def test_temperature_labels_are_localized() -> None:
-    source = TEMPERATURE_UI.read_text(encoding="utf-8")
-    assert 'return isEnglish(card) ? "Temperature" : "Temperatuur"' in source
-    assert 'option[value="temperature"]' in source
+    source = QUICK_LOG.read_text(encoding="utf-8")
+    schema = SCHEMA.read_text(encoding="utf-8")
+    assert 'temperature: "Temperature"' in source
+    assert 'temperature: "Temperatuur"' in source
+    assert '["temperature", "temperature", "mdi:thermometer"]' in schema

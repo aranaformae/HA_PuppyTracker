@@ -3,6 +3,7 @@ import {
   fetchLitterData,
   fetchLitters,
   languageForHass,
+  requestLitterChange,
   selectDefaultLitter,
   subscribeUpdates,
 } from "./puppy-tracker-card-common.js";
@@ -331,6 +332,7 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
       ${this._error ? `<div class="error">${escapeHtml(this._error)}</div>` : ""}${list}${editor}</ha-card>`;
 
     this.shadowRoot.getElementById("litter-select")?.addEventListener("change", async (event) => {
+      if (!requestLitterChange(this, event.target.value)) return;
       this._selectedLitterId = event.target.value; this._editing = null; this._showEditor = false; await this._loadCurrent();
     });
     this.shadowRoot.getElementById("add-reminder")?.addEventListener("click", () => { this._editing = null; this._showEditor = true; this._render(); });
@@ -350,7 +352,3 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
 }
 
 if (!customElements.get(TAG)) customElements.define(TAG, PuppyTrackerRecurringReminderCard);
-window.customCards = window.customCards || [];
-if (!window.customCards.some((card) => card.type === TAG)) {
-  window.customCards.push({ type: TAG, name: "Puppy Tracker Recurring Reminders", description: "Recurring actions for litter, mother or puppy" });
-}

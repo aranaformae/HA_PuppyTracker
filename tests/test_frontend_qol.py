@@ -43,8 +43,9 @@ def test_chart_series_use_puppy_collar_color_with_safe_fallback() -> None:
     source = (FRONTEND_DIR / COLLAR_COLORS).read_text(encoding="utf-8")
 
     overview = (FRONTEND_DIR / OVERVIEW_CARD).read_text(encoding="utf-8")
+    chart = (FRONTEND_DIR / "puppy-tracker-chart-time-navigation.js").read_text(encoding="utf-8")
     assert "color: collarColor(row.collar, index)" in overview
-    assert "--series-color:${this._escape(item.color)}" in overview
+    assert "--series-color:${this._escape(item.color)}" in chart
     assert "collarColor(row.collar, index)" in overview
     assert "fallbackColor" in source
     assert 'globalThis.CSS?.supports?.("color", normalized)' in source

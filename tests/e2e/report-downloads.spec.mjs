@@ -75,6 +75,10 @@ async function mountReport(page) {
           return { ...result };
         }
 
+        if (message.type === "puppy_tracker/mother/export_url") {
+          return { url: "/api/puppy_tracker/mother/export/test" };
+        }
+
         throw new Error(`Unexpected WS call: ${message.type}`);
       },
     };
@@ -92,6 +96,8 @@ async function mountReport(page) {
   await expect(card.locator("#pdf")).toBeVisible();
   await expect(card.locator("#csv")).toBeVisible();
   await expect(card.locator("#json")).toBeVisible();
+  await expect(card.locator(".title")).toHaveText("Report & export");
+  await expect(card.locator(".sub")).toHaveText("Print-friendly puppy or litter report with existing CSV/JSON export.");
   return card;
 }
 
@@ -128,6 +134,51 @@ test("whole-litter PDF export keeps the puppy-only litter scope", async ({ page 
   expect(exportCall).toBeTruthy();
   expect(exportCall.litter_id).toBe("l1");
   expect(exportCall.puppy_id).toBeUndefined();
+});
+
+test("report card localizes its own editor options", async ({ page }) => {
+  await openFixture(page);
+
+  const form = await page.evaluate(() => {
+    const constructor = customElements.get("puppy-tracker-report-card");
+    const config = constructor.getStubConfig();
+    const schema = constructor.getConfigForm().schema;
+    return {
+      title: config.title,
+      ranges: schema.find((field) => field.name === "default_range").selector.select.options.map((option) => option.label),
+      profiles: schema.find((field) => field.name === "default_profile").selector.select.options.map((option) => option.label),
+    };
+  });
+
+  expect(form).toEqual({
+    title: "Report & export",
+    ranges: ["24 hours", "3 days", "7 days", "14 days", "30 days", "All"],
+    profiles: ["Full dossier", "Owner handover", "Internal breeding record"],
+  });
+});
+
+test("mother export exposes its history scope and only downloads JSON", async ({ page }) => {
+  const card = await mountReport(page);
+
+  await card.locator("#puppy").selectOption("__mother__");
+  await expect(card.locator("#mother-export-scope")).toBeVisible();
+  await expect(card.locator("#pdf")).toHaveCount(0);
+  await expect(card.locator("#csv")).toHaveCount(0);
+  await expect(card.locator("#json")).toHaveText("Mother JSON");
+  await card.locator("#mother-export-scope").selectOption("current");
+
+  const downloadPromise = page.waitForEvent("download");
+  await card.locator("#json").click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe("puppy-tracker-mother.json");
+
+  const exportCall = await page.evaluate(() =>
+    window.__reportCalls.find((call) => call.type === "puppy_tracker/mother/export_url")
+  );
+  expect(exportCall).toMatchObject({
+    litter_id: "l1",
+    history_scope: "current",
+  });
 });
 
 for (const [buttonId, format, filename] of [

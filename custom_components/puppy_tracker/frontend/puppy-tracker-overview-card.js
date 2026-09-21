@@ -1,5 +1,26 @@
 // Puppy Tracker Overview Card v1.3.2
 import { collarColor } from "./puppy-tracker-collar-chart-colors.js";
+import { languageForHass } from "./puppy-tracker-card-common.js";
+import {
+  localizeOverviewRoot,
+  localizeOverviewSchema,
+  localizeOverviewValue,
+} from "./puppy-tracker-overview-localization.js";
+import {
+  bindChartTimeNavigation,
+  captureChartViewport,
+  chartMetricPoints,
+  chartSvg,
+  chartTimeTick,
+  ensureChartTimeNavigationStyles,
+  rememberChartScroll,
+  restoreChartViewport,
+  updateChartNowButton,
+} from "./puppy-tracker-chart-time-navigation.js";
+
+function configHass() {
+  return document.querySelector("home-assistant")?.hass || null;
+}
 
 class PuppyTrackerOverviewCard extends HTMLElement {
   constructor() {
@@ -7,6 +28,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
     this.attachShadow({ mode: "open" });
     this._config = {};
     this._hass = null;
+    this._language = null;
     this._entities = [];
     this._devices = [];
     this._registryLoaded = false;
@@ -38,6 +60,8 @@ class PuppyTrackerOverviewCard extends HTMLElement {
     this._deletingMeasurementId = null;
     this._measurementActionStatus = "";
     this._chartSelectedOnly = false;
+    this._chartViewportAnchorTime = null;
+    this._chartScrollToNowPending = true;
     this._measurementFilters = { active: true, superseded: false, deleted: false };
     this._expandedMeasurementChains = new Set();
     this._highlightedMeasurementId = null;
@@ -49,7 +73,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
 
   static getStubConfig() {
     return {
-      title: "Puppy groeioverzicht",
+      title: localizeOverviewValue(configHass(), "Puppy groeioverzicht"),
       default_range: "7d",
       default_metric: "weight",
       show_summary: true,
@@ -61,7 +85,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
   }
 
   static getConfigForm() {
-    return {
+    return localizeOverviewSchema(configHass(), {
       schema: [
         { name: "title", selector: { text: {} } },
         {
@@ -99,12 +123,12 @@ class PuppyTrackerOverviewCard extends HTMLElement {
         { name: "show_growth_milestones", selector: { boolean: {} } },
         { name: "show_milestone_chart_annotations", selector: { boolean: {} } },
       ],
-    };
+    });
   }
 
   setConfig(config) {
     this._config = {
-      title: "Puppy groeioverzicht",
+      title: null,
       default_range: "7d",
       default_metric: "weight",
       show_summary: true,
@@ -127,6 +151,14 @@ class PuppyTrackerOverviewCard extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
+    const language = languageForHass(hass);
+    const languageChanged = this._language !== null && this._language !== language;
+    this._language = language;
+
+    if (languageChanged) {
+      this._scheduleRender(true);
+      return;
+    }
 
     if (!this._registryLoaded && !this._registryLoading) {
       this._loadRegistry();
@@ -1274,41 +1306,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
   }
 
   _metricPoints(row) {
-    const puppy = this._dataPuppy(row);
-    const series = this._measurementSeries(row);
-    let points = [];
-
-    if (this._metric === "growth24") {
-      points = this._growth24Points(series);
-    } else if (this._metric === "growthBirth") {
-      let birthWeight = Number(puppy?.birth_weight);
-      if (!Number.isFinite(birthWeight) || birthWeight <= 0) {
-        const birthMeasurement = series.find((point) => point.kind === "birth");
-        birthWeight = birthMeasurement?.value;
-      }
-
-      if (Number.isFinite(birthWeight) && birthWeight > 0) {
-        points = series.map((point) => ({
-          time: point.time,
-          value: Math.round(((point.value - birthWeight) / birthWeight) * 10000) / 100,
-          measurementId: point.measurementId,
-        }));
-      }
-    } else {
-      points = series;
-    }
-
-    const end = Date.now();
-    const start = this._rangeHours > 0
-      ? end - this._rangeHours * 3600 * 1000
-      : Number.NEGATIVE_INFINITY;
-
-    this._historyWindowStart = Number.isFinite(start) ? start : null;
-    this._historyWindowEnd = end;
-
-    return points.filter(
-      (point) => point.time >= start && point.time <= end + 60000
-    );
+    return chartMetricPoints.call(this, row);
   }
 
   _chartSeries(rows) {
@@ -1331,163 +1329,35 @@ class PuppyTrackerOverviewCard extends HTMLElement {
   }
 
   _chartSvg(rows) {
-    const series = this._chartSeries(rows);
+    return chartSvg.call(this, rows);
+  }
 
-    if (this._historyLoading) {
-      return `<div class="chart-empty">Grafiek laden…</div>`;
-    }
+  _chartTimeTick(time) {
+    return chartTimeTick.call(this, time);
+  }
 
-    if (this._historyError) {
-      return `<div class="chart-empty error">${this._escape(this._historyError)}</div>`;
-    }
+  _ensureChartTimeNavigationStyles() {
+    return ensureChartTimeNavigationStyles.call(this);
+  }
 
-    if (!series.length) {
-      return `<div class="chart-empty">Nog geen historische meetpunten in deze periode.</div>`;
-    }
+  _captureChartViewport() {
+    return captureChartViewport.call(this);
+  }
 
-    const allPoints = series.flatMap((item) => item.points);
-    const selectedRow = rows.find((row) => row.puppyId === this._selectedPuppyId);
-    const nextMilestone = selectedRow?.analysis?.growth_milestones?.next;
-    const estimatedMilestoneTime = Date.parse(nextMilestone?.estimated_at || "");
-    const estimatedRangeStartTime = Date.parse(nextMilestone?.estimated_range_start || "");
-    const estimatedRangeEndTime = Date.parse(nextMilestone?.estimated_range_end || "");
-    const projectedMilestone = this._config.show_milestone_chart_annotations !== false && this._metric === "weight"
-      && Number.isFinite(estimatedMilestoneTime)
-      && estimatedMilestoneTime > Date.now()
-      && estimatedMilestoneTime <= Date.now() + 30 * 24 * 3600 * 1000
-      && (this._rangeHours === 0 || this._rangeHours >= 168)
-      ? nextMilestone
-      : null;
+  _updateChartNowButton(scroll) {
+    return updateChartNowButton.call(this, scroll);
+  }
 
-    // Fixed periods always span the complete selected window. "Alles" starts
-    // at the first effective measurement and runs through the current time.
-    let maxTime = Date.now();
-    if (projectedMilestone) maxTime = Math.max(maxTime, estimatedMilestoneTime);
-    if (projectedMilestone && Number.isFinite(estimatedRangeEndTime)) {
-      maxTime = Math.max(maxTime, estimatedRangeEndTime);
-    }
-    let minTime = this._rangeHours > 0
-      ? maxTime - this._rangeHours * 3600 * 1000
-      : Math.min(...allPoints.map((point) => point.time));
-    let minValue = Math.min(...allPoints.map((point) => point.value));
-    let maxValue = Math.max(...allPoints.map((point) => point.value));
+  _rememberChartScroll(scroll) {
+    return rememberChartScroll.call(this, scroll);
+  }
 
-    if (maxTime <= minTime) maxTime = minTime + 3600000;
+  _restoreChartViewport() {
+    return restoreChartViewport.call(this);
+  }
 
-    if (maxValue <= minValue) {
-      const pad = Math.max(1, Math.abs(maxValue) * 0.05);
-      minValue -= pad;
-      maxValue += pad;
-    } else {
-      const pad = (maxValue - minValue) * 0.12;
-      minValue -= pad;
-      maxValue += pad;
-    }
-
-    const width = 760;
-    const height = 300;
-    const left = 54;
-    const right = 16;
-    const top = 18;
-    const bottom = 38;
-    const plotWidth = width - left - right;
-    const plotHeight = height - top - bottom;
-
-    const x = (time) => left + ((time - minTime) / (maxTime - minTime)) * plotWidth;
-    const y = (value) => top + ((maxValue - value) / (maxValue - minValue)) * plotHeight;
-
-    const yTicks = Array.from({ length: 5 }, (_, index) => {
-      const ratio = index / 4;
-      const value = maxValue - (maxValue - minValue) * ratio;
-      return { value, y: top + plotHeight * ratio };
-    });
-
-    const xTicks = Array.from({ length: 5 }, (_, index) => {
-      const ratio = index / 4;
-      const time = minTime + (maxTime - minTime) * ratio;
-      return { time, x: left + plotWidth * ratio };
-    });
-
-    const unit = series[0]?.unit || "";
-    const visibleMilestones = this._config.show_milestone_chart_annotations !== false && this._metric === "weight"
-      ? (selectedRow?.analysis?.growth_milestones?.milestones || []).filter(
-          (milestone) => milestone.reached && milestone.target_weight >= minValue && milestone.target_weight <= maxValue
-        )
-      : [];
-    const milestoneLines = visibleMilestones.map((milestone) => `
-      <line class="milestone-line" x1="${left}" x2="${width - right}" y1="${y(milestone.target_weight).toFixed(1)}" y2="${y(milestone.target_weight).toFixed(1)}"></line>
-      <text class="milestone-label" x="${width - right - 4}" y="${(y(milestone.target_weight) - 4).toFixed(1)}" text-anchor="end">${this._escape(`${milestone.target_percent / 100}x`)}</text>
-    `).join("");
-    const projectedMilestoneLine = projectedMilestone ? `
-      ${Number.isFinite(estimatedRangeStartTime) && Number.isFinite(estimatedRangeEndTime) && estimatedRangeEndTime > estimatedRangeStartTime ? `<rect class="milestone-projection-band ${this._escape(nextMilestone.projection_confidence_code || "medium")}" x="${x(estimatedRangeStartTime).toFixed(1)}" y="${top}" width="${Math.max(1, x(estimatedRangeEndTime) - x(estimatedRangeStartTime)).toFixed(1)}" height="${plotHeight}"></rect>` : ""}
-      <line class="milestone-projection" x1="${x(estimatedMilestoneTime).toFixed(1)}" x2="${x(estimatedMilestoneTime).toFixed(1)}" y1="${top}" y2="${height - bottom}"></line>
-      <text class="milestone-projection-label" x="${Math.min(x(estimatedMilestoneTime) + 4, width - right - 4).toFixed(1)}" y="${top + 12}">${this._escape(`Geschat ${projectedMilestone.target_percent / 100}x`)}</text>
-    ` : "";
-
-    const lines = series
-      .map((item) => {
-        const pointsString = item.points
-          .map((point) => `${x(point.time).toFixed(1)},${y(point.value).toFixed(1)}`)
-          .join(" ");
-
-        const circles = item.points
-          .map(
-            (point) => `
-              <circle
-                class="chart-point"
-                cx="${x(point.time).toFixed(1)}"
-                cy="${y(point.value).toFixed(1)}"
-                r="4.2"
-                data-puppy-id="${this._escape(item.puppyId)}"
-                data-name="${this._escape(item.name)}"
-                data-time="${point.time}"
-                data-value="${point.value}"
-                data-unit="${this._escape(item.unit)}"
-                data-measurement-id="${this._escape(point.measurementId || "")}"
-                style="--series-index:${item.index};--series-color:${this._escape(item.color)}"
-              ></circle>`
-          )
-          .join("");
-
-        return `
-          <polyline
-            class="chart-line ${item.selected ? "selected" : ""}"
-            points="${pointsString}"
-            style="--series-index:${item.index};--series-color:${this._escape(item.color)}"
-          ></polyline>
-          ${circles}
-        `;
-      })
-      .join("");
-
-    return `
-      <div class="chart-scroll">
-        <svg class="chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="Puppy groeigrafiek">
-          ${yTicks
-            .map(
-              (tick) => `
-                <line class="grid-line" x1="${left}" x2="${width - right}" y1="${tick.y}" y2="${tick.y}"></line>
-                <text class="axis-label y-label" x="${left - 9}" y="${tick.y + 4}" text-anchor="end">${this._formatAxisValue(
-                  tick.value
-                )}</text>`
-            )
-            .join("")}
-          ${milestoneLines}
-          ${projectedMilestoneLine}
-          ${xTicks
-            .map(
-              (tick) => `
-                <line class="grid-line vertical" x1="${tick.x}" x2="${tick.x}" y1="${top}" y2="${height - bottom}"></line>
-                <text class="axis-label" x="${tick.x}" y="${height - 11}" text-anchor="middle">${this._formatTimeTick(
-                  tick.time
-                )}</text>`
-            )
-            .join("")}
-          <text class="unit-label" x="${left}" y="12">${this._escape(unit)}</text>
-          ${lines}
-        </svg>
-      </div>
-    `;
+  _bindChartTimeNavigation() {
+    return bindChartTimeNavigation.call(this);
   }
 
   _formatAxisValue(value) {
@@ -1562,6 +1432,16 @@ class PuppyTrackerOverviewCard extends HTMLElement {
     return "Rond nesttempo";
   }
 
+  _dataQualityLabel(code) {
+    return {
+      none: "Geen data",
+      limited: "Beperkt",
+      good: "Goed",
+      stale: "Verouderd",
+      review: "Controleren",
+    }[code] || "Onbekend";
+  }
+
   _summary(rows) {
     const weights = rows.map((row) => row.weight).filter(Number.isFinite);
     const attention = rows.filter((row) => row.statusCode !== "ok" && row.statusCode !== "first_24h");
@@ -1582,6 +1462,8 @@ class PuppyTrackerOverviewCard extends HTMLElement {
   }
 
   async _selectLitter(deviceId) {
+    this._chartViewportAnchorTime = null;
+    this._chartScrollToNowPending = true;
     this._selectedLitterId = deviceId;
     this._selectedPuppyId = null;
     this._tooltip = null;
@@ -1679,27 +1561,29 @@ class PuppyTrackerOverviewCard extends HTMLElement {
       .replaceAll("'", "&#039;");
   }
 
+  _setContent(content) {
+    this.shadowRoot.innerHTML = this._shell(content);
+    localizeOverviewRoot(this.shadowRoot, this._hass);
+  }
+
   _render() {
     if (!this.shadowRoot) return;
+    this._captureChartViewport();
 
     if (!this._hass) {
-      this.shadowRoot.innerHTML = this._shell(
-        `<div class="loading">Home Assistant laden…</div>`
-      );
+      this._setContent(`<div class="loading">Home Assistant laden…</div>`);
       return;
     }
 
     if (this._registryLoading) {
-      this.shadowRoot.innerHTML = this._shell(
-        `<div class="loading">Puppy Tracker zoeken…</div>`
-      );
+      this._setContent(`<div class="loading">Puppy Tracker zoeken…</div>`);
       return;
     }
 
     const litters = this._litterDevices();
 
     if (!litters.length) {
-      this.shadowRoot.innerHTML = this._shell(`
+      this._setContent(`
         <div class="empty">
           <strong>Geen nesten gevonden</strong>
           <span>Controleer of Puppy Tracker geladen is.</span>
@@ -1846,7 +1730,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
           ${this._config.show_advanced_analysis !== false ? `<div class="analysis-panel ${this._statusClass(selected.analysis?.status_code)}">
             <div><span>Groeianalyse</span><strong>${this._escape(selected.analysis?.status || "Onvoldoende data")}</strong></div>
             <div><span>Trend</span><strong>${this._escape(selected.analysis?.trend || "Onvoldoende data")}</strong></div>
-            <div><span>Datakwaliteit</span><strong>${this._escape(selected.analysis?.data_quality || "none")}</strong></div>
+            <div><span>Datakwaliteit</span><strong>${this._escape(this._dataQualityLabel(selected.analysis?.data_quality))}</strong></div>
             <div><span>Nestdrempel</span><strong>${this._formatNumber(selected.analysis?.min_daily_growth_percent, "%", true)}</strong></div>
             <div><span>Gewichtspatroon</span><strong>${this._escape(selected.analysis?.weight_pattern?.sustained_loss ? "Aanhoudende daling" : "Geen aanhoudende daling")}</strong></div>
             <div><span>Groeipatroon</span><strong>${this._escape(selected.analysis?.growth_pattern?.sustained_low_growth ? "Aanhoudend lage groei" : "Geen aanhoudend lage groei")}</strong></div>
@@ -1887,11 +1771,11 @@ class PuppyTrackerOverviewCard extends HTMLElement {
       `
       : `<div class="chart-hint">Tik op een meetpunt voor details.</div>`;
 
-    this.shadowRoot.innerHTML = this._shell(`
+    this._setContent(`
       <div class="header">
         <div>
           <div class="eyebrow">Puppy Tracker</div>
-          <h2>${this._escape(this._config.title)}</h2>
+          <h2>${this._escape(this._config.title ?? localizeOverviewValue(this._hass, "Puppy groeioverzicht"))}</h2>
         </div>
         <div class="header-actions">
           <button class="export-button" id="export-csv" title="Actieve metingen exporteren als CSV">CSV</button>
@@ -1973,6 +1857,9 @@ class PuppyTrackerOverviewCard extends HTMLElement {
 
     this._bindEvents();
     this._moveChartAfterSummary();
+    this._ensureChartTimeNavigationStyles();
+    this._bindChartTimeNavigation();
+    window.requestAnimationFrame(() => this._restoreChartViewport());
   }
 
   _moveChartAfterSummary() {
@@ -3017,17 +2904,6 @@ class PuppyTrackerOverviewCard extends HTMLElement {
 
 if (!customElements.get("puppy-tracker-overview-card")) {
   customElements.define("puppy-tracker-overview-card", PuppyTrackerOverviewCard);
-}
-
-window.customCards = window.customCards || [];
-
-if (!window.customCards.some((card) => card.type === "puppy-tracker-overview-card")) {
-  window.customCards.push({
-    type: "puppy-tracker-overview-card",
-    name: "Puppy Tracker Overview",
-    description: "Dynamisch overzicht en groeigrafieken voor Puppy Tracker.",
-    preview: true,
-  });
 }
 
 console.info(

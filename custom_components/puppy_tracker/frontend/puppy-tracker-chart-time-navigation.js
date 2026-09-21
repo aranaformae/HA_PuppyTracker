@@ -1,24 +1,22 @@
 // Treat the overview chart period as a viewport/zoom instead of a hard data filter.
 // All historical points remain on one horizontally scrollable timeline while the
 // selected range controls how much time fits in one screen width.
-(() => {
-  const CARD_TAG = "puppy-tracker-overview-card";
-  const HOUR_MS = 60 * 60 * 1000;
-  const FUTURE_TOLERANCE_MS = 60 * 1000;
-  const BASE_PLOT_WIDTH = 690;
-  const AXIS_WIDTH = 54;
-  const CHART_HEIGHT = 300;
-  const TOP = 18;
-  const BOTTOM = 38;
+const HOUR_MS = 60 * 60 * 1000;
+const FUTURE_TOLERANCE_MS = 60 * 1000;
+const BASE_PLOT_WIDTH = 690;
+const AXIS_WIDTH = 54;
+const CHART_HEIGHT = 300;
+const TOP = 18;
+const BOTTOM = 38;
 
-  const isDutch = (card) => {
+const isDutch = (card) => {
     const language = String(
       card?._hass?.language || document.documentElement.lang || navigator.language || "nl"
     ).toLowerCase();
     return language.startsWith("nl");
-  };
+};
 
-  const visiblePeriodLabel = (card) => {
+const visiblePeriodLabel = (card) => {
     if (!card?._rangeHours) return isDutch(card) ? "Volledige historie" : "Full history";
     if (card._rangeHours === 24) return isDutch(card) ? "24 uur" : "24 hours";
     if (card._rangeHours % 24 === 0) {
@@ -26,9 +24,9 @@
       return isDutch(card) ? `${days} dagen` : `${days} days`;
     }
     return isDutch(card) ? `${card._rangeHours} uur` : `${card._rangeHours} hours`;
-  };
+};
 
-  const tickStepFor = (visibleMs, totalMs) => {
+const tickStepFor = (visibleMs, totalMs) => {
     if (visibleMs <= 24 * HOUR_MS) return 6 * HOUR_MS;
     if (visibleMs <= 3 * 24 * HOUR_MS) return 12 * HOUR_MS;
     if (visibleMs <= 7 * 24 * HOUR_MS) return 24 * HOUR_MS;
@@ -49,19 +47,11 @@
       30 * 24 * HOUR_MS,
     ];
     return candidates.find((value) => value >= target) || 30 * 24 * HOUR_MS;
-  };
-
-  const applyPatch = () => {
-    const CardClass = customElements.get(CARD_TAG);
-    if (!CardClass) return;
-
-    const prototype = CardClass.prototype;
-    if (prototype.__puppyTrackerChartTimeNavigationPatched) return;
-    prototype.__puppyTrackerChartTimeNavigationPatched = true;
+};
 
     // Keep the complete effective measurement series. The selected range is a
     // viewport below, not a destructive filter on the available chart data.
-    prototype._metricPoints = function (row) {
+export function chartMetricPoints(row) {
       const puppy = this._dataPuppy(row);
       const series = this._measurementSeries(row);
       let points = [];
@@ -90,9 +80,9 @@
       this._historyWindowStart = null;
       this._historyWindowEnd = now;
       return points.filter((point) => point.time <= now + FUTURE_TOLERANCE_MS);
-    };
+}
 
-    prototype._chartTimeTick = function (time) {
+export function chartTimeTick(time) {
       const date = new Date(time);
       if (this._rangeHours <= 24) {
         return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -106,9 +96,9 @@
         return date.toLocaleDateString([], { weekday: "short", day: "numeric" });
       }
       return date.toLocaleDateString([], { day: "numeric", month: "short" });
-    };
+}
 
-    prototype._chartSvg = function (rows) {
+export function chartSvg(rows) {
       const series = this._chartSeries(rows);
 
       if (this._historyLoading) {
@@ -173,6 +163,17 @@
       const plotHeight = CHART_HEIGHT - TOP - BOTTOM;
       const x = (time) => ((time - contentStart) / contentSpan) * contentWidth;
       const y = (value) => TOP + ((maxValue - value) / (maxValue - minValue)) * plotHeight;
+      const visibleMilestones = this._config.show_milestone_chart_annotations !== false && this._metric === "weight"
+        ? (selectedRow?.analysis?.growth_milestones?.milestones || []).filter(
+          (milestone) => milestone.reached
+            && milestone.target_weight >= minValue
+            && milestone.target_weight <= maxValue
+        )
+        : [];
+      const milestoneLines = visibleMilestones.map((milestone) => `
+        <line class="milestone-line" x1="0" x2="${contentWidth}" y1="${y(milestone.target_weight).toFixed(1)}" y2="${y(milestone.target_weight).toFixed(1)}"></line>
+        <text class="milestone-label" x="${contentWidth - 4}" y="${(y(milestone.target_weight) - 4).toFixed(1)}" text-anchor="end">${this._escape(`${milestone.target_percent / 100}x`)}</text>
+      `).join("");
       const projectionBand = projectedMilestone
         && Number.isFinite(estimatedRangeStartTime)
         && Number.isFinite(estimatedRangeEndTime)
@@ -295,6 +296,7 @@
                     )}</text>`
                 )
                 .join("")}
+              ${milestoneLines}
               ${projectionBand}
               ${lines}
               ${projectionLine}
@@ -306,9 +308,9 @@
           </div>
         </div>
       `;
-    };
+}
 
-    prototype._ensureChartTimeNavigationStyles = function () {
+export function ensureChartTimeNavigationStyles() {
       const root = this.shadowRoot;
       if (!root || root.getElementById("puppy-tracker-chart-time-navigation")) return;
 
@@ -405,9 +407,9 @@
         }
       `;
       root.appendChild(style);
-    };
+}
 
-    prototype._captureChartViewport = function () {
+export function captureChartViewport() {
       if (this._chartScrollToNowPending) return;
       const scroll = this.shadowRoot?.querySelector(".chart-scroll");
       if (!scroll || this._rangeHours <= 0 || scroll.scrollWidth <= scroll.clientWidth + 1) return;
@@ -428,9 +430,9 @@
         Math.max(0, (scroll.scrollLeft + scroll.clientWidth) / scroll.scrollWidth)
       );
       this._chartViewportAnchorTime = start + (end - start) * rightFraction;
-    };
+}
 
-    prototype._updateChartNowButton = function (scroll) {
+export function updateChartNowButton(scroll) {
       const navigation = scroll?.previousElementSibling?.classList?.contains("chart-y-axis")
         ? scroll.closest(".chart-stage")?.previousElementSibling
         : scroll?.closest(".chart-stage")?.previousElementSibling;
@@ -438,9 +440,9 @@
       if (!button || !scroll) return;
       const maxScroll = Math.max(0, scroll.scrollWidth - scroll.clientWidth);
       button.disabled = maxScroll - scroll.scrollLeft <= 6;
-    };
+}
 
-    prototype._rememberChartScroll = function (scroll) {
+export function rememberChartScroll(scroll) {
       if (!scroll || this._rangeHours <= 0) return;
       const start = Number(scroll.dataset.contentStart);
       const end = Number(scroll.dataset.contentEnd);
@@ -453,9 +455,9 @@
       this._chartViewportAnchorTime = start + (end - start) * rightFraction;
       this._chartScrollToNowPending = false;
       this._updateChartNowButton(scroll);
-    };
+}
 
-    prototype._restoreChartViewport = function () {
+export function restoreChartViewport() {
       const scrolls = this.shadowRoot?.querySelectorAll(".chart-scroll") || [];
       scrolls.forEach((scroll) => {
         if (this._rangeHours <= 0 || scroll.scrollWidth <= scroll.clientWidth + 1) {
@@ -484,9 +486,9 @@
       if (!Number.isFinite(Number(this._chartViewportAnchorTime)) && this._rangeHours > 0) {
         this._chartViewportAnchorTime = Date.now();
       }
-    };
+}
 
-    prototype._bindChartTimeNavigation = function () {
+export function bindChartTimeNavigation() {
       const root = this.shadowRoot;
       if (!root) return;
 
@@ -514,29 +516,4 @@
           this._chartScrollToNowPending = true;
         });
       });
-    };
-
-    const originalSelectLitter = prototype._selectLitter;
-    prototype._selectLitter = async function (...args) {
-      this._chartViewportAnchorTime = null;
-      this._chartScrollToNowPending = true;
-      return originalSelectLitter.apply(this, args);
-    };
-
-    const originalRender = prototype._render;
-    prototype._render = function (...args) {
-      this._captureChartViewport();
-      const result = originalRender.apply(this, args);
-      this._ensureChartTimeNavigationStyles();
-      this._bindChartTimeNavigation();
-      window.requestAnimationFrame(() => this._restoreChartViewport());
-      return result;
-    };
-  };
-
-  if (customElements.get(CARD_TAG)) {
-    applyPatch();
-  } else {
-    customElements.whenDefined(CARD_TAG).then(applyPatch);
-  }
-})();
+}

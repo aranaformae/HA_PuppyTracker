@@ -3,6 +3,7 @@ import {
   fetchLitters,
   languageForHass,
   localize,
+  requestLitterChange,
   selectDefaultLitter,
   subscribeUpdates,
 } from "./puppy-tracker-card-common.js";
@@ -423,6 +424,7 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
       </ha-card>`;
 
     this.shadowRoot.getElementById("litter-select")?.addEventListener("change", async (event) => {
+      if (!requestLitterChange(this, event.target.value)) return;
       this._selectedLitterId = event.target.value;
       this._showEditor = false;
       this._editing = null;
@@ -492,11 +494,3 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
 }
 
 if (!customElements.get(TAG)) customElements.define(TAG, PuppyTrackerCareProgramCard);
-window.customCards = window.customCards || [];
-if (!window.customCards.some((card) => card.type === TAG)) {
-  window.customCards.push({
-    type: TAG,
-    name: "Puppy Tracker Care Programs",
-    description: "Manage litter-specific age-based puppy care programs.",
-  });
-}

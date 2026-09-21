@@ -7,10 +7,16 @@ import {
   formatDateTime,
   languageForHass,
   loadCardState,
+  requestLitterChange,
+  runCardRenderHooks,
   saveCardState,
   selectDefaultLitter,
   subscribeUpdates,
 } from "./puppy-tracker-card-common.js";
+
+const ALL_VALUE = "__all__";
+const LITTER_VALUE = "__litter__";
+const MOTHER_VALUE = "__mother__";
 
 const TIMELINE_TYPES = [
   "weight",
@@ -25,6 +31,14 @@ const TIMELINE_TYPES = [
   "milestone",
   "other",
 ];
+
+const TIMELINE_STATE_DEFAULTS = {
+  scope: "litter",
+  from: "",
+  to: "",
+  showHistory: false,
+  types: TIMELINE_TYPES,
+};
 
 const TYPE_META = {
   weight: { icon: "mdi:scale", en: "Weight", nl: "Gewicht" },
@@ -46,7 +60,9 @@ const TEXT = {
     description: "Combined weight and dossier history for a puppy or litter.",
     litter: "Litter",
     scope: "View",
+    allOwners: "All (incl. mother)",
     allLitter: "Whole litter",
+    mother: "Mother",
     puppy: "Puppy",
     all: "All",
     from: "From",
@@ -63,13 +79,17 @@ const TEXT = {
     weight: "Weight",
     litterEvent: "Litter event",
     clearDates: "Clear dates",
+    hideTimelineItems: "Hide timeline items",
+    showTimelineItems: "Show timeline items ({count})",
   },
   nl: {
     title: "Tijdlijn",
     description: "Gecombineerde gewichts- en dossierhistorie van een pup of nest.",
     litter: "Nest",
     scope: "Weergave",
+    allOwners: "Alles (incl. moeder)",
     allLitter: "Hele nest",
+    mother: "Moederhond",
     puppy: "Pup",
     all: "Alles",
     from: "Vanaf",
@@ -86,6 +106,8 @@ const TEXT = {
     weight: "Gewicht",
     litterEvent: "Nestgebeurtenis",
     clearDates: "Datums wissen",
+    hideTimelineItems: "Verberg tijdlijnitems",
+    showTimelineItems: "Toon tijdlijnitems ({count})",
   },
 };
 
@@ -161,6 +183,62 @@ function recordEvent(record, puppy = null) {
     status: record?.deleted ? "deleted" : "active",
     data: record?.data && typeof record.data === "object" ? { ...record.data } : {},
     raw_type: record?.type || "other",
+  };
+}
+
+function motherRecordEvent(hass, record, ownerName) {
+  const rawType = String(record?.type || "other");
+  const type = normalizedRecordType(rawType);
+  const data = record?.data && typeof record.data === "object" ? { ...record.data } : {};
+  if (rawType === "temperature") {
+    const value = Number(data.temperature_c);
+    if (Number.isFinite(value)) {
+      const locale = languageForHass(hass) === "en" ? "en-US" : "nl-NL";
+      data.result = `${value.toLocaleString(locale, { maximumFractionDigits: 1 })} °C`;
+    }
+  }
+  return {
+    id: `mother:${record?.id || "unknown"}`,
+    type,
+    raw_type: rawType,
+    source: "record",
+    occurred_at: record?.occurred_at || record?.created_at || null,
+    created_at: record?.created_at || record?.occurred_at || null,
+    puppy_id: null,
+    puppy_name: ownerName,
+    scope: "mother",
+    title: record?.title || (rawType === "temperature" ? typeLabel(hass, "temperature") : null),
+    note: record?.note || null,
+    status: record?.deleted ? "deleted" : "active",
+    data,
+  };
+}
+
+function sortTimelineEvents(events) {
+  return [...(events || [])].sort((left, right) => {
+    const occurred = timestampValue(right?.occurred_at) - timestampValue(left?.occurred_at);
+    if (occurred) return occurred;
+    const created = timestampValue(right?.created_at) - timestampValue(left?.created_at);
+    if (created) return created;
+    return String(right?.id || "").localeCompare(String(left?.id || ""));
+  });
+}
+
+function localizeTimelineEvent(hass, event) {
+  if (event?.raw_type !== "temperature") return event;
+  const value = Number(event.data?.temperature_c);
+  const locale = languageForHass(hass) === "en" ? "en-US" : "nl-NL";
+  const formatted = Number.isFinite(value)
+    ? value.toLocaleString(locale, { maximumFractionDigits: 1 })
+    : null;
+  return {
+    ...event,
+    type: "temperature",
+    title: event.title || typeLabel(hass, "temperature"),
+    data: {
+      ...(event.data || {}),
+      result: formatted ? `${formatted} °C` : event.data?.result,
+    },
   };
 }
 
@@ -263,6 +341,7 @@ class PuppyTrackerTimelineCard extends HTMLElement {
     this._scope = "litter";
     this._selectedPuppyId = null;
     this._litterData = null;
+    this._motherRecordData = null;
     this._historyRecords = {};
     this._historyMeasurements = {};
     this._selectedTypes = new Set(TIMELINE_TYPES);
@@ -275,7 +354,9 @@ class PuppyTrackerTimelineCard extends HTMLElement {
     this._subscriptionPending = false;
     this._refreshing = false;
     this._refreshAgain = false;
-    this._state = loadCardState(this, { scope: "litter", from: "", to: "", showHistory: false, types: TIMELINE_TYPES });
+    this._timelineItemsVisible = null;
+    this._stateNamespace = "";
+    this._state = loadCardState(this, TIMELINE_STATE_DEFAULTS);
     this._scope = this._state.scope || "litter";
     this._from = this._state.from || "";
     this._to = this._state.to || "";
@@ -287,7 +368,7 @@ class PuppyTrackerTimelineCard extends HTMLElement {
     return {
       title: "",
       show_litter_selector: true,
-      default_scope: "litter",
+      default_selected: "litter",
       max_items: 250,
       show_history_toggle: true,
       show_timeline_items: false,
@@ -314,17 +395,22 @@ class PuppyTrackerTimelineCard extends HTMLElement {
   }
 
   setConfig(config) {
+    const previousTimelineDefault = this._config?.show_timeline_items;
     this._config = {
       title: "",
       show_litter_selector: true,
-      default_scope: "litter",
+      default_selected: "litter",
       max_items: 250,
       show_history_toggle: true,
       show_timeline_items: false,
       ...config,
     };
+    this._restoreConfiguredState();
+    if (this._timelineItemsVisible === null || previousTimelineDefault !== this._config.show_timeline_items) {
+      this._timelineItemsVisible = this._config.show_timeline_items === true;
+    }
     this._selectedLitterId = config.litter_id || this._selectedLitterId;
-    const configuredScope = config.default_selected || config.default_scope;
+    const configuredScope = config.default_selected;
     this._scope = config.puppy_id
       ? "puppy"
       : (["all", "litter", "mother", "puppy"].includes(configuredScope)
@@ -332,6 +418,20 @@ class PuppyTrackerTimelineCard extends HTMLElement {
         : (this._state.scope || "litter"));
     this._selectedPuppyId = config.puppy_id || this._selectedPuppyId;
     this._render();
+  }
+
+  _restoreConfiguredState() {
+    const namespace = String(this._config.state_key || "");
+    if (namespace === this._stateNamespace) return;
+    this._stateNamespace = namespace;
+    this._state = loadCardState(this, TIMELINE_STATE_DEFAULTS);
+    this._scope = this._state.scope || "litter";
+    this._from = this._state.from || "";
+    this._to = this._state.to || "";
+    this._showHistory = Boolean(this._state.showHistory);
+    this._selectedTypes = new Set(Array.isArray(this._state.types)
+      ? this._state.types.filter((type) => TIMELINE_TYPES.includes(type))
+      : TIMELINE_TYPES);
   }
 
   set hass(hass) {
@@ -420,6 +520,7 @@ class PuppyTrackerTimelineCard extends HTMLElement {
   async _loadData(render = true) {
     this._historyRecords = {};
     this._historyMeasurements = {};
+    this._motherRecordData = null;
     if (!this._selectedLitterId || !this._hass) {
       this._litterData = null;
       if (render) this._render();
@@ -437,15 +538,25 @@ class PuppyTrackerTimelineCard extends HTMLElement {
 
     if (!this._canManageHistory) this._showHistory = false;
     if (this._showHistory) await this._loadHistory();
+    if (["all", "mother"].includes(this._scope) && this._litterData?.litter?.mother) {
+      this._motherRecordData = await this._hass.callWS({
+        type: `${DOMAIN}/mother/records`,
+        litter_id: this._selectedLitterId,
+        history_scope: "current",
+        include_deleted: Boolean(this._showHistory && this._canManageHistory),
+      });
+    }
     if (render) this._render();
   }
 
   async _loadHistory() {
-    const puppyIds = this._scope === "puppy"
-      ? [this._selectedPuppyId].filter(Boolean)
-      : this._puppies.map((puppy) => puppy.id);
+    const puppyIds = this._scope === "mother"
+      ? []
+      : this._scope === "puppy"
+        ? [this._selectedPuppyId].filter(Boolean)
+        : this._puppies.map((puppy) => puppy.id);
 
-    if (this._scope === "litter") {
+    if (["all", "litter"].includes(this._scope)) {
       const litterRecords = await fetchRecords(this._hass, this._selectedLitterId, null, true);
       this._historyRecords.__litter__ = litterRecords?.records || [];
     }
@@ -482,8 +593,14 @@ class PuppyTrackerTimelineCard extends HTMLElement {
   }
 
   async _selectScope(value) {
-    if (value === "__litter__") {
+    if (value === ALL_VALUE) {
+      this._scope = "all";
+      this._selectedPuppyId = null;
+    } else if (value === LITTER_VALUE) {
       this._scope = "litter";
+      this._selectedPuppyId = null;
+    } else if (value === MOTHER_VALUE) {
+      this._scope = "mother";
       this._selectedPuppyId = null;
     } else {
       this._scope = "puppy";
@@ -533,14 +650,15 @@ class PuppyTrackerTimelineCard extends HTMLElement {
   }
 
   _persistState() {
-    saveCardState(this, {
+    this._state = {
       ...this._state,
       scope: this._scope,
       from: this._from,
       to: this._to,
       showHistory: this._showHistory,
       types: [...this._selectedTypes],
-    });
+    };
+    saveCardState(this, this._state);
   }
 
   _clearFilters() {
@@ -552,13 +670,26 @@ class PuppyTrackerTimelineCard extends HTMLElement {
   }
 
   _timelineEvents() {
-    return buildTimelineEvents(this._litterData, {
-      scope: this._scope,
+    const motherName = this._motherRecordData?.owner?.name
+      || this._litterData?.litter?.mother
+      || text(this._hass, "mother");
+    const motherEvents = (this._motherRecordData?.records || [])
+      .map((record) => motherRecordEvent(this._hass, record, motherName));
+    if (this._scope === "mother") {
+      return sortTimelineEvents(motherEvents).map((event) => localizeTimelineEvent(this._hass, event));
+    }
+
+    const events = buildTimelineEvents(this._litterData, {
+      scope: this._scope === "all" ? "litter" : this._scope,
       puppyId: this._selectedPuppyId,
       includeHistory: this._showHistory,
       historyRecords: this._historyRecords,
       historyMeasurements: this._historyMeasurements,
     });
+    const combined = this._scope === "all"
+      ? sortTimelineEvents([...events, ...motherEvents])
+      : events;
+    return combined.map((event) => localizeTimelineEvent(this._hass, event));
   }
 
   _filteredEvents() {
@@ -612,7 +743,7 @@ class PuppyTrackerTimelineCard extends HTMLElement {
 
   _bindEvents() {
     this.shadowRoot?.getElementById("litter-select")?.addEventListener("change", (event) => {
-      this._selectLitter(event.target.value);
+      if (requestLitterChange(this, event.target.value)) this._selectLitter(event.target.value);
     });
     this.shadowRoot?.getElementById("scope-select")?.addEventListener("change", (event) => {
       this._selectScope(event.target.value);
@@ -645,7 +776,13 @@ class PuppyTrackerTimelineCard extends HTMLElement {
   _render() {
     if (!this.shadowRoot) return;
     const title = this._config.title || text(this._hass, "title");
-    const scopeValue = this._scope === "litter" ? "__litter__" : (this._selectedPuppyId || "__litter__");
+    const scopeValue = this._scope === "all"
+      ? ALL_VALUE
+      : this._scope === "mother"
+        ? MOTHER_VALUE
+        : this._scope === "litter"
+          ? LITTER_VALUE
+          : (this._selectedPuppyId || LITTER_VALUE);
     const allSelected = this._selectedTypes.size === TIMELINE_TYPES.length;
     const events = this._filteredEvents();
     const maxItems = Math.max(25, Math.min(500, Number(this._config.max_items) || 250));
@@ -658,7 +795,9 @@ class PuppyTrackerTimelineCard extends HTMLElement {
       : "";
 
     const scopeSelector = `<label class="field"><span>${escapeHtml(text(this._hass, "scope"))}</span><select id="scope-select">
-      <option value="__litter__" ${scopeValue === "__litter__" ? "selected" : ""}>${escapeHtml(text(this._hass, "allLitter"))}</option>
+      <option value="${ALL_VALUE}" ${scopeValue === ALL_VALUE ? "selected" : ""}>${escapeHtml(text(this._hass, "allOwners"))}</option>
+      <option value="${LITTER_VALUE}" ${scopeValue === LITTER_VALUE ? "selected" : ""}>${escapeHtml(text(this._hass, "allLitter"))}</option>
+      ${this._litterData?.litter?.mother ? `<option value="${MOTHER_VALUE}" ${scopeValue === MOTHER_VALUE ? "selected" : ""}>${escapeHtml(text(this._hass, "mother"))} · ${escapeHtml(this._litterData.litter.mother)}</option>` : ""}
       ${this._puppies.map((puppy) => `<option value="${escapeHtml(puppy.id)}" ${scopeValue === puppy.id ? "selected" : ""}>${escapeHtml(puppy.name || puppy.id)}</option>`).join("")}
     </select></label>`;
 
@@ -703,7 +842,8 @@ class PuppyTrackerTimelineCard extends HTMLElement {
           ${historyToggle}
         </div>
         ${this._loading && this._litterData ? `<div class="refreshing">${escapeHtml(text(this._hass, "loading"))}</div>` : ""}
-        <div class="timeline">${content}</div>
+        <div class="timeline timeline-scroll" ${this._timelineItemsVisible ? "" : "hidden"}>${content}</div>
+        <div class="timeline-toggle-footer"><button id="toggle-timeline-items" type="button" class="${this._timelineItemsVisible ? "secondary" : ""}" aria-expanded="${this._timelineItemsVisible ? "true" : "false"}"><ha-icon icon="mdi:chevron-${this._timelineItemsVisible ? "up" : "down"}"></ha-icon><span>${escapeHtml(this._timelineItemsVisible ? text(this._hass, "hideTimelineItems") : text(this._hass, "showTimelineItems", { count: visible.length }))}</span></button></div>
       </ha-card>
       <style>
         :host { display: block; }
@@ -724,6 +864,11 @@ class PuppyTrackerTimelineCard extends HTMLElement {
         .text-button { border:0; background:transparent; color:var(--primary-color); cursor:pointer; padding:9px 4px; }
         .refreshing { padding:7px 20px; color:var(--secondary-text-color); font-size:.82rem; }
         .timeline { padding:6px 20px 18px; }
+        .timeline[hidden] { display:none; }
+        .timeline-scroll { max-height:520px; overflow-y:auto; overscroll-behavior:contain; scrollbar-gutter:stable; }
+        .timeline-toggle-footer { padding:0 20px 18px; }
+        .timeline-toggle-footer button { width:100%; min-height:48px; border:0; border-radius:12px; background:var(--primary-color); color:var(--text-primary-color,#fff); font:inherit; font-weight:650; display:flex; align-items:center; justify-content:center; gap:8px; cursor:pointer; }
+        .timeline-toggle-footer button.secondary { background:var(--secondary-background-color); color:var(--primary-text-color); border:1px solid var(--divider-color); }
         .timeline-item { display:grid; grid-template-columns:34px minmax(0,1fr); gap:10px; position:relative; padding:10px 0; }
         .timeline-item:not(:last-child)::before { content:""; position:absolute; left:16px; top:38px; bottom:-10px; width:1px; background:var(--divider-color); }
         .rail { width:32px; height:32px; border-radius:50%; display:grid; place-items:center; background:var(--secondary-background-color); z-index:1; }
@@ -753,17 +898,14 @@ class PuppyTrackerTimelineCard extends HTMLElement {
       </style>
     `;
     this._bindEvents();
+    this.shadowRoot.getElementById("toggle-timeline-items")?.addEventListener("click", () => {
+      this._timelineItemsVisible = !this._timelineItemsVisible;
+      this._render();
+    });
+    runCardRenderHooks(this);
   }
 }
 
 if (!customElements.get("puppy-tracker-timeline-card")) {
   customElements.define("puppy-tracker-timeline-card", PuppyTrackerTimelineCard);
-}
-window.customCards = window.customCards || [];
-if (!window.customCards.some((card) => card.type === "puppy-tracker-timeline-card")) {
-  window.customCards.push({
-    type: "puppy-tracker-timeline-card",
-    name: "Puppy Tracker Timeline",
-    description: "Combined weight and dossier timeline with filters.",
-  });
 }

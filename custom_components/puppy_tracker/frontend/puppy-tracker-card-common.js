@@ -1,11 +1,17 @@
 export const DOMAIN = "puppy_tracker";
+export const LITTER_CHANGE_EVENT = "puppy-tracker-litter-change";
 
 const CARD_STATE_PREFIX = "puppy_tracker.card_state.";
 
+function cardStateKey(card) {
+  const tag = card?.tagName?.toLowerCase() || "card";
+  const namespace = String(card?._config?.state_key || "").trim();
+  return `${CARD_STATE_PREFIX}${tag}${namespace ? `.${encodeURIComponent(namespace)}` : ""}`;
+}
+
 export function loadCardState(card, defaults = {}) {
-  const key = `${CARD_STATE_PREFIX}${card?.tagName?.toLowerCase() || "card"}`;
   try {
-    const stored = window.localStorage?.getItem(key);
+    const stored = window.localStorage?.getItem(cardStateKey(card));
     const parsed = stored ? JSON.parse(stored) : {};
     return parsed && typeof parsed === "object" ? { ...defaults, ...parsed } : { ...defaults };
   } catch (_error) {
@@ -14,9 +20,8 @@ export function loadCardState(card, defaults = {}) {
 }
 
 export function saveCardState(card, state) {
-  const key = `${CARD_STATE_PREFIX}${card?.tagName?.toLowerCase() || "card"}`;
   try {
-    window.localStorage?.setItem(key, JSON.stringify(state));
+    window.localStorage?.setItem(cardStateKey(card), JSON.stringify(state));
   } catch (_error) {
     // Private browsing and storage quotas must not affect card operation.
   }
@@ -48,10 +53,27 @@ export function preserveScrollPosition(element, update) {
   };
 
   const result = update();
-  restore();
-  queueMicrotask(restore);
-  requestAnimationFrame(() => requestAnimationFrame(restore));
+  requestAnimationFrame(restore);
   return result;
+}
+
+export function requestLitterChange(element, litterId) {
+  if (!element || !litterId) return true;
+  return element.dispatchEvent(new CustomEvent(LITTER_CHANGE_EVENT, {
+    bubbles: true,
+    composed: true,
+    cancelable: true,
+    detail: { litterId },
+  }));
+}
+
+export function announceLitterChange(element, litterId) {
+  if (!element || !litterId) return;
+  element.dispatchEvent(new CustomEvent(LITTER_CHANGE_EVENT, {
+    bubbles: true,
+    composed: true,
+    detail: { litterId },
+  }));
 }
 
 const CARD_TRANSLATIONS = {
@@ -444,23 +466,27 @@ export function finiteNumber(value) {
   return Number.isFinite(number) ? number : null;
 }
 
-export function formatWeight(value, fallback = "—") {
-  const number = finiteNumber(value);
-  if (number === null) return fallback;
-  return `${new Intl.NumberFormat("nl-NL", { maximumFractionDigits: 1 }).format(number)} g`;
+function numberLocale(hass) {
+  return languageForHass(hass) === "en" ? "en-US" : "nl-NL";
 }
 
-export function formatSignedWeight(value, fallback = "—") {
+export function formatWeight(value, fallback = "—", hass = null) {
   const number = finiteNumber(value);
   if (number === null) return fallback;
-  const formatted = new Intl.NumberFormat("nl-NL", { maximumFractionDigits: 1 }).format(Math.abs(number));
+  return `${new Intl.NumberFormat(numberLocale(hass), { maximumFractionDigits: 1 }).format(number)} g`;
+}
+
+export function formatSignedWeight(value, fallback = "—", hass = null) {
+  const number = finiteNumber(value);
+  if (number === null) return fallback;
+  const formatted = new Intl.NumberFormat(numberLocale(hass), { maximumFractionDigits: 1 }).format(Math.abs(number));
   return `${number > 0 ? "+" : number < 0 ? "−" : ""}${formatted} g`;
 }
 
-export function formatPercent(value, fallback = "—") {
+export function formatPercent(value, fallback = "—", hass = null) {
   const number = finiteNumber(value);
   if (number === null) return fallback;
-  const formatted = new Intl.NumberFormat("nl-NL", { maximumFractionDigits: 2 }).format(Math.abs(number));
+  const formatted = new Intl.NumberFormat(numberLocale(hass), { maximumFractionDigits: 2 }).format(Math.abs(number));
   return `${number > 0 ? "+" : number < 0 ? "−" : ""}${formatted}%`;
 }
 
@@ -482,10 +508,10 @@ export function formatDateTime(value, fallback = "—", hass = null) {
   }).format(date);
 }
 
-export function formatShortDateTime(value, fallback = "—") {
+export function formatShortDateTime(value, fallback = "—", hass = null) {
   const date = parseDate(value);
   if (!date) return fallback;
-  return new Intl.DateTimeFormat("nl-NL", {
+  return new Intl.DateTimeFormat(languageForHass(hass) === "en" ? "en-US" : "nl-NL", {
     day: "2-digit",
     month: "2-digit",
     hour: "2-digit",
@@ -493,30 +519,33 @@ export function formatShortDateTime(value, fallback = "—") {
   }).format(date);
 }
 
-export function formatAge(value, now = new Date()) {
+export function formatAge(value, now = new Date(), hass = null) {
   const birth = parseDate(value);
   if (!birth) return "—";
+  const english = languageForHass(hass) === "en";
   let seconds = Math.max(0, (now.getTime() - birth.getTime()) / 1000);
   const hours = Math.floor(seconds / 3600);
   const days = Math.floor(hours / 24);
   if (days < 7) {
-    if (days === 0) return `${hours} u`;
-    return `${days} d ${hours % 24} u`;
+    if (days === 0) return `${hours} ${english ? "h" : "u"}`;
+    return `${days} d ${hours % 24} ${english ? "h" : "u"}`;
   }
-  if (days < 28) return `${days} dagen`;
-  if (days < 90) return `${Math.floor(days / 7)} weken`;
+  if (days < 28) return `${days} ${english ? "days" : "dagen"}`;
+  if (days < 90) return `${Math.floor(days / 7)} ${english ? "weeks" : "weken"}`;
   const months = Math.floor(days / 30.4375);
-  if (months < 24) return `${months} maanden`;
+  if (months < 24) return `${months} ${english ? "months" : "maanden"}`;
   const years = Math.floor(months / 12);
-  return `${years} jaar ${months % 12} mnd`;
+  return english ? `${years} y ${months % 12} mo` : `${years} jaar ${months % 12} mnd`;
 }
 
-export function formatHoursSince(value, fallback = "—") {
+export function formatHoursSince(value, fallback = "—", hass = null) {
   const number = finiteNumber(value);
   if (number === null) return fallback;
+  const english = languageForHass(hass) === "en";
   if (number < 1) return `${Math.max(0, Math.round(number * 60))} min`;
-  if (number < 24) return `${new Intl.NumberFormat("nl-NL", { maximumFractionDigits: 1 }).format(number)} u`;
-  return `${new Intl.NumberFormat("nl-NL", { maximumFractionDigits: 1 }).format(number / 24)} d`;
+  const locale = english ? "en-US" : "nl-NL";
+  if (number < 24) return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(number)} ${english ? "h" : "u"}`;
+  return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(number / 24)} d`;
 }
 
 export function statusTone(statusCode) {
@@ -538,17 +567,17 @@ export function statusIcon(statusCode) {
 export function describeStatus(summary, hass = null) {
   const code = summary?.status_code;
   if (code === "weigh_due") {
-    return localize(hass, "weightDue", { time: formatHoursSince(summary.hours_since_weighing) });
+    return localize(hass, "weightDue", { time: formatHoursSince(summary.hours_since_weighing, "—", hass) });
   }
   if (code === "no_measurement") return localize(hass, "validMeasurementMissing");
   if (code === "low_growth") {
-    return localize(hass, "weightGrowth", { percent: formatPercent(summary.growth_24h_percent) });
+    return localize(hass, "weightGrowth", { percent: formatPercent(summary.growth_24h_percent, "—", hass) });
   }
   if (code === "weight_loss") {
-    return localize(hass, "weightChange", { weight: formatSignedWeight(summary.change_grams) });
+    return localize(hass, "weightChange", { weight: formatSignedWeight(summary.change_grams, "—", hass) });
   }
   if (code === "first_day_excess_weight_loss") {
-    return localize(hass, "weightSinceBirth", { percent: formatPercent(summary.first_day_weight_change_percent) });
+    return localize(hass, "weightSinceBirth", { percent: formatPercent(summary.first_day_weight_change_percent, "—", hass) });
   }
   if (code === "first_24h") return localize(hass, "first24h");
   if (code === "ok") return localize(hass, "noActiveWeightAlert");
@@ -593,10 +622,11 @@ export function rangeToHours(range) {
   }[range] ?? 168;
 }
 
-export function sexLabel(value) {
+export function sexLabel(value, hass = null) {
   const text = String(value || "").toLowerCase();
-  if (["male", "reu", "m"].includes(text)) return "Reu";
-  if (["female", "teef", "f"].includes(text)) return "Teef";
+  const english = languageForHass(hass) === "en";
+  if (["male", "reu", "m"].includes(text)) return english ? "Male" : "Reu";
+  if (["female", "teef", "f"].includes(text)) return english ? "Female" : "Teef";
   return value || "—";
 }
 
@@ -723,4 +753,25 @@ export async function restoreMotherDossierRecord(hass, litterId, recordId) {
     litter_id: litterId,
     record_id: recordId,
   });
+}
+
+const cardHooks = new Map();
+
+export function registerCardHooks(tag, hooks) {
+  const entries = cardHooks.get(tag) || [];
+  entries.push({ priority: Number(hooks?.priority) || 0, ...hooks });
+  entries.sort((left, right) => left.priority - right.priority);
+  cardHooks.set(tag, entries);
+}
+
+export async function runCardLoadHooks(card) {
+  for (const hooks of cardHooks.get(card?.localName) || []) {
+    if (typeof hooks.afterLoad === "function") await hooks.afterLoad(card);
+  }
+}
+
+export function runCardRenderHooks(card) {
+  for (const hooks of cardHooks.get(card?.localName) || []) {
+    hooks.afterRender?.(card);
+  }
 }

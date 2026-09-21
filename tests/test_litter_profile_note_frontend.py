@@ -37,7 +37,7 @@ def test_profile_note_module_uses_existing_payload_and_safe_text() -> None:
 
     assert "card._data.puppies" in source
     assert "puppy?.profile_note" in source
-    assert "text.textContent = note" in source
+    assert "paragraph.textContent = note" in source
     assert 'block.className = "profile-note"' in source
 
 
@@ -50,9 +50,10 @@ def test_litter_display_shows_richer_growth_context() -> None:
     assert "growth_birth_percent" in source
     assert "trendArrow(puppy)" in source
     assert "sparkline(puppy)" in source
-    assert 'small.textContent = localDateTime(s.last_weighed)' in source
-    assert "statusExplanation(puppy)" in source
-    assert 'small.textContent = `${grams(s.growth_24h_grams)} · gem. ${percent(avg.percentPerDay)}/dag`' in source
+    assert 'small.textContent = localDateTime(s.last_weighed, hass)' in source
+    assert "statusExplanation(puppy, hass)" in source
+    assert 'grams(s.growth_24h_grams, hass)' in source
+    assert 'percent(avg.percentPerDay, hass)' in source
 
 
 def test_litter_detail_shows_growth_range_without_duplicate_daily_average() -> None:
@@ -63,9 +64,9 @@ def test_litter_detail_shows_growth_range_without_duplicate_daily_average() -> N
     assert "gramsPerDay: totalGrams / ageDaysAtMeasurement" in source
     assert "percentPerDay: totalPercent / ageDaysAtMeasurement" in source
     assert 'statCell("Gem. groei / dag"' not in source
-    assert 'statCell("Laagste gewicht"' in source
-    assert 'statCell("Hoogste gewicht"' in source
-    assert 'progressLabel.textContent = "Gewichtsontwikkeling sinds geboorte"' in source
+    assert 'statCell(text(hass, "lowestWeight")' in source
+    assert 'statCell(text(hass, "highestWeight")' in source
+    assert 'progressLabel.textContent = text(hass, "growthDevelopment")' in source
 
 
 def test_first_measurement_avoids_false_growth_precision() -> None:
@@ -74,10 +75,10 @@ def test_first_measurement_avoids_false_growth_precision() -> None:
 
     assert "const hasComparison = measurements.length >= 2" in source
     assert 'main.textContent = "—"' in source
-    assert 'small.textContent = "Nog geen vergelijkingsbasis"' in source
-    assert 'setDetailValue(detail, "Vorige meting", "—")' in source
+    assert 'small.textContent = text(hass, "noComparison")' in source
+    assert 'setDetailValue(detail, languageForHass(hass) === "en" ? "Previous measurement" : "Vorige meting", "—")' in source
     assert "if (hasComparison) {" in source
-    assert ': "Nog geen ontwikkeling beschikbaar"' in source
+    assert ': text(hass, "noDevelopment")' in source
 
 
 def test_first_day_uses_birth_and_previous_change_instead_of_extrapolated_24h_growth() -> None:
@@ -86,9 +87,9 @@ def test_first_day_uses_birth_and_previous_change_instead_of_extrapolated_24h_gr
 
     assert 'return ["first_24h", "first_day_excess_weight_loss"].includes' in source
     assert 'if (firstDay) {' in source
-    assert 'main.textContent = percent(s.growth_birth_percent)' in source
-    assert 'small.textContent = `${grams(totalGrowthGrams)} · sinds geboorte`' in source
-    assert 'statCell("Sinds geboorte", `${grams(totalGrowthGrams)} · ${percent(totalGrowthPercent)}`)' in source
-    assert 'statCell("Sinds vorige meting", `${grams(s.change_grams)} · ${percent(previousGrowthPercent)}`)' in source
+    assert 'main.textContent = percent(s.growth_birth_percent, hass)' in source
+    assert 'grams(totalGrowthGrams, hass)' in source
+    assert 'statCell(text(hass, "sinceBirth"), `${grams(totalGrowthGrams, hass)} · ${percent(totalGrowthPercent, hass)}`)' in source
+    assert 'statCell(text(hass, "sincePrevious"), `${grams(s.change_grams, hass)} · ${percent(previousGrowthPercent, hass)}`)' in source
     assert '} else if (hasComparison) {' in source
-    assert 'statCell("24u groei", `${grams(s.growth_24h_grams)} · ${percent(s.growth_24h_percent)}`)' in source
+    assert 'statCell(text(hass, "growth24"), `${grams(s.growth_24h_grams, hass)} · ${percent(s.growth_24h_percent, hass)}`)' in source

@@ -6,12 +6,20 @@ CARD = ROOT / "custom_components" / "puppy_tracker" / "frontend" / "puppy-tracke
 FRONTEND = ROOT / "custom_components" / "puppy_tracker" / "frontend.py"
 
 
-def test_temperature_card_is_registered_and_exposes_expected_controls() -> None:
+def test_temperature_surface_is_loaded_for_workspace_and_exposes_expected_controls() -> None:
     source = CARD.read_text(encoding="utf-8")
     frontend = FRONTEND.read_text(encoding="utf-8")
+    workspace = (
+        ROOT
+        / "custom_components"
+        / "puppy_tracker"
+        / "frontend"
+        / "puppy-tracker-workspace-card.js"
+    ).read_text(encoding="utf-8")
     assert '"puppy-tracker-temperature-card.js"' in frontend
     assert 'customElements.define("puppy-tracker-temperature-card"' in source
-    assert 'type: "puppy-tracker-temperature-card"' in source
+    assert 'type: "puppy-tracker-temperature-card"' not in source
+    assert 'temperature: { tag: "puppy-tracker-temperature-card"' in workspace
     assert 'id="scope-select"' in source
     assert 'id="puppy-select"' in source
     assert 'id="range-select"' in source

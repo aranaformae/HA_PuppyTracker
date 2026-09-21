@@ -6,6 +6,7 @@ import {
   finiteNumber,
   formatDateTime,
   languageForHass,
+  requestLitterChange,
   selectDefaultLitter,
   subscribeUpdates,
 } from "./puppy-tracker-card-common.js";
@@ -83,7 +84,7 @@ class PuppyTrackerTemperatureCard extends HTMLElement {
   }
 
   static getStubConfig() {
-    return { title: "", default_scope: "litter", default_range: "3d", history_limit: 10, max_height: 520, chart_height: 170, history_sort: "newest", show_selectors: true, show_thresholds: false, threshold_low: 37.5, threshold_high: 39.5, show_latest: true, show_chart: true, show_history: true, show_editor: true };
+    return { title: "", default_selected: "litter", puppy_id: "", default_range: "3d", history_limit: 10, max_height: 520, chart_height: 170, history_sort: "newest", show_selectors: true, show_thresholds: false, threshold_low: 37.5, threshold_high: 39.5, show_latest: true, show_chart: true, show_history: true, show_editor: true };
   }
 
   static getConfigForm() {
@@ -93,6 +94,7 @@ class PuppyTrackerTemperatureCard extends HTMLElement {
       { name: "default_selected", selector: { select: { mode: "dropdown", options: [
         { value: "litter", label: "Hele nest" }, { value: "mother", label: "Moederhond" }, { value: "puppy", label: "Pup (puppy_id)" },
       ] } } },
+      { name: "puppy_id", selector: { text: {} } },
       { name: "default_range", selector: { select: { mode: "dropdown", options: [
         { value: "24h", label: "24 hours" }, { value: "3d", label: "3 days" }, { value: "7d", label: "7 days" }, { value: "14d", label: "14 days" }, { value: "all", label: "All" },
       ] } } },
@@ -114,7 +116,8 @@ class PuppyTrackerTemperatureCard extends HTMLElement {
   setConfig(config) {
     this._config = { ...PuppyTrackerTemperatureCard.getStubConfig(), ...config };
     this._selectedLitterId = config.litter_id || this._selectedLitterId;
-    const configuredScope = config.default_selected || config.default_scope;
+    this._selectedPuppyId = config.puppy_id || this._selectedPuppyId;
+    const configuredScope = config.default_selected || (config.puppy_id ? "puppy" : "litter");
     this._scope = ["litter", "mother", "puppy"].includes(configuredScope) ? configuredScope : "litter";
     this._range = RANGE_HOURS[config.default_range] !== undefined ? config.default_range : "3d";
     this._render();
@@ -232,9 +235,9 @@ class PuppyTrackerTemperatureCard extends HTMLElement {
 
   _filteredRecords() {
     const hours = RANGE_HOURS[this._range];
-    if (!hours) return this._records;
-    const cutoff = Date.now() - hours * 60 * 60 * 1000;
-    const records = this._records.filter((record) => (dateValue(record.occurred_at)?.getTime() || 0) >= cutoff);
+    const records = hours
+      ? this._records.filter((record) => (dateValue(record.occurred_at)?.getTime() || 0) >= Date.now() - hours * 60 * 60 * 1000)
+      : this._records;
     return this._config.history_sort === "oldest" ? [...records].reverse() : records;
   }
 
@@ -327,6 +330,7 @@ class PuppyTrackerTemperatureCard extends HTMLElement {
     const points = [...records].sort((left, right) => (dateValue(left.occurred_at)?.getTime() || 0) - (dateValue(right.occurred_at)?.getTime() || 0));
     const thresholdLow = Number(this._config.threshold_low);
     const thresholdHigh = Number(this._config.threshold_high);
+    const locale = languageForHass(this._hass) === "en" ? "en-US" : "nl-NL";
     const chartValues = this._config.show_thresholds ? [...points.map((item) => item.value), thresholdLow, thresholdHigh] : points.map((item) => item.value);
     const min = Math.min(...chartValues);
     const max = Math.max(...chartValues);
@@ -353,9 +357,9 @@ class PuppyTrackerTemperatureCard extends HTMLElement {
     }).join("");
     const thresholdLines = this._config.show_thresholds ? [thresholdLow, thresholdHigh].filter(Number.isFinite).map((value) => {
       const y = pad + (1 - (value - min) / span) * (height - pad * 2);
-      return `<line class="threshold" x1="${pad}" y1="${y.toFixed(1)}" x2="${width - pad}" y2="${y.toFixed(1)}"><title>${value.toLocaleString("nl-NL", { maximumFractionDigits: 1 })} °C</title></line>`;
+      return `<line class="threshold" x1="${pad}" y1="${y.toFixed(1)}" x2="${width - pad}" y2="${y.toFixed(1)}"><title>${value.toLocaleString(locale, { maximumFractionDigits: 1 })} °C</title></line>`;
     }).join("") : "";
-    return `<div class="chart-wrap"><div class="chart-scale"><span>${max.toLocaleString("nl-NL", { maximumFractionDigits: 1 })} °C</span><span>${min.toLocaleString("nl-NL", { maximumFractionDigits: 1 })} °C</span></div><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(text(this, "chart"))}"><line x1="${pad}" y1="${pad}" x2="${pad}" y2="${height - pad}"/><line x1="${pad}" y1="${height - pad}" x2="${width - pad}" y2="${height - pad}"/>${thresholdLines}<path d="${path}"${lineStyle}/><g>${dots}</g></svg></div>`;
+    return `<div class="chart-wrap"><div class="chart-scale"><span>${max.toLocaleString(locale, { maximumFractionDigits: 1 })} °C</span><span>${min.toLocaleString(locale, { maximumFractionDigits: 1 })} °C</span></div><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(text(this, "chart"))}"><line x1="${pad}" y1="${pad}" x2="${pad}" y2="${height - pad}"/><line x1="${pad}" y1="${height - pad}" x2="${width - pad}" y2="${height - pad}"/>${thresholdLines}<path d="${path}"${lineStyle}/><g>${dots}</g></svg></div>`;
   }
 
   _render() {
@@ -365,7 +369,7 @@ class PuppyTrackerTemperatureCard extends HTMLElement {
     const litter = this._litterData?.litter;
     const puppies = (this._litterData?.puppies || []).filter((puppy) => puppy.active !== false);
     const filtered = this._filteredRecords();
-    const latest = filtered[0] || this._records[0] || null;
+    const latest = [...filtered].sort((left, right) => (dateValue(right.occurred_at)?.getTime() || 0) - (dateValue(left.occurred_at)?.getTime() || 0))[0] || this._records[0] || null;
     const limit = this._historyExpanded ? filtered.length : Math.max(3, Math.min(50, Number(this._config.history_limit) || 10));
     const ownerName = this._scope === "puppy" ? puppies.find((puppy) => puppy.id === this._selectedPuppyId)?.name : litter?.mother;
     const litterOptions = this._litters.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === this._selectedLitterId ? "selected" : ""}>${escapeHtml(item.name || text(this, "litter"))}</option>`).join("");
@@ -376,7 +380,9 @@ class PuppyTrackerTemperatureCard extends HTMLElement {
     const chartSection = this._config.show_chart !== false ? `<section><h3>${escapeHtml(text(this, "chart"))}</h3>${this._chart(filtered)}</section>` : "";
     const historySection = this._config.show_history !== false ? `<section class="history"><h3>${escapeHtml(text(this, "history"))} <small>(${filtered.length} ${escapeHtml(text(this, "items"))})</small></h3>${history || `<div class="empty">${escapeHtml(text(this, "noMeasurement"))}</div>`}</section>` : "";
     this.shadowRoot.innerHTML = `<ha-card><div class="head"><div><div class="title">${escapeHtml(this._config.title || text(this, "title"))}</div><div class="sub">${escapeHtml(text(this, "description"))}</div></div>${this._config.show_editor !== false ? `<button id="add-temperature" class="primary">${escapeHtml(text(this, "add"))}</button>` : ""}</div><div class="selectors" style="display:${this._config.show_selectors === false ? "none" : "grid"}"><label>${escapeHtml(text(this, "litter"))}<select id="litter-select">${litterOptions}</select></label><label>${escapeHtml(text(this, "scope"))}<select id="scope-select"><option value="litter" ${this._scope === "litter" ? "selected" : ""}>${escapeHtml(text(this, "wholeLitter"))}</option><option value="mother" ${this._scope === "mother" ? "selected" : ""}>${escapeHtml(ownerLabel(this, "mother", litter?.mother))}</option><option value="puppy" ${this._scope === "puppy" ? "selected" : ""}>${escapeHtml(text(this, "puppy"))}</option></select></label>${this._scope === "puppy" ? `<label>${escapeHtml(text(this, "choosePuppy"))}<select id="puppy-select">${puppyOptions}</select></label>` : ""}<label>${escapeHtml(text(this, "period"))}<select id="range-select"><option value="24h" ${this._range === "24h" ? "selected" : ""}>${escapeHtml(text(this, "hours24"))}</option><option value="3d" ${this._range === "3d" ? "selected" : ""}>${escapeHtml(text(this, "days3"))}</option><option value="7d" ${this._range === "7d" ? "selected" : ""}>${escapeHtml(text(this, "days7"))}</option><option value="14d" ${this._range === "14d" ? "selected" : ""}>${escapeHtml(text(this, "days14"))}</option><option value="all" ${this._range === "all" ? "selected" : ""}>${escapeHtml(text(this, "all"))}</option></select></label></div>${this._error ? `<div class="message error">${escapeHtml(this._error)}</div>` : ""}${this._status ? `<div class="message success">${escapeHtml(this._status)}</div>` : ""}${this._loading && !this._litterData ? `<div class="state">${escapeHtml(text(this, "loading"))}</div>` : `${latestSection}${chartSection}${historySection}`}${editor}</ha-card><style>:host{display:block}ha-card{padding:16px;overflow:hidden}.head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.title{font-size:1.3rem;font-weight:700}.sub{margin-top:3px;color:var(--secondary-text-color);font-size:.9rem}.selectors{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:14px}.selectors label,.editor label{display:grid;gap:4px;color:var(--secondary-text-color);font-size:12px}.selectors select,.editor input,.editor textarea{box-sizing:border-box;width:100%;min-height:40px;border:1px solid var(--divider-color);border-radius:9px;background:var(--card-background-color);color:var(--primary-text-color);padding:8px;font:inherit}.primary,.secondary{min-height:40px;border-radius:9px;border:1px solid var(--primary-color);padding:0 13px;font:inherit;cursor:pointer}.primary{background:var(--primary-color);color:var(--text-primary-color,#fff)}.secondary{background:var(--secondary-background-color);border-color:var(--divider-color);color:var(--primary-text-color)}.latest{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:16px;padding:13px;border-radius:10px;background:var(--secondary-background-color)}.latest strong{display:block;font-size:2rem;line-height:1.1}.latest small{display:block;color:var(--secondary-text-color);margin-top:5px}.section-label{display:block;color:var(--secondary-text-color);font-size:12px}.owner-label{color:var(--secondary-text-color);text-align:right}.chart-wrap{display:grid;grid-template-columns:52px minmax(0,1fr);gap:4px;align-items:stretch}.chart-scale{display:flex;flex-direction:column;justify-content:space-between;color:var(--secondary-text-color);font-size:10px;padding:18px 0 20px;text-align:right}.chart-wrap svg{width:100%;height:${Math.max(100, Math.min(500, Number(this._config.chart_height) || 170))}px;overflow:visible}.chart-wrap line{stroke:var(--divider-color);stroke-width:1}.chart-wrap line.threshold{stroke:var(--warning-color,var(--primary-color));stroke-dasharray:5 4}.chart-wrap path{fill:none;stroke:var(--primary-color);stroke-width:3;stroke-linecap:round;stroke-linejoin:round}.chart-wrap circle{fill:var(--primary-color);stroke:var(--card-background-color);stroke-width:2}.history{max-height:${Math.max(240, Math.min(900, Number(this._config.max_height) || 520))}px;overflow:auto}.history h3 small{font-size:11px;color:var(--secondary-text-color);font-weight:400}.history-row{display:grid;grid-template-columns:88px minmax(0,1fr);gap:10px;padding:9px 0;border-top:1px solid var(--divider-color)}.history-row strong{font-size:1.05rem}.history-row span,.history-row small{display:block;color:var(--secondary-text-color);font-size:11px}.history-row p{margin:4px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}.editor{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:16px;padding-top:14px;border-top:1px solid var(--divider-color)}.editor>strong,.editor .wide,.editor .actions{grid-column:1/-1}.actions{display:flex;justify-content:flex-end;gap:8px}.message,.state{margin-top:12px;padding:9px;border-radius:8px}.error{color:var(--error-color);background:color-mix(in srgb,var(--error-color) 8%,transparent)}.success{color:var(--success-color,var(--primary-color));background:color-mix(in srgb,var(--success-color,var(--primary-color)) 8%,transparent)}.empty{padding:12px 0;color:var(--secondary-text-color)}@media(max-width:720px){.selectors{grid-template-columns:1fr 1fr}}@media(max-width:460px){ha-card{padding:13px}.head{flex-direction:column}.head button{width:100%}.selectors{grid-template-columns:1fr}.latest{align-items:flex-start;flex-direction:column}.owner-label{text-align:left}.editor{grid-template-columns:1fr}.editor>strong,.editor .wide,.editor .actions{grid-column:auto}}</style>`;
-    this.shadowRoot.getElementById("litter-select")?.addEventListener("change", (event) => this._selectLitter(event.target.value));
+    this.shadowRoot.getElementById("litter-select")?.addEventListener("change", (event) => {
+      if (requestLitterChange(this, event.target.value)) this._selectLitter(event.target.value);
+    });
     if (filtered.length > limit || this._historyExpanded) {
       const more = document.createElement("button");
       more.type = "button";
@@ -410,7 +416,3 @@ class PuppyTrackerTemperatureCard extends HTMLElement {
 }
 
 if (!customElements.get("puppy-tracker-temperature-card")) customElements.define("puppy-tracker-temperature-card", PuppyTrackerTemperatureCard);
-window.customCards = window.customCards || [];
-if (!window.customCards.some((card) => card.type === "puppy-tracker-temperature-card")) {
-  window.customCards.push({ type: "puppy-tracker-temperature-card", name: "Puppy Tracker Temperature", description: "Temperatuurmetingen en notities per nest, moederhond of pup." });
-}

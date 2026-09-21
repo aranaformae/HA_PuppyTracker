@@ -6,7 +6,7 @@ with dossiers, temperature logging, care schedules, reminders, owner contacts,
 reports and backups.
 
 > **Status:** Puppy Tracker is pre-1.0. The current stable development line is
-> **0.24.x**. Back up your data before updating because compatibility changes
+> **0.25.x**. Back up your data before updating because compatibility changes
 > are still possible before 1.0.
 
 ## What You Can Do
@@ -19,7 +19,7 @@ reports and backups.
   deworming, veterinary visits, milestones and notes.
 - Use recurring reminders and age-based care programs such as ENS, ESI and
   deworming schedules.
-- Complete daily care from Today, Attention, Care Execution or the mobile card.
+- Complete daily care from the Home, Care or Mobile workspace.
 - Store owner/contact, placement and payment information and link contacts to
   puppies later.
 - Create configurable PDF reports and export CSV or JSON data.
@@ -67,34 +67,22 @@ be configured with Home Assistant's visual dashboard editor or with YAML.
 
 | Card | YAML type | Main use |
 | --- | --- | --- |
-| Weighing Station | `custom:puppy-tracker-card` | Record weights and run weighing sessions |
-| Growth Overview | `custom:puppy-tracker-overview-card` | Charts, growth summaries and milestones |
-| Summary | `custom:puppy-tracker-summary-card` | Compact litter status |
-| Today | `custom:puppy-tracker-today-card` | Today's weighing and care activity |
-| Attention | `custom:puppy-tracker-attention-card` | Items that need attention |
-| Litter | `custom:puppy-tracker-litter-card` | Practical litter and puppy overview |
-| Dossier | `custom:puppy-tracker-dossier-card` | View and manage dossier entries |
-| Quick Log | `custom:puppy-tracker-quick-log-card` | Fast daily logging |
-| Mobile Controls | `custom:puppy-tracker-mobile-card` | Touch-first weighing, logging and care |
-| Temperature | `custom:puppy-tracker-temperature-card` | Temperature chart, history and entry |
-| Timeline | `custom:puppy-tracker-timeline-card` | Combined weights and dossier history |
-| Bulk Dossier | `custom:puppy-tracker-bulk-dossier-card` | Log one event for multiple puppies |
-| Recurring Reminders | `custom:puppy-tracker-recurring-reminder-card` | Manage repeating or one-time reminders |
-| Care Programs | `custom:puppy-tracker-care-program-card` | Manage age-based schedules and templates |
-| Care Execution | `custom:puppy-tracker-care-execution-card` | Work through open care actions by day |
+| Workspace | `custom:puppy-tracker-workspace-card` | Home, Growth, Journal, Care or Mobile workflow |
 | Owners | `custom:puppy-tracker-owner-card` | Manage contacts and puppy links |
 | Report | `custom:puppy-tracker-report-card` | Create PDF, CSV and JSON exports |
 
 Example phone card:
 
 ```yaml
-type: custom:puppy-tracker-mobile-card
+type: custom:puppy-tracker-workspace-card
+preset: mobile
 title: Puppy Tracker
-show_weighing: true
-show_quick_log: true
-show_today: true
-show_care_today: true
 ```
+
+> **Breaking change in 0.25.0:** the former standalone dashboard card types
+> are no longer public or supported in dashboard YAML. Replace them with a
+> Workspace preset. Owners and Report keep their existing types. The migration
+> table is in [Dashboard cards](docs/DASHBOARD_CARDS.md#migrating-from-024).
 
 See [Dashboard cards](docs/DASHBOARD_CARDS.md) for card options, initial scope
 selection and focused examples.
@@ -119,7 +107,7 @@ fixed daily time or one date. Use a care program when actions are tied to each
 puppy's age. Care results are saved in the puppy dossier, including configured
 result, score, note and day-specific instructions.
 
-The Care Execution card is the complete checklist even when a program is not
+The Care workspace is the complete checklist even when a program is not
 configured to appear in Attention. See
 [Age-based care programs](docs/CARE_PROGRAMS.md) and
 [Notifications](docs/NOTIFICATIONS.md).

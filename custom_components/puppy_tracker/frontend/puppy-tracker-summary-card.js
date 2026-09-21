@@ -5,9 +5,57 @@ import {
   fireNavigate,
   formatShortDateTime,
   formatWeight,
+  languageForHass,
+  requestLitterChange,
   selectDefaultLitter,
   subscribeUpdates,
 } from "./puppy-tracker-card-common.js";
+
+const TEXT = {
+  en: {
+    attention: "Attention",
+    average: "Average",
+    chooseLitter: "Choose litter",
+    lastSession: "Last session {date}",
+    litter: "Litter",
+    loadFailed: "Puppy Tracker data could not be loaded.",
+    loading: "Loading...",
+    noCompletedSession: "No complete session yet",
+    noLitter: "No litter",
+    openDashboard: "Open dashboard",
+    puppies: "Puppies",
+    refreshFailed: "New Puppy Tracker data could not be loaded.",
+    litterLoadFailed: "Litter data could not be loaded.",
+    toWeigh: "To weigh",
+    weighed: "{done}/{total} weighed",
+  },
+  nl: {
+    attention: "Aandacht",
+    average: "Gemiddeld",
+    chooseLitter: "Nest kiezen",
+    lastSession: "Laatste sessie {date}",
+    litter: "Nest",
+    loadFailed: "Puppy Tracker-data kon niet worden geladen.",
+    loading: "Laden...",
+    noCompletedSession: "Nog geen volledige sessie",
+    noLitter: "Geen nest",
+    openDashboard: "Open dashboard",
+    puppies: "Pups",
+    refreshFailed: "Nieuwe Puppy Tracker-data kon niet worden geladen.",
+    litterLoadFailed: "Nestdata kon niet worden geladen.",
+    toWeigh: "Te wegen",
+    weighed: "{done}/{total} gewogen",
+  },
+};
+
+function text(hass, key, replacements = {}) {
+  const language = languageForHass(hass);
+  const template = TEXT[language]?.[key] ?? TEXT.nl[key] ?? key;
+  return Object.entries(replacements).reduce(
+    (result, [name, value]) => result.replaceAll(`{${name}}`, String(value ?? "")),
+    template,
+  );
+}
 
 class PuppyTrackerSummaryCard extends HTMLElement {
   constructor() {
@@ -91,7 +139,7 @@ class PuppyTrackerSummaryCard extends HTMLElement {
       await this._loadData();
       await this._subscribe();
     } catch (err) {
-      this._error = err?.message || "Puppy Tracker-data kon niet worden geladen.";
+      this._error = err?.message || text(this._hass, "loadFailed");
     } finally {
       this._loading = false;
       this._render();
@@ -130,7 +178,7 @@ class PuppyTrackerSummaryCard extends HTMLElement {
       } while (this._refreshAgain);
       this._error = "";
     } catch (err) {
-      this._error = err?.message || "Nieuwe Puppy Tracker-data kon niet worden geladen.";
+      this._error = err?.message || text(this._hass, "refreshFailed");
     } finally {
       this._refreshing = false;
       this._render();
@@ -147,7 +195,7 @@ class PuppyTrackerSummaryCard extends HTMLElement {
       this._data = await fetchLitterData(this._hass, this._selectedLitterId);
       this._error = "";
     } catch (err) {
-      this._error = err?.message || "Nestdata kon niet worden geladen.";
+      this._error = err?.message || text(this._hass, "litterLoadFailed");
     }
     if (render) this._render();
   }
@@ -158,17 +206,17 @@ class PuppyTrackerSummaryCard extends HTMLElement {
     const summary = litter?.summary || {};
     const navigate = Boolean(this._config.navigate_path);
     const selector = this._config.show_litter_selector !== false && this._litters.length > 1
-      ? `<select id="litter-select" aria-label="Nest kiezen">${this._litters.map((item) =>
-          `<option value="${escapeHtml(item.id)}" ${item.id === this._selectedLitterId ? "selected" : ""}>${escapeHtml(item.name || "Nest")}</option>`
+      ? `<select id="litter-select" aria-label="${escapeHtml(text(this._hass, "chooseLitter"))}">${this._litters.map((item) =>
+          `<option value="${escapeHtml(item.id)}" ${item.id === this._selectedLitterId ? "selected" : ""}>${escapeHtml(item.name || text(this._hass, "litter"))}</option>`
         ).join("")}</select>`
       : "";
 
     const session = summary.session;
     const sessionText = session?.status === "active"
-      ? `${session.weighed}/${session.total} gewogen`
+      ? text(this._hass, "weighed", { done: session.weighed, total: session.total })
       : summary.last_completed_session?.completed_at
-        ? `Laatste sessie ${formatShortDateTime(summary.last_completed_session.completed_at)}`
-        : "Nog geen volledige sessie";
+        ? text(this._hass, "lastSession", { date: formatShortDateTime(summary.last_completed_session.completed_at, "—", this._hass) })
+        : text(this._hass, "noCompletedSession");
 
     this.shadowRoot.innerHTML = `
       <ha-card class="${navigate ? "navigable" : ""}">
@@ -184,22 +232,23 @@ class PuppyTrackerSummaryCard extends HTMLElement {
           @container summary-card (max-width:520px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.top{align-items:flex-start}.title{font-size:17px}select{max-width:52%}}
         </style>
         <div class="top">
-          <div class="title">${escapeHtml(this._config.title || "Puppy Tracker")}<div class="sub">${escapeHtml(litter?.name || (this._loading ? "Laden…" : "Geen nest"))}</div></div>
+          <div class="title">${escapeHtml(this._config.title || "Puppy Tracker")}<div class="sub">${escapeHtml(litter?.name || (this._loading ? text(this._hass, "loading") : text(this._hass, "noLitter")))}</div></div>
           ${selector}
         </div>
         ${this._error ? `<div class="error">${escapeHtml(this._error)}</div>` : `
           <div class="stats">
-            <div class="stat"><div class="value">${summary.active_puppies ?? "—"}</div><div class="label">Pups</div></div>
-            <div class="stat ${summary.attention_count ? "danger" : ""}"><div class="value">${summary.attention_count ?? "—"}</div><div class="label">Aandacht</div></div>
-            <div class="stat"><div class="value">${summary.weigh_due_count ?? "—"}</div><div class="label">Te wegen</div></div>
-            <div class="stat"><div class="value">${formatWeight(summary.average_weight)}</div><div class="label">Gemiddeld</div></div>
+            <div class="stat"><div class="value">${summary.active_puppies ?? "—"}</div><div class="label">${escapeHtml(text(this._hass, "puppies"))}</div></div>
+            <div class="stat ${summary.attention_count ? "danger" : ""}"><div class="value">${summary.attention_count ?? "—"}</div><div class="label">${escapeHtml(text(this._hass, "attention"))}</div></div>
+            <div class="stat"><div class="value">${summary.weigh_due_count ?? "—"}</div><div class="label">${escapeHtml(text(this._hass, "toWeigh"))}</div></div>
+            <div class="stat"><div class="value">${formatWeight(summary.average_weight, "—", this._hass)}</div><div class="label">${escapeHtml(text(this._hass, "average"))}</div></div>
           </div>
-          <div class="footer"><span>${escapeHtml(sessionText)}</span>${navigate ? "<span>Open dashboard ›</span>" : ""}</div>
+          <div class="footer"><span>${escapeHtml(sessionText)}</span>${navigate ? `<span>${escapeHtml(text(this._hass, "openDashboard"))} ›</span>` : ""}</div>
         `}
       </ha-card>`;
 
     this.shadowRoot.getElementById("litter-select")?.addEventListener("change", async (event) => {
       event.stopPropagation();
+      if (!requestLitterChange(this, event.target.value)) return;
       this._selectedLitterId = event.target.value;
       await this._loadData();
     });
@@ -214,12 +263,4 @@ class PuppyTrackerSummaryCard extends HTMLElement {
 
 if (!customElements.get("puppy-tracker-summary-card")) {
   customElements.define("puppy-tracker-summary-card", PuppyTrackerSummaryCard);
-}
-window.customCards = window.customCards || [];
-if (!window.customCards.some((card) => card.type === "puppy-tracker-summary-card")) {
-  window.customCards.push({
-    type: "puppy-tracker-summary-card",
-    name: "Puppy Tracker Summary",
-    description: "Compact nestoverzicht voor Puppy Tracker.",
-  });
 }

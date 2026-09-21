@@ -1,29 +1,41 @@
 # Temperature card
 
-`custom:puppy-tracker-temperature-card` is a focused Lovelace card for viewing and entering structured temperature records. It uses the same Puppy Tracker dossier data as Quick Log, Dossier and Timeline, so a measurement entered in one surface is available in the others after the normal live update.
+The Temperature surface in the Journal workspace displays and records
+structured temperature data. It uses the same Puppy Tracker dossier data as
+Quick Log, Dossier and Timeline, so a measurement entered in one surface is
+available in the others after the normal live update.
 
 ## Add the card
 
 Add this YAML to a Lovelace dashboard:
 
 ```yaml
-type: custom:puppy-tracker-temperature-card
+type: custom:puppy-tracker-workspace-card
+preset: journal
+tabs:
+  - temperature
+default_tab: temperature
 title: Temperatuur
 default_selected: puppy
-default_range: 3d
-history_limit: 10
-max_height: 520
-chart_height: 170
-history_sort: newest
-show_selectors: true
-show_thresholds: false
-show_latest: true
-show_chart: true
-show_history: true
-show_editor: true
+tab_config:
+  temperature:
+    default_range: 3d
+    history_limit: 10
+    max_height: 520
+    chart_height: 170
+    history_sort: newest
+    show_selectors: true
+    show_thresholds: false
+    show_latest: true
+    show_chart: true
+    show_history: true
+    show_editor: true
 ```
 
-The integration serves and registers the card automatically. After installing or upgrading Puppy Tracker, perform a full browser or Companion App refresh if Home Assistant still shows an old card definition.
+The integration serves and registers the Workspace automatically. Temperature
+options belong under `tab_config.temperature`. After upgrading Puppy Tracker,
+perform a full browser or Companion App refresh if Home Assistant still shows
+an old card definition.
 
 ## Configuration
 
@@ -31,10 +43,9 @@ All settings are optional. The visual editor exposes the same settings where sup
 
 | Setting | Allowed values | Default | Description |
 | --- | --- | --- | --- |
-| `title` | text | `Temperatuur` | Heading shown at the top of the card |
-| `litter_id` | existing litter ID | first available litter | Selects the nest opened by default |
-| `default_selected` | `litter`, `mother`, `puppy` | unset | Selects the initial owner scope and takes precedence over `default_scope` |
-| `default_scope` | `litter`, `mother`, `puppy` | `litter` | Backwards-compatible alias for the initial owner scope |
+| `title` | text | `Temperatuur` | Heading shown for the surface |
+| `litter_id` | existing litter ID | first available litter | Workspace option selecting the nest opened by default |
+| `default_selected` | `litter`, `mother`, `puppy` | unset | Workspace option selecting the initial owner scope |
 | `default_range` | `24h`, `3d`, `7d`, `14d`, `all` | `3d` | Selects the initial time range |
 | `history_limit` | integer 3-50 | `10` | Limits the number of history rows before scrolling |
 | `max_height` | integer 240-900 | `520` | Sets the history area's maximum height in pixels |
@@ -57,25 +68,35 @@ even when the selected period contains many readings.
 Example for a fixed mother-dog view:
 
 ```yaml
-type: custom:puppy-tracker-temperature-card
+type: custom:puppy-tracker-workspace-card
+preset: journal
+tabs: [temperature]
+default_tab: temperature
 title: Luna temperatuur
 default_selected: mother
-default_range: 24h
-max_height: 360
+tab_config:
+  temperature:
+    default_range: 24h
+    max_height: 360
 ```
 
 Example for a compact puppy view in a mobile dashboard:
 
 ```yaml
-type: custom:puppy-tracker-temperature-card
+type: custom:puppy-tracker-workspace-card
+preset: journal
+tabs: [temperature]
+default_tab: temperature
 title: Pup temperatuur
 default_selected: puppy
-default_range: 3d
-history_limit: 6
-max_height: 360
-show_thresholds: true
-threshold_low: 37.5
-threshold_high: 39.5
+tab_config:
+  temperature:
+    default_range: 3d
+    history_limit: 6
+    max_height: 360
+    show_thresholds: true
+    threshold_low: 37.5
+    threshold_high: 39.5
 ```
 
 ## Using the card
@@ -111,7 +132,11 @@ The card ignores deleted records and only displays records with a valid numeric 
 
 ## Mobile use
 
-The card is responsive and collapses its selectors to one column on narrow screens. The add action becomes full width on a phone, form fields remain large enough for touch input, and history is independently scrollable. For a combined phone workflow, use `custom:puppy-tracker-mobile-card`; the dedicated temperature card is useful when temperature is an important standalone monitoring surface.
+The surface is responsive and collapses its selectors to one column on narrow
+screens. The add action becomes full width on a phone, form fields remain large
+enough for touch input, and history is independently scrollable. Add
+`temperature` to a Journal workspace when it needs a dedicated dashboard view;
+the Mobile preset stays focused on weighing, quick logging, today and care.
 
 ## Troubleshooting
 

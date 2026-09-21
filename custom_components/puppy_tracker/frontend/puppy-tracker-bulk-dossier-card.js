@@ -4,6 +4,7 @@ import {
   fetchLitterData,
   fetchLitters,
   localize,
+  requestLitterChange,
   selectDefaultLitter,
   subscribeUpdates,
 } from "./puppy-tracker-card-common.js";
@@ -574,7 +575,9 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
         ${this._loading ? `<div class="message">${escapeHtml(localize(this._hass, "loading"))}</div>` : ""}
       </ha-card>`;
 
-    this.shadowRoot.getElementById("bulk-litter")?.addEventListener("change", (event) => this._selectLitter(event.target.value));
+    this.shadowRoot.getElementById("bulk-litter")?.addEventListener("change", (event) => {
+      if (requestLitterChange(this, event.target.value)) this._selectLitter(event.target.value);
+    });
     this.shadowRoot.getElementById("select-all")?.addEventListener("click", () => this._setSelection(this._puppies.map((puppy) => puppy.id)));
     this.shadowRoot.getElementById("clear-all")?.addEventListener("click", () => this._setSelection([]));
     for (const checkbox of this.shadowRoot.querySelectorAll(".puppy-check")) {
@@ -595,12 +598,4 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
 
 if (!customElements.get("puppy-tracker-bulk-dossier-card")) {
   customElements.define("puppy-tracker-bulk-dossier-card", PuppyTrackerBulkDossierCard);
-}
-window.customCards = window.customCards || [];
-if (!window.customCards.some((card) => card.type === "puppy-tracker-bulk-dossier-card")) {
-  window.customCards.push({
-    type: "puppy-tracker-bulk-dossier-card",
-    name: "Puppy Tracker Bulk Dossier",
-    description: text(null, "bulkCardDescription"),
-  });
 }

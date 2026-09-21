@@ -1,16 +1,20 @@
 from pathlib import Path
 
+from custom_components.puppy_tracker.frontend import CARD_FILES
+
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND = ROOT / "custom_components" / "puppy_tracker" / "frontend"
 
 
-def test_care_surfaces_are_registered_after_base_cards() -> None:
-    source = (ROOT / "custom_components" / "puppy_tracker" / "frontend.py").read_text()
-    care = source.index('"puppy-tracker-care-surfaces.js"')
-    warning = source.index('"puppy-tracker-care-skipped-warning.js"')
-    assert source.index('"puppy-tracker-today-card.js"') < care
-    assert source.index('"puppy-tracker-attention-card.js"') < care
-    assert care < warning
+def test_care_surfaces_are_imported_by_their_base_cards() -> None:
+    assert "puppy-tracker-care-surfaces.js" not in CARD_FILES
+    for filename in (
+        "puppy-tracker-today-card.js",
+        "puppy-tracker-attention-card.js",
+        "puppy-tracker-care-execution-card.js",
+    ):
+        source = (FRONTEND / filename).read_text()
+        assert 'import "./puppy-tracker-care-surfaces.js";' in source
 
 
 def test_care_surfaces_use_backend_occurrence_status() -> None:
@@ -31,22 +35,40 @@ def test_same_day_upcoming_care_uses_clock_label_not_zero_days() -> None:
     assert "Today at ${clock}" in source
 
 
-def test_attention_and_today_are_both_patched() -> None:
+def test_attention_today_and_execution_register_explicit_hooks() -> None:
     source = (FRONTEND / "puppy-tracker-care-surfaces.js").read_text()
     assert 'const TODAY_TAG = "puppy-tracker-today-card"' in source
     assert 'const ATTENTION_TAG = "puppy-tracker-attention-card"' in source
     assert 'const CARE_EXECUTION_TAG = "puppy-tracker-care-execution-card"' in source
-    assert "patchWhenDefined(TODAY_TAG, patchToday);" in source
-    assert "patchWhenDefined(ATTENTION_TAG, patchAttention);" in source
-    assert "patchWhenDefined(CARE_EXECUTION_TAG, patchCareExecution);" in source
+    assert "registerCardHooks(TODAY_TAG" in source
+    assert "registerCardHooks(ATTENTION_TAG" in source
+    assert "registerCardHooks(CARE_EXECUTION_TAG" in source
+    assert ".prototype" not in source
 
 
-def test_care_surfaces_wait_for_cards_when_modules_finish_out_of_order() -> None:
-    source = (FRONTEND / "puppy-tracker-care-surfaces.js").read_text()
-    assert "function patchWhenDefined(tag, patch)" in source
-    assert "customElements.whenDefined(tag)" in source
-    assert "patchWhenDefined(TODAY_TAG, patchToday);" in source
-    assert "patchWhenDefined(ATTENTION_TAG, patchAttention);" in source
+def test_card_hook_pipeline_is_owned_by_the_base_cards() -> None:
+    common = (FRONTEND / "puppy-tracker-card-common.js").read_text()
+    assert "export function registerCardHooks" in common
+    assert "export async function runCardLoadHooks" in common
+    assert "export function runCardRenderHooks" in common
+    for filename in (
+        "puppy-tracker-today-card.js",
+        "puppy-tracker-attention-card.js",
+        "puppy-tracker-care-execution-card.js",
+    ):
+        source = (FRONTEND / filename).read_text()
+        assert "runCardRenderHooks(this);" in source
+
+
+def test_care_extensions_do_not_patch_card_prototypes() -> None:
+    for filename in (
+        "puppy-tracker-care-surfaces.js",
+        "puppy-tracker-today-qol.js",
+        "puppy-tracker-attention-qol.js",
+    ):
+        source = (FRONTEND / filename).read_text()
+        assert ".prototype" not in source
+        assert "registerCardHooks" in source
 
 
 def test_attention_can_limit_care_items_to_today() -> None:
@@ -55,7 +77,7 @@ def test_attention_can_limit_care_items_to_today() -> None:
     assert 'item?.scheduled_date' in source
     assert 'item?.status === "due_today"' in source
     assert 'Number(item?.days_until_due) === 0' in source
-    assert "this._config?.show_today_only !== true || isTodayItem(item)" in source
+    assert "card._config?.show_today_only !== true || isTodayItem(item)" in source
 
 
 def test_attention_setting_only_filters_care_occurrences() -> None:
@@ -73,33 +95,47 @@ def test_care_summary_has_a_scroll_fallback_outside_today_qol() -> None:
 
 
 def test_open_care_rows_launch_structured_result_entry() -> None:
-    source = (FRONTEND / "puppy-tracker-care-surfaces.js").read_text()
-    assert "function openResultEditor(card, item)" in source
-    assert 'type: "puppy_tracker/care_occurrence/record"' in source
-    assert "program_id: item.program_id" in source
-    assert "puppy_id: item.puppy_id" in source
-    assert "occurrence_id: item.id" in source
-    assert 'value="completed"' in source
-    assert 'value="missed"' in source
-    assert 'fields.has("result")' in source
-    assert 'fields.has("score")' in source
-    assert 'fields.has("note")' in source
+    editor = (FRONTEND / "puppy-tracker-care-result-editor.js").read_text()
+    surfaces = (FRONTEND / "puppy-tracker-care-surfaces.js").read_text()
+    execution = (FRONTEND / "puppy-tracker-care-execution-card.js").read_text()
+    assert "export function openCareResultEditor(card, item" in editor
+    assert 'type: "puppy_tracker/care_occurrence/record"' in editor
+    assert "program_id: item.program_id" in editor
+    assert "puppy_id: item.puppy_id" in editor
+    assert "occurrence_id: item.id" in editor
+    assert 'value="completed"' in editor
+    assert 'value="missed"' in editor
+    assert 'fields.has("result")' in editor
+    assert 'fields.has("score")' in editor
+    assert 'fields.has("note")' in editor
+    assert 'role="dialog"' in editor
+    assert 'aria-modal="true"' in editor
+    assert "openCareResultEditor(card, item)" in surfaces
+    assert "openCareResultEditor(this, item" in execution
+    assert "addDirectActionButtons" in surfaces
+    assert "row.click()" not in surfaces
 
 
 def test_care_result_save_refreshes_backend_derived_status() -> None:
-    source = (FRONTEND / "puppy-tracker-care-surfaces.js").read_text()
-    record_call = source.index('type: "puppy_tracker/care_occurrence/record"')
-    refresh = source.index("await card._loadData();", record_call)
+    editor = (FRONTEND / "puppy-tracker-care-result-editor.js").read_text()
+    surfaces = (FRONTEND / "puppy-tracker-care-surfaces.js").read_text()
+    execution = (FRONTEND / "puppy-tracker-care-execution-card.js").read_text()
+    record_call = editor.index('type: "puppy_tracker/care_occurrence/record"')
+    refresh = editor.index("await refreshCard(card);", record_call)
     assert record_call < refresh
-    assert "data-care-occurrence" in source
-    assert "wireCareRows(this);" in source
-    assert "card._loadOccurrences()" in source
-    assert "card.__careOccurrences || card._occurrences" in source
+    assert "await card._loadData();" in editor
+    assert "await card._loadOccurrences();" in editor
+    assert "data-care-occurrence" in surfaces
+    assert "wireCareRows(card);" in surfaces
+    assert "findCareOccurrence" in surfaces
+    assert "subscribeUpdates" in execution
+    assert "this._refreshAgain = true" in execution
+    assert "this._config.show_day_selector === false" in execution
 
 
 def test_skipped_puppies_are_not_silently_hidden() -> None:
-    source = (FRONTEND / "puppy-tracker-care-skipped-warning.js").read_text()
-    assert 'const TAGS = ["puppy-tracker-today-card", "puppy-tracker-attention-card"]' in source
+    source = (FRONTEND / "puppy-tracker-care-surfaces.js").read_text()
+    assert "function renderSkippedWarning(card)" in source
     assert "card.__careSkipped" in source
     assert 'item?.reason_code === "missing_birth_time"' in source
     assert "geboortetijd ontbreekt" in source

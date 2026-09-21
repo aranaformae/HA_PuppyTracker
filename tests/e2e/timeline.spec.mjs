@@ -196,6 +196,7 @@ async function mountTimeline(page, config = {}) {
         litter: {
           id: "litter-1",
           name: "Luna 2026",
+          mother: "Luna",
           records: [{
             id: "litter-note",
             type: "note",
@@ -295,6 +296,18 @@ async function mountTimeline(page, config = {}) {
           },
         ],
       },
+      motherRecords: [{
+        id: "mother-temperature",
+        type: "temperature",
+        scope: "mother",
+        litter_id: "litter-1",
+        occurred_at: "2026-08-31T03:45:00Z",
+        created_at: "2026-08-31T03:45:00Z",
+        deleted: false,
+        title: "Temperatuur moeder",
+        note: "Stabiel",
+        data: { temperature_c: 38.1 },
+      }],
     };
 
     const hass = {
@@ -305,6 +318,13 @@ async function mountTimeline(page, config = {}) {
           return { litters: [{ id: "litter-1", name: "Luna 2026", active: true }] };
         }
         if (message.type === "puppy_tracker/data") return data.litter;
+        if (message.type === "puppy_tracker/mother/records") {
+          return {
+            owner: { scope: "mother", name: "Luna" },
+            records: data.motherRecords,
+            can_manage_records: true,
+          };
+        }
         if (message.type === "puppy_tracker/records") {
           const puppyId = message.puppy_id || null;
           const baseRecords = puppyId
@@ -384,9 +404,10 @@ async function mountTimeline(page, config = {}) {
     card.setConfig({
       title: "Testtijdlijn",
       show_litter_selector: true,
-      default_scope: "litter",
+      default_selected: "litter",
       max_items: 250,
       show_history_toggle: true,
+      show_timeline_items: true,
       ...cardConfig,
     });
     document.querySelector("#cards").appendChild(card);
@@ -425,8 +446,25 @@ test("switches between litter and puppy scope without losing filters", async ({ 
   expect(await card.locator('[data-filter-type="milestone"]').getAttribute("class")).not.toContain("active");
 });
 
+test("combines mother, litter and puppy events and supports a mother-only scope", async ({ page }) => {
+  const card = await mountTimeline(page, { default_selected: "all" });
+
+  await expect(card.locator("#scope-select")).toHaveValue("__all__");
+  await expect(card.locator(".event-title", { hasText: "Temperatuur moeder" })).toBeVisible();
+  await expect(card.locator(".details", { hasText: "38,1 °C" })).toBeVisible();
+  await expect(card.locator(".meta", { hasText: "Luna" })).toBeVisible();
+  await expect(card.locator(".event-title", { hasText: "Nestcontrole" })).toBeVisible();
+  await expect(card.locator(".meta", { hasText: "Groen" }).first()).toBeVisible();
+
+  await card.locator("#scope-select").selectOption("__mother__");
+  await expect(card.locator(".timeline-item")).toHaveCount(1);
+  await expect(card.locator(".event-title", { hasText: "Temperatuur moeder" })).toBeVisible();
+  await expect(card.locator(".event-title", { hasText: "Nestcontrole" })).toHaveCount(0);
+  await expect(card.locator(".meta", { hasText: "Groen" })).toHaveCount(0);
+});
+
 test("filters event types and date range", async ({ page }) => {
-  const card = await mountTimeline(page, { default_scope: "puppy", puppy_id: "puppy-1" });
+  const card = await mountTimeline(page, { default_selected: "puppy", puppy_id: "puppy-1" });
 
   await expect(card.locator('[data-filter-type="temperature"]')).toBeVisible();
 
@@ -454,7 +492,7 @@ test("filters event types and date range", async ({ page }) => {
 });
 
 test("admin history reveals deleted and superseded entries", async ({ page }) => {
-  const card = await mountTimeline(page, { default_scope: "puppy", puppy_id: "puppy-1" });
+  const card = await mountTimeline(page, { default_selected: "puppy", puppy_id: "puppy-1" });
 
   await card.locator("#history-toggle").check();
   await expect(card.locator(".status.deleted").first()).toBeVisible();

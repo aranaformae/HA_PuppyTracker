@@ -1,4 +1,4 @@
-import { escapeHtml, languageForHass } from "./puppy-tracker-card-common.js";
+import { escapeHtml, languageForHass, registerCardHooks } from "./puppy-tracker-card-common.js";
 
 const TAG = "puppy-tracker-attention-card";
 
@@ -63,6 +63,7 @@ function decorateRows(card) {
   let baseIndex = 0;
 
   for (const row of rows) {
+    if (row.dataset.attentionId && row.dataset.attentionType) continue;
     let id = "";
     let type = "";
     const recurringId = row.dataset.recurringReminder;
@@ -265,32 +266,8 @@ function renderQol(card) {
   });
 }
 
-function applyAttentionFilters(card) {
-  renderQol(card);
-}
-
-function patch() {
-  const Card = customElements.get(TAG);
-  const proto = Card?.prototype;
-  if (!proto || proto.__puppyTrackerAttentionQolPatched) return;
-  const originalLoadData = proto._loadData;
-  const originalRender = proto._render;
-
-  proto._loadData = async function (render = true) {
-    await originalLoadData.call(this, false);
-    await loadAcknowledgements(this);
-    if (render) this._render();
-  };
-  proto._render = function (...args) {
-    const result = originalRender.apply(this, args);
-    renderQol(this);
-    return result;
-  };
-  proto.__applyAttentionFilters = function () {
-    applyAttentionFilters(this);
-  };
-  proto.__puppyTrackerAttentionQolPatched = true;
-}
-
-if (customElements.get(TAG)) patch();
-else customElements.whenDefined(TAG).then(patch);
+registerCardHooks(TAG, {
+  priority: 400,
+  afterLoad: loadAcknowledgements,
+  afterRender: renderQol,
+});

@@ -2,33 +2,83 @@
 // Uses the existing puppy_tracker/data payload to enrich presentation without
 // changing storage or API contracts.
 
+import { languageForHass } from "./puppy-tracker-card-common.js";
+
 const SPARK_BLOCKS = "▁▂▃▄▅▆▇█";
+
+const TEXT = {
+  en: {
+    born: "Born",
+    first24h: "First 24 hours: weight loss can be normal",
+    growth24: "24h growth",
+    growthDevelopment: "Weight development since birth",
+    highestWeight: "Highest weight",
+    lastMeasurement: "Latest measurement {weight}",
+    lastWeighing: "Latest weighing",
+    lowestWeight: "Lowest weight",
+    noComparison: "No comparison available yet",
+    noDevelopment: "No development available yet",
+    profileNote: "Profile note",
+    sinceBirth: "Since birth",
+    sincePrevious: "Since previous measurement",
+    trendTitle: "Weight trend from the latest measurements",
+  },
+  nl: {
+    born: "Geboren",
+    first24h: "Eerste 24 uur: gewichtsverlies kan normaal zijn",
+    growth24: "24u groei",
+    growthDevelopment: "Gewichtsontwikkeling sinds geboorte",
+    highestWeight: "Hoogste gewicht",
+    lastMeasurement: "Laatste meting {weight}",
+    lastWeighing: "Laatste weging",
+    lowestWeight: "Laagste gewicht",
+    noComparison: "Nog geen vergelijkingsbasis",
+    noDevelopment: "Nog geen ontwikkeling beschikbaar",
+    profileNote: "Profielnotitie",
+    sinceBirth: "Sinds geboorte",
+    sincePrevious: "Sinds vorige meting",
+    trendTitle: "Gewichtstrend van de laatste metingen",
+  },
+};
+
+function text(hass, key, replacements = {}) {
+  const language = languageForHass(hass);
+  const template = TEXT[language]?.[key] ?? TEXT.nl[key] ?? key;
+  return Object.entries(replacements).reduce(
+    (result, [name, value]) => result.replaceAll(`{${name}}`, String(value ?? "")),
+    template,
+  );
+}
+
+function locale(hass) {
+  return languageForHass(hass) === "en" ? "en-US" : "nl-NL";
+}
 
 function finite(value) {
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
 }
 
-function signed(value, digits = 1, suffix = "") {
+function signed(value, digits = 1, suffix = "", hass = null) {
   const number = finite(value);
   if (number === null) return "—";
   const sign = number > 0 ? "+" : "";
-  return `${sign}${number.toLocaleString("nl-NL", { maximumFractionDigits: digits })}${suffix}`;
+  return `${sign}${number.toLocaleString(locale(hass), { maximumFractionDigits: digits })}${suffix}`;
 }
 
-function percent(value) {
-  return signed(value, 1, "%");
+function percent(value, hass = null) {
+  return signed(value, 1, "%", hass);
 }
 
-function grams(value) {
-  return signed(value, 1, " g");
+function grams(value, hass = null) {
+  return signed(value, 1, " g", hass);
 }
 
-function localDateTime(value) {
+function localDateTime(value, hass = null) {
   if (!value) return "—";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
-  return new Intl.DateTimeFormat("nl-NL", {
+  return new Intl.DateTimeFormat(locale(hass), {
     day: "2-digit",
     month: "2-digit",
     hour: "2-digit",
@@ -102,28 +152,31 @@ function changePercent(currentWeight, previousWeight) {
   return ((current - previous) / previous) * 100;
 }
 
-function statusExplanation(puppy) {
+function statusExplanation(puppy, hass = null) {
   const s = puppy?.summary || {};
   if (s.status_code === "weigh_due" && finite(s.hours_since_weighing) !== null) {
-    return `${Math.round(Number(s.hours_since_weighing))} uur niet gewogen`;
+    return languageForHass(hass) === "en"
+      ? `Not weighed for ${Math.round(Number(s.hours_since_weighing))} hours`
+      : `${Math.round(Number(s.hours_since_weighing))} uur niet gewogen`;
   }
   if (s.status_code === "low_growth" && finite(s.growth_24h_percent) !== null) {
-    return `24u groei ${percent(s.growth_24h_percent)}`;
+    return `${text(hass, "growth24")} ${percent(s.growth_24h_percent, hass)}`;
   }
   if (s.status_code === "weight_loss" && finite(s.change_grams) !== null) {
-    return `Laatste meting ${grams(s.change_grams)}`;
+    return text(hass, "lastMeasurement", { weight: grams(s.change_grams, hass) });
   }
   if (s.status_code === "first_day_excess_weight_loss" && finite(s.first_day_weight_change_percent) !== null) {
-    return `Sinds geboorte ${percent(s.first_day_weight_change_percent)}`;
+    return `${text(hass, "sinceBirth")} ${percent(s.first_day_weight_change_percent, hass)}`;
   }
-  if (s.status_code === "first_24h") return "Eerste 24 uur: gewichtsverlies kan normaal zijn";
+  if (s.status_code === "first_24h") return text(hass, "first24h");
   if (s.status_code === "ok" && finite(s.growth_24h_percent) !== null) {
-    return `24u groei ${grams(s.growth_24h_grams)} · ${percent(s.growth_24h_percent)}`;
+    return `${text(hass, "growth24")} ${grams(s.growth_24h_grams, hass)} · ${percent(s.growth_24h_percent, hass)}`;
   }
   return "";
 }
 
-function enhanceRow(row, puppy) {
+function enhanceRow(card, row, puppy) {
+  const hass = card?._hass || null;
   const s = puppy?.summary || {};
   const measurements = activeMeasurements(puppy);
   const hasComparison = measurements.length >= 2;
@@ -134,21 +187,23 @@ function enhanceRow(row, puppy) {
   const totalGrowthGrams = birthWeight !== null && currentWeight !== null ? currentWeight - birthWeight : null;
 
   const weightSmall = row.querySelector(".weight small");
-  if (weightSmall) weightSmall.textContent = `${trendArrow(puppy)} ${grams(s.change_grams)}`;
+  if (weightSmall) weightSmall.textContent = `${trendArrow(puppy)} ${grams(s.change_grams, hass)}`;
 
   const growth = row.querySelector(".growth24");
   if (growth) {
     const main = growth.querySelector("b");
     const small = growth.querySelector("small");
     if (firstDay) {
-      if (main) main.textContent = percent(s.growth_birth_percent);
-      if (small) small.textContent = `${grams(totalGrowthGrams)} · sinds geboorte`;
+      if (main) main.textContent = percent(s.growth_birth_percent, hass);
+      if (small) small.textContent = `${grams(totalGrowthGrams, hass)} · ${text(hass, "sinceBirth").toLowerCase()}`;
     } else if (!hasComparison) {
       if (main) main.textContent = "—";
-      if (small) small.textContent = "Nog geen vergelijkingsbasis";
+      if (small) small.textContent = text(hass, "noComparison");
     } else {
-      if (main) main.textContent = percent(s.growth_24h_percent);
-      if (small) small.textContent = `${grams(s.growth_24h_grams)} · gem. ${percent(avg.percentPerDay)}/dag`;
+      if (main) main.textContent = percent(s.growth_24h_percent, hass);
+      if (small) small.textContent = languageForHass(hass) === "en"
+        ? `${grams(s.growth_24h_grams, hass)} · avg. ${percent(avg.percentPerDay, hass)}/day`
+        : `${grams(s.growth_24h_grams, hass)} · gem. ${percent(avg.percentPerDay, hass)}/dag`;
     }
   }
 
@@ -156,14 +211,14 @@ function enhanceRow(row, puppy) {
   if (total) {
     const main = total.querySelector("b");
     const small = total.querySelector("small");
-    if (main) main.textContent = `${grams(totalGrowthGrams)} · ${percent(s.growth_birth_percent)}`;
-    if (small) small.textContent = "sinds geboorte";
+    if (main) main.textContent = `${grams(totalGrowthGrams, hass)} · ${percent(s.growth_birth_percent, hass)}`;
+    if (small) small.textContent = text(hass, "sinceBirth").toLowerCase();
   }
 
   const last = row.querySelector(".last-weighed");
   if (last) {
     const small = last.querySelector("small");
-    if (small) small.textContent = localDateTime(s.last_weighed);
+    if (small) small.textContent = localDateTime(s.last_weighed, hass);
   }
 
   const identity = row.querySelector(".identity > div");
@@ -172,7 +227,7 @@ function enhanceRow(row, puppy) {
     const line = document.createElement("small");
     line.className = "puppy-sparkline";
     line.textContent = spark;
-    line.title = "Gewichtstrend van de laatste metingen";
+    line.title = text(hass, "trendTitle");
     line.style.letterSpacing = "1px";
     line.style.fontFamily = "monospace";
     line.style.overflow = "visible";
@@ -180,7 +235,7 @@ function enhanceRow(row, puppy) {
   }
 
   const stateSmall = row.querySelector(".state small");
-  const explanation = statusExplanation(puppy);
+  const explanation = statusExplanation(puppy, hass);
   if (stateSmall && explanation) stateSmall.textContent = explanation;
 
   const code = String(s.status_code || "unknown");
@@ -219,6 +274,7 @@ function enhanceDetail(card, puppy) {
   if (!detail || detail.querySelector(".puppy-data-insights")) return;
 
   const s = puppy?.summary || {};
+  const hass = card?._hass || null;
   const measurements = activeMeasurements(puppy);
   const hasComparison = measurements.length >= 2;
   const firstDay = isFirstDay(s);
@@ -229,7 +285,7 @@ function enhanceDetail(card, puppy) {
   const totalGrowthPercent = finite(s.growth_birth_percent);
   const previousGrowthPercent = changePercent(currentWeight, s.previous_weight);
 
-  if (!hasComparison) setDetailValue(detail, "Vorige meting", "—");
+  if (!hasComparison) setDetailValue(detail, languageForHass(hass) === "en" ? "Previous measurement" : "Vorige meting", "—");
 
   const section = document.createElement("div");
   section.className = "puppy-data-insights";
@@ -243,26 +299,26 @@ function enhanceDetail(card, puppy) {
 
   if (firstDay) {
     section.append(
-      statCell("Sinds geboorte", `${grams(totalGrowthGrams)} · ${percent(totalGrowthPercent)}`),
+      statCell(text(hass, "sinceBirth"), `${grams(totalGrowthGrams, hass)} · ${percent(totalGrowthPercent, hass)}`),
     );
     if (hasComparison) {
       section.append(
-        statCell("Sinds vorige meting", `${grams(s.change_grams)} · ${percent(previousGrowthPercent)}`),
-        statCell("Laagste gewicht", `${Math.min(...weights).toLocaleString("nl-NL")} g`),
-        statCell("Hoogste gewicht", `${Math.max(...weights).toLocaleString("nl-NL")} g`),
+        statCell(text(hass, "sincePrevious"), `${grams(s.change_grams, hass)} · ${percent(previousGrowthPercent, hass)}`),
+        statCell(text(hass, "lowestWeight"), `${Math.min(...weights).toLocaleString(locale(hass))} g`),
+        statCell(text(hass, "highestWeight"), `${Math.max(...weights).toLocaleString(locale(hass))} g`),
       );
     }
   } else if (hasComparison) {
     section.append(
-      statCell("24u groei", `${grams(s.growth_24h_grams)} · ${percent(s.growth_24h_percent)}`),
-      statCell("Laagste gewicht", `${Math.min(...weights).toLocaleString("nl-NL")} g`),
-      statCell("Hoogste gewicht", `${Math.max(...weights).toLocaleString("nl-NL")} g`),
+      statCell(text(hass, "growth24"), `${grams(s.growth_24h_grams, hass)} · ${percent(s.growth_24h_percent, hass)}`),
+      statCell(text(hass, "lowestWeight"), `${Math.min(...weights).toLocaleString(locale(hass))} g`),
+      statCell(text(hass, "highestWeight"), `${Math.max(...weights).toLocaleString(locale(hass))} g`),
     );
   }
 
   section.append(
-    statCell("Geboren", localDateTime(puppy?.birth_time)),
-    statCell("Laatste weging", localDateTime(s.last_weighed)),
+    statCell(text(hass, "born"), localDateTime(puppy?.birth_time, hass)),
+    statCell(text(hass, "lastWeighing"), localDateTime(s.last_weighed, hass)),
   );
 
   const progress = document.createElement("div");
@@ -270,11 +326,11 @@ function enhanceDetail(card, puppy) {
   progress.style.gridColumn = "1 / -1";
   progress.style.marginTop = "4px";
   const progressLabel = document.createElement("span");
-  progressLabel.textContent = "Gewichtsontwikkeling sinds geboorte";
+  progressLabel.textContent = text(hass, "growthDevelopment");
   const progressText = document.createElement("b");
   progressText.textContent = hasComparison
-    ? `${birthWeight !== null ? `${birthWeight.toLocaleString("nl-NL")} g` : "—"} → ${currentWeight !== null ? `${currentWeight.toLocaleString("nl-NL")} g` : "—"} · ${grams(totalGrowthGrams)} · ${percent(totalGrowthPercent)}`
-    : "Nog geen ontwikkeling beschikbaar";
+    ? `${birthWeight !== null ? `${birthWeight.toLocaleString(locale(hass))} g` : "—"} → ${currentWeight !== null ? `${currentWeight.toLocaleString(locale(hass))} g` : "—"} · ${grams(totalGrowthGrams, hass)} · ${percent(totalGrowthPercent, hass)}`
+    : text(hass, "noDevelopment");
   progressText.style.whiteSpace = "normal";
   progressText.style.overflow = "visible";
   progress.append(progressLabel, progressText);
@@ -308,16 +364,16 @@ function enhanceDetail(card, puppy) {
     block.style.borderTop = "1px solid var(--divider-color)";
 
     const label = document.createElement("span");
-    label.textContent = "Profielnotitie";
-    const text = document.createElement("p");
-    text.textContent = note;
-    text.style.margin = "4px 0 0";
-    text.style.fontSize = "12px";
-    text.style.lineHeight = "1.45";
-    text.style.whiteSpace = "pre-wrap";
-    text.style.overflowWrap = "anywhere";
-    text.style.color = "var(--primary-text-color)";
-    block.append(label, text);
+    label.textContent = text(hass, "profileNote");
+    const paragraph = document.createElement("p");
+    paragraph.textContent = note;
+    paragraph.style.margin = "4px 0 0";
+    paragraph.style.fontSize = "12px";
+    paragraph.style.lineHeight = "1.45";
+    paragraph.style.whiteSpace = "pre-wrap";
+    paragraph.style.overflowWrap = "anywhere";
+    paragraph.style.color = "var(--primary-text-color)";
+    block.append(label, paragraph);
     detail.append(block);
   }
 }
@@ -328,7 +384,7 @@ export function enhanceLitterCard(card) {
 
   card?.shadowRoot?.querySelectorAll(".puppy-row").forEach((row) => {
     const puppy = byId.get(String(row?.dataset?.puppy));
-    if (puppy) enhanceRow(row, puppy);
+    if (puppy) enhanceRow(card, row, puppy);
   });
 
   const expanded = byId.get(String(card?._expandedPuppyId));

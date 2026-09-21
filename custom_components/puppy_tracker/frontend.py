@@ -26,10 +26,6 @@ FRONTEND_URL = f"{FRONTEND_BASE_URL}/{FRONTEND_VERSION}"
 CARD_FILES = (
     "puppy-tracker-card.js",
     "puppy-tracker-overview-card.js",
-    # Treat 24h/3d/7d/etc. as chart zoom levels instead of destructive history
-    # filters. Older points stay horizontally reachable and the current instant
-    # remains explicitly marked with a now-line and return-to-now action.
-    "puppy-tracker-chart-time-navigation.js",
     "puppy-tracker-summary-card.js",
     "puppy-tracker-today-card.js",
     "puppy-tracker-attention-card.js",
@@ -38,52 +34,17 @@ CARD_FILES = (
     # recurring reminders; occurrences remain derived from puppy birth times.
     "puppy-tracker-care-program-card.js",
     "puppy-tracker-care-execution-card.js",
-    # Enrich Today and Attention with open age-based care occurrences after the
-    # base cards are defined; completion remains dossier-derived in the backend.
-    "puppy-tracker-care-surfaces.js",
-    # Give Today the same inclusive active-chip type filtering as Attention.
-    "puppy-tracker-today-qol.js",
-    # Never silently omit a puppy whose care schedule cannot be derived.
-    "puppy-tracker-care-skipped-warning.js",
-    # Apply one shared filter/acknowledgement layer after every Attention source
-    # has rendered so weight, dossier, reminders and care use identical UX.
-    "puppy-tracker-attention-qol.js",
-    # Make the existing care-result workflow explicit with a visible Complete
-    # action on Today and Attention rows without creating a second result path.
-    "puppy-tracker-care-direct-action.js",
     "puppy-tracker-litter-card.js",
     "puppy-tracker-report-card.js",
     "puppy-tracker-owner-card.js",
     "puppy-tracker-dossier-card.js",
-    # Adds the reusable mother owner and current/all-litter history filter to
-    # the dossier card without duplicating the base dossier implementation.
-    "puppy-tracker-mother-dossier.js",
     "puppy-tracker-quick-log-card.js",
-    # Touch-first composite surface for weighing, Quick Log and today's care.
-    "puppy-tracker-mobile-card.js",
     "puppy-tracker-bulk-dossier-card.js",
     "puppy-tracker-timeline-card.js",
     "puppy-tracker-temperature-card.js",
-    # Temperature was introduced after these cards already had their own type
-    # lists/rendering. Keep all temperature-specific compatibility in one layer.
-    "puppy-tracker-temperature-ui.js",
-    # Mother support depends on the temperature layer for quick-log/timeline
-    # temperature handling, so load it immediately after temperature support.
-    "puppy-tracker-mother-surfaces.js",
-    # Keep "All" as the future aggregate report scope while exposing a separate
-    # whole-litter scope for puppy-only exports. Loaded after mother support so
-    # the selector order stays All -> Whole litter -> Mother -> puppies.
-    "puppy-tracker-report-scope.js",
-    # Adds an aggregate "All" owner to Timeline and Dossier after the mother
-    # patches are active. Dossier items retain their source owner context so
-    # existing records can be edited without weakening backend validation.
-    "puppy-tracker-all-scope.js",
-    # Loaded after Dossier and Timeline to add their shared compact show/hide
-    # and edit controls. Overview imports its small layout helper directly.
-    "puppy-tracker-ui-compact.js",
-    # Loaded last: translates the older cards that still contain Dutch UI
-    # literals while Attention and Dossier use localize() directly.
-    "puppy-tracker-localization-bridge.js",
+    # Public entry point for daily use. Feature card elements above remain
+    # internal composition surfaces and are removed from the card picker.
+    "puppy-tracker-workspace-card.js",
 )
 
 # Static HTTP routes cannot currently be cleanly unregistered. Keep the flag

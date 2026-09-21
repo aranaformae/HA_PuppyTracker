@@ -3,9 +3,14 @@ import {
   fetchLitterData,
   fetchLitters,
   languageForHass,
+  requestLitterChange,
+  runCardLoadHooks,
+  runCardRenderHooks,
   selectDefaultLitter,
   subscribeUpdates,
 } from "./puppy-tracker-card-common.js";
+import "./puppy-tracker-care-surfaces.js";
+import "./puppy-tracker-today-qol.js";
 
 const TEXT = {
   nl: {
@@ -134,6 +139,7 @@ class PuppyTrackerTodayCard extends HTMLElement {
 
   async _loadData(render = true) {
     this._data = this._selectedLitterId ? await fetchLitterData(this._hass, this._selectedLitterId) : null;
+    await runCardLoadHooks(this);
     if (render) this._render();
   }
 
@@ -190,12 +196,11 @@ class PuppyTrackerTodayCard extends HTMLElement {
         :host{display:block}ha-card{padding:18px;overflow:hidden}.head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.title{font-size:1.3rem;font-weight:700}.sub{margin-top:3px;color:var(--secondary-text-color);font-size:.9rem}select{min-height:40px;max-width:48%;border:1px solid var(--divider-color);border-radius:10px;padding:0 10px;background:var(--card-background-color);color:var(--primary-text-color)}.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:16px}.stat{padding:10px;border:1px solid var(--divider-color);border-radius:12px;display:grid;gap:2px}.stat strong{font-size:1.35rem}.stat span{font-size:.75rem;color:var(--secondary-text-color)}.stat.danger strong{color:var(--error-color)}.status{display:flex;align-items:center;gap:8px;margin-top:14px;padding:10px 12px;border-radius:12px;background:var(--secondary-background-color)}.status.ok ha-icon{color:var(--success-color,var(--primary-color))}.status.danger ha-icon{color:var(--error-color)}.remaining{margin:9px 2px 0;color:var(--secondary-text-color);font-size:.85rem}.message,.state{margin-top:14px}.error{color:var(--error-color)}@media(max-width:520px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.head{align-items:flex-start}}
       </style>`;
 
-    this.shadowRoot.getElementById("litter-select")?.addEventListener("change", (event) => this._selectLitter(event.target.value));
+    this.shadowRoot.getElementById("litter-select")?.addEventListener("change", (event) => {
+      if (requestLitterChange(this, event.target.value)) this._selectLitter(event.target.value);
+    });
+    runCardRenderHooks(this);
   }
 }
 
 if (!customElements.get("puppy-tracker-today-card")) customElements.define("puppy-tracker-today-card", PuppyTrackerTodayCard);
-window.customCards = window.customCards || [];
-if (!window.customCards.some((card) => card.type === "puppy-tracker-today-card")) {
-  window.customCards.push({ type: "puppy-tracker-today-card", name: "Puppy Tracker Today", description: "Dagelijkse neststatus in één compacte kaart." });
-}

@@ -1,4 +1,4 @@
-import { escapeHtml, languageForHass } from "./puppy-tracker-card-common.js";
+import { escapeHtml, languageForHass, registerCardHooks } from "./puppy-tracker-card-common.js";
 
 const TAG = "puppy-tracker-today-card";
 
@@ -283,20 +283,4 @@ function renderQol(card) {
   });
 }
 
-function patch() {
-  const Card = customElements.get(TAG);
-  const proto = Card?.prototype;
-  if (!proto || proto.__puppyTrackerTodayQolPatched) return;
-  const originalRender = proto._render;
-  if (typeof originalRender !== "function") return;
-
-  proto._render = function (...args) {
-    const result = originalRender.apply(this, args);
-    renderQol(this);
-    return result;
-  };
-  proto.__puppyTrackerTodayQolPatched = true;
-}
-
-if (customElements.get(TAG)) patch();
-else customElements.whenDefined(TAG).then(patch);
+registerCardHooks(TAG, { priority: 200, afterRender: renderQol });

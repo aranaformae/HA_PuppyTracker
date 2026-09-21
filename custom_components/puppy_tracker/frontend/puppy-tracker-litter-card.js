@@ -8,6 +8,8 @@ import {
   formatPercent,
   formatSignedWeight,
   formatWeight,
+  languageForHass,
+  requestLitterChange,
   selectDefaultLitter,
   sexLabel,
   statusIcon,
@@ -15,6 +17,111 @@ import {
   subscribeUpdates,
 } from "./puppy-tracker-card-common.js";
 import { enhanceLitterCard } from "./puppy-tracker-litter-profile-note.js";
+
+const TEXT = {
+  en: {
+    activePuppies: "{count} active",
+    age: "Age",
+    attention: "Attention",
+    attentionCount: "{count} attention",
+    average: "avg. {weight}",
+    birthWeight: "Birth weight",
+    female: "Female",
+    growth24: "Growth 24h",
+    last: "Latest",
+    lastMeasurement: "Previous measurement",
+    lastWeighing: "Latest weighing",
+    litter: "Litter",
+    loadFailed: "Litter overview could not be loaded.",
+    litterLoadFailed: "Litter data could not be loaded.",
+    loading: "Loading...",
+    male: "Male",
+    measurements: "Measurements",
+    name: "Name",
+    noLitter: "No litter",
+    noPuppies: "No puppies to show.",
+    puppy: "Puppy",
+    puppies: "Puppies",
+    refreshFailed: "New Puppy Tracker data could not be loaded.",
+    sinceBirth: "since birth",
+    sortDirection: "Sort direction",
+    status: "Status",
+    statusFirst24h: "First 24 hours",
+    statusLowGrowth: "Low growth",
+    statusNoMeasurement: "No measurement",
+    statusOk: "On track",
+    statusWeightLoss: "Weight loss",
+    statusWeighDue: "Weighing due",
+    toWeigh: "{count} to weigh",
+    totalGrowth: "Total growth",
+    unknown: "Unknown",
+    weight: "Weight",
+  },
+  nl: {
+    activePuppies: "{count} actief",
+    age: "Leeftijd",
+    attention: "Aandacht",
+    attentionCount: "{count} aandacht",
+    average: "gem. {weight}",
+    birthWeight: "Geboortegewicht",
+    female: "Teef",
+    growth24: "Groei 24u",
+    last: "Laatste",
+    lastMeasurement: "Vorige meting",
+    lastWeighing: "Laatste weging",
+    litter: "Nest",
+    loadFailed: "Nestoverzicht kon niet worden geladen.",
+    litterLoadFailed: "Nestdata kon niet worden geladen.",
+    loading: "Laden...",
+    male: "Reu",
+    measurements: "Metingen",
+    name: "Naam",
+    noLitter: "Geen nest",
+    noPuppies: "Geen pups om te tonen.",
+    puppy: "Pup",
+    puppies: "Pups",
+    refreshFailed: "Nieuwe Puppy Tracker-data kon niet worden geladen.",
+    sinceBirth: "sinds geboorte",
+    sortDirection: "Sorteerrichting",
+    status: "Status",
+    statusFirst24h: "Eerste 24 uur",
+    statusLowGrowth: "Lage groei",
+    statusNoMeasurement: "Geen meting",
+    statusOk: "Op schema",
+    statusWeightLoss: "Gewichtsverlies",
+    statusWeighDue: "Weging nodig",
+    toWeigh: "{count} te wegen",
+    totalGrowth: "Totale groei",
+    unknown: "Onbekend",
+    weight: "Gewicht",
+  },
+};
+
+function text(hass, key, replacements = {}) {
+  const language = languageForHass(hass);
+  const template = TEXT[language]?.[key] ?? TEXT.nl[key] ?? key;
+  return Object.entries(replacements).reduce(
+    (result, [name, value]) => result.replaceAll(`{${name}}`, String(value ?? "")),
+    template,
+  );
+}
+
+function configHass() {
+  return document.querySelector("home-assistant")?.hass || null;
+}
+
+function statusLabel(hass, summary) {
+  const key = {
+    first_24h: "statusFirst24h",
+    first_day_excess_weight_loss: "statusWeightLoss",
+    low_growth: "statusLowGrowth",
+    no_measurement: "statusNoMeasurement",
+    ok: "statusOk",
+    weigh_due: "statusWeighDue",
+    weight_loss: "statusWeightLoss",
+  }[summary?.status_code];
+  return key ? text(hass, key) : (summary?.status || text(hass, "unknown"));
+}
 
 class PuppyTrackerLitterCard extends HTMLElement {
   constructor() {
@@ -37,7 +144,8 @@ class PuppyTrackerLitterCard extends HTMLElement {
   }
 
   static getStubConfig() {
-    return { title: "Nestoverzicht", active_only: true, show_details: true, default_sort: "name" };
+    const hass = configHass();
+    return { title: languageForHass(hass) === "en" ? "Litter overview" : "Nestoverzicht", active_only: true, show_details: true, default_sort: "name" };
   }
 
   static getConfigForm() {
@@ -49,11 +157,11 @@ class PuppyTrackerLitterCard extends HTMLElement {
         {
           name: "default_sort",
           selector: { select: { mode: "dropdown", options: [
-            { value: "name", label: "Naam" },
-            { value: "weight", label: "Gewicht" },
-            { value: "growth24", label: "Groei 24 uur" },
-            { value: "last", label: "Laatste weging" },
-            { value: "attention", label: "Aandacht" },
+            { value: "name", label: text(configHass(), "name") },
+            { value: "weight", label: text(configHass(), "weight") },
+            { value: "growth24", label: text(configHass(), "growth24") },
+            { value: "last", label: text(configHass(), "lastWeighing") },
+            { value: "attention", label: text(configHass(), "attention") },
           ] } },
         },
       ],
@@ -61,7 +169,7 @@ class PuppyTrackerLitterCard extends HTMLElement {
   }
 
   setConfig(config) {
-    this._config = { title: "Nestoverzicht", active_only: true, show_details: true, default_sort: "name", ...config };
+    this._config = { title: "", active_only: true, show_details: true, default_sort: "name", ...config };
     this._selectedLitterId = config.litter_id || this._selectedLitterId;
     this._sortBy = config.default_sort || this._sortBy;
     this._render();
@@ -103,7 +211,7 @@ class PuppyTrackerLitterCard extends HTMLElement {
       await this._loadData(false);
       await this._ensureSubscription();
     } catch (err) {
-      this._error = err?.message || "Nestoverzicht kon niet worden geladen.";
+      this._error = err?.message || text(this._hass, "loadFailed");
     } finally {
       this._loading = false;
       this._render();
@@ -143,7 +251,7 @@ class PuppyTrackerLitterCard extends HTMLElement {
       } while (this._refreshAgain);
       this._error = "";
     } catch (err) {
-      this._error = err?.message || "Nieuwe Puppy Tracker-data kon niet worden geladen.";
+      this._error = err?.message || text(this._hass, "refreshFailed");
     } finally {
       this._refreshing = false;
       this._render();
@@ -156,7 +264,7 @@ class PuppyTrackerLitterCard extends HTMLElement {
       this._data = await fetchLitterData(this._hass, this._selectedLitterId);
       this._error = "";
     } catch (err) {
-      this._error = err?.message || "Nestdata kon niet worden geladen.";
+      this._error = err?.message || text(this._hass, "litterLoadFailed");
     }
     if (render) this._render();
   }
@@ -191,7 +299,7 @@ class PuppyTrackerLitterCard extends HTMLElement {
     const summary = litter?.summary || {};
     const rows = this._rows();
     const selector = this._litters.length > 1
-      ? `<select id="litter-select">${this._litters.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === this._selectedLitterId ? "selected" : ""}>${escapeHtml(item.name || "Nest")}</option>`).join("")}</select>`
+      ? `<select id="litter-select">${this._litters.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === this._selectedLitterId ? "selected" : ""}>${escapeHtml(item.name || text(this._hass, "litter"))}</option>`).join("")}</select>`
       : "";
     const detailsEnabled = this._config.show_details !== false;
 
@@ -201,20 +309,20 @@ class PuppyTrackerLitterCard extends HTMLElement {
       const expanded = puppy.id === this._expandedPuppyId;
       return `
         <div class="puppy-row ${tone}" data-puppy="${escapeHtml(puppy.id)}">
-          <div class="identity"><span class="dot"></span><div><strong>${escapeHtml(puppy.name || "Puppy")}</strong><small>${escapeHtml(puppy.collar_color || sexLabel(puppy.sex))}</small></div></div>
-          <div class="cell weight"><b>${formatWeight(s.current_weight)}</b><small>${formatSignedWeight(s.change_grams)}</small></div>
-          <div class="cell growth24"><b>${formatPercent(s.growth_24h_percent)}</b><small>24 uur</small></div>
-          ${detailsEnabled ? `<div class="cell total-growth"><b>${formatPercent(s.growth_birth_percent)}</b><small>sinds geboorte</small></div>` : ""}
-          ${detailsEnabled ? `<div class="cell last-weighed"><b>${formatHoursSince(s.hours_since_weighing)}</b><small>laatste weging</small></div>` : ""}
-          <div class="state"><span>${statusIcon(s.status_code)}</span><div><b>${escapeHtml(s.status || "Onbekend")}</b><small>${escapeHtml(describeStatus(s))}</small></div></div>
+          <div class="identity"><span class="dot"></span><div><strong>${escapeHtml(puppy.name || text(this._hass, "puppy"))}</strong><small>${escapeHtml(puppy.collar_color || sexLabel(puppy.sex, this._hass))}</small></div></div>
+          <div class="cell weight"><b>${formatWeight(s.current_weight, "—", this._hass)}</b><small>${formatSignedWeight(s.change_grams, "—", this._hass)}</small></div>
+          <div class="cell growth24"><b>${formatPercent(s.growth_24h_percent, "—", this._hass)}</b><small>24 ${languageForHass(this._hass) === "en" ? "hours" : "uur"}</small></div>
+          ${detailsEnabled ? `<div class="cell total-growth"><b>${formatPercent(s.growth_birth_percent, "—", this._hass)}</b><small>${escapeHtml(text(this._hass, "sinceBirth"))}</small></div>` : ""}
+          ${detailsEnabled ? `<div class="cell last-weighed"><b>${formatHoursSince(s.hours_since_weighing, "—", this._hass)}</b><small>${escapeHtml(text(this._hass, "lastWeighing").toLowerCase())}</small></div>` : ""}
+          <div class="state"><span>${statusIcon(s.status_code)}</span><div><b>${escapeHtml(statusLabel(this._hass, s))}</b><small>${escapeHtml(describeStatus(s, this._hass))}</small></div></div>
         </div>
         ${this._config.show_details !== false && expanded ? `<div class="detail">
-          <div><span>Leeftijd</span><b>${formatAge(puppy.birth_time)}</b></div>
-          <div><span>Geslacht</span><b>${escapeHtml(sexLabel(puppy.sex))}</b></div>
-          <div><span>Geboortegewicht</span><b>${formatWeight(puppy.birth_weight)}</b></div>
-          <div><span>Vorige meting</span><b>${formatWeight(s.previous_weight)}</b></div>
-          <div><span>Metingen</span><b>${s.measurement_count ?? 0}</b></div>
-          <div><span>Status</span><b>${escapeHtml(s.status || "Onbekend")}</b></div>
+          <div><span>${escapeHtml(text(this._hass, "age"))}</span><b>${formatAge(puppy.birth_time, new Date(), this._hass)}</b></div>
+          <div><span>${escapeHtml(languageForHass(this._hass) === "en" ? "Sex" : "Geslacht")}</span><b>${escapeHtml(sexLabel(puppy.sex, this._hass))}</b></div>
+          <div><span>${escapeHtml(text(this._hass, "birthWeight"))}</span><b>${formatWeight(puppy.birth_weight, "—", this._hass)}</b></div>
+          <div><span>${escapeHtml(text(this._hass, "lastMeasurement"))}</span><b>${formatWeight(s.previous_weight, "—", this._hass)}</b></div>
+          <div><span>${escapeHtml(text(this._hass, "measurements"))}</span><b>${s.measurement_count ?? 0}</b></div>
+          <div><span>${escapeHtml(text(this._hass, "status"))}</span><b>${escapeHtml(statusLabel(this._hass, s))}</b></div>
         </div>` : ""}`;
     }).join("");
 
@@ -229,17 +337,18 @@ class PuppyTrackerLitterCard extends HTMLElement {
           @container litter-card (max-width:720px){.header{display:none}.top{display:block}.controls{justify-content:flex-start;margin-top:10px}.controls select{flex:1 1 140px}.puppy-row{margin-top:8px;border:1px solid var(--divider-color);border-radius:12px;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:"identity identity" "weight growth" "total last" "state state";gap:9px 12px;padding:12px}.basic .puppy-row{grid-template-columns:minmax(0,1.5fr) .8fr .8fr minmax(90px,1fr);grid-template-areas:"identity weight growth state";gap:8px;padding:8px}.identity{grid-area:identity}.weight{grid-area:weight}.growth24{grid-area:growth}.total-growth{grid-area:total}.last-weighed{grid-area:last}.state{grid-area:state;border-top:1px solid var(--divider-color);padding-top:9px}.basic .state{border-top:0;padding-top:0}.cell small,.state small{white-space:normal}.basic .identity small,.basic .cell small,.basic .state small{display:none}.detail{grid-template-columns:repeat(3,minmax(0,1fr));border-radius:12px;margin-top:5px}}
           @container litter-card (max-width:430px){ha-card{padding:13px}.stats{gap:6px}.badge{font-size:11px}.controls{display:grid;grid-template-columns:minmax(0,1fr) auto}.controls select{width:100%}.controls #litter-select{grid-column:1/-1}.puppy-row{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.basic .puppy-row{grid-template-columns:minmax(0,1.35fr) .75fr .75fr minmax(82px,1fr);gap:6px;padding:7px}.identity strong{font-size:15px}.cell b{font-size:15px}.state small{white-space:normal;overflow:visible}.detail{grid-template-columns:repeat(2,minmax(0,1fr))}}
         </style>
-        <div class="${this._config.show_details === false ? "basic" : "advanced"}"><div class="top"><div class="title">${escapeHtml(this._config.title)}<div class="sub">${escapeHtml(litter?.name || (this._loading ? "Laden…" : "Geen nest"))}</div></div>
-          <div class="controls">${selector}<select id="sort-select"><option value="name" ${this._sortBy === "name" ? "selected" : ""}>Naam</option><option value="weight" ${this._sortBy === "weight" ? "selected" : ""}>Gewicht</option><option value="growth24" ${this._sortBy === "growth24" ? "selected" : ""}>Groei 24u</option><option value="last" ${this._sortBy === "last" ? "selected" : ""}>Laatste weging</option><option value="attention" ${this._sortBy === "attention" ? "selected" : ""}>Aandacht</option></select><button id="dir-button" title="Sorteerrichting">${this._sortDirection === "asc" ? "↑" : "↓"}</button></div>
+        <div class="${this._config.show_details === false ? "basic" : "advanced"}"><div class="top"><div class="title">${escapeHtml(this._config.title || (languageForHass(this._hass) === "en" ? "Litter overview" : "Nestoverzicht"))}<div class="sub">${escapeHtml(litter?.name || (this._loading ? text(this._hass, "loading") : text(this._hass, "noLitter")))}</div></div>
+          <div class="controls">${selector}<select id="sort-select"><option value="name" ${this._sortBy === "name" ? "selected" : ""}>${escapeHtml(text(this._hass, "name"))}</option><option value="weight" ${this._sortBy === "weight" ? "selected" : ""}>${escapeHtml(text(this._hass, "weight"))}</option><option value="growth24" ${this._sortBy === "growth24" ? "selected" : ""}>${escapeHtml(text(this._hass, "growth24"))}</option><option value="last" ${this._sortBy === "last" ? "selected" : ""}>${escapeHtml(text(this._hass, "lastWeighing"))}</option><option value="attention" ${this._sortBy === "attention" ? "selected" : ""}>${escapeHtml(text(this._hass, "attention"))}</option></select><button id="dir-button" title="${escapeHtml(text(this._hass, "sortDirection"))}">${this._sortDirection === "asc" ? "↑" : "↓"}</button></div>
         </div>
         ${this._error ? `<div class="error">${escapeHtml(this._error)}</div>` : `
-          <div class="stats"><span class="badge">${summary.active_puppies ?? 0} pups</span><span class="badge ${summary.attention_count ? "danger" : ""}">${summary.attention_count ?? 0} aandacht</span><span class="badge">${summary.weigh_due_count ?? 0} te wegen</span><span class="badge">gem. ${formatWeight(summary.average_weight)}</span></div>
-          <div class="header"><div>Pup</div><div>Gewicht</div><div>Groei 24u</div>${detailsEnabled ? "<div>Totale groei</div><div>Laatste</div>" : ""}<div>Status</div></div>
-          ${rows.length ? tableRows : `<div class="empty">Geen pups om te tonen.</div>`}
+          <div class="stats"><span class="badge">${escapeHtml(text(this._hass, "activePuppies", { count: summary.active_puppies ?? 0 }))}</span><span class="badge ${summary.attention_count ? "danger" : ""}">${escapeHtml(text(this._hass, "attentionCount", { count: summary.attention_count ?? 0 }))}</span><span class="badge">${escapeHtml(text(this._hass, "toWeigh", { count: summary.weigh_due_count ?? 0 }))}</span><span class="badge">${escapeHtml(text(this._hass, "average", { weight: formatWeight(summary.average_weight, "—", this._hass) }))}</span></div>
+          <div class="header"><div>${escapeHtml(text(this._hass, "puppy"))}</div><div>${escapeHtml(text(this._hass, "weight"))}</div><div>${escapeHtml(text(this._hass, "growth24"))}</div>${detailsEnabled ? `<div>${escapeHtml(text(this._hass, "totalGrowth"))}</div><div>${escapeHtml(text(this._hass, "last"))}</div>` : ""}<div>${escapeHtml(text(this._hass, "status"))}</div></div>
+          ${rows.length ? tableRows : `<div class="empty">${escapeHtml(text(this._hass, "noPuppies"))}</div>`}
         `}</div>
       </ha-card>`;
 
     this.shadowRoot.getElementById("litter-select")?.addEventListener("change", async (event) => {
+      if (!requestLitterChange(this, event.target.value)) return;
       this._selectedLitterId = event.target.value;
       this._expandedPuppyId = null;
       await this._loadData();
@@ -263,8 +372,4 @@ class PuppyTrackerLitterCard extends HTMLElement {
 
 if (!customElements.get("puppy-tracker-litter-card")) {
   customElements.define("puppy-tracker-litter-card", PuppyTrackerLitterCard);
-}
-window.customCards = window.customCards || [];
-if (!window.customCards.some((card) => card.type === "puppy-tracker-litter-card")) {
-  window.customCards.push({ type: "puppy-tracker-litter-card", name: "Puppy Tracker Litter", description: "Sorteerbaar nestoverzicht met actuele groei en status." });
 }

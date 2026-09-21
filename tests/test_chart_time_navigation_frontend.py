@@ -19,13 +19,24 @@ def _source() -> str:
     ).read_text(encoding="utf-8")
 
 
-def test_chart_navigation_loads_after_overview_registry_refresh() -> None:
-    """Chart navigation wraps the overview after registry refresh support."""
-    overview_index = CARD_FILES.index(OVERVIEW_CARD)
-    navigation_index = CARD_FILES.index(CHART_TIME_NAVIGATION)
+def test_chart_navigation_is_imported_by_the_overview_card() -> None:
+    """Chart navigation is a direct dependency, not a late prototype patch."""
+    overview = (
+        Path(__file__).parents[1]
+        / "custom_components"
+        / "puppy_tracker"
+        / "frontend"
+        / OVERVIEW_CARD
+    ).read_text(encoding="utf-8")
+
+    assert OVERVIEW_CARD in CARD_FILES
     assert COLLAR_CHART_COLORS not in CARD_FILES
     assert OVERVIEW_REGISTRY_REFRESH not in CARD_FILES
-    assert overview_index < navigation_index
+    assert CHART_TIME_NAVIGATION not in CARD_FILES
+    assert f'from "./{CHART_TIME_NAVIGATION}"' in overview
+    assert "chartMetricPoints.call(this, row)" in overview
+    assert "chartSvg.call(this, rows)" in overview
+    assert ".prototype" not in _source()
 
 
 def test_chart_ranges_are_viewports_not_history_filters() -> None:

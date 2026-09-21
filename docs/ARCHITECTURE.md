@@ -28,23 +28,23 @@ A central rule is that persistent scheduling definitions and historical facts ar
 
 The frontend cards are projections of the same authoritative entities and
 WebSocket data; they must not maintain a second measurement or care-result
-store. The Weighing Station card calculates the pre-save comparison from the
+store. The Weighing surface calculates the pre-save comparison from the
 selected puppy's current and previous weight entities and shows the last
-weighing timestamp plus elapsed time. The Mobile Controls card embeds that
-same card with the detail block enabled, so mobile and desktop expose the same
-save-context information.
+weighing timestamp plus elapsed time. The Growth and Mobile presets compose
+that same surface with the detail block enabled, so mobile and desktop expose
+the same save-context information.
 
 The Litter and Tracker Overview cards share the practical puppy summary fields:
 current weight, change from the previous measurement, 24-hour growth, growth
 since birth, last weighing and status. Overview-specific growth analysis stays
 in its analysis presentation and does not alter the shared summary contract.
 
-The Care Execution card is an operational projection of open care occurrences.
+The Care Execution surface is an operational projection of open care occurrences.
 It supports a selected scheduled date, previous/next date navigation and an
 internally scrollable list capped at `60vh`. Date selection changes only the
 frontend projection; completion still records the authoritative occurrence by
-program, puppy and occurrence ID. Mobile Controls exposes this as a dedicated
-`Care today` tab, configured to the current day and without the extra date
+program, puppy and occurrence ID. The Mobile preset exposes this as a dedicated
+Care tab, configured to the current day and without the extra date
 navigation so weighing and care execution can happen in one touch surface.
 
 Interactive card rerenders must preserve the surrounding dashboard scroll
@@ -59,17 +59,23 @@ part of its normal data cycle before filtering and item limits are applied, the
 Recurring Reminders card resolves its mother owner through the mother API, and
 the Litter card invokes its profile/detail presentation helper explicitly.
 Small reusable helpers such as collar colors are imported by their consumer,
-while one-card layout behavior remains on that card. Cross-card compatibility modules remain only
-where one feature deliberately coordinates several independently defined card
-surfaces; load order for those modules is documented in `frontend.py`.
+while one-card layout behavior remains on that card. Cross-card modules remain
+only where one feature deliberately coordinates several independently defined
+card surfaces. Today, Attention and Care Execution expose an explicit shared
+hook pipeline for this purpose. Care data, filtering, warnings and result
+actions register ordered load/render hooks instead of wrapping card prototypes.
+Each base card imports its own hook helpers directly, so neither `frontend.py`
+nor the Workspace has to encode their initialization order.
 
-`frontend.py` is the authoritative registration and compatibility load order.
-Base cards load before deliberate cross-card layers such as care surfaces,
-temperature/mother support, aggregate owner scopes, compact list presentation
-and the localization bridge. A new one-card behavior should not depend on being
-patched into a prototype later in that sequence. Existing compatibility layers
-are consolidated into their owning card incrementally and their order remains a
-tested contract until that consolidation is complete.
+`frontend.py` is the authoritative registration order for card elements only.
+Imported helpers are ordinary ES-module dependencies of their owning cards.
+Every card owns its localization lifecycle; the large
+Overview dictionary is a stateless helper imported directly by that card.
+Summary and Litter render their localized UI directly, while Dossier and
+Timeline own their compact list and edit controls directly. Care layers use numeric hook priorities, making
+their execution order explicit and independent of nested method wrappers. A new
+one-card behavior should live in that card or be imported directly by it, never
+depend on replacing a prototype later in the sequence.
 
 ## Integration identity
 
@@ -620,7 +626,7 @@ Custom cards consume `puppy_tracker/*` WebSocket APIs rather than re-deriving do
 
 The backend remains source of truth for monitoring state, effective measurements, dossier data, mother identity, recurring reminder definitions/status, care program definitions, care occurrence status and completion.
 
-Frontend compatibility layers may enrich presentation, but must not invent a second persistence model.
+Frontend composition layers may enrich presentation, but must not invent a second persistence model.
 
 Behavior owned by one card should live in that card instead of a late prototype
 patch. Shared stateless presentation rules may remain importable utilities. The
@@ -628,36 +634,89 @@ collar-color mapper follows that model: weighing and overview import the same
 function, while chart series receive their color during normal rendering.
 The Overview card also owns its registry-refresh subscription directly, so an
 imported or newly created puppy is discovered before history is reloaded.
-Compatibility layers remain appropriate where one feature deliberately spans
-several independently registered cards and are consolidated incrementally.
+Its horizontally scrollable chart navigation is an imported helper invoked by
+the card during its normal metric, render and event lifecycles; it is not a
+separately registered module and does not replace Overview prototype methods.
+Cross-surface utilities remain appropriate where one feature deliberately
+spans several internal surfaces. Such utilities should register through the
+card hook pipeline when they need a load or render lifecycle, rather than
+replacing methods on a card prototype.
+
+The Report card owns its complete selection and export model directly: aggregate
+puppies, whole litter, individual puppy and mother are explicit states in the
+card. Mother-history scope and its JSON-only export path are not late selector
+or method patches. This keeps export behavior independent of frontend module
+load order and gives WebKit an explicit download filename for signed mother
+exports. Runtime labels, export progress and Lovelace editor choices are also
+localized by the card itself.
+
+The Weighing card owns its interaction-safe rendering and localization. It
+normalizes the Dutch session/status sensor contract into the active Home
+Assistant language while leaving litter and puppy names untouched.
+
+Overview performs one synchronous, card-owned localization pass immediately
+after replacing its shadow DOM. Its imported helper has no observer, global DOM
+scan or constructor patch, so localization cannot trigger an extra render or
+depend on frontend registration order.
+
+The Timeline card likewise owns its complete scope and event model. Aggregate,
+litter, mother and puppy scopes are loaded and rendered directly by the card;
+mother records and structured temperature values are normalized before the
+shared filtering stage. The mother, aggregate-scope and temperature modules no
+longer wrap Timeline methods, so their load order cannot change Timeline data.
+
+The Dossier card owns the same four scopes directly. Its aggregate records keep
+private source-owner metadata for edit, move, delete and restore operations,
+while mother records use the dedicated mother endpoints. Mother profile notes
+and current/all-litter history are part of the normal Dossier state and render
+flow. No separate mother-dossier or aggregate-scope patch module is loaded.
+
+Quick Log owns its complete single-owner workflow directly. Litter, mother and
+puppy selection, remembered owners per preset, structured temperature input and
+the corresponding owner-specific save endpoint are handled in the base card.
+Bulk Dossier declares temperature in the shared dossier schema. There is no
+temperature compatibility module and `mother-surfaces.js` only contributes
+mother actions to Attention through the ordered hook pipeline.
 
 ## Frontend surfaces
 
-Current core element namespace includes:
+The supported public element namespace is deliberately small:
 
 ```text
-custom:puppy-tracker-card
-custom:puppy-tracker-overview-card
-custom:puppy-tracker-summary-card
-custom:puppy-tracker-today-card
-custom:puppy-tracker-attention-card
-custom:puppy-tracker-care-program-card
-custom:puppy-tracker-care-execution-card
-custom:puppy-tracker-recurring-reminder-card
-custom:puppy-tracker-litter-card
-custom:puppy-tracker-report-card
+custom:puppy-tracker-workspace-card
 custom:puppy-tracker-owner-card
-custom:puppy-tracker-dossier-card
-custom:puppy-tracker-quick-log-card
-custom:puppy-tracker-mobile-card
-custom:puppy-tracker-bulk-dossier-card
-custom:puppy-tracker-timeline-card
-custom:puppy-tracker-temperature-card
+custom:puppy-tracker-report-card
 ```
+
+The Workspace owns five presets (`home`, `growth`, `journal`, `care` and
+`mobile`) and composes the established feature elements as internal surfaces.
+Those elements are loaded for composition but are not advertised in
+`window.customCards` and are not a supported dashboard-YAML API from 0.25.0.
+This intentional breaking change removes the public compatibility obligation
+that previously made load order and prototype patches part of the card API.
+
+Workspace surfaces are created once per configuration, but only Summary and the
+active tab are attached to the DOM. Switching tabs detaches the old surface and
+attaches the retained element for the new one. Standard custom-element
+`connectedCallback` and `disconnectedCallback` lifecycles therefore start and
+stop subscriptions without discarding local form state. A preset only creates
+surfaces it can expose; Home may additionally mount Summary and Journal may
+mount the Bulk action. `tab_config` is the explicit escape hatch for advanced
+surface options without growing the top-level workspace schema for every
+specialist setting.
+
+The Workspace owns the shared litter context. Internal surfaces request a
+litter change through one composed event; the Workspace updates the other
+surface configurations instead of allowing each tab to drift independently.
+The weighing surface announces the actual litter device identifier after a
+successful Home Assistant select action. It is retained as the event source so
+an in-progress weight entry is not rebuilt. Filter state for Quick Log, Dossier
+and Timeline is namespaced by Workspace and surface; `state_key` can distinguish
+otherwise identical Workspace instances.
 
 Mother scope is expected on Dossier, Quick Log, Timeline, Attention, Report/export and Recurring Reminders where the workflow logically supports a single owner. Bulk Dossier remains puppy-oriented because its purpose is one event applied to multiple puppies.
 
-The Temperature card is a focused temperature workflow. It reads structured
+The Temperature surface is a focused temperature workflow. It reads structured
 `temperature` dossier records, supports litter, mother and puppy scope, offers
 a configurable history range, renders a compact SVG trend view and writes new
 readings through the same dossier APIs as the other cards. It is an additional
@@ -678,16 +737,15 @@ detailed presentation.
 
 Milestone projection is derived presentation data. The per-litter `milestone_projection_measurements` setting selects 2 to 8 recent valid growth periods, with 4 as the default. The backend returns the mean daily growth, an uncertainty range, a confidence level and an irregular-cadence flag; the original single-date estimate remains available for clients that only understand `estimated_at`.
 
-### Configurable initial card scope
+### Configurable initial workspace scope
 
-Dossier, Timeline, Temperature and Quick Log accept a presentation-only
-`default_selected` card option (with `default_scope` retained as a backwards-
-compatible alias) with
+Dossier, Timeline, Temperature and Quick Log receive a presentation-only
+`default_selected` workspace option with
 the values `all`, `litter`, `mother` and `puppy`. The option controls the scope
 used during the initial load; the interactive scope selector remains available
 and changing it does not change persisted data. A configured `puppy_id` selects
-that puppy directly, and `default_selected` takes precedence when both options
-are present. The aggregate
+that puppy when `default_selected` is `puppy`; it is ignored for the other
+initial scopes. The aggregate
 `all` view combines litter, mother and puppy records where supported. Existing
 items in that combined Dossier view keep an internal source scope and source
 puppy id, so edit, delete, restore and owner-change actions are sent to the
@@ -698,6 +756,13 @@ explicit single owner selection because applying an aggregate default to a new
 log entry could store the action under the wrong owner.
 
 Today and Attention consume backend-derived age-based occurrence status. Recording a care result must refresh occurrences and render the refreshed state immediately; a completed row must not remain stale until another dashboard event.
+
+Today, Attention and Care Execution open the same care-result editor. The
+shared flow resolves the occurrence once and owns status, result, score, note
+and day-specific instruction handling, so a direct completion button cannot
+bypass fields that another surface would save. Care Execution subscribes while
+visible and coalesces updates that arrive during a load; a refresh is deferred
+while the result editor is open so typed text is not replaced.
 
 The Dossier card presents care-result records with their user-facing metadata:
 care day, scheduled time, status, result, score, resolved day-specific
@@ -787,7 +852,7 @@ Regression tests should protect data meaning and cross-surface contracts, includ
 - scheduling-store quarantine, timestamp stability and failed-write rollback;
 - care-template validation, day-specific instructions, JSON batch import/export and failed-write rollback;
 - notification settings/default migration, deduplication, state isolation and error propagation;
-- frontend module load order;
+- frontend module load order and ordered card hooks;
 - real browser care-result flow from row to dialog to WebSocket save to immediate row removal;
 - export selection, care PDF output and runtime selection;
 - diagnostics scheduler health counts.

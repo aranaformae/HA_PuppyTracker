@@ -3,6 +3,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MOTHER_API = ROOT / "custom_components" / "puppy_tracker" / "mother_dashboard_api.py"
 MOTHER_SURFACES = ROOT / "custom_components" / "puppy_tracker" / "frontend" / "puppy-tracker-mother-surfaces.js"
+ATTENTION_CARD = ROOT / "custom_components" / "puppy_tracker" / "frontend" / "puppy-tracker-attention-card.js"
+REPORT_CARD = ROOT / "custom_components" / "puppy_tracker" / "frontend" / "puppy-tracker-report-card.js"
 FRONTEND = ROOT / "custom_components" / "puppy_tracker" / "frontend.py"
 
 
@@ -21,23 +23,29 @@ def test_frontend_registers_mother_dashboard_api() -> None:
 
     assert "from .mother_dashboard_api import async_setup_mother_dashboard_api" in source
     assert "async_setup_mother_dashboard_api(hass)" in source
-    assert '"puppy-tracker-mother-surfaces.js"' in source
+    assert '"puppy-tracker-mother-surfaces.js"' not in source
+    assert 'import "./puppy-tracker-mother-surfaces.js";' in ATTENTION_CARD.read_text(encoding="utf-8")
 
 
 def test_attention_card_includes_mother_dossier_actions() -> None:
     source = MOTHER_SURFACES.read_text(encoding="utf-8")
 
     assert 'const ATTENTION_TAG = "puppy-tracker-attention-card"' in source
+    assert "registerCardHooks(ATTENTION_TAG" in source
+    assert "priority: 350" in source
+    assert "__puppyTrackerMotherAttentionPatched" not in source
     assert 'type: "puppy_tracker/mother/attention"' in source
-    assert 'this.__motherAttention?.dossier_actions?.actions || []' in source
+    assert 'card.__motherAttention?.dossier_actions?.actions || []' in source
     assert 'className = `row mother-action' in source
 
 
 def test_report_card_can_export_full_or_current_mother_history() -> None:
-    source = MOTHER_SURFACES.read_text(encoding="utf-8")
+    source = REPORT_CARD.read_text(encoding="utf-8")
 
-    assert 'const REPORT_TAG = "puppy-tracker-report-card"' in source
+    assert 'const MOTHER_VALUE = "__mother__"' in source
     assert 'type: "puppy_tracker/mother/export_url"' in source
-    assert 'this.__motherExportScope || "all"' in source
+    assert "history_scope: this._motherExportScope" in source
+    assert 'anchor.download = "puppy-tracker-mother.json"' in source
     assert 'value="current"' in source
-    assert 'copy(this, "Moeder JSON", "Mother JSON")' in source
+    assert 'motherJson: "Moeder JSON"' in source
+    assert "__puppyTrackerMotherReportPatched" not in source
