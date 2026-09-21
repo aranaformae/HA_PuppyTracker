@@ -718,9 +718,21 @@ mount the Bulk action. `tab_config` is the explicit escape hatch for advanced
 surface options without growing the top-level workspace schema for every
 specialist setting.
 
+The Workspace visual editor is preset-aware. Its base fields describe shared
+identity and navigation, while each preset contributes grouped fields for only
+the surfaces it can display. Editor values are normalized back into the same
+top-level and `tab_config` structure consumed by YAML; changing presets must
+remove invalid tabs and defaults instead of preserving inaccessible surface
+configuration as active navigation.
+
 The Workspace owns the shared litter context. Internal surfaces request a
 litter change through one composed event; the Workspace updates the other
 surface configurations instead of allowing each tab to drift independently.
+The top-level `show_litter_selector` value is propagated to every tab surface,
+including Puppies, Weighing, Analysis and Temperature. Each surface owns its
+conditional rendering so hiding the nest control cannot accidentally hide
+unrelated owner, puppy, metric, period or day controls. Summary follows the
+shared context and intentionally has no duplicate nest selector.
 The weighing surface announces the actual litter device identifier after a
 successful Home Assistant select action. It is retained as the event source so
 an in-progress weight entry is not rebuilt. Filter state for Quick Log, Dossier

@@ -1,9 +1,9 @@
 # Dashboard cards
 
-Puppy Tracker 0.25.0 uses one task-focused Workspace card instead of separate
+From Puppy Tracker 0.25.0, one task-focused Workspace card replaces separate
 cards for every feature. Owners and Report remain separate because they are
-distinct management workflows. The integration registers all three cards
-automatically.
+distinct management workflows. The integration registers all three public
+cards automatically.
 
 ## Public cards
 
@@ -44,6 +44,32 @@ show_today_only: true
 default_selected: litter
 ```
 
+## Recommended dashboard structure
+
+A compact dashboard normally needs only one Workspace instance per workflow.
+This avoids repeating the same data in several cards while keeping each page
+focused:
+
+| Dashboard view | Cards | Replaces |
+| --- | --- | --- |
+| Home | Workspace `home` plus camera, climate or other Home Assistant cards | Separate Summary, Today, Attention and Puppies cards |
+| Mobile | Workspace `mobile` | The former Mobile Controls card |
+| Growth | Workspace `growth` | Separate Weighing and Growth pages |
+| Journal | Workspace `journal` | Quick Log, Dossier, Timeline, Temperature and Bulk Dossier cards |
+| Care | Workspace `care` | Care Execution, Programs and Reminders cards |
+| Management | Owners and Report | No change |
+
+The standalone Today and Weighing dashboard views can usually be removed:
+Today is a Home tab and Weighing is a Growth tab. Give each Workspace a unique
+`state_key` when the same preset occurs more than once so remembered tabs and
+filters do not overlap.
+
+A complete six-view example, including a Home view with ordinary Home
+Assistant cards, is available in
+[`examples/puppy-tracker-dashboard.yaml`](examples/puppy-tracker-dashboard.yaml).
+Its non-Puppy Tracker entities are installation-specific and can be replaced or
+removed.
+
 ## Workspace options
 
 | Setting | Values | Purpose |
@@ -53,7 +79,7 @@ default_selected: litter
 | `tabs` | preset tab keys | Shows a subset of tabs from the selected preset |
 | `default_tab` | one visible tab key | Selects the initial tab when no remembered tab exists |
 | `litter_id` | litter ID | Fixes the initial litter |
-| `show_litter_selector` | boolean | Shows litter selection in applicable surfaces |
+| `show_litter_selector` | boolean | Shows or hides litter selection across every selectable Workspace tab |
 | `show_summary` | boolean | Shows the Summary above Home tabs |
 | `show_today_only` | boolean | Limits care occurrences on Today and Attention to today |
 | `show_bulk_action` | boolean | Shows the multi-puppy action in Journal |
@@ -77,6 +103,12 @@ sections, while writing those values to the same `tab_config` structure used
 by YAML. Set `puppy_id` together with `default_selected: puppy`; it is ignored
 for the other initial scopes. YAML remains available for uncommon options that
 are not part of the visual editor.
+
+`show_litter_selector: false` is inherited by Today, Attention, Puppies,
+Weighing, Analysis, Quick Log, Dossier, Timeline, Temperature, Bulk, Execute,
+Programs and Reminders. It only hides the nest control; owner, puppy, metric,
+period and day controls remain available. The Home Summary has no separate nest
+selector because it follows the Workspace's shared nest context.
 
 ## Advanced tab configuration
 
@@ -140,6 +172,11 @@ overdue care actions. Opening a care item uses the full result and note editor.
 Changing the litter in any visible Workspace surface updates the other tabs.
 The active weighing surface is retained during that change so a draft weight
 and input focus are not discarded.
+
+Options inside `tab_config` override the inherited Workspace values for that
+one surface. This is useful for specialist layouts, but a single top-level
+`show_litter_selector`, `default_selected` or `show_today_only` setting is
+clearer when every tab should behave consistently.
 
 ## Owners and Report
 

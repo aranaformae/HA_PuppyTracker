@@ -1,0 +1,406 @@
+# Complete Puppy Tracker workspace layout. Replace or remove the ordinary
+# Home Assistant entities on the Home view when their entity IDs differ.
+views:
+  - title: Home
+    type: sections
+    max_columns: 4
+    cards: []
+    badges: []
+    sections:
+      - type: grid
+        cards:
+          - type: custom:browser-control-card
+            hide_fullscreen: false
+            hide_screenlock: false
+            hide_zoom: true
+            hide_refresh: false
+            no_padding: true
+            small_buttons: true
+
+          - type: picture-elements
+            image: /api/image/serve/8d39175f0678eed0036d82f0938ac918/512x512
+            dark_mode_image: /api/image/serve/ec27e13416b861dfa4913b21cd7fc928/512x512
+            elements:
+              - type: state-label
+                entity: sensor.puppysensor_touch_temperature_1
+                title: Touch 1
+                style:
+                  top: 53%
+                  left: 54%
+                  font-size: 12px
+                  color: white
+                  font-weight: bold
+                  background-color: null
+                  border: grey 2px solid
+                  border-radius: 40%
+              - type: state-label
+                entity: sensor.puppysensor_touch_temperature_2
+                title: Touch 2
+                style:
+                  left: 62%
+                  top: 27%
+                  font-size: 12px
+                  color: white
+                  font-weight: bold
+                  background-color: null
+                  border: grey 2px solid
+                  border-radius: 40%
+              - type: state-label
+                entity: sensor.puppysensor_touch_temperature_3
+                title: Touch 3
+                style:
+                  left: 27%
+                  top: 46%
+                  font-size: 12px
+                  color: white
+                  font-weight: bold
+                  background-color: null
+                  border: grey 2px solid
+                  border-radius: 40%
+              - type: state-icon
+                entity: camera.puppycam
+                icon: mdi:video
+                style:
+                  left: 77%
+                  top: 24%
+              - type: state-label
+                entity: sensor.puppysensor_air_temperature
+                style:
+                  left: 14%
+                  top: 26%
+              - type: state-icon
+                entity: switch.shellyplusplugs_c82e18088d30_switch_0
+                icon: mdi:heat-wave
+                state_color: true
+                style:
+                  left: 35%
+                  top: 30%
+              - type: state-label
+                entity: sensor.shellyplusplugs_c82e18088d30_switch_0_power
+                style:
+                  left: 35%
+                  top: 35%
+              - type: icon
+                icon: mdi:square-rounded-badge
+                style:
+                  left: 14%
+                  top: 21%
+                tap_action:
+                  action: none
+                hold_action:
+                  action: none
+              - type: state-label
+                entity: sensor.puppy_temp_gemiddeld
+                prefix: "Alle gem. "
+                style:
+                  left: 75%
+                  top: 96%
+              - type: state-label
+                entity: sensor.touch_sensor_average
+                prefix: "Touch gem. "
+                style:
+                  left: 25%
+                  top: 96%
+              - type: state-icon
+                entity: camera.puppycam_ptz
+                icon: mdi:cctv
+                style:
+                  left: 14%
+                  top: 34%
+
+          - type: entities
+            title: Zwarte kastje + vloersensors
+            header:
+              type: graph
+              entity: sensor.puppysensor_air_temperature
+              detail: 2
+            entities:
+              - entity: sensor.puppysensor_air_humidity
+                secondary_info: last-changed
+                name: Luchtvochtigheid
+              - entity: sensor.puppysensor_air_temperature
+                secondary_info: last-changed
+                name: Temperatuur lucht
+              - entity: sensor.puppysensor_touch_temperature_1
+                secondary_info: last-changed
+                name: Temperatuur Bak 1
+              - entity: sensor.puppysensor_touch_temperature_2
+                secondary_info: last-changed
+                name: Temperatuur Bak 2
+              - entity: sensor.puppysensor_touch_temperature_3
+                secondary_info: last-changed
+                name: Temperatuur Bak 3
+
+          - type: statistics-graph
+            chart_type: line
+            period: 5minute
+            entities:
+              - sensor.puppysensor_air_temperature
+              - sensor.puppysensor_touch_temperature_1
+              - sensor.puppysensor_touch_temperature_2
+              - sensor.puppysensor_touch_temperature_3
+              - sensor.emma_wk_temperatuur
+            stat_types:
+              - mean
+              - max
+              - min
+            hide_legend: true
+            logarithmic_scale: false
+            days_to_show: 1
+
+      - type: grid
+        cards:
+          - type: tile
+            entity: light.hue_lightstrip_plus_1
+            grid_options:
+              columns: full
+            features:
+              - type: light-brightness
+              - type: light-color-favorites
+              - type: light-color-temp
+
+          - type: custom:puppy-tracker-workspace-card
+            preset: home
+            title: Puppy Tracker
+            default_tab: attention
+            show_litter_selector: false
+            show_summary: true
+            show_today_only: true
+            state_key: dashboard-home
+            tab_config:
+              attention:
+                max_items: 25
+                compact: false
+              puppies:
+                active_only: true
+                show_details: false
+                default_sort: weight
+            grid_options:
+              columns: full
+              rows: auto
+
+          - type: picture-entity
+            entity: camera.puppycam
+            show_state: false
+            show_name: false
+            camera_view: live
+            grid_options:
+              columns: full
+
+          - type: picture-entity
+            entity: camera.puppycam_ptz
+            show_state: false
+            show_name: false
+            camera_view: live
+            fit_mode: cover
+            grid_options:
+              columns: full
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Warmtelamp
+            icon: mdi:heat-wave
+            grid_options:
+              columns: full
+
+          - type: tile
+            entity: climate.werpkist_warmtelamp_puppies_werpkist_thermostaat
+            name:
+              type: device
+            vertical: false
+            features_position: bottom
+            grid_options:
+              columns: full
+            features:
+              - type: target-temperature
+              - type: climate-hvac-modes
+                style: icons
+                hvac_modes:
+                  - heat
+                  - "off"
+
+          - type: custom:apexcharts-card
+            graph_span: 12h
+            header:
+              show: true
+              title: Verbruik warmtelamp
+              show_states: true
+              colorize_states: true
+            series:
+              - entity: sensor.shellyplusplugs_c82e18088d30_switch_0_power
+                name: Vermogen
+                type: area
+                curve: stepline
+                stroke_width: 2
+                extend_to: now
+                float_precision: 0
+            yaxis:
+              - min: 0
+                max: 250
+                decimals: 0
+            apex_config:
+              chart:
+                height: 220
+
+  - title: Mobiel
+    path: mobiel
+    icon: mdi:cellphone
+    type: sections
+    max_columns: 1
+    dense_section_placement: true
+    sections:
+      - type: grid
+        cards:
+          - type: custom:puppy-tracker-workspace-card
+            preset: mobile
+            title: Puppy Tracker
+            default_tab: weighing
+            default_selected: mother
+            show_litter_selector: false
+            show_today_only: true
+            state_key: dashboard-mobile
+            tab_config:
+              weighing:
+                show_details: true
+              care:
+                show_day_selector: false
+                days_ahead: 0
+                max_items: 50
+            grid_options:
+              columns: full
+              rows: auto
+
+  - title: Groei
+    path: groei
+    icon: mdi:chart-line
+    type: sections
+    max_columns: 1
+    sections:
+      - type: grid
+        cards:
+          - type: custom:puppy-tracker-workspace-card
+            preset: growth
+            title: Wegen en groei
+            default_tab: weighing
+            show_litter_selector: false
+            state_key: dashboard-growth
+            tab_config:
+              weighing:
+                show_puppies: true
+                show_details: true
+              analysis:
+                default_range: 7d
+                default_metric: weight
+                show_summary: true
+                show_puppy_cards: true
+                show_advanced_analysis: false
+                show_growth_milestones: true
+                show_milestone_chart_annotations: true
+            grid_options:
+              columns: full
+              rows: auto
+
+  - title: Dossier
+    path: dossier
+    icon: mdi:folder-heart-outline
+    type: sections
+    max_columns: 1
+    sections:
+      - type: grid
+        cards:
+          - type: custom:puppy-tracker-workspace-card
+            preset: journal
+            title: Logboek en dossier
+            default_tab: quickLog
+            default_selected: all
+            show_litter_selector: false
+            show_bulk_action: true
+            state_key: dashboard-journal
+            tab_config:
+              quickLog:
+                default_selected: mother
+              dossier:
+                default_selected: all
+                show_profile_note: true
+                show_timeline_items: false
+              timeline:
+                default_selected: all
+                max_items: 250
+                show_history_toggle: true
+                show_timeline_items: true
+              temperature:
+                default_selected: mother
+                default_range: all
+                history_limit: 10
+                max_height: 520
+                chart_height: 170
+                history_sort: newest
+                show_selectors: true
+                show_thresholds: true
+                show_latest: true
+                show_chart: true
+                show_history: true
+                show_editor: true
+            grid_options:
+              columns: full
+              rows: auto
+
+  - title: Zorg
+    path: zorg
+    icon: mdi:heart-pulse
+    type: sections
+    max_columns: 1
+    sections:
+      - type: grid
+        cards:
+          - type: custom:puppy-tracker-workspace-card
+            preset: care
+            title: Zorg
+            default_tab: care
+            show_litter_selector: false
+            state_key: dashboard-care
+            tab_config:
+              care:
+                show_day_selector: true
+                days_ahead: 14
+                max_items: 50
+              programs:
+                show_disabled: true
+                max_items: 50
+                compact: false
+                sort_order: schedule
+            grid_options:
+              columns: full
+              rows: auto
+
+  - title: Beheer
+    path: beheer
+    icon: mdi:cog-outline
+    type: sections
+    max_columns: 2
+    sections:
+      - type: grid
+        cards:
+          - type: custom:puppy-tracker-owner-card
+            title: Baasjes
+            grid_options:
+              columns: full
+              rows: auto
+
+      - type: grid
+        cards:
+          - type: custom:puppy-tracker-report-card
+            title: Rapportage en export
+            default_range: all
+            default_profile: full
+            grid_options:
+              columns: full
+              rows: auto
+
+          - type: entities
+            title: Backupstatus
+            entities:
+              - entity: sensor.puppy_tracker_laatste_backup
+
+title: Puppy Tracker

@@ -8,7 +8,7 @@ feature overview.
 
 | Guide | Contents |
 | --- | --- |
-| [Dashboard cards](DASHBOARD_CARDS.md) | Workspace presets, owners/report cards, migration and YAML options |
+| [Dashboard cards](DASHBOARD_CARDS.md) | Workspace presets, visual editor, recommended layout, migration and YAML options |
 | [Puppy dossiers and owners](puppy-dossiers.md) | Ownership scopes, record editing, contacts, placement and payment data |
 | [Temperature](temperature-card.md) | Journal temperature view, entry and configuration |
 | [Age-based care programs](CARE_PROGRAMS.md) | Programs, built-in templates and the template JSON format |
@@ -26,3 +26,5 @@ feature overview.
 
 The example care-program import file is available at
 [`examples/care-program-template-example.json`](examples/care-program-template-example.json).
+The complete dashboard example is available at
+[`examples/puppy-tracker-dashboard.yaml`](examples/puppy-tracker-dashboard.yaml).

@@ -45,13 +45,14 @@ All settings are optional. The visual editor exposes the same settings where sup
 | --- | --- | --- | --- |
 | `title` | text | `Temperatuur` | Heading shown for the surface |
 | `litter_id` | existing litter ID | first available litter | Workspace option selecting the nest opened by default |
+| `show_litter_selector` | boolean | `true` | Workspace option that hides only the nest selector while retaining the other selectors |
 | `default_selected` | `litter`, `mother`, `puppy` | unset | Workspace option selecting the initial owner scope |
 | `default_range` | `24h`, `3d`, `7d`, `14d`, `all` | `3d` | Selects the initial time range |
 | `history_limit` | integer 3-50 | `10` | Limits the number of history rows before scrolling |
 | `max_height` | integer 240-900 | `520` | Sets the history area's maximum height in pixels |
 | `chart_height` | integer 100-500 | `170` | Sets the chart height in pixels |
 | `history_sort` | `newest`, `oldest` | `newest` | Controls history row order |
-| `show_selectors` | boolean | `true` | Shows litter, owner, puppy and period selectors |
+| `show_selectors` | boolean | `true` | Shows or hides the complete owner, puppy and period selector area, including the nest selector when enabled |
 | `show_thresholds` | boolean | `false` | Draws configured low/high reference lines in the chart |
 | `threshold_low` | number 30-45 | `37.5` | Low chart reference in degrees Celsius |
 | `threshold_high` | number 30-45 | `39.5` | High chart reference in degrees Celsius |
@@ -101,9 +102,9 @@ tab_config:
 
 ## Using the card
 
-The card provides these controls:
+The surface provides these controls when `show_selectors` is enabled:
 
-- Nest selector when multiple nests are available.
+- Nest selector when `show_litter_selector` is enabled.
 - Owner selector for the whole nest, the linked mother dog or one puppy.
 - Puppy selector when puppy scope is active.
 - Period selector for the last 24 hours, 3, 7 or 14 days, or all available history.

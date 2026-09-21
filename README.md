@@ -54,16 +54,18 @@ Companion App when a dashboard still shows an older card.
 1. Add or select a mother dog and create a litter in the integration options.
 2. Add the puppies, including birth time, birth weight, collar colour and
    optionally a chip number.
-3. Add one or more Puppy Tracker cards to a dashboard.
-4. Use **Weighing Station** for weights and **Quick Log** or **Dossier** for
-   daily observations.
+3. Add a Workspace card to a dashboard and choose the Home, Growth, Journal,
+   Care or Mobile preset in its visual editor.
+4. Use the **Weigh** tab for weights and **Quick Log** or **Dossier** for daily
+   observations.
 5. Add recurring reminders or care programs when scheduled actions are needed.
 6. Create a full JSON backup after the initial setup.
 
 ## Dashboard Cards
 
-The integration serves and registers its cards automatically. Most cards can
-be configured with Home Assistant's visual dashboard editor or with YAML.
+The integration serves and registers its cards automatically. The Workspace
+visual editor changes its option groups when a different preset is selected;
+the same settings can also be written in YAML.
 
 | Card | YAML type | Main use |
 | --- | --- | --- |
@@ -85,7 +87,8 @@ title: Puppy Tracker
 > table is in [Dashboard cards](docs/DASHBOARD_CARDS.md#migrating-from-024).
 
 See [Dashboard cards](docs/DASHBOARD_CARDS.md) for card options, initial scope
-selection and focused examples.
+selection and focused examples. A complete six-view dashboard is available as
+[example YAML](docs/examples/puppy-tracker-dashboard.yaml).
 
 ## Daily Use
 

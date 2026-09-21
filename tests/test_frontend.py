@@ -121,6 +121,25 @@ def test_workspace_preserves_scroll_and_programmatic_focus_does_not_scroll() -> 
     assert "focus({ preventScroll: true })" in quick_log
 
 
+def test_workspace_litter_selector_setting_reaches_every_surface() -> None:
+    """The shared selector switch must not be ignored by composed cards."""
+    frontend = Path(__file__).parents[1] / "custom_components" / "puppy_tracker" / "frontend"
+    workspace = (frontend / WORKSPACE_CARD).read_text(encoding="utf-8")
+
+    for surface in ("puppies", "weighing", "analysis", "temperature"):
+        assert f'{surface}: {{ show_litter_selector: showLitter' in workspace
+
+    for filename in (
+        "puppy-tracker-card.js",
+        "puppy-tracker-overview-card.js",
+        "puppy-tracker-litter-card.js",
+        "puppy-tracker-temperature-card.js",
+    ):
+        source = (frontend / filename).read_text(encoding="utf-8")
+        assert "show_litter_selector: true" in source
+        assert "show_litter_selector !== false" in source
+
+
 def test_workspace_owns_shared_litter_context_and_pauses_hidden_surfaces() -> None:
     """Composed surfaces share one litter and only the visible tab stays active."""
     frontend = Path(__file__).parents[1] / "custom_components" / "puppy_tracker" / "frontend"

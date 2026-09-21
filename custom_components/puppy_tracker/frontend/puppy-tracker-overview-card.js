@@ -74,6 +74,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
   static getStubConfig() {
     return {
       title: localizeOverviewValue(configHass(), "Puppy groeioverzicht"),
+      show_litter_selector: true,
       default_range: "7d",
       default_metric: "weight",
       show_summary: true,
@@ -88,6 +89,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
     return localizeOverviewSchema(configHass(), {
       schema: [
         { name: "title", selector: { text: {} } },
+        { name: "show_litter_selector", selector: { boolean: {} } },
         {
           name: "default_range",
           selector: {
@@ -129,6 +131,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
   setConfig(config) {
     this._config = {
       title: null,
+      show_litter_selector: true,
       default_range: "7d",
       default_metric: "weight",
       show_summary: true,
@@ -1787,10 +1790,10 @@ class PuppyTrackerOverviewCard extends HTMLElement {
       ${integrityWarning}
 
       <div class="toolbar">
-        <label>
+        ${this._config.show_litter_selector !== false ? `<label>
           <span>Nest</span>
           <select id="litter-select">${litterOptions}</select>
-        </label>
+        </label>` : ""}
         <label>
           <span>Grafiek</span>
           <select id="metric-select">

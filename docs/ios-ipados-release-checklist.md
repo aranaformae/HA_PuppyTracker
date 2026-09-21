@@ -28,6 +28,7 @@ Use this checklist before a release that changes dashboard cards, frontend loadi
 - [ ] Start weighing session, save a weight, and reset the session.
 - [ ] Scroll below a Workspace with `preset: mobile`, leave the Weighing tab active for at least 30 seconds and confirm background updates do not move the page to the top.
 - [ ] Switch among Weighing, Quick Log, Today and Care today and confirm the surrounding dashboard keeps its scroll position.
+- [ ] Disable `show_litter_selector` and confirm the nest control is absent on Weighing, Quick Log, Today and Care while their other selectors remain usable.
 - [ ] Complete a Care today item, enter configured result/score/note values and confirm the dialog closes without moving the page.
 - [ ] The Home preset Attention tab loads alerts/upcoming actions after data arrives.
 - [ ] The Journal preset Temperature tab loads the selected nest, owner scope and period without clipped selectors.

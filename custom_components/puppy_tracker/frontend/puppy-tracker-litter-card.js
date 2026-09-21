@@ -145,13 +145,14 @@ class PuppyTrackerLitterCard extends HTMLElement {
 
   static getStubConfig() {
     const hass = configHass();
-    return { title: languageForHass(hass) === "en" ? "Litter overview" : "Nestoverzicht", active_only: true, show_details: true, default_sort: "name" };
+    return { title: languageForHass(hass) === "en" ? "Litter overview" : "Nestoverzicht", show_litter_selector: true, active_only: true, show_details: true, default_sort: "name" };
   }
 
   static getConfigForm() {
     return {
       schema: [
         { name: "title", selector: { text: {} } },
+        { name: "show_litter_selector", selector: { boolean: {} } },
         { name: "active_only", selector: { boolean: {} } },
         { name: "show_details", selector: { boolean: {} } },
         {
@@ -169,7 +170,7 @@ class PuppyTrackerLitterCard extends HTMLElement {
   }
 
   setConfig(config) {
-    this._config = { title: "", active_only: true, show_details: true, default_sort: "name", ...config };
+    this._config = { title: "", show_litter_selector: true, active_only: true, show_details: true, default_sort: "name", ...config };
     this._selectedLitterId = config.litter_id || this._selectedLitterId;
     this._sortBy = config.default_sort || this._sortBy;
     this._render();
@@ -298,7 +299,7 @@ class PuppyTrackerLitterCard extends HTMLElement {
     const litter = this._data?.litter;
     const summary = litter?.summary || {};
     const rows = this._rows();
-    const selector = this._litters.length > 1
+    const selector = this._config.show_litter_selector !== false && this._litters.length > 1
       ? `<select id="litter-select">${this._litters.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === this._selectedLitterId ? "selected" : ""}>${escapeHtml(item.name || text(this._hass, "litter"))}</option>`).join("")}</select>`
       : "";
     const detailsEnabled = this._config.show_details !== false;

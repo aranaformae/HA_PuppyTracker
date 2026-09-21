@@ -91,6 +91,49 @@ test("workspace tabs retain card instances while surfaces are detached", async (
   expect(state).toEqual({ sameInstance: true, childCount: 2, activeTab: "weighing" });
 });
 
+test("workspace hides the litter selector on every composed surface", async ({ page }) => {
+  await openFixture(page, true);
+
+  const result = await page.evaluate(() => {
+    const surfaceConfigs = {};
+    for (const preset of ["home", "growth", "journal", "care", "mobile"]) {
+      const card = document.createElement("puppy-tracker-workspace-card");
+      card.setConfig({ preset, show_litter_selector: false });
+      surfaceConfigs[preset] = Object.fromEntries(
+        [...card._children].map(([key, child]) => [key, child._config?.show_litter_selector]),
+      );
+    }
+
+    const litter = document.createElement("puppy-tracker-litter-card");
+    litter.setConfig({ show_litter_selector: false });
+    litter._litters = [{ id: "one", name: "One" }, { id: "two", name: "Two" }];
+    litter._data = { litter: { summary: {} }, puppies: [] };
+    litter._render();
+
+    const temperature = document.createElement("puppy-tracker-temperature-card");
+    temperature.setConfig({ show_litter_selector: false });
+    temperature._litters = [{ id: "one", name: "One" }, { id: "two", name: "Two" }];
+    temperature._litterData = { litter: { mother: "Luna" }, puppies: [] };
+    temperature._render();
+
+    return {
+      surfaceConfigs,
+      litterSelector: Boolean(litter.shadowRoot.querySelector("#litter-select")),
+      temperatureLitterSelector: Boolean(temperature.shadowRoot.querySelector("#litter-select")),
+      temperatureScopeSelector: Boolean(temperature.shadowRoot.querySelector("#scope-select")),
+      temperatureRangeSelector: Boolean(temperature.shadowRoot.querySelector("#range-select")),
+    };
+  });
+
+  for (const configs of Object.values(result.surfaceConfigs)) {
+    expect(Object.values(configs).every((value) => value === false)).toBe(true);
+  }
+  expect(result.litterSelector).toBe(false);
+  expect(result.temperatureLitterSelector).toBe(false);
+  expect(result.temperatureScopeSelector).toBe(true);
+  expect(result.temperatureRangeSelector).toBe(true);
+});
+
 test("workspace localizes internal surfaces inside its shadow root", async ({ page }) => {
   await openFixture(page, true);
   await page.evaluate(() => {

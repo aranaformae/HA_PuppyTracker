@@ -177,6 +177,7 @@ class PuppyTrackerCard extends HTMLElement {
   static getStubConfig() {
     return {
       title: weighingText(configHass(), "title"),
+      show_litter_selector: true,
       show_puppies: true,
       show_details: true,
     };
@@ -186,6 +187,7 @@ class PuppyTrackerCard extends HTMLElement {
     return {
       schema: [
         { name: "title", selector: { text: {} } },
+        { name: "show_litter_selector", selector: { boolean: {} } },
         { name: "show_puppies", selector: { boolean: {} } },
         { name: "show_details", selector: { boolean: {} } },
       ],
@@ -195,6 +197,7 @@ class PuppyTrackerCard extends HTMLElement {
   setConfig(config) {
     this._config = {
       title: null,
+      show_litter_selector: true,
       show_puppies: true,
       show_details: true,
       ...config,
@@ -992,6 +995,7 @@ class PuppyTrackerCard extends HTMLElement {
   _structureKey(station) {
     return JSON.stringify({
       ids: station?.ids || {},
+      showLitterSelector: this._config.show_litter_selector !== false,
       showPuppies: this._config.show_puppies !== false,
       showDetails: this._config.show_details !== false,
       language: languageForHass(this._hass),
@@ -1440,10 +1444,10 @@ class PuppyTrackerCard extends HTMLElement {
       </div>
 
       <div class="selectors">
-        <label>
+        ${this._config.show_litter_selector !== false ? `<label>
           <span>${this._escape(this._t("litter"))}</span>
           ${litterSelect}
-        </label>
+        </label>` : ""}
         <label>
           <span>${this._escape(this._t("puppy"))}</span>
           ${puppySelect}
