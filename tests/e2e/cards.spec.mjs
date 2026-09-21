@@ -47,14 +47,17 @@ test("registers every Puppy Tracker card without module errors", async ({ page }
 test("keeps third-party cards registered while hiding internal Puppy Tracker surfaces", async ({ page }) => {
   await page.addInitScript(() => {
     window.customCards = [{ type: "example-third-party-card", name: "Example" }];
+    window.__initialCustomCards = window.customCards;
   });
   await openFixture(page, true);
 
-  const advertisedCards = await page.evaluate(() =>
-    (window.customCards || []).map((card) => card.type),
-  );
-  expect(advertisedCards).toContain("example-third-party-card");
-  expect(advertisedCards.filter((type) => type.startsWith("puppy-tracker-")).sort())
+  const registry = await page.evaluate(() => ({
+    advertisedCards: (window.customCards || []).map((card) => card.type),
+    retainedIdentity: window.customCards === window.__initialCustomCards,
+  }));
+  expect(registry.retainedIdentity).toBe(true);
+  expect(registry.advertisedCards).toContain("example-third-party-card");
+  expect(registry.advertisedCards.filter((type) => type.startsWith("puppy-tracker-")).sort())
     .toEqual([...PUBLIC_CARD_TYPES].sort());
 });
 

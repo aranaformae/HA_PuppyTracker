@@ -374,14 +374,10 @@ class PuppyTrackerWorkspaceCard extends HTMLElement {
 
 if (!customElements.get(TAG)) customElements.define(TAG, PuppyTrackerWorkspaceCard);
 
-const PUBLIC_CARD_TYPES = new Set([
-  TAG,
-  "puppy-tracker-owner-card",
-  "puppy-tracker-report-card",
-]);
-window.customCards = (window.customCards || []).filter((card) =>
-  !String(card.type || "").startsWith("puppy-tracker-") || PUBLIC_CARD_TYPES.has(card.type),
-);
+// Keep the registry object stable. Home Assistant can retain this array while
+// the card picker is open, so replacing it would hide registrations added by
+// modules loaded during the same frontend startup.
+window.customCards = window.customCards || [];
 if (!window.customCards.some((card) => card.type === TAG)) {
   window.customCards.push({
     type: TAG,

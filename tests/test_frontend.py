@@ -74,7 +74,8 @@ def test_workspace_card_is_registered_after_its_composed_cards() -> None:
     ).read_text(encoding="utf-8")
     assert 'role="tab"' in source
     assert 'aria-selected' in source
-    assert "PUBLIC_CARD_TYPES" in source
+    assert "window.customCards = window.customCards || [];" in source
+    assert "window.customCards = (window.customCards || []).filter" not in source
     assert 'import "./puppy-tracker-care-surfaces.js";' not in source
     attention = (
         Path(__file__).parents[1]
