@@ -5,6 +5,7 @@ import {
   preserveScrollPosition,
 } from "./puppy-tracker-card-common.js";
 const TAG = "puppy-tracker-workspace-card";
+const EDITOR_TAG = "puppy-tracker-workspace-card-editor";
 
 const SURFACES = {
   summary: { tag: "puppy-tracker-summary-card", icon: "mdi:view-dashboard-outline" },
@@ -29,6 +30,68 @@ const PRESETS = {
   journal: { tabs: ["quickLog", "dossier", "timeline", "temperature"] },
   care: { tabs: ["care", "programs", "reminders"] },
   mobile: { tabs: ["weighing", "quickLog", "today", "care"] },
+};
+
+const EDITOR_FIELDS = {
+  home: [
+    { name: "show_summary", default: true, selector: { boolean: {} } },
+    { name: "show_today_only", default: false, selector: { boolean: {} } },
+    { name: "attention_max_items", surface: "attention", key: "max_items", default: 25, selector: { number: { min: 5, max: 100, step: 5, mode: "box" } } },
+    { name: "attention_compact", surface: "attention", key: "compact", default: false, selector: { boolean: {} } },
+    { name: "puppies_active_only", surface: "puppies", key: "active_only", default: true, selector: { boolean: {} } },
+    { name: "puppies_show_details", surface: "puppies", key: "show_details", default: true, selector: { boolean: {} } },
+    { name: "puppies_default_sort", surface: "puppies", key: "default_sort", default: "name", selector: { select: { mode: "dropdown", options: ["name", "weight", "growth24", "last", "attention"] } } },
+  ],
+  growth: [
+    { name: "weighing_show_puppies", surface: "weighing", key: "show_puppies", default: true, selector: { boolean: {} } },
+    { name: "weighing_show_details", surface: "weighing", key: "show_details", default: true, selector: { boolean: {} } },
+    { name: "analysis_default_range", surface: "analysis", key: "default_range", default: "7d", selector: { select: { mode: "dropdown", options: ["24h", "3d", "7d", "14d", "30d", "all"] } } },
+    { name: "analysis_default_metric", surface: "analysis", key: "default_metric", default: "weight", selector: { select: { mode: "dropdown", options: ["weight", "growth24", "growthBirth"] } } },
+    { name: "analysis_show_summary", surface: "analysis", key: "show_summary", default: true, selector: { boolean: {} } },
+    { name: "analysis_show_puppy_cards", surface: "analysis", key: "show_puppy_cards", default: true, selector: { boolean: {} } },
+    { name: "analysis_show_advanced_analysis", surface: "analysis", key: "show_advanced_analysis", default: false, selector: { boolean: {} } },
+    { name: "analysis_show_growth_milestones", surface: "analysis", key: "show_growth_milestones", default: true, selector: { boolean: {} } },
+    { name: "analysis_show_milestone_chart_annotations", surface: "analysis", key: "show_milestone_chart_annotations", default: true, selector: { boolean: {} } },
+  ],
+  journal: [
+    { name: "default_selected", default: "litter", selector: { select: { mode: "dropdown", options: ["all", "litter", "mother", "puppy"] } } },
+    { name: "puppy_id", default: "", selector: { text: {} } },
+    { name: "show_bulk_action", default: true, selector: { boolean: {} } },
+    { name: "dossier_show_profile_note", surface: "dossier", key: "show_profile_note", default: true, selector: { boolean: {} } },
+    { name: "dossier_show_timeline_items", surface: "dossier", key: "show_timeline_items", default: false, selector: { boolean: {} } },
+    { name: "timeline_max_items", surface: "timeline", key: "max_items", default: 250, selector: { number: { min: 25, max: 500, step: 25, mode: "box" } } },
+    { name: "timeline_show_history_toggle", surface: "timeline", key: "show_history_toggle", default: true, selector: { boolean: {} } },
+    { name: "timeline_show_timeline_items", surface: "timeline", key: "show_timeline_items", default: false, selector: { boolean: {} } },
+    { name: "temperature_default_range", surface: "temperature", key: "default_range", default: "3d", selector: { select: { mode: "dropdown", options: ["24h", "3d", "7d", "14d", "all"] } } },
+    { name: "temperature_history_limit", surface: "temperature", key: "history_limit", default: 10, selector: { number: { min: 3, max: 50, step: 1, mode: "box" } } },
+    { name: "temperature_max_height", surface: "temperature", key: "max_height", default: 520, selector: { number: { min: 240, max: 900, step: 20, mode: "box" } } },
+    { name: "temperature_chart_height", surface: "temperature", key: "chart_height", default: 170, selector: { number: { min: 100, max: 500, step: 10, mode: "box" } } },
+    { name: "temperature_history_sort", surface: "temperature", key: "history_sort", default: "newest", selector: { select: { mode: "dropdown", options: ["newest", "oldest"] } } },
+    { name: "temperature_show_selectors", surface: "temperature", key: "show_selectors", default: true, selector: { boolean: {} } },
+    { name: "temperature_show_thresholds", surface: "temperature", key: "show_thresholds", default: false, selector: { boolean: {} } },
+    { name: "temperature_show_latest", surface: "temperature", key: "show_latest", default: true, selector: { boolean: {} } },
+    { name: "temperature_show_chart", surface: "temperature", key: "show_chart", default: true, selector: { boolean: {} } },
+    { name: "temperature_show_history", surface: "temperature", key: "show_history", default: true, selector: { boolean: {} } },
+    { name: "temperature_show_editor", surface: "temperature", key: "show_editor", default: true, selector: { boolean: {} } },
+  ],
+  care: [
+    { name: "care_show_day_selector", surface: "care", key: "show_day_selector", default: true, selector: { boolean: {} } },
+    { name: "care_days_ahead", surface: "care", key: "days_ahead", default: 14, selector: { number: { min: 0, max: 365, step: 1, mode: "box" } } },
+    { name: "care_max_items", surface: "care", key: "max_items", default: 50, selector: { number: { min: 5, max: 200, step: 5, mode: "box" } } },
+    { name: "programs_show_disabled", surface: "programs", key: "show_disabled", default: true, selector: { boolean: {} } },
+    { name: "programs_max_items", surface: "programs", key: "max_items", default: 50, selector: { number: { min: 5, max: 200, step: 5, mode: "box" } } },
+    { name: "programs_compact", surface: "programs", key: "compact", default: false, selector: { boolean: {} } },
+    { name: "programs_sort_order", surface: "programs", key: "sort_order", default: "schedule", selector: { select: { mode: "dropdown", options: ["schedule", "title"] } } },
+  ],
+  mobile: [
+    { name: "default_selected", default: "litter", selector: { select: { mode: "dropdown", options: ["litter", "mother", "puppy"] } } },
+    { name: "puppy_id", default: "", selector: { text: {} } },
+    { name: "show_today_only", default: false, selector: { boolean: {} } },
+    { name: "weighing_show_details", surface: "weighing", key: "show_details", default: true, selector: { boolean: {} } },
+    { name: "care_show_day_selector", surface: "care", key: "show_day_selector", default: false, selector: { boolean: {} } },
+    { name: "care_days_ahead", surface: "care", key: "days_ahead", default: 0, selector: { number: { min: 0, max: 365, step: 1, mode: "box" } } },
+    { name: "care_max_items", surface: "care", key: "max_items", default: 50, selector: { number: { min: 5, max: 200, step: 5, mode: "box" } } },
+  ],
 };
 
 const TEXT = {
@@ -75,6 +138,51 @@ const TEXT = {
     bulk: "Multiple puppies",
     closeBulk: "Back to journal",
     chooseView: "Choose view",
+  },
+};
+
+const EDITOR_LABELS = {
+  nl: {
+    title: "Titel", preset: "Preset", litter_id: "Vast nest-ID", show_litter_selector: "Nestselector tonen",
+    navigation: "Navigatie", tabs: "Zichtbare tabbladen", default_tab: "Standaard tabblad", state_key: "Unieke status-sleutel",
+    presetOptions: "Opties voor deze preset", show_summary: "Samenvatting tonen", show_today_only: "Alleen vandaag tonen",
+    attention_max_items: "Aandacht: maximaal aantal items", attention_compact: "Aandacht compact tonen",
+    puppies_active_only: "Alleen actieve pups", puppies_show_details: "Pupdetails tonen", puppies_default_sort: "Pups standaard sorteren op",
+    weighing_show_puppies: "Puppenlijst bij wegen tonen", weighing_show_details: "Weegdetails tonen",
+    analysis_default_range: "Analyseperiode", analysis_default_metric: "Standaard groeimetriek", analysis_show_summary: "Analysesamenvatting tonen",
+    analysis_show_puppy_cards: "Pupkaarten tonen", analysis_show_advanced_analysis: "Geavanceerde analyse tonen",
+    analysis_show_growth_milestones: "Groeimijlpalen tonen", analysis_show_milestone_chart_annotations: "Mijlpalen in grafieken tonen",
+    default_selected: "Standaard eigenaar/scope", puppy_id: "Standaard pup-ID", show_bulk_action: "Actie voor meerdere pups tonen",
+    dossier_show_profile_note: "Dossierprofielnotitie tonen", dossier_show_timeline_items: "Dossiertijdlijn standaard uitklappen",
+    timeline_max_items: "Tijdlijn: maximaal aantal items", timeline_show_history_toggle: "Tijdlijnknop tonen", timeline_show_timeline_items: "Tijdlijnitems standaard tonen",
+    temperature_default_range: "Temperatuurperiode", temperature_history_limit: "Aantal temperatuurmetingen", temperature_max_height: "Maximale lijsthoogte",
+    temperature_chart_height: "Grafiekhoogte", temperature_history_sort: "Volgorde metingen", temperature_show_selectors: "Temperatuurselectors tonen",
+    temperature_show_thresholds: "Temperatuurgrenzen tonen", temperature_show_latest: "Laatste temperatuur tonen", temperature_show_chart: "Temperatuurgrafiek tonen",
+    temperature_show_history: "Temperatuurlogboek tonen", temperature_show_editor: "Temperatuurinvoer tonen",
+    care_show_day_selector: "Dagselector tonen", care_days_ahead: "Aantal dagen vooruit", care_max_items: "Uitvoeren: maximaal aantal items",
+    programs_show_disabled: "Uitgeschakelde programma's tonen", programs_max_items: "Programma's: maximaal aantal items",
+    programs_compact: "Programma's compact tonen", programs_sort_order: "Programma's sorteren op",
+  },
+  en: {
+    title: "Title", preset: "Preset", litter_id: "Fixed litter ID", show_litter_selector: "Show litter selector",
+    navigation: "Navigation", tabs: "Visible tabs", default_tab: "Default tab", state_key: "Unique state key",
+    presetOptions: "Options for this preset", show_summary: "Show summary", show_today_only: "Show today only",
+    attention_max_items: "Attention: maximum items", attention_compact: "Show compact attention items",
+    puppies_active_only: "Active puppies only", puppies_show_details: "Show puppy details", puppies_default_sort: "Default puppy sorting",
+    weighing_show_puppies: "Show puppy list while weighing", weighing_show_details: "Show weighing details",
+    analysis_default_range: "Analysis range", analysis_default_metric: "Default growth metric", analysis_show_summary: "Show analysis summary",
+    analysis_show_puppy_cards: "Show puppy cards", analysis_show_advanced_analysis: "Show advanced analysis",
+    analysis_show_growth_milestones: "Show growth milestones", analysis_show_milestone_chart_annotations: "Show milestones in charts",
+    default_selected: "Default owner/scope", puppy_id: "Default puppy ID", show_bulk_action: "Show multi-puppy action",
+    dossier_show_profile_note: "Show dossier profile note", dossier_show_timeline_items: "Expand dossier timeline by default",
+    timeline_max_items: "Timeline: maximum items", timeline_show_history_toggle: "Show timeline toggle", timeline_show_timeline_items: "Show timeline items by default",
+    temperature_default_range: "Temperature range", temperature_history_limit: "Number of temperature readings", temperature_max_height: "Maximum list height",
+    temperature_chart_height: "Chart height", temperature_history_sort: "Reading order", temperature_show_selectors: "Show temperature selectors",
+    temperature_show_thresholds: "Show temperature thresholds", temperature_show_latest: "Show latest temperature", temperature_show_chart: "Show temperature chart",
+    temperature_show_history: "Show temperature history", temperature_show_editor: "Show temperature input",
+    care_show_day_selector: "Show day selector", care_days_ahead: "Days ahead", care_max_items: "Execution: maximum items",
+    programs_show_disabled: "Show disabled programs", programs_max_items: "Programs: maximum items",
+    programs_compact: "Show programs compactly", programs_sort_order: "Sort programs by",
   },
 };
 
@@ -128,20 +236,8 @@ class PuppyTrackerWorkspaceCard extends HTMLElement {
     };
   }
 
-  static getConfigForm() {
-    const hass = configHass();
-    return { schema: [
-      { name: "title", selector: { text: {} } },
-      { name: "preset", selector: { select: { mode: "dropdown", options: [
-        { value: "home", label: languageText(hass, "home") },
-        { value: "growth", label: languageText(hass, "growth") },
-        { value: "journal", label: languageText(hass, "journal") },
-        { value: "care", label: languageText(hass, "carePreset") },
-        { value: "mobile", label: languageText(hass, "mobile") },
-      ] } } },
-      { name: "litter_id", selector: { text: {} } },
-      { name: "show_litter_selector", selector: { boolean: {} } },
-    ] };
+  static getConfigElement() {
+    return document.createElement(EDITOR_TAG);
   }
 
   setConfig(config) {
@@ -372,6 +468,225 @@ class PuppyTrackerWorkspaceCard extends HTMLElement {
   }
 }
 
+function editorLanguage(hass) {
+  return languageForHass(hass) === "en" ? "en" : "nl";
+}
+
+function editorOptionLabel(hass, fieldName, value) {
+  const language = editorLanguage(hass);
+  const common = {
+    all: { nl: "Alles", en: "All" }, litter: { nl: "Hele nest", en: "Whole litter" },
+    mother: { nl: "Moederhond", en: "Mother" }, puppy: { nl: "Pup", en: "Puppy" },
+    newest: { nl: "Nieuwste eerst", en: "Newest first" }, oldest: { nl: "Oudste eerst", en: "Oldest first" },
+    schedule: { nl: "Planning", en: "Schedule" }, title: { nl: "Titel", en: "Title" },
+    name: { nl: "Naam", en: "Name" }, weight: { nl: "Gewicht", en: "Weight" },
+    growth24: { nl: "Groei per 24 uur", en: "Growth per 24 hours" }, growthBirth: { nl: "Groei sinds geboorte", en: "Growth since birth" },
+    last: { nl: "Laatste weging", en: "Last weighing" }, attention: { nl: "Aandacht", en: "Attention" },
+  };
+  if (fieldName === "preset" && PRESETS[value]) return presetTitle({ _hass: hass }, value);
+  if (SURFACES[value]) return languageText(hass, value);
+  if (common[value]) return common[value][language];
+  if (/^(24h|3d|7d|14d|30d)$/.test(value)) {
+    const amount = value.slice(0, -1);
+    const unit = value.endsWith("h") ? (language === "en" ? "hours" : "uur") : (language === "en" ? "days" : "dagen");
+    return `${amount} ${unit}`;
+  }
+  if (value === "all") return common.all[language];
+  return String(value);
+}
+
+function localizedSelector(hass, field) {
+  const selector = structuredClone(field.selector);
+  const select = selector.select;
+  if (select && Array.isArray(select.options)) {
+    select.options = select.options.map((option) => {
+      const value = typeof option === "string" ? option : option.value;
+      return { value, label: editorOptionLabel(hass, field.name, value) };
+    });
+  }
+  return selector;
+}
+
+class PuppyTrackerWorkspaceCardEditor extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: "open" });
+    this._config = {};
+    this._hass = null;
+    this._language = "nl";
+    this._schemaKey = "";
+  }
+
+  setConfig(config) {
+    this._config = { ...config, tab_config: { ...(config.tab_config || {}) } };
+    this._ensureForm();
+    this._updateForm();
+  }
+
+  set hass(hass) {
+    const language = editorLanguage(hass);
+    this._hass = hass;
+    if (language !== this._language) this._language = language;
+    this._updateForm();
+  }
+
+  set lovelace(lovelace) {
+    this._lovelace = lovelace;
+  }
+
+  connectedCallback() {
+    this._ensureForm();
+    this._updateForm();
+  }
+
+  _preset() {
+    return Object.hasOwn(PRESETS, this._config.preset) ? this._config.preset : "home";
+  }
+
+  _label(name) {
+    return (EDITOR_LABELS[this._language] || EDITOR_LABELS.nl)[name] || name;
+  }
+
+  _ensureForm() {
+    if (!this.shadowRoot || this.shadowRoot.querySelector("ha-form")) return;
+    this.shadowRoot.innerHTML = `<style>:host{display:block}ha-form{display:block}</style><ha-form></ha-form>`;
+    this._schemaKey = "";
+    this.shadowRoot.querySelector("ha-form")?.addEventListener("value-changed", (event) => this._valueChanged(event));
+  }
+
+  _formData() {
+    const preset = this._preset();
+    const tabs = Array.isArray(this._config.tabs)
+      ? this._config.tabs.filter((tab) => PRESETS[preset].tabs.includes(tab))
+      : [...PRESETS[preset].tabs];
+    const data = {
+      title: this._config.title || "",
+      preset,
+      litter_id: this._config.litter_id || "",
+      show_litter_selector: this._config.show_litter_selector !== false,
+      tabs: tabs.length ? tabs : [...PRESETS[preset].tabs],
+      default_tab: PRESETS[preset].tabs.includes(this._config.default_tab) ? this._config.default_tab : (tabs[0] || PRESETS[preset].tabs[0]),
+      state_key: this._config.state_key || "",
+    };
+    for (const field of EDITOR_FIELDS[preset]) {
+      const configured = field.surface
+        ? this._config.tab_config?.[field.surface]?.[field.key]
+        : this._config[field.name];
+      data[field.name] = configured ?? field.default;
+    }
+    return data;
+  }
+
+  _formDefinition() {
+    const preset = this._preset();
+    const tabOptions = PRESETS[preset].tabs.map((value) => ({ value, label: editorOptionLabel(this._hass, "tabs", value) }));
+    const schema = [
+      { name: "title", selector: { text: {} } },
+      { name: "preset", selector: { select: { mode: "dropdown", options: Object.keys(PRESETS).map((value) => ({ value, label: editorOptionLabel(this._hass, "preset", value) })) } } },
+      { name: "litter_id", selector: { text: {} } },
+      { name: "show_litter_selector", selector: { boolean: {} } },
+      {
+        type: "expandable", name: "navigation", title: this._label("navigation"), flatten: true,
+        schema: [
+          { name: "tabs", selector: { select: { mode: "dropdown", multiple: true, options: tabOptions } } },
+          { name: "default_tab", selector: { select: { mode: "dropdown", options: tabOptions } } },
+          { name: "state_key", selector: { text: {} } },
+        ],
+      },
+    ];
+
+    const groups = new Map();
+    for (const field of EDITOR_FIELDS[preset]) {
+      const group = field.surface || "presetOptions";
+      if (!groups.has(group)) groups.set(group, []);
+      groups.get(group).push({ name: field.name, selector: localizedSelector(this._hass, field) });
+    }
+    for (const [group, fields] of groups) {
+      schema.push({
+        type: "expandable",
+        name: `options_${group}`,
+        title: group === "presetOptions" ? this._label("presetOptions") : editorOptionLabel(this._hass, "tabs", group),
+        flatten: true,
+        schema: fields,
+      });
+    }
+    return {
+      schema,
+      computeLabel: (entry) => this._label(entry.name),
+      computeHelper: (entry) => entry.name === "puppy_id"
+        ? (this._language === "en" ? "Only used when the default scope is Puppy." : "Alleen gebruikt wanneer de standaard scope Pup is.")
+        : undefined,
+    };
+  }
+
+  _updateForm() {
+    const form = this.shadowRoot?.querySelector("ha-form");
+    if (!form) return;
+    form.hass = this._hass;
+    const schemaKey = `${this._preset()}:${this._language}`;
+    if (schemaKey !== this._schemaKey) {
+      const definition = this._formDefinition();
+      form.schema = definition.schema;
+      form.computeLabel = definition.computeLabel;
+      form.computeHelper = definition.computeHelper;
+      this._schemaKey = schemaKey;
+    }
+    form.data = this._formData();
+  }
+
+  _assignOptional(config, key, value) {
+    if (typeof value === "string" && !value.trim()) delete config[key];
+    else if (value !== undefined) config[key] = value;
+  }
+
+  _valueChanged(event) {
+    const data = event.detail?.value;
+    if (!data) return;
+    const previousPreset = this._preset();
+    const preset = Object.hasOwn(PRESETS, data.preset) ? data.preset : previousPreset;
+    const next = { ...this._config, preset, tab_config: { ...(this._config.tab_config || {}) } };
+    this._assignOptional(next, "title", data.title);
+    this._assignOptional(next, "litter_id", data.litter_id);
+    next.show_litter_selector = data.show_litter_selector !== false;
+
+    if (preset !== previousPreset) {
+      delete next.tabs;
+      delete next.default_tab;
+      this._commit(next, true);
+      return;
+    }
+
+    const allowedTabs = PRESETS[preset].tabs;
+    const tabs = Array.isArray(data.tabs) ? data.tabs.filter((tab) => allowedTabs.includes(tab)) : [...allowedTabs];
+    next.tabs = tabs.length ? tabs : [...allowedTabs];
+    next.default_tab = next.tabs.includes(data.default_tab) ? data.default_tab : next.tabs[0];
+    this._assignOptional(next, "state_key", data.state_key);
+
+    for (const field of EDITOR_FIELDS[preset]) {
+      const value = data[field.name];
+      if (field.surface) {
+        const surface = { ...(next.tab_config[field.surface] || {}) };
+        this._assignOptional(surface, field.key, value);
+        next.tab_config[field.surface] = surface;
+      } else {
+        this._assignOptional(next, field.name, value);
+      }
+    }
+    this._commit(next, false);
+  }
+
+  _commit(config, rebuild) {
+    this._config = config;
+    this.dispatchEvent(new CustomEvent("config-changed", {
+      bubbles: true,
+      composed: true,
+      detail: { config },
+    }));
+    if (rebuild) this._updateForm();
+  }
+}
+
+if (!customElements.get(EDITOR_TAG)) customElements.define(EDITOR_TAG, PuppyTrackerWorkspaceCardEditor);
 if (!customElements.get(TAG)) customElements.define(TAG, PuppyTrackerWorkspaceCard);
 
 // Keep the registry object stable. Home Assistant can retain this array while

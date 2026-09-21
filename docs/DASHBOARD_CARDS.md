@@ -71,10 +71,12 @@ Temperature require one exact owner and therefore fall back to `litter` when
 the workspace default is `all`. Existing dossier items remain editable in the
 aggregate view; select a specific owner before adding a new item.
 
-The visual editor intentionally contains only `title`, `preset`, `litter_id`
-and `show_litter_selector`. Use YAML for workflow defaults and advanced surface
-options. Set `puppy_id` together with `default_selected: puppy`; it is ignored
-for the other initial scopes.
+The visual editor changes with the selected preset. It exposes navigation and
+the relevant Home, Growth, Journal, Care or Mobile surface options in grouped
+sections, while writing those values to the same `tab_config` structure used
+by YAML. Set `puppy_id` together with `default_selected: puppy`; it is ignored
+for the other initial scopes. YAML remains available for uncommon options that
+are not part of the visual editor.
 
 ## Advanced tab configuration
 

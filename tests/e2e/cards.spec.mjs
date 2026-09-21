@@ -117,7 +117,7 @@ test("workspace localizes internal surfaces inside its shadow root", async ({ pa
   await expect(summary.getByText("No litter", { exact: true })).toBeVisible();
 });
 
-test("workspace localizes safe editor options and navigation without remounting retained surfaces", async ({ page }) => {
+test("workspace editor switches preset options and writes existing tab config", async ({ page }) => {
   await openFixture(page, true);
 
   const result = await page.evaluate(() => {
@@ -126,10 +126,50 @@ test("workspace localizes safe editor options and navigation without remounting 
     document.body.prepend(homeAssistant);
 
     const constructor = customElements.get("puppy-tracker-workspace-card");
-    const schema = constructor?.getConfigForm?.()?.schema || [];
-    const presetLabels = schema.find((item) => item.name === "preset")
+    const editor = constructor.getConfigElement();
+    editor.setConfig({ preset: "home" });
+    editor.hass = homeAssistant.hass;
+    document.body.append(editor);
+    const form = editor.shadowRoot.querySelector("ha-form");
+    const presetLabels = form.schema.find((item) => item.name === "preset")
       ?.selector?.select?.options?.map((item) => item.label) || [];
-    const editorNames = schema.map((item) => item.name);
+    const homeGroups = form.schema.map((item) => item.name);
+    let changedConfig = null;
+    editor.addEventListener("config-changed", (event) => { changedConfig = event.detail.config; });
+    form.dispatchEvent(new CustomEvent("value-changed", {
+      bubbles: true,
+      detail: { value: { ...form.data, preset: "growth" } },
+    }));
+    const growthGroups = form.schema.map((item) => item.name);
+    const growthSchema = form.schema;
+    form.dispatchEvent(new CustomEvent("value-changed", {
+      bubbles: true,
+      detail: { value: { ...form.data, analysis_default_metric: "growth24" } },
+    }));
+    const editorConfig = changedConfig;
+    editor.setConfig(editorConfig);
+    const schemaRetained = form.schema === growthSchema;
+    const groupsByPreset = Object.fromEntries(["home", "growth", "journal", "care", "mobile"].map((preset) => {
+      editor.setConfig({ preset });
+      return [preset, form.schema.map((item) => item.name)];
+    }));
+    const valuesByPreset = {
+      home: { show_summary: false, attention_max_items: 40 },
+      growth: { weighing_show_details: false, analysis_default_range: "14d" },
+      journal: { default_selected: "mother", temperature_show_chart: false },
+      care: { care_days_ahead: 21, programs_compact: true },
+      mobile: { show_today_only: true, care_max_items: 30 },
+    };
+    const savedByPreset = {};
+    for (const [preset, values] of Object.entries(valuesByPreset)) {
+      editor.setConfig({ preset });
+      form.dispatchEvent(new CustomEvent("value-changed", {
+        bubbles: true,
+        detail: { value: { ...form.data, ...values } },
+      }));
+      savedByPreset[preset] = changedConfig;
+    }
+    editor.remove();
     homeAssistant.remove();
 
     const card = document.createElement("puppy-tracker-workspace-card");
@@ -147,7 +187,12 @@ test("workspace localizes safe editor options and navigation without remounting 
 
     return {
       presetLabels,
-      editorNames,
+      homeGroups,
+      growthGroups,
+      editorConfig,
+      schemaRetained,
+      groupsByPreset,
+      savedByPreset,
       childTitles: [weighing?._config?.title, analysis?._config?.title],
       desktopLabels: Array.from(card.shadowRoot.querySelectorAll("[data-tab] span"), (item) => item.textContent),
       mobileLabels: Array.from(card.shadowRoot.querySelectorAll("#workspace-tab-select option"), (item) => item.textContent),
@@ -158,7 +203,26 @@ test("workspace localizes safe editor options and navigation without remounting 
   });
 
   expect(result.presetLabels).toEqual(["Home", "Growth", "Journal", "Care", "Mobile"]);
-  expect(result.editorNames).toEqual(["title", "preset", "litter_id", "show_litter_selector"]);
+  expect(result.homeGroups).toEqual(["title", "preset", "litter_id", "show_litter_selector", "navigation", "options_presetOptions", "options_attention", "options_puppies"]);
+  expect(result.growthGroups).toEqual(["title", "preset", "litter_id", "show_litter_selector", "navigation", "options_weighing", "options_analysis"]);
+  expect(result.editorConfig.preset).toBe("growth");
+  expect(result.editorConfig.tabs).toEqual(["weighing", "analysis"]);
+  expect(result.editorConfig.default_tab).toBe("weighing");
+  expect(result.editorConfig.tab_config.analysis.default_metric).toBe("growth24");
+  expect(result.schemaRetained).toBe(true);
+  expect(result.groupsByPreset.journal).toEqual(["title", "preset", "litter_id", "show_litter_selector", "navigation", "options_presetOptions", "options_dossier", "options_timeline", "options_temperature"]);
+  expect(result.groupsByPreset.care).toEqual(["title", "preset", "litter_id", "show_litter_selector", "navigation", "options_care", "options_programs"]);
+  expect(result.groupsByPreset.mobile).toEqual(["title", "preset", "litter_id", "show_litter_selector", "navigation", "options_presetOptions", "options_weighing", "options_care"]);
+  expect(result.savedByPreset.home.show_summary).toBe(false);
+  expect(result.savedByPreset.home.tab_config.attention.max_items).toBe(40);
+  expect(result.savedByPreset.growth.tab_config.weighing.show_details).toBe(false);
+  expect(result.savedByPreset.growth.tab_config.analysis.default_range).toBe("14d");
+  expect(result.savedByPreset.journal.default_selected).toBe("mother");
+  expect(result.savedByPreset.journal.tab_config.temperature.show_chart).toBe(false);
+  expect(result.savedByPreset.care.tab_config.care.days_ahead).toBe(21);
+  expect(result.savedByPreset.care.tab_config.programs.compact).toBe(true);
+  expect(result.savedByPreset.mobile.show_today_only).toBe(true);
+  expect(result.savedByPreset.mobile.tab_config.care.max_items).toBe(30);
   expect(result.childTitles).toEqual([null, null]);
   expect(result.desktopLabels).toEqual(["Weigh", "Analysis"]);
   expect(result.mobileLabels).toEqual(["Weigh", "Analysis"]);
