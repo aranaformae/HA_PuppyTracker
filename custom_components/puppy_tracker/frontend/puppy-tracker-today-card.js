@@ -4,13 +4,16 @@ import {
   fetchLitters,
   languageForHass,
   requestLitterChange,
-  runCardLoadHooks,
-  runCardRenderHooks,
   selectDefaultLitter,
   subscribeUpdates,
 } from "./puppy-tracker-card-common.js";
-import "./puppy-tracker-care-surfaces.js";
-import "./puppy-tracker-today-qol.js";
+import {
+  addCareDirectActionButtons,
+  loadCareOccurrences,
+  renderCareSkippedWarning,
+  renderTodayCare,
+} from "./puppy-tracker-care-surfaces.js";
+import { renderTodayQol } from "./puppy-tracker-today-qol.js";
 
 const TEXT = {
   nl: {
@@ -139,7 +142,7 @@ class PuppyTrackerTodayCard extends HTMLElement {
 
   async _loadData(render = true) {
     this._data = this._selectedLitterId ? await fetchLitterData(this._hass, this._selectedLitterId) : null;
-    await runCardLoadHooks(this);
+    await loadCareOccurrences(this);
     if (render) this._render();
   }
 
@@ -199,7 +202,10 @@ class PuppyTrackerTodayCard extends HTMLElement {
     this.shadowRoot.getElementById("litter-select")?.addEventListener("change", (event) => {
       if (requestLitterChange(this, event.target.value)) this._selectLitter(event.target.value);
     });
-    runCardRenderHooks(this);
+    renderTodayCare(this);
+    renderTodayQol(this);
+    renderCareSkippedWarning(this);
+    addCareDirectActionButtons(this);
   }
 }
 

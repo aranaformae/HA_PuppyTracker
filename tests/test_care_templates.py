@@ -1,5 +1,3 @@
-import pytest
-
 from unittest.mock import AsyncMock
 
 import pytest
@@ -90,6 +88,24 @@ async def test_template_batch_save_rolls_back_in_memory_state_on_storage_failure
         }])
 
     assert store.get_backup_data() == {"templates": {}}
+
+
+async def test_template_delete_keeps_memory_state_on_storage_failure(hass) -> None:
+    store = CareProgramTemplateStore(hass)
+    template = _normalize_template({
+        "name": "Mijn routine",
+        "title": "Routine",
+        "schedule_type": "once",
+        "start_age_days": 3,
+        "time_of_day": "09:00",
+    })
+    store._data = {"templates": {template["id"]: template}}
+    store._store.async_save = AsyncMock(side_effect=RuntimeError("disk failure"))
+
+    with pytest.raises(RuntimeError, match="disk failure"):
+        await store.async_delete(template["id"])
+
+    assert store.get(template["id"]) == template
 
 
 def test_age_specific_template_instruction_is_added_to_occurrence() -> None:

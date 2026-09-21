@@ -83,9 +83,9 @@ def test_workspace_card_is_registered_after_its_composed_cards() -> None:
         / "frontend"
         / ATTENTION_CARD
     ).read_text(encoding="utf-8")
-    assert 'import "./puppy-tracker-care-surfaces.js";' in attention
-    assert 'import "./puppy-tracker-attention-qol.js";' in attention
-    assert 'import "./puppy-tracker-mother-surfaces.js";' in attention
+    assert 'from "./puppy-tracker-care-surfaces.js";' in attention
+    assert 'from "./puppy-tracker-attention-qol.js";' in attention
+    assert 'from "./puppy-tracker-mother-surfaces.js";' in attention
 
 
 def test_only_supported_cards_register_with_lovelace() -> None:

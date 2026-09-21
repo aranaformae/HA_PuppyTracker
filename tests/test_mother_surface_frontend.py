@@ -19,19 +19,20 @@ def test_mother_attention_extension_is_imported_by_attention() -> None:
     attention = (FRONTEND / "puppy-tracker-attention-card.js").read_text(encoding="utf-8")
 
     assert '"puppy-tracker-mother-surfaces.js"' not in frontend
-    assert 'import "./puppy-tracker-mother-surfaces.js";' in attention
+    assert 'from "./puppy-tracker-mother-surfaces.js";' in attention
     assert '"puppy-tracker-temperature-ui.js"' not in frontend
 
 
 def test_mother_attention_rows_join_shared_filters_and_acknowledgements() -> None:
     mother = (FRONTEND / "puppy-tracker-mother-surfaces.js").read_text(encoding="utf-8")
     qol = (FRONTEND / "puppy-tracker-attention-qol.js").read_text(encoding="utf-8")
+    attention = (FRONTEND / "puppy-tracker-attention-card.js").read_text(encoding="utf-8")
 
-    assert "priority: 350" in mother
+    assert "export function renderMotherAttention(card)" in mother
     assert "row.dataset.attentionId" in mother
     assert "row.dataset.attentionType" in mother
     assert "if (row.dataset.attentionId && row.dataset.attentionType) continue;" in qol
-    assert qol.index("priority: 400") > 0
+    assert attention.index("renderMotherAttention(this);") < attention.index("renderAttentionQol(this);")
 
 
 def test_quick_log_supports_mother_records_including_temperature() -> None:

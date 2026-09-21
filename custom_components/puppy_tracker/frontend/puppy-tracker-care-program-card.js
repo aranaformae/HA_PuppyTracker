@@ -2,12 +2,14 @@ import {
   escapeHtml,
   fetchLitters,
   languageForHass,
-  localize,
   requestLitterChange,
   selectDefaultLitter,
   subscribeUpdates,
 } from "./puppy-tracker-card-common.js";
-import { TYPE_META, recordTypeOptions } from "./puppy-tracker-dossier-schema.js";
+import {
+  recordTypeLabel,
+  recordTypeOptions,
+} from "./puppy-tracker-dossier-schema.js";
 
 const TAG = "puppy-tracker-care-program-card";
 
@@ -37,19 +39,6 @@ function scheduleText(card, item) {
     ? t(card, "dagelijks", "daily")
     : t(card, `elke ${interval} dagen`, `every ${interval} days`);
   return t(card, `Dag ${start} t/m ${end} · ${cadence}`, `Day ${start} through ${end} · ${cadence}`);
-}
-
-function recordTypeLabel(card, value) {
-  const labels = {
-    note: t(card, "Notitie / oefening", "Note / exercise"),
-    deworming: t(card, "Ontworming", "Deworming"),
-    vaccination: t(card, "Vaccinatie", "Vaccination"),
-    medication: t(card, "Medicatie", "Medication"),
-    milestone: t(card, "Mijlpaal", "Milestone"),
-    test: t(card, "Test", "Test"),
-    other: t(card, "Overig", "Other"),
-  };
-  return labels[value] || (TYPE_META[value] ? localize(card._hass, TYPE_META[value].labelKey) : value) || "note";
 }
 
 function schedulesOverlap(left, right) {
@@ -356,7 +345,7 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
     const query = this._query.trim().toLocaleLowerCase();
     const programs = [...this._programs]
       .filter((item) => this._config.show_disabled !== false || item.enabled !== false)
-      .filter((item) => !query || `${item.title || ""} ${item.description || ""} ${recordTypeLabel(this, item.record_type)}`.toLocaleLowerCase().includes(query))
+      .filter((item) => !query || `${item.title || ""} ${item.description || ""} ${recordTypeLabel(this._hass, item.record_type)}`.toLocaleLowerCase().includes(query))
       .sort((left, right) => this._config.sort_order === "title"
         ? String(left.title || "").localeCompare(String(right.title || ""), undefined, { sensitivity: "base" })
         : Number(left.start_age_days || 0) - Number(right.start_age_days || 0));
@@ -370,7 +359,7 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
             <div class="main">
               <strong>${escapeHtml(item.title || "")}</strong>
               <div>${escapeHtml(scheduleText(this, item))}${item.time_of_day ? ` · ${escapeHtml(item.time_of_day)}` : ""}</div>
-              <div class="meta">${escapeHtml(recordTypeLabel(this, item.record_type))}${item.notifications_enabled === false ? ` · ${escapeHtml(t(this, "meldingen uit", "notifications off"))}` : ""}${item.notification_lead_minutes != null ? ` · ${escapeHtml(t(this, `${item.notification_lead_minutes} min vooraf`, `${item.notification_lead_minutes} min before`))}` : ""}</div>
+              <div class="meta">${escapeHtml(recordTypeLabel(this._hass, item.record_type))}${item.notifications_enabled === false ? ` · ${escapeHtml(t(this, "meldingen uit", "notifications off"))}` : ""}${item.notification_lead_minutes != null ? ` · ${escapeHtml(t(this, `${item.notification_lead_minutes} min vooraf`, `${item.notification_lead_minutes} min before`))}` : ""}</div>
             </div>
             ${isAdmin ? `<div class="item-actions"><button class="icon-button edit" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t(this, "Aanpassen", "Edit"))}" aria-label="${escapeHtml(t(this, "Aanpassen", "Edit"))}"><ha-icon icon="mdi:pencil-outline"></ha-icon></button><button class="icon-button save-template" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t(this, "Als template opslaan", "Save as template"))}" aria-label="${escapeHtml(t(this, "Als template opslaan", "Save as template"))}"><ha-icon icon="mdi:content-save-outline"></ha-icon></button></div>` : ""}
           </div>`).join("")}</div>`

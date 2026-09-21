@@ -13,6 +13,7 @@ import {
   fieldLabel,
   fieldPlaceholder,
   inputAttributes,
+  recordTypeLabel,
   requiredFieldsMessage,
   schemaText,
   TYPE_FIELDS,
@@ -101,11 +102,6 @@ function nowLocalInput() {
 function toIsoTimestamp(value) {
   const date = value ? new Date(value) : null;
   return date && Number.isFinite(date.getTime()) ? date.toISOString() : null;
-}
-
-function recordTypeLabel(hass, value) {
-  const entry = RECORD_TYPES.find(([recordType]) => recordType === value);
-  return entry ? localize(hass, entry[1]) : String(value || "");
 }
 
 function bulkCountText(hass, key, count) {

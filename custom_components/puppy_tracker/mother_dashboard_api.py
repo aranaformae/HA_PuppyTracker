@@ -7,18 +7,18 @@ import voluptuous as vol
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 
-from .api import _runtime_storage
 from .const import DOMAIN
 from .dossier_actions import dossier_action_summary
 from .mother_backup_http import async_signed_mother_export_path
 from .mother_context import mother_context_payload
 from .mother_storage import MotherScopeStorage
+from .runtime import get_runtime_storage
 
 DATA_MOTHER_DASHBOARD_API_REGISTERED = f"{DOMAIN}_mother_dashboard_api_registered"
 
 
 def _storage(hass: HomeAssistant) -> MotherScopeStorage:
-    storage = _runtime_storage(hass)
+    storage = get_runtime_storage(hass)
     if not isinstance(storage, MotherScopeStorage):
         raise ValueError("Mother dossier support is not loaded")
     return storage

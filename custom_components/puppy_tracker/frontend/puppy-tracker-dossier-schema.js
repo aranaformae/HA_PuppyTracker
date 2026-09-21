@@ -26,6 +26,28 @@ export const TYPE_META = Object.fromEntries(
   RECORD_TYPES.map(([value, labelKey, icon]) => [value, { labelKey, icon }]),
 );
 
+const SURFACE_TYPE_META = {
+  weight: { icon: "mdi:scale", en: "Weight", nl: "Gewicht" },
+  care: { icon: "mdi:calendar-heart", en: "Care program", nl: "Zorgprogramma" },
+  reminder: { icon: "mdi:bell-outline", en: "Reminder", nl: "Herinnering" },
+  dossier: { icon: "mdi:file-document-outline", en: "Dossier", nl: "Dossier" },
+};
+
+export function recordTypeLabel(hass, value) {
+  const type = String(value || "other");
+  const recordMeta = TYPE_META[type];
+  if (recordMeta) return localize(hass, recordMeta.labelKey);
+  const surfaceMeta = SURFACE_TYPE_META[type];
+  if (surfaceMeta) return surfaceMeta[languageForHass(hass)] || surfaceMeta.nl;
+  const label = type.replaceAll("_", " ");
+  return label ? label.charAt(0).toUpperCase() + label.slice(1) : localize(hass, "other");
+}
+
+export function recordTypeIcon(value) {
+  const type = String(value || "other");
+  return TYPE_META[type]?.icon || SURFACE_TYPE_META[type]?.icon || TYPE_META.other.icon;
+}
+
 export function recordTypeOptions(hass, selectedType) {
   const types = RECORD_TYPES.map(([value, labelKey]) => [value, localize(hass, labelKey)]);
   if (selectedType && !types.some(([value]) => value === selectedType)) {

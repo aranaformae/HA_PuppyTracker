@@ -13,18 +13,10 @@ from homeassistant.helpers.network import get_url
 
 from .const import DOMAIN
 from .mother_backup import serialize_mother_export
-from .runtime import PuppyTrackerRuntimeData
+from .runtime import require_runtime_data
 
 DATA_MOTHER_BACKUP_HTTP_REGISTERED = f"{DOMAIN}_mother_backup_http_registered"
 DOWNLOAD_TTL = timedelta(minutes=10)
-
-
-def _runtime(hass: HomeAssistant) -> PuppyTrackerRuntimeData:
-    for entry in hass.config_entries.async_entries(DOMAIN):
-        runtime = entry.runtime_data
-        if isinstance(runtime, PuppyTrackerRuntimeData):
-            return runtime
-    raise RuntimeError("Puppy Tracker is not loaded")
 
 
 class PuppyTrackerMotherBackupView(HomeAssistantView):
@@ -41,7 +33,7 @@ class PuppyTrackerMotherBackupView(HomeAssistantView):
         litter_id = request.query.get("litter_id") or None
         try:
             filename, _mime, content = serialize_mother_export(
-                _runtime(self._hass).storage.get_data(),
+                require_runtime_data(self._hass).storage.get_data(),
                 mother_id,
                 litter_id=litter_id,
             )

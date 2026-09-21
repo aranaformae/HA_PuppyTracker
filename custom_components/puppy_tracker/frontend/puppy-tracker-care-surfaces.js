@@ -1,9 +1,5 @@
-import { escapeHtml, languageForHass, registerCardHooks } from "./puppy-tracker-card-common.js";
+import { escapeHtml, languageForHass } from "./puppy-tracker-card-common.js";
 import { findCareOccurrence, openCareResultEditor } from "./puppy-tracker-care-result-editor.js";
-
-const TODAY_TAG = "puppy-tracker-today-card";
-const ATTENTION_TAG = "puppy-tracker-attention-card";
-const CARE_EXECUTION_TAG = "puppy-tracker-care-execution-card";
 
 function t(card, nl, en) {
   return languageForHass(card?._hass) === "en" ? en : nl;
@@ -46,7 +42,7 @@ function tone(item) {
   return "neutral";
 }
 
-async function loadCare(card) {
+export async function loadCareOccurrences(card) {
   if (!card?._hass || !card?._selectedLitterId) {
     card.__careOccurrences = [];
     card.__careSkipped = [];
@@ -106,7 +102,7 @@ function skippedWarningText(card, skipped) {
   return parts.join(" ");
 }
 
-function renderSkippedWarning(card) {
+export function renderCareSkippedWarning(card) {
   const root = card?.shadowRoot;
   if (!root) return;
   root.querySelector(".care-skipped-warning")?.remove();
@@ -142,7 +138,7 @@ function ensureDirectActionStyle(card) {
   root.append(style);
 }
 
-function addDirectActionButtons(card) {
+export function addCareDirectActionButtons(card) {
   const root = card?.shadowRoot;
   if (!root) return;
   ensureDirectActionStyle(card);
@@ -179,7 +175,7 @@ function wireCareRows(card) {
   });
 }
 
-function renderCareExecution(card) {
+export function renderCareExecutionRows(card) {
     const root = card.shadowRoot;
     if (!root) return;
     root.querySelectorAll(".row").forEach((row) => {
@@ -189,7 +185,7 @@ function renderCareExecution(card) {
     wireCareRows(card);
 }
 
-function renderToday(card) {
+export function renderTodayCare(card) {
     const root = card.shadowRoot;
     if (!root) return;
     const items = openItems(card).filter((item) => ["overdue", "due_today", "upcoming"].includes(item.status));
@@ -207,7 +203,7 @@ function renderToday(card) {
     wireCareRows(card);
 }
 
-function renderAttention(card) {
+export function renderAttentionCare(card) {
     const root = card.shadowRoot;
     if (!root) return;
     root.querySelectorAll("[data-care-occurrence]").forEach((row) => row.remove());
@@ -232,11 +228,3 @@ function renderAttention(card) {
     }
     wireCareRows(card);
 }
-
-registerCardHooks(TODAY_TAG, { priority: 100, afterLoad: loadCare, afterRender: renderToday });
-registerCardHooks(ATTENTION_TAG, { priority: 100, afterLoad: loadCare, afterRender: renderAttention });
-registerCardHooks(CARE_EXECUTION_TAG, { priority: 100, afterRender: renderCareExecution });
-registerCardHooks(TODAY_TAG, { priority: 300, afterRender: renderSkippedWarning });
-registerCardHooks(ATTENTION_TAG, { priority: 300, afterRender: renderSkippedWarning });
-registerCardHooks(TODAY_TAG, { priority: 500, afterRender: addDirectActionButtons });
-registerCardHooks(ATTENTION_TAG, { priority: 500, afterRender: addDirectActionButtons });

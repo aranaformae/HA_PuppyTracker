@@ -10,24 +10,7 @@ from homeassistant.core import HomeAssistant
 from .const import STORAGE_VERSION, VERSION
 from .frontend import FRONTEND_VERSION
 from .measurements import measurement_status
-from .runtime import PuppyTrackerRuntimeData
-from .storage import PuppyTrackerStorage
-
-
-def _runtime_data(entry: ConfigEntry) -> PuppyTrackerRuntimeData | None:
-    """Return typed runtime data for one config entry."""
-    runtime = entry.runtime_data
-    return runtime if isinstance(runtime, PuppyTrackerRuntimeData) else None
-
-
-def _runtime_storage(
-    hass: HomeAssistant,
-    entry: ConfigEntry,
-) -> PuppyTrackerStorage | None:
-    """Return storage for the config entry."""
-    del hass
-    runtime = _runtime_data(entry)
-    return runtime.storage if runtime is not None else None
+from .runtime import PuppyTrackerRuntimeData, get_entry_runtime_data
 
 
 def _storage_counts(data: dict[str, Any]) -> dict[str, int]:
@@ -128,15 +111,16 @@ async def async_get_config_entry_diagnostics(
     entry: ConfigEntry,
 ) -> dict[str, Any]:
     """Return privacy-safe diagnostics for the config entry."""
-    runtime = _runtime_data(entry)
-    storage = _runtime_storage(hass, entry)
-    if storage is None or runtime is None:
+    del hass
+    runtime = get_entry_runtime_data(entry)
+    if runtime is None:
         return {
             "integration_version": VERSION,
             "frontend_version": FRONTEND_VERSION,
             "loaded": False,
         }
 
+    storage = runtime.storage
     data = storage.get_data()
     settings = storage.get_settings()
     integrity = storage.refresh_integrity_report()

@@ -9,14 +9,11 @@ from typing import Any
 
 import voluptuous as vol
 
-from homeassistant import config_entries
 from homeassistant.config_entries import (
-    ConfigEntry,
     ConfigFlowResult,
     OptionsFlow,
 )
 from homeassistant.const import UnitOfTime
-from homeassistant.core import callback
 from homeassistant.helpers import selector
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
@@ -55,57 +52,7 @@ from .time_utils import (
 _LOGGER = logging.getLogger(__name__)
 
 
-class PuppyTrackerConfigFlow(
-    config_entries.ConfigFlow,
-    domain=DOMAIN,
-):
-    """Handle Puppy Tracker setup."""
-
-    VERSION = 1
-
-    async def async_step_user(
-        self,
-        user_input: dict[str, Any] | None = None,
-    ) -> ConfigFlowResult:
-        """Handle initial setup."""
-
-        if user_input is not None:
-            return self.async_create_entry(
-                title="Puppy Tracker",
-                data={},
-            )
-
-        fields[vol.Optional(
-            "growth_milestones_percent",
-            default=", ".join(str(value) for value in growth.get("growth_milestones_percent", DEFAULT_GROWTH_MILESTONES_PERCENT)),
-        )] = selector.TextSelector()
-        fields[vol.Optional(
-            "double_weight_reference_days",
-            default=growth.get("double_weight_reference_days", DEFAULT_DOUBLE_WEIGHT_REFERENCE_DAYS),
-        )] = selector.NumberSelector(
-            selector.NumberSelectorConfig(min=1, max=56, step=1, mode=selector.NumberSelectorMode.BOX)
-        )
-        fields[vol.Optional(
-            "milestone_projection_measurements",
-            default=growth.get("milestone_projection_measurements", DEFAULT_MILESTONE_PROJECTION_MEASUREMENTS),
-        )] = selector.NumberSelector(
-            selector.NumberSelectorConfig(min=2, max=8, step=1, mode=selector.NumberSelectorMode.BOX)
-        )
-
-        return self.async_show_form(
-            step_id="user"
-        )
-
-    @staticmethod
-    @callback
-    def async_get_options_flow(
-        config_entry: ConfigEntry,
-    ) -> PuppyTrackerOptionsFlow:
-        """Return options flow."""
-        return PuppyTrackerOptionsFlow()
-
-
-class PuppyTrackerOptionsFlow(
+class PuppyTrackerManagementOptionsFlow(
     OptionsFlow
 ):
     """Handle Puppy Tracker management."""

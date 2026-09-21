@@ -1,48 +1,8 @@
-import { escapeHtml, languageForHass, registerCardHooks } from "./puppy-tracker-card-common.js";
-
-const TAG = "puppy-tracker-today-card";
+import { escapeHtml, formatWeight, languageForHass } from "./puppy-tracker-card-common.js";
+import { recordTypeIcon, recordTypeLabel } from "./puppy-tracker-dossier-schema.js";
 
 function t(card, nl, en) {
   return languageForHass(card?._hass) === "en" ? en : nl;
-}
-
-function typeLabel(card, value) {
-  const labels = {
-    weight: ["Gewicht", "Weight"],
-    vaccination: ["Vaccinatie", "Vaccination"],
-    deworming: ["Ontworming", "Deworming"],
-    medication: ["Medicatie", "Medication"],
-    test: ["Test", "Test"],
-    temperature: ["Temperatuur", "Temperature"],
-    vet_visit: ["Dierenarts", "Vet visit"],
-    milestone: ["Mijlpaal", "Milestone"],
-    note: ["Notitie", "Note"],
-    feeding: ["Voeding", "Feeding"],
-    other: ["Overig", "Other"],
-    care: ["Zorgprogramma", "Care program"],
-    reminder: ["Herinnering", "Reminder"],
-    dossier: ["Dossier", "Dossier"],
-  };
-  const pair = labels[value];
-  return pair ? t(card, pair[0], pair[1]) : String(value || t(card, "Overig", "Other"));
-}
-
-function typeIcon(value) {
-  return {
-    weight: "mdi:scale",
-    vaccination: "mdi:needle",
-    deworming: "mdi:pill",
-    medication: "mdi:medical-bag",
-    test: "mdi:test-tube",
-    temperature: "mdi:thermometer",
-    vet_visit: "mdi:doctor",
-    milestone: "mdi:flag-checkered",
-    note: "mdi:note-text-outline",
-    feeding: "mdi:food-drumstick-outline",
-    reminder: "mdi:bell-outline",
-    dossier: "mdi:file-document-outline",
-    other: "mdi:file-document-outline",
-  }[value] || "mdi:file-document-outline";
 }
 
 function dateKey(value, timeZone = "") {
@@ -79,12 +39,6 @@ function formatTime(card, value) {
   } catch (_error) {
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   }
-}
-
-function formatWeight(card, value) {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return "";
-  return `${number.toLocaleString(languageForHass(card?._hass) === "en" ? "en-US" : "nl-NL", { maximumFractionDigits: 1 })} g`;
 }
 
 function primitiveText(value) {
@@ -139,7 +93,7 @@ function todayTimelineEvents(card) {
         type: "weight",
         occurredAt,
         owner: puppy.name || t(card, "Pup", "Puppy"),
-        detail: formatWeight(card, measurement.weight),
+        detail: formatWeight(measurement.weight, "", card?._hass),
       });
     }
     for (const record of puppy?.records || []) addRecord(record, puppy);
@@ -157,27 +111,22 @@ function selectedTypesFor(card, types) {
   const available = Array.isArray(types) ? types : [];
   const previousAvailable = Array.isArray(card.__todayAvailableTypes)
     ? card.__todayAvailableTypes
-    : Array.isArray(card.__todayCareAvailableTypes) ? card.__todayCareAvailableTypes : [];
+    : [];
   let selected = card.__todayTypeFilters instanceof Set
     ? new Set(card.__todayTypeFilters)
-    : card.__todayCareTypeFilters instanceof Set
-      ? new Set(card.__todayCareTypeFilters)
-      : new Set(available);
+    : new Set(available);
 
   const previouslyAllSelected = previousAvailable.length > 0
     && previousAvailable.every((type) => selected.has(type));
   selected = new Set([...selected].filter((type) => available.includes(type)));
 
-  const explicitlySelected = card.__todayTypeFilters instanceof Set
-    || card.__todayCareTypeFilters instanceof Set;
-  if (!explicitlySelected || (!previousAvailable.length && !explicitlySelected) || previouslyAllSelected) {
+  const explicitlySelected = card.__todayTypeFilters instanceof Set;
+  if (!explicitlySelected || previouslyAllSelected) {
     for (const type of available) selected.add(type);
   }
 
   card.__todayTypeFilters = selected;
   card.__todayAvailableTypes = [...available];
-  delete card.__todayCareTypeFilters;
-  delete card.__todayCareAvailableTypes;
   return selected;
 }
 
@@ -212,7 +161,7 @@ function createTimelineSection(card, events) {
   if (!events.length) return null;
   const section = document.createElement("div");
   section.className = "today-timeline-section";
-  section.innerHTML = `<div class="today-group-title">${escapeHtml(t(card, "Tijdlijn vandaag", "Today's timeline"))}</div><div class="today-timeline-list">${events.map((event) => `<div class="today-timeline-row" data-today-type="${escapeHtml(event.type)}" data-today-event="${escapeHtml(event.id)}"><ha-icon icon="${escapeHtml(typeIcon(event.type))}"></ha-icon><div class="today-main"><strong>${escapeHtml(event.owner)}</strong><span>${escapeHtml(typeLabel(card, event.type))}${event.detail ? ` · ${escapeHtml(event.detail)}` : ""}</span></div><div class="today-time">${escapeHtml(formatTime(card, event.occurredAt))}</div></div>`).join("")}</div>`;
+  section.innerHTML = `<div class="today-group-title">${escapeHtml(t(card, "Tijdlijn vandaag", "Today's timeline"))}</div><div class="today-timeline-list">${events.map((event) => `<div class="today-timeline-row" data-today-type="${escapeHtml(event.type)}" data-today-event="${escapeHtml(event.id)}"><ha-icon icon="${escapeHtml(recordTypeIcon(event.type))}"></ha-icon><div class="today-main"><strong>${escapeHtml(event.owner)}</strong><span>${escapeHtml(recordTypeLabel(card?._hass, event.type))}${event.detail ? ` · ${escapeHtml(event.detail)}` : ""}</span></div><div class="today-time">${escapeHtml(formatTime(card, event.occurredAt))}</div></div>`).join("")}</div>`;
   return section;
 }
 
@@ -226,7 +175,7 @@ function forceSingleScrollContainer(careSummary) {
   careList.style.setProperty("padding-right", "0px", "important");
 }
 
-function renderQol(card) {
+export function renderTodayQol(card) {
   const root = card?.shadowRoot;
   const haCard = root?.querySelector("ha-card");
   if (!root || !haCard) return;
@@ -241,7 +190,7 @@ function renderQol(card) {
   const timelineRows = Array.from(timelineSection?.querySelectorAll(".today-timeline-row") || []);
   const allRows = [...timelineRows, ...careRows];
   const types = [...new Set(allRows.map((row) => row.dataset.todayType).filter(Boolean))]
-    .sort((a, b) => typeLabel(card, a).localeCompare(typeLabel(card, b)));
+    .sort((a, b) => recordTypeLabel(card?._hass, a).localeCompare(recordTypeLabel(card?._hass, b)));
   const selectedTypes = selectedTypesFor(card, types);
   const allSelected = selectedTypes.size === types.length;
 
@@ -249,7 +198,7 @@ function renderQol(card) {
   activity.className = "today-activity";
   activity.innerHTML = `<style>
     .today-activity{margin-top:14px;border-top:1px solid var(--divider-color);padding-top:12px}.today-qol-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 10px}.today-filter-label{font-size:.78rem;color:var(--secondary-text-color);font-weight:600}.today-type-filters{display:flex;flex-wrap:wrap;gap:6px}.today-type-chip{display:inline-flex;align-items:center;border:1px solid var(--divider-color);border-radius:999px;background:transparent;color:var(--primary-text-color);padding:6px 9px;cursor:pointer;font:inherit;font-size:.82rem}.today-type-chip.active{background:var(--primary-color);color:var(--text-primary-color,#fff);border-color:var(--primary-color)}.today-items-scroll{max-height:520px;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding-right:2px;display:grid;gap:12px}.today-group-title{font-weight:700;margin-bottom:8px}.today-timeline-list{display:grid;gap:7px}.today-timeline-row{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px 9px;border-radius:10px;background:var(--secondary-background-color)}.today-timeline-row>ha-icon{--mdc-icon-size:19px;color:var(--secondary-text-color)}.today-main{min-width:0}.today-main strong{display:block}.today-main span{display:block;font-size:.78rem;color:var(--secondary-text-color);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.today-time{font-size:.78rem;font-weight:600;white-space:nowrap;color:var(--secondary-text-color)}.today-filter-hidden,.today-group-hidden{display:none!important}.today-empty{font-size:.82rem;color:var(--secondary-text-color);padding:8px 2px}.today-empty[hidden]{display:none!important}.today-items-scroll>.care-summary{margin-top:0}.today-items-scroll .care-list{max-height:none!important;overflow:visible!important;overscroll-behavior:auto!important;scrollbar-gutter:auto!important;padding-right:0!important}@media(max-width:520px){.today-timeline-row{grid-template-columns:24px minmax(0,1fr)}.today-time{display:none}.today-qol-controls{align-items:flex-start}}
-  </style><div class="today-qol-controls"><span class="today-filter-label">${escapeHtml(t(card, "Type", "Type"))}</span><div class="today-type-filters"><button type="button" class="today-type-chip ${allSelected ? "active" : ""}" data-today-filter-type="__all__">${escapeHtml(t(card, "Alles", "All"))}</button>${types.map((value) => `<button type="button" class="today-type-chip ${selectedTypes.has(value) ? "active" : ""}" data-today-filter-type="${escapeHtml(value)}">${escapeHtml(typeLabel(card, value))}</button>`).join("")}</div></div><div class="today-items-scroll"></div><div class="today-empty" hidden>${escapeHtml(t(card, "Geen items voor de geselecteerde types.", "No items for the selected types."))}</div>`;
+  </style><div class="today-qol-controls"><span class="today-filter-label">${escapeHtml(t(card, "Type", "Type"))}</span><div class="today-type-filters"><button type="button" class="today-type-chip ${allSelected ? "active" : ""}" data-today-filter-type="__all__">${escapeHtml(t(card, "Alles", "All"))}</button>${types.map((value) => `<button type="button" class="today-type-chip ${selectedTypes.has(value) ? "active" : ""}" data-today-filter-type="${escapeHtml(value)}">${escapeHtml(recordTypeLabel(card?._hass, value))}</button>`).join("")}</div></div><div class="today-items-scroll"></div><div class="today-empty" hidden>${escapeHtml(t(card, "Geen items voor de geselecteerde types.", "No items for the selected types."))}</div>`;
 
   const scroll = activity.querySelector(".today-items-scroll");
   if (timelineSection) scroll?.append(timelineSection);
@@ -282,5 +231,3 @@ function renderQol(card) {
     button.addEventListener("click", () => toggleType(card, button.dataset.todayFilterType, types));
   });
 }
-
-registerCardHooks(TAG, { priority: 200, afterRender: renderQol });

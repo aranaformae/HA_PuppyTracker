@@ -13,37 +13,22 @@ import voluptuous as vol
 
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.dispatcher import async_dispatcher_connect, async_dispatcher_send
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, SIGNAL_DASHBOARD_UPDATE, SIGNAL_UPDATE
+from .const import API_VERSION, DOMAIN, SIGNAL_DASHBOARD_UPDATE
 from .backup import build_export_document
 from .measurements import measurement_status, puppy_measurements
 from .metrics import calculate_puppy_metrics
 from .pdf_export import build_pdf_export
-from .runtime import PuppyTrackerRuntimeData
+from .runtime import get_runtime_data, get_runtime_storage
 from .session import get_session, remaining_puppy_ids
 from .storage import PuppyTrackerStorage
 from .time_utils import timestamp_sort_key
+from .updates import dispatch_dossier_update, dispatch_measurement_update
 from .upcoming import DAYS_AHEAD_DEFAULT, upcoming_actions, upcoming_summary
 
 DATA_API_REGISTERED = f"{DOMAIN}_websocket_api_registered"
-API_VERSION = 9
-
-
-def _runtime_data(hass: HomeAssistant) -> PuppyTrackerRuntimeData | None:
-    """Return runtime data for the loaded integration entry."""
-    for entry in hass.config_entries.async_entries(DOMAIN):
-        runtime = entry.runtime_data
-        if isinstance(runtime, PuppyTrackerRuntimeData):
-            return runtime
-    return None
-
-
-def _runtime_storage(hass: HomeAssistant) -> PuppyTrackerStorage | None:
-    """Return the storage instance for the configured integration entry."""
-    runtime = _runtime_data(hass)
-    return runtime.storage if runtime is not None else None
 
 
 def _records_for_upcoming(
@@ -530,23 +515,10 @@ def _storage_or_error(
     msg: dict[str, Any],
 ) -> PuppyTrackerStorage | None:
     """Return storage or send a consistent websocket error."""
-    storage = _runtime_storage(hass)
+    storage = get_runtime_storage(hass)
     if storage is None:
         connection.send_error(msg["id"], "not_loaded", "Puppy Tracker is not loaded")
     return storage
-
-
-def _signal_measurement_change(hass: HomeAssistant, puppy_id: str) -> None:
-    """Refresh entities, cards, and monitoring after a measurement mutation."""
-    async_dispatcher_send(hass, SIGNAL_UPDATE, puppy_id)
-    async_dispatcher_send(hass, SIGNAL_DASHBOARD_UPDATE)
-
-
-def _signal_dossier_change(hass: HomeAssistant, puppy_id: str | None = None) -> None:
-    """Refresh cards and the affected puppy after a dossier mutation."""
-    if puppy_id is not None:
-        async_dispatcher_send(hass, SIGNAL_UPDATE, puppy_id)
-    async_dispatcher_send(hass, SIGNAL_DASHBOARD_UPDATE)
 
 
 def _records_payload(
@@ -617,7 +589,7 @@ def websocket_get_litters(
     if storage is None:
         return
 
-    runtime = _runtime_data(hass)
+    runtime = get_runtime_data(hass)
     session = get_session(runtime) if runtime is not None else None
     items: list[dict[str, Any]] = []
     for litter_id, litter in storage.get_litters().items():
@@ -686,7 +658,7 @@ def websocket_get_data(
         return
 
     try:
-        runtime = _runtime_data(hass)
+        runtime = get_runtime_data(hass)
         session = get_session(runtime) if runtime is not None else None
         result = _litter_payload(
             storage,
@@ -766,7 +738,7 @@ async def websocket_correct_measurement(
         return
 
     storage.refresh_integrity_report()
-    _signal_measurement_change(hass, msg["puppy_id"])
+    dispatch_measurement_update(hass, msg["puppy_id"])
     connection.send_result(
         msg["id"],
         {
@@ -815,7 +787,7 @@ async def websocket_delete_measurement(
         return
 
     storage.refresh_integrity_report()
-    _signal_measurement_change(hass, msg["puppy_id"])
+    dispatch_measurement_update(hass, msg["puppy_id"])
     connection.send_result(
         msg["id"],
         {
@@ -863,7 +835,7 @@ async def websocket_restore_measurement(
         return
 
     storage.refresh_integrity_report()
-    _signal_measurement_change(hass, msg["puppy_id"])
+    dispatch_measurement_update(hass, msg["puppy_id"])
     connection.send_result(
         msg["id"],
         {
@@ -984,7 +956,7 @@ async def websocket_update_profile_note(
         connection.send_error(msg["id"], "invalid_puppy", str(err))
         return
 
-    _signal_dossier_change(hass, msg["puppy_id"])
+    dispatch_dossier_update(hass, msg["puppy_id"])
     connection.send_result(
         msg["id"],
         {
@@ -1035,7 +1007,7 @@ async def websocket_add_record(
         connection.send_error(msg["id"], "invalid_record", str(err))
         return
 
-    _signal_dossier_change(hass, puppy_id)
+    dispatch_dossier_update(hass, puppy_id)
     connection.send_result(
         msg["id"],
         {
@@ -1087,7 +1059,7 @@ async def websocket_update_record(
         connection.send_error(msg["id"], "invalid_record", str(err))
         return
 
-    _signal_dossier_change(hass, puppy_id)
+    dispatch_dossier_update(hass, puppy_id)
     connection.send_result(
         msg["id"],
         {
@@ -1133,8 +1105,11 @@ async def websocket_change_record_owner(
     except ValueError as err:
         connection.send_error(msg["id"], "invalid_record_owner", str(err))
         return
-    _signal_dossier_change(hass, msg.get("source_puppy_id"))
-    _signal_dossier_change(hass, msg.get("target_puppy_id"))
+    dispatch_dossier_update(
+        hass,
+        msg.get("source_puppy_id"),
+        msg.get("target_puppy_id"),
+    )
     connection.send_result(msg["id"], {"ok": True, "record": record})
 
 
@@ -1167,7 +1142,7 @@ async def websocket_delete_record(
         connection.send_error(msg["id"], "invalid_record", str(err))
         return
 
-    _signal_dossier_change(hass, puppy_id)
+    dispatch_dossier_update(hass, puppy_id)
     connection.send_result(msg["id"], {"ok": True})
 
 
@@ -1200,7 +1175,7 @@ async def websocket_restore_record(
         connection.send_error(msg["id"], "invalid_record", str(err))
         return
 
-    _signal_dossier_change(hass, puppy_id)
+    dispatch_dossier_update(hass, puppy_id)
     connection.send_result(msg["id"], {"ok": True})
 
 
@@ -1226,7 +1201,7 @@ async def websocket_integrity_check(
         repair=bool(msg.get("repair", False)),
     )
     if msg.get("repair"):
-        async_dispatcher_send(hass, SIGNAL_DASHBOARD_UPDATE)
+        dispatch_dossier_update(hass)
     connection.send_result(msg["id"], report)
 
 
@@ -1269,7 +1244,7 @@ def websocket_export_data(
             )
             encoding = "text"
         elif msg["format"] == "pdf":
-            runtime = _runtime_data(hass)
+            runtime = get_runtime_data(hass)
             filename, mime_type, content = build_pdf_export(
                 storage,
                 msg["litter_id"],
@@ -1308,7 +1283,7 @@ def websocket_subscribe_updates(
 
     @callback
     def forward_update(*_args: Any) -> None:
-        storage = _runtime_storage(hass)
+        storage = get_runtime_storage(hass)
         connection.send_event(
             msg["id"],
             {

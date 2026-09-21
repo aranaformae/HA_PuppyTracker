@@ -754,24 +754,3 @@ export async function restoreMotherDossierRecord(hass, litterId, recordId) {
     record_id: recordId,
   });
 }
-
-const cardHooks = new Map();
-
-export function registerCardHooks(tag, hooks) {
-  const entries = cardHooks.get(tag) || [];
-  entries.push({ priority: Number(hooks?.priority) || 0, ...hooks });
-  entries.sort((left, right) => left.priority - right.priority);
-  cardHooks.set(tag, entries);
-}
-
-export async function runCardLoadHooks(card) {
-  for (const hooks of cardHooks.get(card?.localName) || []) {
-    if (typeof hooks.afterLoad === "function") await hooks.afterLoad(card);
-  }
-}
-
-export function runCardRenderHooks(card) {
-  for (const hooks of cardHooks.get(card?.localName) || []) {
-    hooks.afterRender?.(card);
-  }
-}

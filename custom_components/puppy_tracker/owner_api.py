@@ -10,23 +10,12 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .const import DOMAIN, SIGNAL_DASHBOARD_UPDATE
-from .runtime import PuppyTrackerRuntimeData
+from .runtime import get_runtime_data
 
 
 def _owners(hass: HomeAssistant):
-    for entry in hass.config_entries.async_entries(DOMAIN):
-        runtime = entry.runtime_data
-        if isinstance(runtime, PuppyTrackerRuntimeData):
-            return runtime.owners
-    return None
-
-
-def _runtime(hass: HomeAssistant) -> PuppyTrackerRuntimeData | None:
-    for entry in hass.config_entries.async_entries(DOMAIN):
-        runtime = entry.runtime_data
-        if isinstance(runtime, PuppyTrackerRuntimeData):
-            return runtime
-    return None
+    runtime = get_runtime_data(hass)
+    return runtime.owners if runtime is not None else None
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/owners/list"})
@@ -100,7 +89,7 @@ async def websocket_delete_owner(hass: HomeAssistant, connection, msg: dict[str,
 @websocket_api.async_response
 async def websocket_link_owners(hass: HomeAssistant, connection, msg: dict[str, Any]) -> None:
     """Link existing reusable owners to one puppy."""
-    runtime = _runtime(hass)
+    runtime = get_runtime_data(hass)
     if runtime is None or runtime.owners is None:
         connection.send_error(msg["id"], "not_loaded", "Puppy Tracker is not loaded")
         return

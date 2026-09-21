@@ -10,10 +10,11 @@ from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.util import dt as dt_util
 
-from .api import API_VERSION, _runtime_storage, _signal_dossier_change
-from .const import DOMAIN
+from .const import API_VERSION, DOMAIN
 from .mother_context import mother_context_payload
 from .mother_storage import MotherScopeStorage
+from .runtime import get_runtime_storage
+from .updates import dispatch_dossier_update
 
 DATA_MOTHER_API_REGISTERED = f"{DOMAIN}_mother_api_registered"
 
@@ -23,7 +24,7 @@ def _storage_or_error(
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
 ) -> MotherScopeStorage | None:
-    storage = _runtime_storage(hass)
+    storage = get_runtime_storage(hass)
     if not isinstance(storage, MotherScopeStorage):
         connection.send_error(msg["id"], "not_loaded", "Mother dossier support is not loaded")
         return None
@@ -143,7 +144,7 @@ async def websocket_update_mother_profile_note(
     except ValueError as err:
         connection.send_error(msg["id"], "invalid_mother", str(err))
         return
-    _signal_dossier_change(hass)
+    dispatch_dossier_update(hass)
     connection.send_result(
         msg["id"],
         {
@@ -199,7 +200,7 @@ async def websocket_add_mother_record(hass, connection, msg) -> None:
     except ValueError as err:
         connection.send_error(msg["id"], "invalid_record", str(err))
         return
-    _signal_dossier_change(hass)
+    dispatch_dossier_update(hass)
     connection.send_result(
         msg["id"],
         {"ok": True, "record_id": record_id, "record": storage.get_record(msg["litter_id"], record_id, mother_id=mother_id)},
@@ -241,7 +242,7 @@ async def websocket_update_mother_record(hass, connection, msg) -> None:
     except ValueError as err:
         connection.send_error(msg["id"], "invalid_record", str(err))
         return
-    _signal_dossier_change(hass)
+    dispatch_dossier_update(hass)
     connection.send_result(msg["id"], {"ok": True})
 
 
@@ -266,7 +267,7 @@ async def websocket_delete_mother_record(hass, connection, msg) -> None:
     except ValueError as err:
         connection.send_error(msg["id"], "invalid_record", str(err))
         return
-    _signal_dossier_change(hass)
+    dispatch_dossier_update(hass)
     connection.send_result(msg["id"], {"ok": True})
 
 
@@ -291,7 +292,7 @@ async def websocket_restore_mother_record(hass, connection, msg) -> None:
     except ValueError as err:
         connection.send_error(msg["id"], "invalid_record", str(err))
         return
-    _signal_dossier_change(hass)
+    dispatch_dossier_update(hass)
     connection.send_result(msg["id"], {"ok": True})
 
 

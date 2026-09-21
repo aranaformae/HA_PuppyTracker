@@ -24,15 +24,15 @@ def test_frontend_registers_mother_dashboard_api() -> None:
     assert "from .mother_dashboard_api import async_setup_mother_dashboard_api" in source
     assert "async_setup_mother_dashboard_api(hass)" in source
     assert '"puppy-tracker-mother-surfaces.js"' not in source
-    assert 'import "./puppy-tracker-mother-surfaces.js";' in ATTENTION_CARD.read_text(encoding="utf-8")
+    assert 'from "./puppy-tracker-mother-surfaces.js";' in ATTENTION_CARD.read_text(encoding="utf-8")
 
 
 def test_attention_card_includes_mother_dossier_actions() -> None:
     source = MOTHER_SURFACES.read_text(encoding="utf-8")
 
-    assert 'const ATTENTION_TAG = "puppy-tracker-attention-card"' in source
-    assert "registerCardHooks(ATTENTION_TAG" in source
-    assert "priority: 350" in source
+    assert "export async function loadMotherAttention(card)" in source
+    assert "export function renderMotherAttention(card)" in source
+    assert "registerCardHooks" not in source
     assert "__puppyTrackerMotherAttentionPatched" not in source
     assert 'type: "puppy_tracker/mother/attention"' in source
     assert 'card.__motherAttention?.dossier_actions?.actions || []' in source

@@ -8,15 +8,15 @@ from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
-from .api import _runtime_data, _runtime_storage
 from .attention_acknowledgements import AttentionAcknowledgementStore
 from .const import DOMAIN, SIGNAL_DASHBOARD_UPDATE
+from .runtime import get_runtime_data, get_runtime_storage
 
 DATA_API_REGISTERED = f"{DOMAIN}_attention_acknowledgement_api_registered"
 
 
 def _store_or_error(hass: HomeAssistant, connection, msg) -> AttentionAcknowledgementStore | None:
-    runtime = _runtime_data(hass)
+    runtime = get_runtime_data(hass)
     store = getattr(runtime, "attention_acknowledgements", None) if runtime is not None else None
     if not isinstance(store, AttentionAcknowledgementStore):
         connection.send_error(msg["id"], "not_loaded", "Attention acknowledgements are not loaded")
@@ -25,7 +25,7 @@ def _store_or_error(hass: HomeAssistant, connection, msg) -> AttentionAcknowledg
 
 
 def _validate_litter(hass: HomeAssistant, connection, msg) -> bool:
-    storage = _runtime_storage(hass)
+    storage = get_runtime_storage(hass)
     if storage is None or storage.get_litter(str(msg.get("litter_id") or "")) is None:
         connection.send_error(msg["id"], "not_found", "Unknown litter")
         return False

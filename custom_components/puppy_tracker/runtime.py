@@ -5,6 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
+
+from .const import DOMAIN
 from .session import SESSION_ACTIVE, new_session_state
 from .storage import PuppyTrackerStorage
 
@@ -42,6 +46,34 @@ class PuppyTrackerRuntimeData:
     last_backup_scope: str | None = None
     last_backup_count: int | None = None
     last_backup_error: str | None = None
+
+
+def get_entry_runtime_data(entry: ConfigEntry) -> PuppyTrackerRuntimeData | None:
+    """Return typed runtime data for one loaded config entry."""
+    runtime = getattr(entry, "runtime_data", None)
+    return runtime if isinstance(runtime, PuppyTrackerRuntimeData) else None
+
+
+def get_runtime_data(hass: HomeAssistant) -> PuppyTrackerRuntimeData | None:
+    """Return runtime data for the loaded Puppy Tracker entry."""
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        if (runtime := get_entry_runtime_data(entry)) is not None:
+            return runtime
+    return None
+
+
+def require_runtime_data(hass: HomeAssistant) -> PuppyTrackerRuntimeData:
+    """Return loaded runtime data or raise a consistent error."""
+    runtime = get_runtime_data(hass)
+    if runtime is None:
+        raise RuntimeError("Puppy Tracker is not loaded")
+    return runtime
+
+
+def get_runtime_storage(hass: HomeAssistant) -> PuppyTrackerStorage | None:
+    """Return storage for the loaded Puppy Tracker entry."""
+    runtime = get_runtime_data(hass)
+    return runtime.storage if runtime is not None else None
 
 
 def reconcile_dashboard_selection(

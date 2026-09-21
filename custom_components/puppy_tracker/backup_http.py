@@ -13,18 +13,10 @@ from homeassistant.helpers.network import get_url
 
 from .backup import SCHEDULER_BACKUP_VERSION, serialize_export
 from .const import DOMAIN
-from .runtime import PuppyTrackerRuntimeData
+from .runtime import PuppyTrackerRuntimeData, require_runtime_data
 
 DATA_BACKUP_HTTP_REGISTERED = f"{DOMAIN}_backup_http_registered"
 DOWNLOAD_TTL = timedelta(minutes=10)
-
-
-def _runtime(hass: HomeAssistant) -> PuppyTrackerRuntimeData:
-    for entry in hass.config_entries.async_entries(DOMAIN):
-        runtime = entry.runtime_data
-        if isinstance(runtime, PuppyTrackerRuntimeData):
-            return runtime
-    raise RuntimeError("Puppy Tracker is not loaded")
 
 
 def _download_response(
@@ -91,7 +83,7 @@ class PuppyTrackerFullBackupView(HomeAssistantView):
 
     async def get(self, request: web.Request) -> web.Response:
         del request
-        return _download_response(_runtime(self._hass), scope="full")
+        return _download_response(require_runtime_data(self._hass), scope="full")
 
 
 class PuppyTrackerLitterBackupView(HomeAssistantView):
@@ -108,7 +100,7 @@ class PuppyTrackerLitterBackupView(HomeAssistantView):
         del request
         try:
             return _download_response(
-                _runtime(self._hass),
+                require_runtime_data(self._hass),
                 scope="litter",
                 litter_id=litter_id,
             )
@@ -135,7 +127,7 @@ class PuppyTrackerPuppyBackupView(HomeAssistantView):
         del request
         try:
             return _download_response(
-                _runtime(self._hass),
+                require_runtime_data(self._hass),
                 scope="puppy",
                 litter_id=litter_id,
                 puppy_id=puppy_id,

@@ -8,15 +8,24 @@ import {
   localize,
   requestLitterChange,
   selectDefaultLitter,
-  runCardLoadHooks,
-  runCardRenderHooks,
   statusIcon,
   statusTone,
   subscribeUpdates,
 } from "./puppy-tracker-card-common.js";
-import "./puppy-tracker-care-surfaces.js";
-import "./puppy-tracker-attention-qol.js";
-import "./puppy-tracker-mother-surfaces.js";
+import {
+  addCareDirectActionButtons,
+  loadCareOccurrences,
+  renderAttentionCare,
+  renderCareSkippedWarning,
+} from "./puppy-tracker-care-surfaces.js";
+import {
+  loadAttentionAcknowledgements,
+  renderAttentionQol,
+} from "./puppy-tracker-attention-qol.js";
+import {
+  loadMotherAttention,
+  renderMotherAttention,
+} from "./puppy-tracker-mother-surfaces.js";
 
 function actionStatusText(hass, action) {
   const days = Number(action?.days_until_due ?? action?.days_until);
@@ -210,7 +219,11 @@ class PuppyTrackerAttentionCard extends HTMLElement {
     } catch (err) {
       this._error = err?.message || localize(this._hass, "overviewCouldNotLoad");
     }
-    await runCardLoadHooks(this);
+    await Promise.all([
+      loadCareOccurrences(this),
+      loadMotherAttention(this),
+      loadAttentionAcknowledgements(this),
+    ]);
     if (render) this._render();
   }
 
@@ -317,7 +330,11 @@ class PuppyTrackerAttentionCard extends HTMLElement {
         row.addEventListener("click", () => fireNavigate(this, this._config.navigate_path));
       });
     }
-    runCardRenderHooks(this);
+    renderAttentionCare(this);
+    renderCareSkippedWarning(this);
+    renderMotherAttention(this);
+    renderAttentionQol(this);
+    addCareDirectActionButtons(this);
   }
 }
 

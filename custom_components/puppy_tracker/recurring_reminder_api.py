@@ -10,7 +10,6 @@ from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
-from .api import _runtime_data, _runtime_storage
 from .const import DEFAULT_NOTIFICATION_LEAD_MINUTES, DOMAIN, SIGNAL_DASHBOARD_UPDATE
 from .mother_storage import MotherScopeStorage
 from .recurring_reminders import (
@@ -18,13 +17,14 @@ from .recurring_reminders import (
     reminder_matches_record,
     reminder_status,
 )
+from .runtime import get_runtime_data, get_runtime_storage
 from .time_utils import timestamp_sort_key
 
 DATA_API_REGISTERED = f"{DOMAIN}_recurring_reminder_api_registered"
 
 
 def _store_or_error(hass: HomeAssistant, connection, msg) -> RecurringReminderStore | None:
-    runtime = _runtime_data(hass)
+    runtime = get_runtime_data(hass)
     store = getattr(runtime, "recurring_reminders", None) if runtime is not None else None
     if not isinstance(store, RecurringReminderStore):
         connection.send_error(msg["id"], "not_loaded", "Recurring reminders are not loaded")
@@ -73,8 +73,8 @@ def _owner_records(storage, reminder: dict[str, Any]) -> list[dict[str, Any]]:
 
 async def async_reconcile_recurring_reminders(hass: HomeAssistant, *, litter_id: str | None = None) -> None:
     """Advance reminders from matching dossier records without owner cross-talk."""
-    runtime = _runtime_data(hass)
-    storage = _runtime_storage(hass)
+    runtime = get_runtime_data(hass)
+    storage = get_runtime_storage(hass)
     store = getattr(runtime, "recurring_reminders", None) if runtime is not None else None
     if storage is None or not isinstance(store, RecurringReminderStore):
         return
@@ -116,7 +116,7 @@ def _owner_label(storage, reminder: dict[str, Any]) -> str:
 @websocket_api.async_response
 async def websocket_list_reminders(hass, connection, msg) -> None:
     store = _store_or_error(hass, connection, msg)
-    storage = _runtime_storage(hass)
+    storage = get_runtime_storage(hass)
     if store is None or storage is None:
         return
     await async_reconcile_recurring_reminders(hass, litter_id=msg.get("litter_id"))
@@ -159,7 +159,7 @@ async def websocket_list_reminders(hass, connection, msg) -> None:
 @websocket_api.async_response
 async def websocket_create_reminder(hass, connection, msg) -> None:
     store = _store_or_error(hass, connection, msg)
-    storage = _runtime_storage(hass)
+    storage = get_runtime_storage(hass)
     if store is None or storage is None:
         return
     data = dict(msg)
@@ -198,7 +198,7 @@ async def websocket_create_reminder(hass, connection, msg) -> None:
 @websocket_api.async_response
 async def websocket_update_reminder(hass, connection, msg) -> None:
     store = _store_or_error(hass, connection, msg)
-    storage = _runtime_storage(hass)
+    storage = get_runtime_storage(hass)
     if store is None or storage is None:
         return
     current = store.get_reminder(msg["reminder_id"])

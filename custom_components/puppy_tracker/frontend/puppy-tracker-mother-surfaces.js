@@ -1,6 +1,4 @@
-import { escapeHtml, languageForHass, registerCardHooks } from "./puppy-tracker-card-common.js";
-
-const ATTENTION_TAG = "puppy-tracker-attention-card";
+import { escapeHtml, languageForHass } from "./puppy-tracker-card-common.js";
 
 function isEnglish(card) {
   return languageForHass(card?._hass) === "en";
@@ -41,7 +39,7 @@ function actionDate(card, value) {
   return isEnglish(card) ? `${match[2]}/${match[3]}/${match[1]}` : `${match[3]}-${match[2]}-${match[1]}`;
 }
 
-async function loadMotherAttention(card) {
+export async function loadMotherAttention(card) {
   card.__motherAttention = null;
   if (card._hass && card._selectedLitterId && card._data?.litter?.mother) {
     try {
@@ -55,7 +53,7 @@ async function loadMotherAttention(card) {
   }
 }
 
-function renderMotherAttention(card) {
+export function renderMotherAttention(card) {
   const root = card.shadowRoot;
   const actions = card.__motherAttention?.dossier_actions?.actions || [];
   if (!root || !actions.length) return;
@@ -80,9 +78,3 @@ function renderMotherAttention(card) {
     list.append(row);
   }
 }
-
-registerCardHooks(ATTENTION_TAG, {
-  priority: 350,
-  afterLoad: loadMotherAttention,
-  afterRender: renderMotherAttention,
-});

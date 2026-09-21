@@ -1,6 +1,6 @@
-import { escapeHtml, fetchLitters, languageForHass, requestLitterChange, runCardRenderHooks, selectDefaultLitter, subscribeUpdates } from "./puppy-tracker-card-common.js";
+import { escapeHtml, fetchLitters, languageForHass, requestLitterChange, selectDefaultLitter, subscribeUpdates } from "./puppy-tracker-card-common.js";
 import { openCareResultEditor } from "./puppy-tracker-care-result-editor.js";
-import "./puppy-tracker-care-surfaces.js";
+import { renderCareExecutionRows } from "./puppy-tracker-care-surfaces.js";
 
 const TAG = "puppy-tracker-care-execution-card";
 function t(card, nl, en) { return languageForHass(card?._hass) === "en" ? en : nl; }
@@ -217,7 +217,7 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
       const item = this._occurrences.find((candidate) => candidate.id === button.dataset.id);
       if (item) this._openResult(item, button.dataset.action);
     }));
-    runCardRenderHooks(this);
+    renderCareExecutionRows(this);
   }
 }
 

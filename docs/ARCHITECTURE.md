@@ -61,21 +61,21 @@ the Litter card invokes its profile/detail presentation helper explicitly.
 Small reusable helpers such as collar colors are imported by their consumer,
 while one-card layout behavior remains on that card. Cross-card modules remain
 only where one feature deliberately coordinates several independently defined
-card surfaces. Today, Attention and Care Execution expose an explicit shared
-hook pipeline for this purpose. Care data, filtering, warnings and result
-actions register ordered load/render hooks instead of wrapping card prototypes.
-Each base card imports its own hook helpers directly, so neither `frontend.py`
-nor the Workspace has to encode their initialization order.
+card surfaces. Today, Attention and Care Execution import named care load/render
+functions and invoke them explicitly in their own lifecycle. Attention does the
+same for acknowledgement and mother-action presentation. There is no global
+card-hook registry: composition order is visible in each base card, while
+neither `frontend.py` nor the Workspace has to encode helper initialization.
 
 `frontend.py` is the authoritative registration order for card elements only.
 Imported helpers are ordinary ES-module dependencies of their owning cards.
 Every card owns its localization lifecycle; the large
 Overview dictionary is a stateless helper imported directly by that card.
 Summary and Litter render their localized UI directly, while Dossier and
-Timeline own their compact list and edit controls directly. Care layers use numeric hook priorities, making
-their execution order explicit and independent of nested method wrappers. A new
-one-card behavior should live in that card or be imported directly by it, never
-depend on replacing a prototype later in the sequence.
+Timeline own their compact list and edit controls directly. Shared care layers
+export ordinary functions; their callers determine a fixed, reviewable order.
+A new one-card behavior should live in that card or be imported directly by it,
+never depend on replacing a prototype later in the sequence.
 
 ## Integration identity
 
@@ -593,6 +593,19 @@ A test notification:
 
 Per-config-entry state is held in typed `ConfigEntry.runtime_data` using `PuppyTrackerRuntimeData`.
 
+`runtime.py` is the canonical lookup boundary for this state. WebSocket and
+download modules use `get_runtime_data`, `get_runtime_storage` or
+`require_runtime_data` instead of importing private helpers from another API
+module. Composite entity/dashboard refreshes are likewise centralized in
+`updates.py`, so dossier and measurement mutations cannot silently omit one of
+their required dispatcher signals.
+
+The Home Assistant config-flow handler is defined once in `config_flow.py`.
+That module composes the feature mixins with
+`PuppyTrackerManagementOptionsFlow`; it does not replace classes or globals in
+the management module at import time. This keeps fresh installation and options
+setup on the same explicit class graph.
+
 Persistent rule stores attached to runtime data include:
 
 ```text
@@ -638,9 +651,9 @@ Its horizontally scrollable chart navigation is an imported helper invoked by
 the card during its normal metric, render and event lifecycles; it is not a
 separately registered module and does not replace Overview prototype methods.
 Cross-surface utilities remain appropriate where one feature deliberately
-spans several internal surfaces. Such utilities should register through the
-card hook pipeline when they need a load or render lifecycle, rather than
-replacing methods on a card prototype.
+spans several internal surfaces. Such utilities should export named operations
+that the owning cards call explicitly during load or render, rather than
+registering global hooks or replacing methods on a card prototype.
 
 The Report card owns its complete selection and export model directly: aggregate
 puppies, whole litter, individual puppy and mother are explicit states in the
@@ -675,8 +688,8 @@ Quick Log owns its complete single-owner workflow directly. Litter, mother and
 puppy selection, remembered owners per preset, structured temperature input and
 the corresponding owner-specific save endpoint are handled in the base card.
 Bulk Dossier declares temperature in the shared dossier schema. There is no
-temperature compatibility module and `mother-surfaces.js` only contributes
-mother actions to Attention through the ordered hook pipeline.
+temperature compatibility module and `mother-surfaces.js` exports the mother
+load/render operations invoked explicitly by Attention.
 
 ## Frontend surfaces
 
@@ -852,7 +865,7 @@ Regression tests should protect data meaning and cross-surface contracts, includ
 - scheduling-store quarantine, timestamp stability and failed-write rollback;
 - care-template validation, day-specific instructions, JSON batch import/export and failed-write rollback;
 - notification settings/default migration, deduplication, state isolation and error propagation;
-- frontend module load order and ordered card hooks;
+- explicit frontend composition order without global hooks or prototype patches;
 - real browser care-result flow from row to dialog to WebSocket save to immediate row removal;
 - export selection, care PDF output and runtime selection;
 - diagnostics scheduler health counts.

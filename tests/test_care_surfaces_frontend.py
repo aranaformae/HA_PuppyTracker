@@ -14,7 +14,7 @@ def test_care_surfaces_are_imported_by_their_base_cards() -> None:
         "puppy-tracker-care-execution-card.js",
     ):
         source = (FRONTEND / filename).read_text()
-        assert 'import "./puppy-tracker-care-surfaces.js";' in source
+        assert 'from "./puppy-tracker-care-surfaces.js";' in source
 
 
 def test_care_surfaces_use_backend_occurrence_status() -> None:
@@ -35,29 +35,29 @@ def test_same_day_upcoming_care_uses_clock_label_not_zero_days() -> None:
     assert "Today at ${clock}" in source
 
 
-def test_attention_today_and_execution_register_explicit_hooks() -> None:
+def test_attention_today_and_execution_export_explicit_surface_functions() -> None:
     source = (FRONTEND / "puppy-tracker-care-surfaces.js").read_text()
-    assert 'const TODAY_TAG = "puppy-tracker-today-card"' in source
-    assert 'const ATTENTION_TAG = "puppy-tracker-attention-card"' in source
-    assert 'const CARE_EXECUTION_TAG = "puppy-tracker-care-execution-card"' in source
-    assert "registerCardHooks(TODAY_TAG" in source
-    assert "registerCardHooks(ATTENTION_TAG" in source
-    assert "registerCardHooks(CARE_EXECUTION_TAG" in source
+    assert "export async function loadCareOccurrences(card)" in source
+    assert "export function renderTodayCare(card)" in source
+    assert "export function renderAttentionCare(card)" in source
+    assert "export function renderCareExecutionRows(card)" in source
     assert ".prototype" not in source
+    assert "registerCardHooks" not in source
 
 
-def test_card_hook_pipeline_is_owned_by_the_base_cards() -> None:
+def test_base_cards_compose_care_surfaces_explicitly() -> None:
     common = (FRONTEND / "puppy-tracker-card-common.js").read_text()
-    assert "export function registerCardHooks" in common
-    assert "export async function runCardLoadHooks" in common
-    assert "export function runCardRenderHooks" in common
-    for filename in (
-        "puppy-tracker-today-card.js",
-        "puppy-tracker-attention-card.js",
-        "puppy-tracker-care-execution-card.js",
-    ):
-        source = (FRONTEND / filename).read_text()
-        assert "runCardRenderHooks(this);" in source
+    assert "registerCardHooks" not in common
+    assert "runCardLoadHooks" not in common
+    assert "runCardRenderHooks" not in common
+    today = (FRONTEND / "puppy-tracker-today-card.js").read_text()
+    attention = (FRONTEND / "puppy-tracker-attention-card.js").read_text()
+    execution = (FRONTEND / "puppy-tracker-care-execution-card.js").read_text()
+    assert "await loadCareOccurrences(this);" in today
+    assert "renderTodayCare(this);" in today
+    assert "loadCareOccurrences(this)," in attention
+    assert "renderAttentionCare(this);" in attention
+    assert "renderCareExecutionRows(this);" in execution
 
 
 def test_care_extensions_do_not_patch_card_prototypes() -> None:
@@ -68,7 +68,7 @@ def test_care_extensions_do_not_patch_card_prototypes() -> None:
     ):
         source = (FRONTEND / filename).read_text()
         assert ".prototype" not in source
-        assert "registerCardHooks" in source
+        assert "registerCardHooks" not in source
 
 
 def test_attention_can_limit_care_items_to_today() -> None:
@@ -112,7 +112,7 @@ def test_open_care_rows_launch_structured_result_entry() -> None:
     assert 'aria-modal="true"' in editor
     assert "openCareResultEditor(card, item)" in surfaces
     assert "openCareResultEditor(this, item" in execution
-    assert "addDirectActionButtons" in surfaces
+    assert "addCareDirectActionButtons" in surfaces
     assert "row.click()" not in surfaces
 
 
@@ -135,7 +135,7 @@ def test_care_result_save_refreshes_backend_derived_status() -> None:
 
 def test_skipped_puppies_are_not_silently_hidden() -> None:
     source = (FRONTEND / "puppy-tracker-care-surfaces.js").read_text()
-    assert "function renderSkippedWarning(card)" in source
+    assert "export function renderCareSkippedWarning(card)" in source
     assert "card.__careSkipped" in source
     assert 'item?.reason_code === "missing_birth_time"' in source
     assert "geboortetijd ontbreekt" in source

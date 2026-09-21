@@ -1,29 +1,8 @@
-import { escapeHtml, languageForHass, registerCardHooks } from "./puppy-tracker-card-common.js";
-
-const TAG = "puppy-tracker-attention-card";
+import { escapeHtml, languageForHass } from "./puppy-tracker-card-common.js";
+import { recordTypeLabel } from "./puppy-tracker-dossier-schema.js";
 
 function t(card, nl, en) {
   return languageForHass(card?._hass) === "en" ? en : nl;
-}
-
-function typeLabel(card, value) {
-  const labels = {
-    weight: ["Gewicht", "Weight"],
-    vaccination: ["Vaccinatie", "Vaccination"],
-    deworming: ["Ontworming", "Deworming"],
-    medication: ["Medicatie", "Medication"],
-    test: ["Test", "Test"],
-    temperature: ["Temperatuur", "Temperature"],
-    milestone: ["Mijlpaal", "Milestone"],
-    note: ["Notitie", "Note"],
-    feeding: ["Voeding", "Feeding"],
-    other: ["Overig", "Other"],
-    care: ["Zorgprogramma", "Care program"],
-    reminder: ["Herinnering", "Reminder"],
-    dossier: ["Dossier", "Dossier"],
-  };
-  const pair = labels[value];
-  return pair ? t(card, pair[0], pair[1]) : String(value || t(card, "Overig", "Other"));
 }
 
 function baseAttentionMeta(card) {
@@ -94,27 +73,19 @@ function selectedTypesFor(card, types) {
     : [];
   let selected = card.__attentionTypeFilters instanceof Set
     ? new Set(card.__attentionTypeFilters)
-    : null;
-
-  if (!selected) {
-    const legacy = String(card.__attentionTypeFilter || "all");
-    selected = legacy !== "all" && available.includes(legacy)
-      ? new Set([legacy])
-      : new Set(available);
-  }
+    : new Set(available);
 
   const previouslyAllSelected = previousAvailable.length > 0
     && previousAvailable.every((type) => selected.has(type));
   selected = new Set([...selected].filter((type) => available.includes(type)));
 
   const explicitlySelected = card.__attentionTypeFilters instanceof Set;
-  if (!explicitlySelected || (!previousAvailable.length && !explicitlySelected) || previouslyAllSelected) {
+  if (!explicitlySelected || previouslyAllSelected) {
     for (const type of available) selected.add(type);
   }
 
   card.__attentionTypeFilters = selected;
   card.__attentionAvailableTypes = [...available];
-  delete card.__attentionTypeFilter;
   return selected;
 }
 
@@ -134,7 +105,7 @@ function toggleType(card, type, types) {
   card._render();
 }
 
-async function loadAcknowledgements(card) {
+export async function loadAttentionAcknowledgements(card) {
   if (!card?._hass || !card?._selectedLitterId) {
     card.__attentionAcknowledgements = {};
     return;
@@ -166,7 +137,7 @@ async function setAcknowledged(card, attentionId, acknowledged) {
   card.__attentionAckError = "";
 }
 
-function renderQol(card) {
+export function renderAttentionQol(card) {
   const root = card?.shadowRoot;
   if (!root) return;
   root.querySelector(".attention-qol-controls")?.remove();
@@ -179,7 +150,7 @@ function renderQol(card) {
   root.querySelector(".all-ok")?.remove();
 
   const types = [...new Set(rows.map((row) => row.dataset.attentionType).filter(Boolean))]
-    .sort((a, b) => typeLabel(card, a).localeCompare(typeLabel(card, b)));
+    .sort((a, b) => recordTypeLabel(card?._hass, a).localeCompare(recordTypeLabel(card?._hass, b)));
   const selectedTypes = selectedTypesFor(card, types);
   const allSelected = selectedTypes.size === types.length;
 
@@ -187,7 +158,7 @@ function renderQol(card) {
   controls.className = "attention-qol-controls";
   controls.innerHTML = `<style>
     .attention-qol-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 10px}.attention-filter-label{font-size:.78rem;color:var(--secondary-text-color);font-weight:600}.attention-type-filters{display:flex;flex-wrap:wrap;gap:6px}.attention-type-chip{display:inline-flex;align-items:center;border:1px solid var(--divider-color);border-radius:999px;background:transparent;color:var(--primary-text-color);padding:6px 9px;cursor:pointer;font:inherit;font-size:.82rem}.attention-type-chip.active{background:var(--primary-color);color:var(--text-primary-color,#fff);border-color:var(--primary-color)}.attention-filter-hidden{display:none!important}.attention-ack-button{display:grid;place-items:center;width:30px;height:30px;border:0;border-radius:9px;background:var(--secondary-background-color);color:var(--secondary-text-color);cursor:pointer}.attention-ack-button:hover{color:var(--primary-color)}.attention-ack-button ha-icon{--mdc-icon-size:18px}.list{max-height:520px;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding-right:2px}.list>.row{grid-template-columns:34px minmax(0,1fr) auto 32px}.attention-acknowledged{margin-top:10px;border-top:1px solid var(--divider-color);padding-top:8px}.attention-acknowledged summary{cursor:pointer;font-size:.85rem;font-weight:600;color:var(--secondary-text-color);padding:5px 2px}.attention-ack-list{display:grid;gap:8px;margin-top:6px;max-height:520px;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding-right:2px}.attention-ack-list .row{grid-template-columns:34px minmax(0,1fr) auto 32px;opacity:.72}.attention-empty-open{font-size:.82rem;color:var(--secondary-text-color);padding:8px 2px}.attention-ack-error{font-size:.8rem;color:var(--error-color);margin:6px 0}@container attention-card (max-width:520px){.list>.row,.attention-ack-list .row{grid-template-columns:34px minmax(0,1fr) 32px}.list>.row>.status,.attention-ack-list .row>.status{display:none}.attention-qol-controls{align-items:flex-start}}
-  </style><span class="attention-filter-label">${escapeHtml(t(card, "Type", "Type"))}</span><div class="attention-type-filters"><button type="button" class="attention-type-chip ${allSelected ? "active" : ""}" data-attention-filter-type="__all__">${escapeHtml(t(card, "Alles", "All"))}</button>${types.map((value) => `<button type="button" class="attention-type-chip ${selectedTypes.has(value) ? "active" : ""}" data-attention-filter-type="${escapeHtml(value)}">${escapeHtml(typeLabel(card, value))}</button>`).join("")}</div>`;
+  </style><span class="attention-filter-label">${escapeHtml(t(card, "Type", "Type"))}</span><div class="attention-type-filters"><button type="button" class="attention-type-chip ${allSelected ? "active" : ""}" data-attention-filter-type="__all__">${escapeHtml(t(card, "Alles", "All"))}</button>${types.map((value) => `<button type="button" class="attention-type-chip ${selectedTypes.has(value) ? "active" : ""}" data-attention-filter-type="${escapeHtml(value)}">${escapeHtml(recordTypeLabel(card?._hass, value))}</button>`).join("")}</div>`;
   const top = root.querySelector(".top");
   top?.insertAdjacentElement("afterend", controls);
 
@@ -265,9 +236,3 @@ function renderQol(card) {
     button.addEventListener("click", () => toggleType(card, button.dataset.attentionFilterType, types));
   });
 }
-
-registerCardHooks(TAG, {
-  priority: 400,
-  afterLoad: loadAcknowledgements,
-  afterRender: renderQol,
-});

@@ -14,7 +14,6 @@ import {
   requestLitterChange,
   restoreDossierRecord,
   restoreMotherDossierRecord,
-  runCardRenderHooks,
   selectDefaultLitter,
   saveCardState,
   subscribeUpdates,
@@ -28,10 +27,11 @@ import {
   inputAttributes,
   KNOWN_DATA_KEYS,
   RECORD_TYPES,
+  recordTypeIcon as iconForRecordType,
+  recordTypeLabel as labelForRecordType,
   requiredFieldsMessage,
   schemaText,
   TYPE_FIELDS,
-  TYPE_META,
 } from "./puppy-tracker-dossier-schema.js";
 
 const ALL_OWNER = "__all__";
@@ -165,17 +165,6 @@ function dossierActionTone(action) {
   if (action?.status === "overdue") return "danger";
   if (action?.status === "due_today") return "warning";
   return "neutral";
-}
-
-function humanizeType(value, hass = null) {
-  const text = String(value || "other");
-  if (TYPE_META[text]) return localize(hass, TYPE_META[text].labelKey);
-  const label = text.replaceAll("_", " ");
-  return label.charAt(0).toUpperCase() + label.slice(1);
-}
-
-function iconForType(value) {
-  return TYPE_META[String(value || "")]?.icon || "mdi:file-document-outline";
 }
 
 function toLocalDateTimeInput(value = null) {
@@ -670,7 +659,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
 
     return `
       <div class="typed-section">
-        <div class="typed-title">${escapeHtml(localize(this._hass, "additionalData"))} · ${escapeHtml(humanizeType(recordType, this._hass))}</div>
+        <div class="typed-title">${escapeHtml(localize(this._hass, "additionalData"))} · ${escapeHtml(labelForRecordType(this._hass, recordType))}</div>
         <div class="typed-grid">${controls}</div>
       </div>`;
   }
@@ -788,7 +777,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
       `<button type="button" class="category-filter ${allSelected ? "active" : ""}" data-dossier-category="__all__" aria-pressed="${allSelected ? "true" : "false"}">${escapeHtml(allLabel)}</button>`,
       ...availableTypes.map((type) => {
         const active = selectedTypes.has(type);
-        return `<button type="button" class="category-filter ${active ? "active" : ""}" data-dossier-category="${escapeHtml(type)}" aria-pressed="${active ? "true" : "false"}"><ha-icon icon="${escapeHtml(iconForType(type))}"></ha-icon>${escapeHtml(humanizeType(type, this._hass))}</button>`;
+        return `<button type="button" class="category-filter ${active ? "active" : ""}" data-dossier-category="${escapeHtml(type)}" aria-pressed="${active ? "true" : "false"}"><ha-icon icon="${escapeHtml(iconForRecordType(type))}"></ha-icon>${escapeHtml(labelForRecordType(this._hass, type))}</button>`;
       }),
     ].join("");
     return `<div class="category-filters" role="group" aria-label="${escapeHtml(groupLabel)}">${chips}</div>`;
@@ -907,7 +896,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
 
   async _deleteRecord(record) {
     if (!this._canManage || this._saving) return;
-    const title = record.title || humanizeType(record.type, this._hass);
+    const title = record.title || labelForRecordType(this._hass, record.type);
     if (!window.confirm(localize(this._hass, "confirmDeleteRecord", { title }))) return;
     this._saving = true;
     this._status = localize(this._hass, "dossierItemDelete");
@@ -1043,7 +1032,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
       `<option value="${escapeHtml(value)}" ${value === selected ? "selected" : ""}>${escapeHtml(localize(this._hass, labelKey))}</option>`
     );
     if (selected && !knownValues.has(selected)) {
-      options.unshift(`<option value="${escapeHtml(selected)}" selected>${escapeHtml(humanizeType(selected, this._hass))}</option>`);
+      options.unshift(`<option value="${escapeHtml(selected)}" selected>${escapeHtml(labelForRecordType(this._hass, selected))}</option>`);
     }
     return options.join("");
   }
@@ -1105,7 +1094,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
         </div>
         <div class="followup-list">
           ${actions.map((action) => {
-            const title = humanizeType(action.type || action.record_type, this._hass);
+            const title = labelForRecordType(this._hass, action.type || action.record_type);
             return `
             <div class="followup-row ${dossierActionTone(action)}">
               <div class="followup-icon"><ha-icon icon="${escapeHtml(action.icon || "mdi:calendar-clock")}"></ha-icon></div>
@@ -1153,8 +1142,8 @@ class PuppyTrackerDossierCard extends HTMLElement {
 
   _renderRecord(record) {
     const deleted = Boolean(record.deleted);
-    const title = record.title || humanizeType(record.type, this._hass);
-    const typeLabel = humanizeType(record.type, this._hass);
+    const title = record.title || labelForRecordType(this._hass, record.type);
+    const typeLabel = labelForRecordType(this._hass, record.type);
     const recordKey = record.__aggregate_record_key || record.id;
     const ownerBadge = this.__allSelected
       ? `<span class="type-badge aggregate-owner-badge">${escapeHtml(this._ownerLabel(record.__aggregate_owner_scope, record.__aggregate_owner_name))}</span>`
@@ -1164,7 +1153,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
       : "";
     return `
       <article class="record ${deleted ? "deleted" : ""}" data-record-key="${escapeHtml(recordKey)}">
-        <div class="record-icon"><ha-icon icon="${escapeHtml(iconForType(record.type))}"></ha-icon></div>
+        <div class="record-icon"><ha-icon icon="${escapeHtml(iconForRecordType(record.type))}"></ha-icon></div>
         <div class="record-body">
           <div class="record-top">
             <div class="record-heading"><strong>${escapeHtml(title)}</strong><span class="type-badge">${escapeHtml(typeLabel)}</span>${ownerBadge}${litterBadge}${deleted ? `<span class="deleted-badge">${escapeHtml(localize(this._hass, "removed"))}</span>` : ""}</div>
@@ -1198,7 +1187,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
     const records = this._recordData?.records || [];
     const activeRecordCount = records.filter((item) => !item.deleted).length;
     const availableCategoryTypes = [...new Set(records.map((record) => record?.type || "other"))].sort((a, b) =>
-      humanizeType(a, this._hass).localeCompare(humanizeType(b, this._hass))
+      labelForRecordType(this._hass, a).localeCompare(labelForRecordType(this._hass, b))
     );
     const selectedCategoryTypes = this._selectedCategoryFilters(availableCategoryTypes);
     const visibleRecords = records.filter((record) => selectedCategoryTypes.has(record?.type || "other"));
@@ -1378,7 +1367,6 @@ class PuppyTrackerDossierCard extends HTMLElement {
         if (record) this._restoreRecord(record);
       });
     }
-    runCardRenderHooks(this);
   }
 }
 

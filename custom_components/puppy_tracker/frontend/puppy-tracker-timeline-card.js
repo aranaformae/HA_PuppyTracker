@@ -8,11 +8,11 @@ import {
   languageForHass,
   loadCardState,
   requestLitterChange,
-  runCardRenderHooks,
   saveCardState,
   selectDefaultLitter,
   subscribeUpdates,
 } from "./puppy-tracker-card-common.js";
+import { recordTypeIcon, recordTypeLabel } from "./puppy-tracker-dossier-schema.js";
 
 const ALL_VALUE = "__all__";
 const LITTER_VALUE = "__litter__";
@@ -38,20 +38,6 @@ const TIMELINE_STATE_DEFAULTS = {
   to: "",
   showHistory: false,
   types: TIMELINE_TYPES,
-};
-
-const TYPE_META = {
-  weight: { icon: "mdi:scale", en: "Weight", nl: "Gewicht" },
-  note: { icon: "mdi:note-text-outline", en: "Note", nl: "Notitie" },
-  temperature: { icon: "mdi:thermometer", en: "Temperature", nl: "Temperatuur" },
-  feeding: { icon: "mdi:baby-bottle-outline", en: "Feeding", nl: "Voeding" },
-  vaccination: { icon: "mdi:needle", en: "Vaccination", nl: "Vaccinatie" },
-  deworming: { icon: "mdi:pill", en: "Deworming", nl: "Ontworming" },
-  medication: { icon: "mdi:medical-bag", en: "Medication", nl: "Medicatie" },
-  test: { icon: "mdi:test-tube", en: "Test / result", nl: "Test / uitslag" },
-  vet_visit: { icon: "mdi:doctor", en: "Veterinary visit", nl: "Dierenartsbezoek" },
-  milestone: { icon: "mdi:flag-checkered", en: "Milestone", nl: "Mijlpaal" },
-  other: { icon: "mdi:file-document-outline", en: "Other", nl: "Overig" },
 };
 
 const TEXT = {
@@ -118,18 +104,6 @@ function text(hass, key, replacements = {}) {
     (result, [name, value]) => result.replaceAll(`{${name}}`, String(value ?? "")),
     template,
   );
-}
-
-function typeLabel(hass, type) {
-  const language = languageForHass(hass);
-  const meta = TYPE_META[type];
-  if (meta) return meta[language] || meta.nl;
-  const label = String(type || "other").replaceAll("_", " ");
-  return label ? label.charAt(0).toUpperCase() + label.slice(1) : TYPE_META.other[language];
-}
-
-function typeIcon(type) {
-  return TYPE_META[type]?.icon || TYPE_META.other.icon;
 }
 
 function timestampValue(value) {
@@ -207,7 +181,7 @@ function motherRecordEvent(hass, record, ownerName) {
     puppy_id: null,
     puppy_name: ownerName,
     scope: "mother",
-    title: record?.title || (rawType === "temperature" ? typeLabel(hass, "temperature") : null),
+    title: record?.title || (rawType === "temperature" ? recordTypeLabel(hass, "temperature") : null),
     note: record?.note || null,
     status: record?.deleted ? "deleted" : "active",
     data,
@@ -234,7 +208,7 @@ function localizeTimelineEvent(hass, event) {
   return {
     ...event,
     type: "temperature",
-    title: event.title || typeLabel(hass, "temperature"),
+    title: event.title || recordTypeLabel(hass, "temperature"),
     data: {
       ...(event.data || {}),
       result: formatted ? `${formatted} °C` : event.data?.result,
@@ -701,7 +675,7 @@ class PuppyTrackerTimelineCard extends HTMLElement {
   }
 
   _renderEvent(event) {
-    const label = typeLabel(this._hass, event.type);
+    const label = recordTypeLabel(this._hass, event.type);
     const isWeight = event.type === "weight";
     const title = isWeight
       ? (event.title === "birth_weight" ? text(this._hass, "birthWeight") : text(this._hass, "weight"))
@@ -724,7 +698,7 @@ class PuppyTrackerTimelineCard extends HTMLElement {
     return `
       <article class="timeline-item ${escapeHtml(event.status || "active")}" data-event-type="${escapeHtml(event.type)}">
         <div class="rail">
-          <ha-icon icon="${escapeHtml(typeIcon(event.type))}"></ha-icon>
+          <ha-icon icon="${escapeHtml(recordTypeIcon(event.type))}"></ha-icon>
         </div>
         <div class="event-body">
           <div class="event-head">
@@ -807,7 +781,7 @@ class PuppyTrackerTimelineCard extends HTMLElement {
 
     const filters = [
       `<button type="button" class="chip ${allSelected ? "active" : ""}" data-filter-type="__all__">${escapeHtml(text(this._hass, "all"))}</button>`,
-      ...TIMELINE_TYPES.map((type) => `<button type="button" class="chip ${this._selectedTypes.has(type) ? "active" : ""}" data-filter-type="${type}"><ha-icon icon="${escapeHtml(typeIcon(type))}"></ha-icon>${escapeHtml(typeLabel(this._hass, type))}</button>`),
+      ...TIMELINE_TYPES.map((type) => `<button type="button" class="chip ${this._selectedTypes.has(type) ? "active" : ""}" data-filter-type="${type}"><ha-icon icon="${escapeHtml(recordTypeIcon(type))}"></ha-icon>${escapeHtml(recordTypeLabel(this._hass, type))}</button>`),
     ].join("");
 
     let content = "";
@@ -902,7 +876,6 @@ class PuppyTrackerTimelineCard extends HTMLElement {
       this._timelineItemsVisible = !this._timelineItemsVisible;
       this._render();
     });
-    runCardRenderHooks(this);
   }
 }
 

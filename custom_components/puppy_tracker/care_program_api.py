@@ -10,7 +10,6 @@ from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
-from .api import _runtime_data, _runtime_storage
 from .care_occurrences import derive_litter_care_occurrences
 from .care_programs import (
     AgeBasedCareProgramStore,
@@ -21,12 +20,14 @@ from .care_results import async_record_care_result
 from .care_templates import CareProgramTemplateStore
 from .care_status import care_occurrence_status
 from .const import DOMAIN, SIGNAL_DASHBOARD_UPDATE
+from .runtime import get_runtime_data, get_runtime_storage
+from .updates import dispatch_dossier_update
 
 DATA_API_REGISTERED = f"{DOMAIN}_care_program_api_registered"
 
 
 def _store_or_error(hass: HomeAssistant, connection, msg) -> AgeBasedCareProgramStore | None:
-    runtime = _runtime_data(hass)
+    runtime = get_runtime_data(hass)
     store = getattr(runtime, "care_programs", None) if runtime is not None else None
     if not isinstance(store, AgeBasedCareProgramStore):
         connection.send_error(msg["id"], "not_loaded", "Care programs are not loaded")
@@ -126,7 +127,7 @@ async def websocket_list_care_programs(hass, connection, msg) -> None:
 @websocket_api.async_response
 async def websocket_list_care_occurrences(hass, connection, msg) -> None:
     store = _store_or_error(hass, connection, msg)
-    storage = _runtime_storage(hass)
+    storage = get_runtime_storage(hass)
     if store is None or storage is None:
         return
     try:
@@ -182,7 +183,7 @@ async def websocket_list_care_occurrences(hass, connection, msg) -> None:
 async def websocket_record_care_occurrence(hass, connection, msg) -> None:
     """Record one exact care occurrence as a canonical puppy dossier record."""
     store = _store_or_error(hass, connection, msg)
-    storage = _runtime_storage(hass)
+    storage = get_runtime_storage(hass)
     if store is None or storage is None:
         return
     program = store.get_program(msg["program_id"])
@@ -215,7 +216,7 @@ async def websocket_record_care_occurrence(hass, connection, msg) -> None:
     except ValueError as err:
         connection.send_error(msg["id"], "invalid_care_result", str(err))
         return
-    async_dispatcher_send(hass, SIGNAL_DASHBOARD_UPDATE)
+    dispatch_dossier_update(hass, msg["puppy_id"])
     connection.send_result(msg["id"], {"ok": True, "record_id": record_id})
 
 
@@ -242,7 +243,7 @@ async def websocket_record_care_occurrence(hass, connection, msg) -> None:
 @websocket_api.async_response
 async def websocket_create_care_program(hass, connection, msg) -> None:
     store = _store_or_error(hass, connection, msg)
-    storage = _runtime_storage(hass)
+    storage = get_runtime_storage(hass)
     if store is None or storage is None:
         return
     data = {key: value for key, value in msg.items() if key in PROGRAM_FIELDS}
@@ -280,7 +281,7 @@ async def websocket_create_care_program(hass, connection, msg) -> None:
 @websocket_api.async_response
 async def websocket_update_care_program(hass, connection, msg) -> None:
     store = _store_or_error(hass, connection, msg)
-    storage = _runtime_storage(hass)
+    storage = get_runtime_storage(hass)
     if store is None or storage is None:
         return
     current = store.get_program(msg["program_id"])
@@ -333,7 +334,7 @@ async def websocket_delete_care_program(hass, connection, msg) -> None:
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/care_program_templates"})
 @websocket_api.async_response
 async def websocket_list_care_program_templates(hass, connection, msg) -> None:
-    runtime = _runtime_data(hass)
+    runtime = get_runtime_data(hass)
     store = getattr(runtime, "care_templates", None) if runtime is not None else None
     if not isinstance(store, CareProgramTemplateStore):
         connection.send_error(msg["id"], "not_loaded", "Care program templates are not loaded")
@@ -349,7 +350,7 @@ async def websocket_list_care_program_templates(hass, connection, msg) -> None:
 })
 @websocket_api.async_response
 async def websocket_save_care_program_template(hass, connection, msg) -> None:
-    runtime = _runtime_data(hass)
+    runtime = get_runtime_data(hass)
     store = getattr(runtime, "care_templates", None) if runtime is not None else None
     if not isinstance(store, CareProgramTemplateStore):
         connection.send_error(msg["id"], "not_loaded", "Care program templates are not loaded")
@@ -370,7 +371,7 @@ async def websocket_save_care_program_template(hass, connection, msg) -> None:
 @websocket_api.async_response
 async def websocket_save_care_program_templates(hass, connection, msg) -> None:
     """Validate and save an imported template set without partial writes."""
-    runtime = _runtime_data(hass)
+    runtime = get_runtime_data(hass)
     store = getattr(runtime, "care_templates", None) if runtime is not None else None
     if not isinstance(store, CareProgramTemplateStore):
         connection.send_error(msg["id"], "not_loaded", "Care program templates are not loaded")
@@ -387,10 +388,10 @@ async def websocket_save_care_program_templates(hass, connection, msg) -> None:
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/care_program_template/apply", vol.Required("template_id"): str, vol.Required("litter_id"): str})
 @websocket_api.async_response
 async def websocket_apply_care_program_template(hass, connection, msg) -> None:
-    runtime = _runtime_data(hass)
+    runtime = get_runtime_data(hass)
     store = getattr(runtime, "care_templates", None) if runtime is not None else None
     programs = getattr(runtime, "care_programs", None) if runtime is not None else None
-    storage = _runtime_storage(hass)
+    storage = get_runtime_storage(hass)
     if not isinstance(store, CareProgramTemplateStore) or not isinstance(programs, AgeBasedCareProgramStore) or storage is None:
         connection.send_error(msg["id"], "not_loaded", "Care program templates are not loaded")
         return

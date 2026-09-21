@@ -150,13 +150,10 @@ class CareProgramTemplateStore:
         if len(ids) != len(set(ids)):
             raise ValueError("template ids must be unique within an import")
         async with self._lock:
-            previous = deepcopy(self._data)
-            self._data["templates"].update({item["id"]: item for item in items})
-            try:
-                await self._store.async_save(self._data)
-            except Exception:
-                self._data = previous
-                raise
+            candidate = deepcopy(self._data)
+            candidate["templates"].update({item["id"]: item for item in items})
+            await self._store.async_save(candidate)
+            self._data = candidate
         return ids
 
     async def async_delete(self, template_id: str) -> None:
@@ -165,8 +162,10 @@ class CareProgramTemplateStore:
         async with self._lock:
             if template_id not in self._data["templates"]:
                 raise ValueError("Unknown template")
-            del self._data["templates"][template_id]
-            await self._store.async_save(self._data)
+            candidate = deepcopy(self._data)
+            del candidate["templates"][template_id]
+            await self._store.async_save(candidate)
+            self._data = candidate
 
     def get_backup_data(self) -> dict[str, Any]:
         return deepcopy(self._data)
