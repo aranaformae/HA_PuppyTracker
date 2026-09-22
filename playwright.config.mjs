@@ -29,6 +29,7 @@ export default defineConfig({
   projects: [
     {
       name: "chromium-desktop",
+      grepInvert: /@mobile/,
       use: {
         browserName: "chromium",
         viewport: { width: 1280, height: 800 },
@@ -36,6 +37,7 @@ export default defineConfig({
     },
     {
       name: "webkit-iphone",
+      grep: /@cross-browser|@mobile/,
       use: {
         ...webkitBase,
         viewport: { width: 393, height: 852 },
@@ -47,6 +49,7 @@ export default defineConfig({
     },
     {
       name: "webkit-ipad-portrait",
+      grep: /@tablet/,
       use: {
         ...webkitBase,
         viewport: { width: 820, height: 1180 },
@@ -58,6 +61,7 @@ export default defineConfig({
     },
     {
       name: "webkit-ipad-landscape",
+      grep: /@tablet/,
       use: {
         ...webkitBase,
         viewport: { width: 1180, height: 820 },

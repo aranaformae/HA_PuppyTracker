@@ -9,14 +9,6 @@ def _read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
 
 
-def test_dossier_and_timeline_do_not_require_an_all_scope_patch_module() -> None:
-    frontend = _read("custom_components/puppy_tracker/frontend.py")
-
-    assert '"puppy-tracker-dossier-card.js"' in frontend
-    assert '"puppy-tracker-timeline-card.js"' in frontend
-    assert '"puppy-tracker-all-scope.js"' not in frontend
-
-
 def test_timeline_all_scope_combines_mother_with_litter_and_puppies() -> None:
     source = _read("custom_components/puppy_tracker/frontend/puppy-tracker-timeline-card.js")
 

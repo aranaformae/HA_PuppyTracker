@@ -12,11 +12,6 @@ DOSSIER_CARD = "puppy-tracker-dossier-card.js"
 TIMELINE_CARD = "puppy-tracker-timeline-card.js"
 ATTENTION_CARD = "puppy-tracker-attention-card.js"
 LITTER_CARD = "puppy-tracker-litter-card.js"
-PUBLIC_CARD_FILES = {
-    "puppy-tracker-workspace-card.js",
-    "puppy-tracker-owner-card.js",
-    "puppy-tracker-report-card.js",
-}
 
 
 def test_frontend_route_is_versioned() -> None:
@@ -92,19 +87,6 @@ def test_workspace_card_is_registered_after_its_composed_cards() -> None:
     assert 'from "./puppy-tracker-mother-surfaces.js";' in attention
 
 
-def test_only_supported_cards_register_with_lovelace() -> None:
-    """Internal composition surfaces must not reappear in the card picker."""
-    frontend = Path(__file__).parents[1] / "custom_components" / "puppy_tracker" / "frontend"
-
-    registered_files = {
-        path.name
-        for path in frontend.glob("puppy-tracker-*.js")
-        if "window.customCards" in path.read_text(encoding="utf-8")
-    }
-
-    assert registered_files == PUBLIC_CARD_FILES
-
-
 def test_workspace_preserves_scroll_and_programmatic_focus_does_not_scroll() -> None:
     """Interactive rerenders must not move a mobile dashboard unexpectedly."""
     frontend = Path(__file__).parents[1] / "custom_components" / "puppy_tracker" / "frontend"
@@ -119,25 +101,6 @@ def test_workspace_preserves_scroll_and_programmatic_focus_does_not_scroll() -> 
     assert 'show_day_selector: this._preset !== "mobile"' in workspace
     assert "focus({ preventScroll: true })" in dossier
     assert "focus({ preventScroll: true })" in quick_log
-
-
-def test_workspace_litter_selector_setting_reaches_every_surface() -> None:
-    """The shared selector switch must not be ignored by composed cards."""
-    frontend = Path(__file__).parents[1] / "custom_components" / "puppy_tracker" / "frontend"
-    workspace = (frontend / WORKSPACE_CARD).read_text(encoding="utf-8")
-
-    for surface in ("puppies", "weighing", "analysis", "temperature"):
-        assert f'{surface}: {{ show_litter_selector: showLitter' in workspace
-
-    for filename in (
-        "puppy-tracker-card.js",
-        "puppy-tracker-overview-card.js",
-        "puppy-tracker-litter-card.js",
-        "puppy-tracker-temperature-card.js",
-    ):
-        source = (frontend / filename).read_text(encoding="utf-8")
-        assert "show_litter_selector: true" in source
-        assert "show_litter_selector !== false" in source
 
 
 def test_workspace_owns_shared_litter_context_and_pauses_hidden_surfaces() -> None:
@@ -320,21 +283,6 @@ def test_dossier_and_quick_log_expose_feeding_record_type() -> None:
     assert '{ id: "feeding", recordType: "feeding"' in quick_log
 
 
-def test_dossier_owner_change_supports_litter_mother_and_puppy_scopes() -> None:
-    """Owner changes expose all valid scopes and pass them to the API."""
-    root = Path(__file__).parents[1]
-    card = (root / "custom_components" / "puppy_tracker" / "frontend" / "puppy-tracker-dossier-card.js").read_text(encoding="utf-8")
-    common = (root / "custom_components" / "puppy_tracker" / "frontend" / "puppy-tracker-card-common.js").read_text(encoding="utf-8")
-    api = (root / "custom_components" / "puppy_tracker" / "api.py").read_text(encoding="utf-8")
-
-    assert 'scope: "mother"' in card
-    assert 'scope: "litter"' in card
-    assert 'scope: "puppy"' in card
-    assert "options.sourceScope" in common
-    assert 'vol.Optional("source_scope")' in api
-    assert 'vol.Optional("target_scope")' in api
-
-
 def test_overview_renders_litter_weight_comparison() -> None:
     """The overview card exposes the relative weight context from the backend."""
     source = (
@@ -372,40 +320,3 @@ def test_overview_renders_litter_weight_comparison() -> None:
     assert "milestone_projection" in source
     assert "Onregelmatig meetinterval" in source
     assert "milestone-projection-band" in chart
-
-
-def test_overview_exposes_basic_and_advanced_visibility_options() -> None:
-    """Overview visibility can be tailored per Lovelace card instance."""
-    source = (
-        Path(__file__).parents[1]
-        / "custom_components"
-        / "puppy_tracker"
-        / "frontend"
-        / "puppy-tracker-overview-card.js"
-    ).read_text(encoding="utf-8")
-
-    for option in (
-        "show_advanced_analysis",
-        "show_growth_milestones",
-        "show_milestone_chart_annotations",
-    ):
-        assert f'name: "{option}"' in source
-
-    assert "show_advanced_analysis: false" in source
-    assert "show_growth_milestones: true" in source
-    assert "show_milestone_chart_annotations: true" in source
-
-
-def test_litter_card_exposes_basic_and_advanced_detail_option() -> None:
-    """The litter overview can hide secondary columns and expanded details."""
-    source = (
-        Path(__file__).parents[1]
-        / "custom_components"
-        / "puppy_tracker"
-        / "frontend"
-        / LITTER_CARD
-    ).read_text(encoding="utf-8")
-
-    assert "show_details: true" in source
-    assert '{ name: "show_details", selector: { boolean: {} } }' in source
-    assert "detailsEnabled" in source

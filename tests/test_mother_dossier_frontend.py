@@ -2,14 +2,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-FRONTEND = ROOT / "custom_components" / "puppy_tracker" / "frontend.py"
 DOSSIER_UI = ROOT / "custom_components" / "puppy_tracker" / "frontend" / "puppy-tracker-dossier-card.js"
-
-
-def test_mother_dossier_is_owned_by_base_dossier_card() -> None:
-    source = FRONTEND.read_text(encoding="utf-8")
-    assert '"puppy-tracker-dossier-card.js"' in source
-    assert '"puppy-tracker-mother-dossier.js"' not in source
 
 
 def test_mother_owner_and_history_filter_are_available() -> None:

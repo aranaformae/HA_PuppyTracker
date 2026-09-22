@@ -25,7 +25,7 @@ async function openFixture(page, production = false) {
   await page.waitForFunction(() => window.__puppyTrackerReady === true);
 }
 
-test("registers every Puppy Tracker card without module errors", async ({ page }) => {
+test("registers every Puppy Tracker card without module errors", { tag: "@cross-browser" }, async ({ page }) => {
   const pageErrors = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
 
@@ -274,7 +274,7 @@ test("workspace editor switches preset options and writes existing tab config", 
   expect(result.hiddenDisconnected).toBe(true);
 });
 
-test("constructs and renders every card with its stub config", async ({ page }) => {
+test("constructs and renders every card with its stub config", { tag: "@cross-browser" }, async ({ page }) => {
   const pageErrors = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
 
@@ -330,18 +330,6 @@ test("constructs and renders every card with its stub config", async ({ page }) 
   }
 
   expect(pageErrors).toEqual([]);
-});
-
-test("fixture remains usable at the configured viewport", async ({ page }) => {
-  await openFixture(page);
-
-  const viewport = page.viewportSize();
-  expect(viewport).not.toBeNull();
-  expect(viewport.width).toBeGreaterThanOrEqual(320);
-  expect(viewport.height).toBeGreaterThanOrEqual(600);
-
-  const ready = await page.evaluate(() => window.__puppyTrackerReady === true);
-  expect(ready).toBe(true);
 });
 
 test("subscription helper closes a subscription that resolves after card removal", async ({ page }) => {

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("mobile tab changes preserve the dashboard scroll position", async ({ page }) => {
+test("mobile tab changes preserve the dashboard scroll position", { tag: ["@mobile", "@tablet"] }, async ({ page }) => {
   await page.goto("/tests/e2e/cards.html?production");
   await page.evaluate(async () => {
     await customElements.whenDefined("puppy-tracker-workspace-card");
@@ -59,7 +59,7 @@ test("mobile tab changes preserve the dashboard scroll position", async ({ page 
   expect(Math.abs(after.shell - before.shell)).toBeLessThanOrEqual(1);
 });
 
-test("weighing state updates wait until nested dashboard scrolling stops", async ({ page }) => {
+test("weighing state updates wait until nested dashboard scrolling stops", { tag: ["@mobile", "@tablet"] }, async ({ page }) => {
   await page.goto("/tests/e2e/cards.html?production");
   const result = await page.evaluate(async () => {
     await customElements.whenDefined("puppy-tracker-card");

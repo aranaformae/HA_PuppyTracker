@@ -4,11 +4,6 @@ ROOT = Path(__file__).resolve().parents[1]
 FRONTEND = ROOT / "custom_components" / "puppy_tracker" / "frontend"
 
 
-def test_care_program_card_is_registered() -> None:
-    frontend = (ROOT / "custom_components" / "puppy_tracker" / "frontend.py").read_text(encoding="utf-8")
-    assert '"puppy-tracker-care-program-card.js"' in frontend
-
-
 def test_care_program_card_uses_age_based_api_contract() -> None:
     source = (FRONTEND / "puppy-tracker-care-program-card.js").read_text(encoding="utf-8")
 

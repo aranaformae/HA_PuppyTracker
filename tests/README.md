@@ -27,9 +27,18 @@ The current suite covers the main backend, frontend contract and browser flows.
 | `test_owner_backup.py` / `test_recurring_mother_owner_frontend.py` | Reusable contact backup/restore, placement/payment fields, puppy links and owner-related frontend contracts |
 | `test_age_based_care_notifications.py` / `test_notification_settings_storage.py` | Notification settings, default lead-time fallback, care-program overrides, grouping and delivery contracts |
 | `test_notification_lifecycle.py` | Coalesced notification checks, transition-only mobile cleanup, inactive-owner cleanup and global notification shutdown |
-| `tests/e2e/*.spec.mjs` | Browser coverage for Lovelace cards across Chromium and WebKit projects |
+| `tests/e2e/*.spec.mjs` | Lovelace behavior in Chromium plus targeted WebKit mobile, tablet and cross-browser checks |
 
-The Python tests protect backend behavior and static frontend contracts. Playwright covers Lovelace-card browser behavior across the configured Chromium/WebKit desktop, iPhone and iPad projects. HACS installation and Home Assistant Companion App push behavior still require manual release testing.
+The Python tests protect backend behavior and frontend architecture contracts. Playwright owns observable Lovelace-card behavior. Browser-independent flows run once in desktop Chromium; tagged registration/render smoke tests also run in iPhone WebKit, mobile workflows run in iPhone WebKit, and scroll-stability checks run on iPhone plus both iPad orientations. HACS installation and Home Assistant Companion App push behavior still require manual release testing.
+
+## Test ownership
+
+Keep each regression at the lowest useful level and avoid proving the same behavior twice:
+
+- Python behavior tests own storage, calculations, migrations, transactions and Home Assistant service contracts.
+- Python source-contract tests are reserved for architecture that cannot be observed reliably in a browser, such as module ownership and forbidden prototype patching.
+- Playwright owns rendered content, editor options, interaction flows, focus, scrolling and card registration.
+- Add `@cross-browser`, `@mobile` or `@tablet` only when the risk depends on the browser engine or viewport. Untagged Playwright tests run once in Chromium.
 
 ## Requirements
 
@@ -79,7 +88,7 @@ From the repository root, run the same functional checks locally as CI:
 npm run test:all
 ```
 
-This runs Python compilation, all backend tests, JavaScript syntax checks and all Chromium/WebKit Playwright projects. The Playwright web server is started automatically.
+This runs Python compilation, all backend tests, JavaScript syntax checks and the complete tiered Playwright matrix. The Playwright web server is started automatically.
 
 ## Run the backend suite only
 

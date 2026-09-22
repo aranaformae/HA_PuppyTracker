@@ -3,18 +3,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND = ROOT / "custom_components" / "puppy_tracker" / "frontend"
-FRONTEND_PY = ROOT / "custom_components" / "puppy_tracker" / "frontend.py"
 SCHEMA = FRONTEND / "puppy-tracker-dossier-schema.js"
 QUICK_LOG = FRONTEND / "puppy-tracker-quick-log-card.js"
-
-
-def test_temperature_support_is_owned_by_the_logging_cards() -> None:
-    source = FRONTEND_PY.read_text(encoding="utf-8")
-    assert '"puppy-tracker-quick-log-card.js"' in source
-    assert '"puppy-tracker-bulk-dossier-card.js"' in source
-    assert '"puppy-tracker-timeline-card.js"' in source
-    assert '"puppy-tracker-temperature-ui.js"' not in source
-    assert not (FRONTEND / "puppy-tracker-temperature-ui.js").exists()
 
 
 def test_temperature_is_structured_dossier_type() -> None:

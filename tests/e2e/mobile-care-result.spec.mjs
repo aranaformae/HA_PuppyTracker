@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("mobile care items open the result editor so a note can be saved", async ({ page }) => {
+test("mobile care items open the result editor so a note can be saved", { tag: "@mobile" }, async ({ page }) => {
   await page.goto("/tests/e2e/cards.html?production");
   await page.waitForFunction(() => window.__puppyTrackerReady === true);
 
@@ -77,7 +77,7 @@ test("mobile care items open the result editor so a note can be saved", async ({
   });
 });
 
-test("mobile care shows overdue actions and refreshes after an external update", async ({ page }) => {
+test("mobile care shows overdue actions and refreshes after an external update", { tag: "@mobile" }, async ({ page }) => {
   await page.goto("/tests/e2e/cards.html?production");
   await page.waitForFunction(() => window.__puppyTrackerReady === true);
   await page.evaluate(() => {
