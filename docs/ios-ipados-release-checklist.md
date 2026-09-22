@@ -81,6 +81,7 @@ Test in both Companion App and Safari where practical.
 - [ ] JSON backup download starts and contains the full litter backup.
 - [ ] Full backup includes owner/contact data and user-owned care-program templates.
 - [ ] PDF section switches can include or omit care results, owners and contact details as intended.
+- [ ] Whole-litter and individual-puppy PDF exports include inactive puppies when selected, and owner contact details cannot be enabled without the owner section.
 - [ ] Repeated downloads do not leave the dashboard controls unresponsive.
 
 ## Final visual pass

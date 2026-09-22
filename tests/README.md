@@ -16,7 +16,7 @@ The current suite covers the main backend, frontend contract and browser flows.
 | `test_metrics.py` | Current/previous weight, weight change, normalized 24-hour growth, monitoring status and per-litter threshold fallback |
 | `test_storage_corrections.py` | Non-destructive correction chains, delete/restore behavior and birth-weight synchronization |
 | `test_integrity.py` | Safe integrity repairs, duplicate IDs, dangling references and ambiguous correction branches |
-| `test_exports.py` | CSV filtering, complete JSON history and direct PDF generation |
+| `test_exports.py` / `test_pdf_export_options.py` | CSV filtering, complete JSON history, direct PDF generation and every PDF selection/section contract |
 | `test_records.py` | Profile-note migration, dossier record CRUD, owner scopes, sorting and integrity checks |
 | `test_upcoming.py` | Derived vaccination/deworming follow-ups, due-state classification, filtering and sorting |
 | `test_runtime_selection.py` | Typed runtime selection, explicit defaults and archived-selection fallback behavior |

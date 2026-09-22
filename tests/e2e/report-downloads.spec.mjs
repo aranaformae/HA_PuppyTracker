@@ -5,10 +5,16 @@ async function openFixture(page) {
   await page.waitForFunction(() => window.__puppyTrackerReady === true);
 }
 
-async function mountReport(page) {
+async function mountReport(page, config = {}, storedState = null) {
   await openFixture(page);
 
-  await page.evaluate(() => {
+  await page.evaluate(({ config, storedState }) => {
+    if (storedState) {
+      window.localStorage.setItem(
+        "puppy_tracker.card_state.puppy-tracker-report-card",
+        JSON.stringify(storedState),
+      );
+    }
     const now = new Date().toISOString();
     const calls = [];
     const exports = {
@@ -65,6 +71,16 @@ async function mountReport(page) {
                   { id: "m1", timestamp: now, weight: 410, status: "active" },
                 ],
               },
+              {
+                id: "p2",
+                name: "Bob",
+                active: false,
+                collar_color: "Blue",
+                summary: { needs_attention: false },
+                measurements: [
+                  { id: "m2", timestamp: now, weight: 520, status: "active" },
+                ],
+              },
             ],
           };
         }
@@ -87,10 +103,10 @@ async function mountReport(page) {
 
     const constructor = customElements.get("puppy-tracker-report-card");
     const card = document.createElement("puppy-tracker-report-card");
-    card.setConfig(constructor.getStubConfig());
+    card.setConfig({ ...constructor.getStubConfig(), ...config });
     document.querySelector("#cards").appendChild(card);
     card.hass = hass;
-  });
+  }, { config, storedState });
 
   const card = page.locator("puppy-tracker-report-card");
   await expect(card.locator("#pdf")).toBeVisible();
@@ -101,18 +117,19 @@ async function mountReport(page) {
   return card;
 }
 
-test("report selection separates aggregate and whole-litter scopes", async ({ page }) => {
+test("report selection exposes one clear whole-litter scope and historical puppies", async ({ page }) => {
   const card = await mountReport(page);
   const options = card.locator("#puppy option");
 
   await expect(options).toHaveText([
-    "All",
     "Whole litter",
     "Mother · Luna",
     "Alice – Red",
+    "Bob – Blue (inactive)",
   ]);
+  await expect(card.locator("#puppy")).toHaveValue("__litter__");
+  await expect(card.locator(".box").first().locator("b")).toHaveText("2");
   await expect(card.locator(".field label").nth(1)).toHaveText("Selection");
-  await expect(card.locator("#puppy")).not.toContainText("Complete litter");
 });
 
 test("whole-litter PDF export keeps the puppy-only litter scope", async ({ page }) => {
@@ -157,6 +174,146 @@ test("report card localizes its own editor options", async ({ page }) => {
   });
 });
 
+test("configured range and profile defaults are applied on first use", async ({ page }) => {
+  const card = await mountReport(page, {
+    default_range: "14d",
+    default_profile: "internal",
+  });
+
+  await expect(card.locator("#range")).toHaveValue("14d");
+  await expect(card.locator("#profile")).toHaveValue("internal");
+  await expect(card.locator('[data-pdf-section="attention"]')).toBeChecked();
+  await expect(card.locator('[data-pdf-section="owner_contact"]')).not.toBeChecked();
+});
+
+test("all built-in PDF profiles select their documented sections", async ({ page }) => {
+  const card = await mountReport(page);
+  const profiles = {
+    full: [true, true, true, true, true, true, true],
+    handover: [true, true, true, true, false, true, true],
+    internal: [true, true, true, true, true, true, false],
+  };
+  const sectionNames = [
+    "summary",
+    "chart",
+    "measurements",
+    "care",
+    "attention",
+    "owners",
+    "owner_contact",
+  ];
+
+  for (const [profile, expected] of Object.entries(profiles)) {
+    await card.locator("#profile").selectOption(profile);
+    for (const [index, section] of sectionNames.entries()) {
+      const checkbox = card.locator(`[data-pdf-section="${section}"]`);
+      if (expected[index]) await expect(checkbox).toBeChecked();
+      else await expect(checkbox).not.toBeChecked();
+    }
+  }
+});
+
+test("every report period maps to the expected API range", async ({ page }) => {
+  const card = await mountReport(page);
+  const ranges = [
+    ["24h", 24],
+    ["3d", 72],
+    ["7d", 168],
+    ["14d", 336],
+    ["30d", 720],
+    ["all", undefined],
+  ];
+
+  for (const [range, expectedHours] of ranges) {
+    await card.locator("#range").selectOption(range);
+    const downloadPromise = page.waitForEvent("download");
+    await card.locator("#pdf").click();
+    await downloadPromise;
+    const exportCall = await page.evaluate(() =>
+      window.__reportCalls.filter(
+        (call) => call.type === "puppy_tracker/export" && call.format === "pdf"
+      ).at(-1)
+    );
+    expect(exportCall.range_hours).toBe(expectedHours);
+  }
+});
+
+test("legacy custom profiles keep contact details private unless explicitly enabled", async ({ page }) => {
+  const legacySections = {
+    summary: true,
+    chart: true,
+    measurements: true,
+    care: true,
+    attention: true,
+    owners: true,
+  };
+  const card = await mountReport(page, {}, {
+    reportProfile: "legacy",
+    sectionState: legacySections,
+    reportProfiles: {
+      legacy: { en: "Legacy profile", nl: "Oud profiel", sections: legacySections },
+    },
+  });
+
+  await expect(card.locator("#profile")).toHaveValue("legacy");
+  await expect(card.locator('[data-pdf-section="owners"]')).toBeChecked();
+  await expect(card.locator('[data-pdf-section="owner_contact"]')).not.toBeChecked();
+});
+
+test("PDF profiles, period and section dependencies produce the expected payload", async ({ page }) => {
+  const card = await mountReport(page);
+
+  await card.locator("#profile").selectOption("handover");
+  await expect(card.locator('[data-pdf-section="attention"]')).not.toBeChecked();
+  await expect(card.locator('[data-pdf-section="owners"]')).toBeChecked();
+  await expect(card.locator('[data-pdf-section="owner_contact"]')).toBeChecked();
+
+  await card.locator("#range").selectOption("3d");
+  await card.locator("#puppy").selectOption("p1");
+  const downloadPromise = page.waitForEvent("download");
+  await card.locator("#pdf").click();
+  await downloadPromise;
+
+  const exportCall = await page.evaluate(() =>
+    window.__reportCalls.find(
+      (call) => call.type === "puppy_tracker/export" && call.format === "pdf"
+    )
+  );
+  expect(exportCall).toMatchObject({
+    litter_id: "l1",
+    puppy_id: "p1",
+    range_hours: 72,
+    sections: {
+      summary: true,
+      chart: true,
+      measurements: true,
+      care: true,
+      attention: false,
+      owners: true,
+      owner_contact: true,
+    },
+  });
+
+  await card.locator('[data-pdf-section="owners"]').uncheck();
+  await expect(card.locator('[data-pdf-section="owner_contact"]')).not.toBeChecked();
+  await expect(card.locator('[data-pdf-section="owner_contact"]')).toBeDisabled();
+  await expect(card.locator("#profile")).toHaveValue("custom");
+});
+
+test("a custom PDF profile preserves the selected sections", async ({ page }) => {
+  const card = await mountReport(page);
+
+  await card.locator('[data-pdf-section="chart"]').uncheck();
+  page.once("dialog", (dialog) => dialog.accept("Compact dossier"));
+  await card.locator("#save-profile").click();
+
+  await expect(card.locator("#profile option:checked")).toHaveText("Compact dossier");
+  await card.locator("#profile").selectOption("full");
+  await expect(card.locator('[data-pdf-section="chart"]')).toBeChecked();
+  await card.locator("#profile").selectOption({ label: "Compact dossier" });
+  await expect(card.locator('[data-pdf-section="chart"]')).not.toBeChecked();
+});
+
 test("mother export exposes its history scope and only downloads JSON", async ({ page }) => {
   const card = await mountReport(page);
 
@@ -164,6 +321,10 @@ test("mother export exposes its history scope and only downloads JSON", async ({
   await expect(card.locator("#mother-export-scope")).toBeVisible();
   await expect(card.locator("#pdf")).toHaveCount(0);
   await expect(card.locator("#csv")).toHaveCount(0);
+  await expect(card.locator("#range")).toHaveCount(0);
+  await expect(card.locator("#profile")).toHaveCount(0);
+  await expect(card.locator(".pdf-sections")).toHaveCount(0);
+  await expect(card.locator(".preview")).toHaveCount(0);
   await expect(card.locator("#json")).toHaveText("Mother JSON");
   await card.locator("#mother-export-scope").selectOption("current");
 
@@ -203,5 +364,6 @@ for (const [buttonId, format, filename] of [
 
     expect(exportCall).toBeTruthy();
     expect(exportCall.litter_id).toBe("l1");
+    if (format !== "pdf") expect(exportCall.sections).toBeUndefined();
   });
 }

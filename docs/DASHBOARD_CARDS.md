@@ -204,6 +204,28 @@ default_profile: full
 `default_profile` accepts `full`, `handover` or `internal`. PDF sections remain
 individually selectable in the card.
 
+The report selection contains one unambiguous **Whole litter** option, every
+individual puppy and the linked mother. Inactive puppies remain selectable so
+their historical dossier can still be exported. Mother export is JSON-only;
+when the mother is selected, PDF profiles and section controls are hidden.
+
+The period filters PDF/CSV measurements, PDF chart data and care results. The
+PDF summary, weight-attention state and owner details intentionally show the
+current state. JSON remains a complete importable litter backup and therefore
+does not follow presentation filters.
+
+| PDF profile | Included content |
+| --- | --- |
+| `full` | Every PDF section, including owner contact details |
+| `handover` | Every section except internal weight-attention warnings |
+| `internal` | Every section except owner contact details |
+
+Individual checkboxes can create a custom profile. **Contact details** is a
+privacy-sensitive sub-option of **Owners and placement** and is automatically
+disabled when that parent section is off. A selected section remains visible in
+the PDF with an explanatory empty-state message when no chart, care result or
+linked owner data is available.
+
 ## Migrating from 0.24
 
 This is an intentional breaking change. Standalone feature-card YAML is no

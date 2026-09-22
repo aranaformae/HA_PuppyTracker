@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import base64
+import colorsys
 import math
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -23,32 +25,101 @@ MARGIN = 42.0
 CONTENT_WIDTH = PAGE_WIDTH - 2 * MARGIN
 LOGO_PATH = Path(__file__).parent / "brand" / "logo.jpg"
 
-_COLLAR_COLORS = {
-    "rood": (0.90, 0.22, 0.22), "red": (0.90, 0.22, 0.22),
-    "blauw": (0.12, 0.53, 0.90), "blue": (0.12, 0.53, 0.90),
-    "groen": (0.26, 0.63, 0.28), "green": (0.26, 0.63, 0.28),
-    "geel": (0.98, 0.65, 0.08), "yellow": (0.98, 0.65, 0.08),
-    "oranje": (0.98, 0.55, 0.05), "orange": (0.98, 0.55, 0.05),
-    "paars": (0.55, 0.14, 0.67), "purple": (0.55, 0.14, 0.67),
-    "roze": (0.92, 0.25, 0.48), "pink": (0.92, 0.25, 0.48),
-    "bruin": (0.47, 0.33, 0.27), "brown": (0.47, 0.33, 0.27),
-    "grijs": (0.47, 0.57, 0.65), "gray": (0.47, 0.57, 0.65), "grey": (0.47, 0.57, 0.65),
-    "zwart": (0.26, 0.26, 0.26), "black": (0.26, 0.26, 0.26),
-    "wit": (0.69, 0.75, 0.80), "white": (0.69, 0.75, 0.80),
+_COLLAR_COLOR_GROUPS = (
+    (("lichtblauw", "lightblue", "skyblue"), "#42a5f5"),
+    (("donkerblauw", "darkblue", "navy"), "#1565c0"),
+    (("blauw", "blue"), "#1e88e5"),
+    (("lichtroze", "lightpink"), "#f48fb1"),
+    (("donkerroze", "darkpink"), "#d81b60"),
+    (("roze", "pink"), "#ec407a"),
+    (("lichtgroen", "lightgreen", "lime"), "#7cb342"),
+    (("donkergroen", "darkgreen"), "#2e7d32"),
+    (("groen", "green"), "#43a047"),
+    (("rood", "red"), "#e53935"),
+    (("geel", "yellow"), "#f9a825"),
+    (("paars", "purple", "violet"), "#8e24aa"),
+    (("oranje", "orange"), "#fb8c00"),
+    (("turquoise", "turkoois", "cyan", "aqua"), "#00acc1"),
+    (("bruin", "brown"), "#795548"),
+    (("grijs", "gray", "grey", "zilver", "silver"), "#78909c"),
+    (("zwart", "black"), "#424242"),
+    (("wit", "white"), "#b0bec5"),
+)
+
+_OWNER_ROLE_LABELS = {
+    "owner": "Eigenaar",
+    "co_owner": "Mede-eigenaar",
+    "breeder": "Fokker",
+    "veterinarian": "Dierenarts",
+    "contact": "Contactpersoon",
+}
+_PLACEMENT_STATUS_LABELS = {
+    "interested": "Interesse",
+    "option": "Optie",
+    "reserved": "Gereserveerd",
+    "sold": "Verkocht",
+    "placed": "Geplaatst",
+}
+_PAYMENT_STATUS_LABELS = {
+    "none": "Geen",
+    "registration_fee": "Inschrijfgeld",
+    "deposit": "Aanbetaling",
+    "full": "Volledig betaald",
+}
+_PAYMENT_METHOD_LABELS = {
+    "none": "Niet opgegeven",
+    "bank_transfer": "Bankoverschrijving",
+    "cash": "Contant",
+    "card": "Kaart",
+    "other": "Overig",
 }
 
 
+def _hex_rgb(value: str) -> tuple[float, float, float]:
+    text = value.lstrip("#")
+    if len(text) == 3:
+        text = "".join(character * 2 for character in text)
+    if len(text) != 6:
+        raise ValueError("Invalid RGB color")
+    return tuple(int(text[position : position + 2], 16) / 255 for position in (0, 2, 4))
+
+
+def _compact_color_name(value: Any) -> str:
+    text = unicodedata.normalize("NFD", str(value or "").strip().lower())
+    text = "".join(character for character in text if not unicodedata.combining(character))
+    text = re.sub(r"[^a-z0-9#(),.%\s-]", "", text)
+    return re.sub(r"[\s_-]+", "", text)
+
+
 def _collar_rgb(value: Any, index: int) -> tuple[float, float, float]:
-    """Map common collar names and hex colors to PDF RGB values."""
+    """Mirror the dashboard collar palette for PDF charts."""
     text = str(value or "").strip().lower()
-    if text in _COLLAR_COLORS:
-        return _COLLAR_COLORS[text]
-    if text.startswith("#") and len(text) == 7:
+    compact = _compact_color_name(text)
+    for aliases, color in _COLLAR_COLOR_GROUPS:
+        if any(compact == _compact_color_name(alias) for alias in aliases):
+            return _hex_rgb(color)
+    for aliases, color in _COLLAR_COLOR_GROUPS:
+        if any(_compact_color_name(alias) in compact for alias in aliases):
+            return _hex_rgb(color)
+    if text.startswith("#"):
         try:
-            return tuple(int(text[pos:pos + 2], 16) / 255 for pos in (1, 3, 5))
+            return _hex_rgb(text)
         except ValueError:
             pass
-    return ((index * 0.19 + 0.25) % 0.7 + 0.15, 0.45, 0.68)
+    rgb_match = re.fullmatch(
+        r"rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)",
+        text,
+    )
+    if rgb_match:
+        channels = tuple(min(255, int(channel)) / 255 for channel in rgb_match.groups())
+        return channels
+    hue = ((index * 63) + 205) % 360
+    return colorsys.hls_to_rgb(hue / 360, 0.52, 0.68)
+
+
+def _display_enum(value: Any, labels: dict[str, str], fallback: str) -> str:
+    text = str(value or fallback)
+    return labels.get(text, text)
 
 
 def _safe_filename(value: str | None) -> str:
@@ -126,6 +197,18 @@ def _format_percent(value: float | None) -> str:
     return f"{prefix}{abs(value):.2f}%".replace(".00%", "%").replace(".", ",")
 
 
+def _period_label(range_hours: float | None) -> str:
+    if range_hours is None or range_hours <= 0:
+        return "Volledige historie"
+    hours = float(range_hours)
+    if math.isclose(hours, 24, abs_tol=1e-9):
+        return "Laatste 24 uur"
+    days = hours / 24
+    if hours > 24 and math.isclose(days, round(days), abs_tol=1e-9):
+        return f"Laatste {int(round(days))} dagen"
+    return f"Laatste {hours:g} uur"
+
+
 def _format_care_score(value: Any) -> str:
     if value in (None, ""):
         return "—"
@@ -190,9 +273,23 @@ def _wrap(text: str, size: float, width: float, bold: bool = False) -> list[str]
     words = str(text or "").split()
     if not words:
         return [""]
+    factor = 0.54 if bold else 0.50
+    max_characters = max(1, int(width / max(size * factor, 0.1)))
+    wrapped_words = [
+        chunk
+        for word in words
+        for chunk in (
+            [word]
+            if _estimate_width(word, size, bold) <= width
+            else [
+                word[index : index + max_characters]
+                for index in range(0, len(word), max_characters)
+            ]
+        )
+    ]
     lines: list[str] = []
-    current = words[0]
-    for word in words[1:]:
+    current = wrapped_words[0]
+    for word in wrapped_words[1:]:
         candidate = f"{current} {word}"
         if _estimate_width(candidate, size, bold) <= width:
             current = candidate
@@ -316,7 +413,7 @@ class _PdfReport:
             draw_row(row)
         self.y += 8
 
-    def chart(self, series: list[tuple[str, list[dict[str, Any]], tuple[float, float, float]]]) -> None:
+    def chart(self, series: list[tuple[str, list[dict[str, Any]], tuple[float, float, float]]]) -> bool:
         points_all: list[tuple[float, float]] = []
         for _, rows, _ in series:
             for row in rows:
@@ -325,7 +422,7 @@ class _PdfReport:
                 except (TypeError, ValueError):
                     continue
         if len(points_all) < 2:
-            return
+            return False
         self.ensure(205)
         chart_top = self.y + 8
         chart_height = 150
@@ -370,6 +467,7 @@ class _PdfReport:
             self.text(legend_x + 14, self.y, name, size=8)
             legend_x += _estimate_width(name, 8) + 34
         self.y += 20
+        return True
 
     def build(self) -> bytes:
         objects: list[bytes] = []
@@ -445,10 +543,10 @@ def build_pdf_export(
     }
     if isinstance(sections, dict):
         visible.update({key: bool(value) for key, value in sections.items() if key in visible})
+    if not visible["owners"]:
+        visible["owner_contact"] = False
     puppies: list[tuple[str, dict[str, Any]]] = []
     for current_id, puppy in litter.get("puppies", {}).items():
-        if puppy.get("active", True) is False:
-            continue
         if puppy_id is not None and current_id != puppy_id:
             continue
         puppies.append((current_id, puppy))
@@ -463,7 +561,7 @@ def build_pdf_export(
         title = f"Puppy Tracker - {puppies[0][1].get('name') or 'Puppy'}"
     report.heading(title, level=1)
     local_now = dt_util.as_local(dt_util.now()).strftime("%d-%m-%Y %H:%M")
-    period = "Volledige historie" if not range_hours else f"Laatste {range_hours / 24:g} dagen" if range_hours >= 24 else f"Laatste {range_hours:g} uur"
+    period = _period_label(range_hours)
     report.paragraph(f"{period}  |  gegenereerd {local_now}", size=9, gray=0.35)
     report.y += 4
 
@@ -488,39 +586,65 @@ def build_pdf_export(
                 for owner_id in puppy.get("owner_ids", [])
                 if owner_id in owner_by_id
             ]
-            if linked:
+            for owner in linked:
+                placement_parts = [
+                    _display_enum(
+                        owner.get("placement_status"),
+                        _PLACEMENT_STATUS_LABELS,
+                        "interested",
+                    )
+                ]
+                if owner.get("placement_date"):
+                    placement_parts.append(str(owner["placement_date"]))
+                payment_parts = [
+                    _display_enum(
+                        owner.get("payment_status"),
+                        _PAYMENT_STATUS_LABELS,
+                        "none",
+                    )
+                ]
+                if owner.get("payment_amount") not in (None, ""):
+                    payment_parts.append(f"Bedrag: {owner['payment_amount']}")
+                payment_parts.append(
+                    _display_enum(
+                        owner.get("payment_method"),
+                        _PAYMENT_METHOD_LABELS,
+                        "none",
+                    )
+                )
+                if owner.get("payment_balance") not in (None, ""):
+                    payment_parts.append(f"Open: {owner['payment_balance']}")
+                if owner.get("payment_date"):
+                    payment_parts.append(f"Betaald: {owner['payment_date']}")
                 row = [
                     str(puppy.get("name") or "Puppy"),
-                    ", ".join(str(owner.get("name") or "—") for owner in linked),
-                    ", ".join(str(owner.get("role") or "owner") for owner in linked),
-                    ", ".join(str(owner.get("placement_status") or "interested") for owner in linked),
-                    ", ".join(str(owner.get("placement_date") or "—") for owner in linked),
-                    ", ".join(str(owner.get("payment_status") or "none") for owner in linked),
-                    ", ".join(str(owner.get("payment_amount") or "—") for owner in linked),
-                    ", ".join(str(owner.get("payment_method") or "—") for owner in linked),
-                    ", ".join(str(owner.get("payment_balance") or "—") for owner in linked),
-                    ", ".join(str(owner.get("payment_date") or "—") for owner in linked),
+                    str(owner.get("name") or "—"),
+                    _display_enum(owner.get("role"), _OWNER_ROLE_LABELS, "owner"),
+                    " · ".join(placement_parts),
+                    " · ".join(payment_parts),
                 ]
-                if False and visible["owner_contact"]:
-                    owner = linked[0] if linked else {}
-                    row.append("; ".join(
-                        ", ".join(str(owner.get(field) or "—") for field in linked)
-                        for field in ("email", "phone", "address")
-                    ))
                 if visible["owner_contact"]:
-                    contact_values = []
-                    for contact_field in ("email", "phone", "address"):
-                        contact_values.append(", ".join(str(item.get(contact_field) or "-") for item in linked))
-                    row.append("; ".join(contact_values))
+                    row.append(
+                        " · ".join(
+                            (
+                                f"E-mail: {owner.get('email') or '—'}",
+                                f"Tel: {owner.get('phone') or '—'}",
+                                f"Adres: {owner.get('address') or '—'}",
+                            )
+                        )
+                    )
                 owner_rows.append(row)
         if owner_rows:
             report.heading("Baasjegegevens", level=2)
-            owner_headers = ["Pup", "Baasje(s)", "Rol", "Status", "Geplaatst", "Betaling", "Bedrag", "Methode", "Openstaand", "Betaald"]
-            owner_widths = [42, 70, 36, 40, 42, 42, 40, 42, 42, 42]
+            owner_headers = ["Pup", "Baasje", "Rol", "Plaatsing", "Betaling"]
+            owner_widths = [50, 90, 65, 105, 201]
             if visible["owner_contact"]:
                 owner_headers.append("Contactgegevens")
-                owner_widths.append(65)
-            report.table(owner_headers, owner_rows, owner_widths, font_size=6.1)
+                owner_widths = [45, 75, 55, 75, 125, 136]
+            report.table(owner_headers, owner_rows, owner_widths, font_size=6.6)
+        else:
+            report.heading("Baasjegegevens", level=2)
+            report.paragraph("Geen gekoppelde baasjes voor de pups in dit rapport.", size=9)
 
     warnings: list[str] = []
     summary_rows: list[list[str]] = []
@@ -568,7 +692,9 @@ def build_pdf_export(
             font_size=7.4,
         )
     if visible["chart"]:
-        report.chart(chart_series)
+        if not report.chart(chart_series):
+            report.heading("Gewichtsontwikkeling", level=2)
+            report.paragraph("Minimaal twee geldige metingen zijn nodig voor een grafiek.", size=9)
 
     for current_id, puppy in puppies:
         report.heading(str(puppy.get("name") or "Puppy"), level=2)
@@ -604,9 +730,14 @@ def build_pdf_export(
         elif visible["measurements"]:
             report.paragraph("Geen geldige metingen in deze periode.", size=9)
 
-        care_records = _active_care_records(storage, litter_id, current_id, range_hours)
-        if visible["care"] and care_records:
+        care_records = (
+            _active_care_records(storage, litter_id, current_id, range_hours)
+            if visible["care"]
+            else []
+        )
+        if visible["care"]:
             report.heading("Zorgprogrammaresultaten", level=2)
+        if visible["care"] and care_records:
             care_rows: list[list[str]] = []
             for record in care_records:
                 data = record.get("data") if isinstance(record.get("data"), dict) else {}
@@ -627,6 +758,8 @@ def build_pdf_export(
                 [68, 72, 30, 48, 70, 35, 105, 83],
                 font_size=6.6,
             )
+        elif visible["care"]:
+            report.paragraph("Geen zorgprogrammaresultaten in deze periode.", size=9)
 
     report.ensure(40)
     report.line(MARGIN, report.y, PAGE_WIDTH - MARGIN, report.y, gray=0.8)

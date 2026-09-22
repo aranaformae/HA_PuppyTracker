@@ -655,13 +655,14 @@ spans several internal surfaces. Such utilities should export named operations
 that the owning cards call explicitly during load or render, rather than
 registering global hooks or replacing methods on a card prototype.
 
-The Report card owns its complete selection and export model directly: aggregate
-puppies, whole litter, individual puppy and mother are explicit states in the
-card. Mother-history scope and its JSON-only export path are not late selector
-or method patches. This keeps export behavior independent of frontend module
-load order and gives WebKit an explicit download filename for signed mother
-exports. Runtime labels, export progress and Lovelace editor choices are also
-localized by the card itself.
+The Report card owns its complete selection and export model directly: whole
+litter, individual puppy and mother are explicit states in the card. Inactive
+puppies remain available because deactivation ends operational tracking but
+does not erase reportable history. Mother-history scope and its JSON-only export
+path are not late selector or method patches. This keeps export behavior
+independent of frontend module load order and gives WebKit an explicit download
+filename for signed mother exports. Runtime labels, export progress and
+Lovelace editor choices are also localized by the card itself.
 
 The Weighing card owns its interaction-safe rendering and localization. It
 normalizes the Dutch session/status sensor contract into the active Home
@@ -819,6 +820,10 @@ does not remove the control or change the underlying data.
 - PDF is a user-facing report.
 - Mother dossier JSON export preserves persistent mother identity and can be filtered by litter context.
 - Care-result reporting reads structured dossier records, not notification state or a parallel result database.
+- PDF periods filter measurements, chart samples and completed care results;
+  current summary, weight-attention and owner sections remain current-state
+  context. Owner contact data is emitted only when both the owner and explicit
+  contact sections are enabled.
 
 Recurring-reminder, age-based-care and user-owned care-template definitions,
 as well as reusable owner/contact profiles, are stored outside the main Puppy
