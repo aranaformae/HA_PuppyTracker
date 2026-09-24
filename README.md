@@ -125,8 +125,10 @@ See [Puppy dossiers and owners](docs/puppy-dossiers.md).
 
 ## Reports And Backups
 
-- **PDF** is a readable dossier with selectable sections, report profiles,
-  owner information, care results and collar-colour charts.
+- **PDF** is a readable pup- or nestdossier with selectable sections, dossier
+  categories, report profiles, owner information, care results and
+  collar-colour charts. Choose Dutch or English and check the content summary
+  before downloading.
 - **CSV** contains effective weight measurements for analysis.
 - **JSON** is the importable backup and transfer format.
 

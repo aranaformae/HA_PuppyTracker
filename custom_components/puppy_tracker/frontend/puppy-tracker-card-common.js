@@ -424,6 +424,9 @@ export async function fetchExport(hass, litterId, format, options = {}) {
     message.range_hours = Number(options.range_hours);
   }
   if (options.sections && typeof options.sections === "object") message.sections = options.sections;
+  if (options.language) message.language = options.language;
+  if (Array.isArray(options.dossier_types)) message.dossier_types = options.dossier_types;
+  if (Array.isArray(options.dossier_scopes)) message.dossier_scopes = options.dossier_scopes;
   return hass.callWS(message);
 }
 

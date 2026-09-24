@@ -59,6 +59,7 @@ async function mountReport(page, config = {}, storedState = null) {
               name: "Luna x Dutch",
               mother: "Luna",
               active: true,
+              records: [{ id: "litter-note", type: "note", title: "Nestnotitie", occurred_at: now }],
             },
             puppies: [
               {
@@ -69,6 +70,10 @@ async function mountReport(page, config = {}, storedState = null) {
                 summary: { needs_attention: false },
                 measurements: [
                   { id: "m1", timestamp: now, weight: 410, status: "active" },
+                ],
+                records: [
+                  { id: "temperature-1", type: "temperature", title: "Temperature", occurred_at: now, data: { temperature_c: 38.4 } },
+                  { id: "care-1", type: "note", title: "ENS", occurred_at: now, data: { care_occurrence_id: "ens:1" } },
                 ],
               },
               {
@@ -153,6 +158,23 @@ test("whole-litter PDF export keeps the puppy-only litter scope", async ({ page 
   expect(exportCall.puppy_id).toBeUndefined();
 });
 
+test("individual puppy PDF includes litter notes in its default dossier scope", async ({ page }) => {
+  const card = await mountReport(page);
+  await card.locator("#puppy").selectOption("p1");
+  await expect(card.locator(".preview-counts .box").nth(3).locator("b")).toHaveText("2");
+  await card.locator(".dossier-filters summary").click();
+  await expect(card.locator('[data-dossier-scope="litter"]')).toBeChecked();
+  await expect(card.locator('[data-dossier-scope="puppy"]')).toBeChecked();
+
+  const downloadPromise = page.waitForEvent("download");
+  await card.locator("#pdf").click();
+  await downloadPromise;
+  const exportCall = await page.evaluate(() => window.__reportCalls.filter(
+    (call) => call.type === "puppy_tracker/export" && call.format === "pdf"
+  ).at(-1));
+  expect(exportCall).toMatchObject({ puppy_id: "p1", dossier_scopes: ["litter", "puppy"] });
+});
+
 test("report card localizes its own editor options", async ({ page }) => {
   await openFixture(page);
 
@@ -189,15 +211,17 @@ test("configured range and profile defaults are applied on first use", async ({ 
 test("all built-in PDF profiles select their documented sections", async ({ page }) => {
   const card = await mountReport(page);
   const profiles = {
-    full: [true, true, true, true, true, true, true],
-    handover: [true, true, true, true, false, true, true],
-    internal: [true, true, true, true, true, true, false],
+    full: [true, true, true, true, true, true, true, true, true],
+    handover: [true, true, true, true, true, true, false, true, true],
+    internal: [true, true, true, true, true, true, true, true, false],
   };
   const sectionNames = [
+    "identity",
     "summary",
     "chart",
     "measurements",
     "care",
+    "dossier",
     "attention",
     "owners",
     "owner_contact",
@@ -284,14 +308,18 @@ test("PDF profiles, period and section dependencies produce the expected payload
     puppy_id: "p1",
     range_hours: 72,
     sections: {
+      identity: true,
       summary: true,
       chart: true,
       measurements: true,
       care: true,
+      dossier: true,
       attention: false,
       owners: true,
       owner_contact: true,
     },
+    language: "en",
+    dossier_scopes: ["litter", "puppy"],
   });
 
   await card.locator('[data-pdf-section="owners"]').uncheck();
@@ -312,6 +340,54 @@ test("a custom PDF profile preserves the selected sections", async ({ page }) =>
   await expect(card.locator('[data-pdf-section="chart"]')).toBeChecked();
   await card.locator("#profile").selectOption({ label: "Compact dossier" });
   await expect(card.locator('[data-pdf-section="chart"]')).not.toBeChecked();
+});
+
+test("PDF preview and dossier filters match the export payload", async ({ page }) => {
+  const card = await mountReport(page);
+  await expect(card.locator(".preview-counts .box").nth(3).locator("b")).toHaveText("2");
+  await card.locator(".dossier-filters summary").click();
+  await card.locator("#no-dossier-types").click();
+  await expect(card.locator(".preview-counts .box").nth(3).locator("b")).toHaveText("0");
+  await card.locator('[data-dossier-type="temperature"]').check();
+  await card.locator('[data-dossier-scope="litter"]').uncheck();
+  await card.locator("#pdf-language").selectOption("nl");
+  await card.locator("#puppy").selectOption("p1");
+  await expect(card.locator(".preview-counts .box").nth(3).locator("b")).toHaveText("1");
+  await expect(card.locator(".preview-summary")).toContainText("Alice");
+  await expect(card.locator(".preview-summary")).toContainText("Dutch");
+
+  const downloadPromise = page.waitForEvent("download");
+  await card.locator("#pdf").click();
+  await downloadPromise;
+  const exportCall = await page.evaluate(() => window.__reportCalls.filter(
+    (call) => call.type === "puppy_tracker/export" && call.format === "pdf"
+  ).at(-1));
+  expect(exportCall).toMatchObject({
+    puppy_id: "p1", language: "nl", dossier_types: ["temperature"], dossier_scopes: ["puppy"],
+  });
+});
+
+test("section switches immediately update the PDF preview", async ({ page }) => {
+  const card = await mountReport(page);
+  await expect(card.locator(".preview-counts .box").nth(1).locator("b")).toHaveText("2");
+  await expect(card.locator(".preview-counts .box").nth(2).locator("b")).toHaveText("1");
+  await card.locator('[data-pdf-section="care"]').uncheck();
+  await card.locator('[data-pdf-section="measurements"]').uncheck();
+  await card.locator('[data-pdf-section="chart"]').uncheck();
+  await expect(card.locator(".preview-counts .box").nth(1).locator("b")).toHaveText("0");
+  await expect(card.locator(".preview-counts .box").nth(2).locator("b")).toHaveText("0");
+});
+
+test("@mobile @tablet report controls stay within the card", async ({ page }) => {
+  const card = await mountReport(page);
+  await card.locator(".dossier-filters summary").click();
+  const widths = await card.evaluate((element) => {
+    const surface = element.shadowRoot.querySelector("ha-card");
+    return { client: surface.clientWidth, scroll: surface.scrollWidth };
+  });
+  expect(widths.scroll).toBeLessThanOrEqual(widths.client + 1);
+  await expect(card.locator("#pdf-language")).toBeVisible();
+  await expect(card.locator(".preview-summary")).toBeVisible();
 });
 
 test("mother export exposes its history scope and only downloads JSON", async ({ page }) => {

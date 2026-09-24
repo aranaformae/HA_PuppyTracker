@@ -820,10 +820,19 @@ does not remove the control or change the underlying data.
 - PDF is a user-facing report.
 - Mother dossier JSON export preserves persistent mother identity and can be filtered by litter context.
 - Care-result reporting reads structured dossier records, not notification state or a parallel result database.
-- PDF periods filter measurements, chart samples and completed care results;
-  current summary, weight-attention and owner sections remain current-state
-  context. Owner contact data is emitted only when both the owner and explicit
-  contact sections are enabled.
+- PDF periods filter measurements, chart samples, care results and ordinary
+  litter/puppy dossier records. Care records are excluded from the generic
+  dossier section, and internal reference IDs are not printed. Dossier source
+  and category filters apply only to that section; an empty list selects none.
+  PDF static labels use the selected Dutch/English language while user data is
+  preserved verbatim. Long table cells continue across pages with repeated
+  headers, and single chart measurements render as points.
+- The first in-period weight difference uses the most recent earlier effective
+  measurement, while that earlier row remains outside the report period.
+- PDF section switches are independent except that contact details require
+  owners and weight-alert status requires attention. Summary, weight-attention
+  and owner sections remain current-state context. Owner contact data is
+  emitted only when both the owner and explicit contact sections are enabled.
 
 Recurring-reminder, age-based-care and user-owned care-template definitions,
 as well as reusable owner/contact profiles, are stored outside the main Puppy

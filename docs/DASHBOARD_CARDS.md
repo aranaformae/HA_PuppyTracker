@@ -209,22 +209,36 @@ individual puppy and the linked mother. Inactive puppies remain selectable so
 their historical dossier can still be exported. Mother export is JSON-only;
 when the mother is selected, PDF profiles and section controls are hidden.
 
-The period filters PDF/CSV measurements, PDF chart data and care results. The
-PDF summary, weight-attention state and owner details intentionally show the
-current state. JSON remains a complete importable litter backup and therefore
-does not follow presentation filters.
+The period filters PDF/CSV measurements, PDF chart data, care results and
+general dossier items. The PDF summary, weight-attention state and owner
+details intentionally show the current state. JSON remains a complete
+importable litter backup and therefore does not follow presentation filters.
 
 | PDF profile | Included content |
 | --- | --- |
-| `full` | Every PDF section, including owner contact details |
-| `handover` | Every section except internal weight-attention warnings |
+| `full` | Every PDF section, including owner contact details and dossier items |
+| `handover` | Every section except weight-attention warnings and status column |
 | `internal` | Every section except owner contact details |
 
-Individual checkboxes can create a custom profile. **Contact details** is a
-privacy-sensitive sub-option of **Owners and placement** and is automatically
+Individual checkboxes can create a custom profile. **Identity** controls the
+nest/puppy identity table and puppy profile fields; the report title and
+headings still identify the selected subject when other sections need them.
+**Dossier items** includes ordinary notes, temperature, feeding, veterinary
+and other dossier entries. Care-program results are separate and never
+duplicated there. Its expandable filters can include whole-litter records,
+selected-puppy records, any available categories, or none. For a single-puppy
+report, whole-litter items are included once when that source is selected;
+mother records remain in the mother JSON export only. The PDF language can be
+automatic (following Home Assistant), Dutch or English. User-entered notes
+remain as written. The preview shows the chosen scope, period, language,
+sections and matching item counts before download.
+
+**Contact details** is a privacy-sensitive sub-option of **Owners and placement** and is automatically
 disabled when that parent section is off. A selected section remains visible in
-the PDF with an explanatory empty-state message when no chart, care result or
-linked owner data is available.
+the PDF with an explanatory empty-state message when no chart data, care result,
+dossier item or linked owner data is available. A one-point chart shows a
+marker; the first weight change in a selected period uses the latest earlier
+effective measurement as its baseline.
 
 ## Migrating from 0.24
 

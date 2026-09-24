@@ -1212,11 +1212,16 @@ async def websocket_integrity_check(
         vol.Required("format"): vol.In(("csv", "json", "pdf")),
         vol.Optional("puppy_id"): str,
         vol.Optional("range_hours"): vol.All(vol.Coerce(float), vol.Range(min=0, max=24 * 3650)),
+        vol.Optional("language", default="nl"): vol.In(("nl", "en")),
+        vol.Optional("dossier_types"): vol.All([str], vol.Length(max=100)),
+        vol.Optional("dossier_scopes"): vol.All([vol.In(("litter", "puppy"))], vol.Length(max=2)),
         vol.Optional("sections", default={}): {
+            vol.Optional("identity", default=True): bool,
             vol.Optional("summary", default=True): bool,
             vol.Optional("chart", default=True): bool,
             vol.Optional("measurements", default=True): bool,
             vol.Optional("care", default=True): bool,
+            vol.Optional("dossier", default=True): bool,
             vol.Optional("attention", default=True): bool,
             vol.Optional("owners", default=True): bool,
             vol.Optional("owner_contact", default=False): bool,
@@ -1252,6 +1257,9 @@ def websocket_export_data(
                 range_hours=msg.get("range_hours"),
                 sections=msg.get("sections"),
                 owner_records=runtime.owners.get_all() if runtime and runtime.owners else None,
+                language=msg.get("language", "nl"),
+                dossier_types=msg.get("dossier_types"),
+                dossier_scopes=msg.get("dossier_scopes"),
             )
             encoding = "base64"
         else:
