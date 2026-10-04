@@ -6,6 +6,7 @@ from copy import deepcopy
 from typing import Any
 from uuid import uuid4
 
+from .behavior import BEHAVIOR_RECORD_TYPE
 from .records import (
     RECORD_SCOPE_LITTER,
     RECORD_SCOPE_MOTHER,
@@ -310,6 +311,9 @@ class MotherScopeStorage(PuppyTrackerStorage):
                 note=note,
                 data=data,
             )
+        normalized_type = validate_record_type(record_type)
+        if normalized_type == BEHAVIOR_RECORD_TYPE:
+            raise ValueError("Behavior observations must belong to a puppy")
         async with self._lock:
             litter = self._require_litter(litter_id)
             if str(litter.get("mother_id") or "") != mother_id:
@@ -319,7 +323,7 @@ class MotherScopeStorage(PuppyTrackerStorage):
             record = create_record(
                 litter_id=litter_id,
                 mother_id=mother_id,
-                record_type=validate_record_type(record_type),
+                record_type=normalized_type,
                 occurred_at=occurred_at,
                 title=title,
                 note=note,
@@ -362,11 +366,14 @@ class MotherScopeStorage(PuppyTrackerStorage):
                 note=note,
                 data=data,
             )
+        normalized_type = validate_record_type(record_type)
+        if normalized_type == BEHAVIOR_RECORD_TYPE:
+            raise ValueError("Behavior observations must belong to a puppy")
         async with self._lock:
             mother = self._require_mother(mother_id)
             record = self._require_record(mother, record_id)
             now = _now_iso()
-            record["type"] = validate_record_type(record_type)
+            record["type"] = normalized_type
             if occurred_at is not None:
                 record["occurred_at"] = normalize_timestamp(occurred_at, now) or now
             record["title"] = title.strip() if isinstance(title, str) and title.strip() else None
@@ -439,6 +446,8 @@ class MotherScopeStorage(PuppyTrackerStorage):
             source = owner_for(source_scope, source_puppy_id)
             target = owner_for(target_scope, target_puppy_id)
             record = self._require_record(source, record_id)
+            if record.get("type") == BEHAVIOR_RECORD_TYPE and target_scope != RECORD_SCOPE_PUPPY:
+                raise ValueError("Behavior observations must belong to a puppy")
             source["records"].remove(record)
             before = deepcopy(record)
             target_mother_id = mother_id if target_scope == RECORD_SCOPE_MOTHER else None

@@ -3,10 +3,10 @@
 Puppy Tracker is a Home Assistant custom integration for managing a litter, its
 mother dog and individual puppies. It combines weighing and growth monitoring
 with dossiers, temperature logging, care schedules, reminders, owner contacts,
-reports and backups.
+longitudinal behavior observations, reports and backups.
 
 > **Status:** Puppy Tracker is pre-1.0. The current stable development line is
-> **0.25.x**. Back up your data before updating because compatibility changes
+> **0.26.x**. Back up your data before updating because compatibility changes
 > are still possible before 1.0.
 
 ## What You Can Do
@@ -20,6 +20,8 @@ reports and backups.
 - Use recurring reminders and age-based care programs such as ENS, ESI and
   deworming schedules.
 - Complete daily care from the Home, Care or Mobile workspace.
+- Score repeated behavior observations per puppy and build a neutral profile
+  over time.
 - Store owner/contact, placement and payment information and link contacts to
   puppies later.
 - Create configurable PDF reports and export CSV or JSON data.
@@ -57,7 +59,7 @@ Companion App when a dashboard still shows an older card.
 3. Add a Workspace card to a dashboard and choose the Home, Growth, Journal,
    Care or Mobile preset in its visual editor.
 4. Use the **Weigh** tab for weights and **Quick Log** or **Dossier** for daily
-   observations.
+   observations. Use **Behavior** for repeated scored puppy observations.
 5. Add recurring reminders or care programs when scheduled actions are needed.
 6. Create a full JSON backup after the initial setup.
 
@@ -127,8 +129,9 @@ See [Puppy dossiers and owners](docs/puppy-dossiers.md).
 
 - **PDF** is a readable pup- or nestdossier with selectable sections, dossier
   categories, report profiles, owner information, care results and
-  collar-colour charts. Choose Dutch or English and check the content summary
-  before downloading.
+  collar-colour charts. Individual puppy reports can include the derived
+  behavior profile and its observation history. Choose Dutch or English and
+  check the content summary before downloading.
 - **CSV** contains effective weight measurements for analysis.
 - **JSON** is the importable backup and transfer format.
 
@@ -148,6 +151,7 @@ The most useful starting points are:
 - [Dashboard cards](docs/DASHBOARD_CARDS.md)
 - [Puppy dossiers and owners](docs/puppy-dossiers.md)
 - [Temperature card](docs/temperature-card.md)
+- [Behavior observations](docs/BEHAVIOR.md)
 - [Age-based care programs and template format](docs/CARE_PROGRAMS.md)
 - [Notifications](docs/NOTIFICATIONS.md)
 - [Backup, restore and transfer](docs/backup-restore.md)

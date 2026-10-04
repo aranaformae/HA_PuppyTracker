@@ -161,7 +161,7 @@ test("whole-litter PDF export keeps the puppy-only litter scope", async ({ page 
 test("individual puppy PDF includes litter notes in its default dossier scope", async ({ page }) => {
   const card = await mountReport(page);
   await card.locator("#puppy").selectOption("p1");
-  await expect(card.locator(".preview-counts .box").nth(3).locator("b")).toHaveText("2");
+  await expect(card.locator(".preview-counts .box").nth(4).locator("b")).toHaveText("2");
   await card.locator(".dossier-filters summary").click();
   await expect(card.locator('[data-dossier-scope="litter"]')).toBeChecked();
   await expect(card.locator('[data-dossier-scope="puppy"]')).toBeChecked();
@@ -211,9 +211,9 @@ test("configured range and profile defaults are applied on first use", async ({ 
 test("all built-in PDF profiles select their documented sections", async ({ page }) => {
   const card = await mountReport(page);
   const profiles = {
-    full: [true, true, true, true, true, true, true, true, true],
-    handover: [true, true, true, true, true, true, false, true, true],
-    internal: [true, true, true, true, true, true, true, true, false],
+    full: [true, true, true, true, true, true, true, true, true, true],
+    handover: [true, true, true, true, true, true, true, false, true, true],
+    internal: [true, true, true, true, true, true, true, true, true, false],
   };
   const sectionNames = [
     "identity",
@@ -221,6 +221,7 @@ test("all built-in PDF profiles select their documented sections", async ({ page
     "chart",
     "measurements",
     "care",
+    "behavior",
     "dossier",
     "attention",
     "owners",
@@ -313,6 +314,7 @@ test("PDF profiles, period and section dependencies produce the expected payload
       chart: true,
       measurements: true,
       care: true,
+      behavior: true,
       dossier: true,
       attention: false,
       owners: true,
@@ -344,15 +346,15 @@ test("a custom PDF profile preserves the selected sections", async ({ page }) =>
 
 test("PDF preview and dossier filters match the export payload", async ({ page }) => {
   const card = await mountReport(page);
-  await expect(card.locator(".preview-counts .box").nth(3).locator("b")).toHaveText("2");
+  await expect(card.locator(".preview-counts .box").nth(4).locator("b")).toHaveText("2");
   await card.locator(".dossier-filters summary").click();
   await card.locator("#no-dossier-types").click();
-  await expect(card.locator(".preview-counts .box").nth(3).locator("b")).toHaveText("0");
+  await expect(card.locator(".preview-counts .box").nth(4).locator("b")).toHaveText("0");
   await card.locator('[data-dossier-type="temperature"]').check();
   await card.locator('[data-dossier-scope="litter"]').uncheck();
   await card.locator("#pdf-language").selectOption("nl");
   await card.locator("#puppy").selectOption("p1");
-  await expect(card.locator(".preview-counts .box").nth(3).locator("b")).toHaveText("1");
+  await expect(card.locator(".preview-counts .box").nth(4).locator("b")).toHaveText("1");
   await expect(card.locator(".preview-summary")).toContainText("Alice");
   await expect(card.locator(".preview-summary")).toContainText("Dutch");
 

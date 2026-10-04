@@ -11,6 +11,7 @@ feature overview.
 | [Dashboard cards](DASHBOARD_CARDS.md) | Workspace presets, visual editor, recommended layout, migration and YAML options |
 | [Puppy dossiers and owners](puppy-dossiers.md) | Ownership scopes, record editing, contacts, placement and payment data |
 | [Temperature](temperature-card.md) | Journal temperature view, entry and configuration |
+| [Behavior observations](BEHAVIOR.md) | Repeated puppy scoring, profile calculation and PDF output |
 | [Age-based care programs](CARE_PROGRAMS.md) | Programs, built-in templates and the template JSON format |
 | [Notifications](NOTIFICATIONS.md) | Reminder delivery, lead times, mobile clearing and test workflow |
 | [Backup, restore and transfer](backup-restore.md) | Manual/automatic backup, restore and partial transfer |

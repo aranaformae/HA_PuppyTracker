@@ -1221,6 +1221,7 @@ async def websocket_integrity_check(
             vol.Optional("chart", default=True): bool,
             vol.Optional("measurements", default=True): bool,
             vol.Optional("care", default=True): bool,
+            vol.Optional("behavior", default=True): bool,
             vol.Optional("dossier", default=True): bool,
             vol.Optional("attention", default=True): bool,
             vol.Optional("owners", default=True): bool,

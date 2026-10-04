@@ -10,6 +10,25 @@ from uuid import uuid4
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
+
+from .behavior import BEHAVIOR_RECORD_TYPE, validate_behavior_data
+from .const import (
+    DEFAULT_DOUBLE_WEIGHT_REFERENCE_DAYS,
+    DEFAULT_GROWTH_MILESTONES_PERCENT,
+    DEFAULT_GROWTH_MONITORING_DAYS,
+    DEFAULT_LITTER_GROWTH_ANALYSIS,
+    DEFAULT_MAX_HOURS_BETWEEN_WEIGHINGS,
+    DEFAULT_MILESTONE_PROJECTION_MEASUREMENTS,
+    DEFAULT_MIN_DAILY_GROWTH_PERCENT,
+    DEFAULT_NOTIFICATION_LEAD_MINUTES,
+    DEFAULT_NOTIFICATIONS_ENABLED,
+    DEFAULT_NOTIFY_ENTITIES,
+    DEFAULT_NOTIFY_RECOVERY,
+    DEFAULT_NOTIFY_SESSION_COMPLETE,
+    DEFAULT_RECURRING_REMINDER_NOTIFICATIONS_ENABLED,
+    STORAGE_KEY,
+    STORAGE_VERSION,
+)
 from .integrity import inspect_and_repair_data
 from .measurements import is_active_measurement, sorted_measurements
 from .records import (
@@ -22,24 +41,6 @@ from .records import (
     validate_record_type,
 )
 from .time_utils import normalize_timestamp
-
-from .const import (
-    DEFAULT_DOUBLE_WEIGHT_REFERENCE_DAYS,
-    DEFAULT_GROWTH_MONITORING_DAYS,
-    DEFAULT_MAX_HOURS_BETWEEN_WEIGHINGS,
-    DEFAULT_MIN_DAILY_GROWTH_PERCENT,
-    DEFAULT_NOTIFICATIONS_ENABLED,
-    DEFAULT_NOTIFICATION_LEAD_MINUTES,
-    DEFAULT_NOTIFY_RECOVERY,
-    DEFAULT_NOTIFY_SESSION_COMPLETE,
-    DEFAULT_NOTIFY_ENTITIES,
-    DEFAULT_RECURRING_REMINDER_NOTIFICATIONS_ENABLED,
-    DEFAULT_LITTER_GROWTH_ANALYSIS,
-    DEFAULT_MILESTONE_PROJECTION_MEASUREMENTS,
-    DEFAULT_GROWTH_MILESTONES_PERCENT,
-    STORAGE_KEY,
-    STORAGE_VERSION,
-)
 
 
 def _now_iso() -> str:
@@ -2005,14 +2006,20 @@ class PuppyTrackerStorage:
             litter = self._require_litter(litter_id)
             owner = litter if puppy_id is None else self._require_puppy(litter_id, puppy_id)
             now = _now_iso()
+            normalized_type = validate_record_type(record_type)
+            normalized_data = data
+            if normalized_type == BEHAVIOR_RECORD_TYPE:
+                if puppy_id is None:
+                    raise ValueError("Behavior observations must belong to a puppy")
+                normalized_data = validate_behavior_data(data)
             record = create_record(
                 litter_id=litter_id,
                 puppy_id=puppy_id,
-                record_type=validate_record_type(record_type),
+                record_type=normalized_type,
                 occurred_at=occurred_at,
                 title=title,
                 note=note,
-                data=data,
+                data=normalized_data,
                 now=now,
             )
             owner.setdefault("records", []).append(record)
@@ -2052,12 +2059,18 @@ class PuppyTrackerStorage:
             before = deepcopy(record)
             now = _now_iso()
 
-            record["type"] = validate_record_type(record_type)
+            normalized_type = validate_record_type(record_type)
+            normalized_data = data
+            if normalized_type == BEHAVIOR_RECORD_TYPE:
+                if puppy_id is None:
+                    raise ValueError("Behavior observations must belong to a puppy")
+                normalized_data = validate_behavior_data(data)
+            record["type"] = normalized_type
             if occurred_at is not None:
                 record["occurred_at"] = normalize_timestamp(occurred_at, now) or now
             record["title"] = title.strip() if isinstance(title, str) and title.strip() else None
             record["note"] = note.strip() if isinstance(note, str) and note.strip() else None
-            record["data"] = deepcopy(data) if isinstance(data, dict) else {}
+            record["data"] = deepcopy(normalized_data) if isinstance(normalized_data, dict) else {}
             record["updated_at"] = now
             owner["updated_at"] = now
             litter["updated_at"] = now
@@ -2109,6 +2122,8 @@ class PuppyTrackerStorage:
             source = litter if source_puppy_id is None else self._require_puppy(litter_id, source_puppy_id)
             target = litter if target_puppy_id is None else self._require_puppy(litter_id, target_puppy_id)
             record = self._require_record(source, record_id)
+            if record.get("type") == BEHAVIOR_RECORD_TYPE and target_scope != RECORD_SCOPE_PUPPY:
+                raise ValueError("Behavior observations must belong to a puppy")
             source["records"].remove(record)
             before = deepcopy(record)
             record["scope"] = target_scope

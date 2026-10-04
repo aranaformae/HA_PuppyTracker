@@ -263,6 +263,7 @@ deworming
 medication
 vet_visit
 milestone
+behavior_observation
 other
 ```
 
@@ -270,9 +271,19 @@ Temperature is a structured dossier event. Its Celsius value belongs in record d
 
 Feeding is also a structured dossier event. Its optional `feeding_type`, `amount`, `unit` and `observation` values belong in record data and are available from both Dossier and Quick Log. Legacy free-text feeding notes remain valid and are not migrated automatically.
 
+`behavior_observation` is a puppy-only structured dossier event. Its `data.scores`
+mapping uses stable criterion IDs and whole values from 1 through 5; optional
+observer, context and derived age-in-days remain part of the same event. The
+storage boundary validates the mapping and rejects litter/mother ownership. The
+longitudinal profile is derived by `behavior.py`: observations are ordered by
+their actual timestamps, each criterion is averaged independently, group scores
+average the available criteria and the final profile score averages those
+criterion means. No mutable second profile database is stored. Integrity and
+restore validation enforce the same puppy-only ownership and score contract.
+
 ### Changing dossier ownership
 
-The Dossier card can move a record between the literal `litter`, `mother` and `puppy` scopes within the selected litter. This operation removes the record from its current owner list, updates its scope and owner references, and appends it to the destination owner list in one save operation. It preserves the record identity and audit history, so the action is a move rather than a duplicate. Mother moves require the litter's linked persistent mother; puppy moves require an explicit puppy ID. The storage layer rejects mismatched scope/ID combinations at its boundary.
+The Dossier card can move a record between the literal `litter`, `mother` and `puppy` scopes within the selected litter. This operation removes the record from its current owner list, updates its scope and owner references, and appends it to the destination owner list in one save operation. It preserves the record identity and audit history, so the action is a move rather than a duplicate. Mother moves require the litter's linked persistent mother; puppy moves require an explicit puppy ID. The storage layer rejects mismatched scope/ID combinations at its boundary. Behavior observations can only move from one puppy to another.
 
 The storage layer remains extensible for future validated lowercase snake_case record types. Scheduling layers must validate record types at their persistence boundary rather than allowing invalid types to enter their own stores.
 
@@ -752,6 +763,14 @@ configurable. Chart height, history order, history height and row limit are
 also presentation options so one card can be compact while another remains a
 complete temperature workstation.
 
+The Behavior surface is a focused puppy-only observation workflow. Journal and
+Mobile expose it as a retained Workspace tab. It writes structured
+`behavior_observation` records through the dossier API, supports partial scoring
+and derives the current profile from active records. The frontend and PDF use
+the same criterion grouping and neutral 1-5 visibility semantics; scores do not
+encode good/bad behavior. `show_profile`, `show_history` and `max_items` are
+presentation options. Mobile hides the longer history by default.
+
 The recurring-reminder card must resolve the linked mother through the mother scope rather than requiring `litter.mother_id` in the ordinary litter payload.
 
 Presentation density is configured per Lovelace card instance. The Overview
@@ -820,9 +839,10 @@ does not remove the control or change the underlying data.
 - PDF is a user-facing report.
 - Mother dossier JSON export preserves persistent mother identity and can be filtered by litter context.
 - Care-result reporting reads structured dossier records, not notification state or a parallel result database.
-- PDF periods filter measurements, chart samples, care results and ordinary
-  litter/puppy dossier records. Care records are excluded from the generic
-  dossier section, and internal reference IDs are not printed. Dossier source
+- PDF periods filter measurements, chart samples, care results, behavior
+  observations and ordinary litter/puppy dossier records. Care and behavior
+  records are excluded from the generic dossier section and have independent
+  report sections; internal reference IDs are not printed. Dossier source
   and category filters apply only to that section; an empty list selects none.
   PDF static labels use the selected Dutch/English language while user data is
   preserved verbatim. Long table cells continue across pages with repeated

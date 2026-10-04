@@ -7,6 +7,7 @@ from copy import deepcopy
 from datetime import datetime
 from typing import Any
 
+from .behavior import BEHAVIOR_RECORD_TYPE
 from .records import RECORD_SCOPE_MOTHER, validate_record_type
 
 
@@ -108,11 +109,21 @@ def inspect_mother_data(
             if not record_id:
                 issue("missing_mother_record_id", severity="critical", mother_id=mother_id)
 
+            record_type: str | None = None
             try:
-                validate_record_type(str(record.get("type") or ""))
+                record_type = validate_record_type(str(record.get("type") or ""))
             except ValueError:
                 issue(
                     "invalid_mother_record_type",
+                    severity="critical",
+                    mother_id=mother_id,
+                    litter_id=litter_id,
+                    record_id=record_id,
+                )
+
+            if record_type == BEHAVIOR_RECORD_TYPE:
+                issue(
+                    "behavior_record_requires_puppy",
                     severity="critical",
                     mother_id=mother_id,
                     litter_id=litter_id,

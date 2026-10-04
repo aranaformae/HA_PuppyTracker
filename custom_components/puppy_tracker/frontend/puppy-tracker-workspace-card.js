@@ -18,6 +18,7 @@ const SURFACES = {
   dossier: { tag: "puppy-tracker-dossier-card", icon: "mdi:folder-text-outline" },
   timeline: { tag: "puppy-tracker-timeline-card", icon: "mdi:timeline-clock-outline" },
   temperature: { tag: "puppy-tracker-temperature-card", icon: "mdi:thermometer" },
+  behavior: { tag: "puppy-tracker-behavior-card", icon: "mdi:head-heart-outline" },
   bulk: { tag: "puppy-tracker-bulk-dossier-card", icon: "mdi:account-multiple-plus-outline" },
   care: { tag: "puppy-tracker-care-execution-card", icon: "mdi:clipboard-check-outline" },
   programs: { tag: "puppy-tracker-care-program-card", icon: "mdi:calendar-heart" },
@@ -27,9 +28,9 @@ const SURFACES = {
 const PRESETS = {
   home: { tabs: ["today", "attention", "puppies"] },
   growth: { tabs: ["weighing", "analysis"] },
-  journal: { tabs: ["quickLog", "dossier", "timeline", "temperature"] },
+  journal: { tabs: ["quickLog", "dossier", "behavior", "timeline", "temperature"] },
   care: { tabs: ["care", "programs", "reminders"] },
-  mobile: { tabs: ["weighing", "quickLog", "today", "care"] },
+  mobile: { tabs: ["weighing", "quickLog", "today", "care", "behavior"] },
 };
 
 const EDITOR_FIELDS = {
@@ -73,6 +74,9 @@ const EDITOR_FIELDS = {
     { name: "temperature_show_chart", surface: "temperature", key: "show_chart", default: true, selector: { boolean: {} } },
     { name: "temperature_show_history", surface: "temperature", key: "show_history", default: true, selector: { boolean: {} } },
     { name: "temperature_show_editor", surface: "temperature", key: "show_editor", default: true, selector: { boolean: {} } },
+    { name: "behavior_show_profile", surface: "behavior", key: "show_profile", default: true, selector: { boolean: {} } },
+    { name: "behavior_show_history", surface: "behavior", key: "show_history", default: true, selector: { boolean: {} } },
+    { name: "behavior_max_items", surface: "behavior", key: "max_items", default: 20, selector: { number: { min: 5, max: 100, step: 5, mode: "box" } } },
   ],
   care: [
     { name: "care_show_day_selector", surface: "care", key: "show_day_selector", default: true, selector: { boolean: {} } },
@@ -91,6 +95,9 @@ const EDITOR_FIELDS = {
     { name: "care_show_day_selector", surface: "care", key: "show_day_selector", default: false, selector: { boolean: {} } },
     { name: "care_days_ahead", surface: "care", key: "days_ahead", default: 0, selector: { number: { min: 0, max: 365, step: 1, mode: "box" } } },
     { name: "care_max_items", surface: "care", key: "max_items", default: 50, selector: { number: { min: 5, max: 200, step: 5, mode: "box" } } },
+    { name: "behavior_show_profile", surface: "behavior", key: "show_profile", default: true, selector: { boolean: {} } },
+    { name: "behavior_show_history", surface: "behavior", key: "show_history", default: false, selector: { boolean: {} } },
+    { name: "behavior_max_items", surface: "behavior", key: "max_items", default: 10, selector: { number: { min: 5, max: 100, step: 5, mode: "box" } } },
   ],
 };
 
@@ -110,6 +117,7 @@ const TEXT = {
     dossier: "Dossier",
     timeline: "Tijdlijn",
     temperature: "Temperatuur",
+    behavior: "Gedrag",
     care: "Uitvoeren",
     programs: "Programma's",
     reminders: "Herinneringen",
@@ -132,6 +140,7 @@ const TEXT = {
     dossier: "Dossier",
     timeline: "Timeline",
     temperature: "Temperature",
+    behavior: "Behavior",
     care: "Execute",
     programs: "Programs",
     reminders: "Reminders",
@@ -159,6 +168,7 @@ const EDITOR_LABELS = {
     temperature_chart_height: "Grafiekhoogte", temperature_history_sort: "Volgorde metingen", temperature_show_selectors: "Temperatuurselectors tonen",
     temperature_show_thresholds: "Temperatuurgrenzen tonen", temperature_show_latest: "Laatste temperatuur tonen", temperature_show_chart: "Temperatuurgrafiek tonen",
     temperature_show_history: "Temperatuurlogboek tonen", temperature_show_editor: "Temperatuurinvoer tonen",
+    behavior_show_profile: "Gedragsprofiel tonen", behavior_show_history: "Gedragshistorie tonen", behavior_max_items: "Gedrag: maximaal aantal observaties",
     care_show_day_selector: "Dagselector tonen", care_days_ahead: "Aantal dagen vooruit", care_max_items: "Uitvoeren: maximaal aantal items",
     programs_show_disabled: "Uitgeschakelde programma's tonen", programs_max_items: "Programma's: maximaal aantal items",
     programs_compact: "Programma's compact tonen", programs_sort_order: "Programma's sorteren op",
@@ -180,6 +190,7 @@ const EDITOR_LABELS = {
     temperature_chart_height: "Chart height", temperature_history_sort: "Reading order", temperature_show_selectors: "Show temperature selectors",
     temperature_show_thresholds: "Show temperature thresholds", temperature_show_latest: "Show latest temperature", temperature_show_chart: "Show temperature chart",
     temperature_show_history: "Show temperature history", temperature_show_editor: "Show temperature input",
+    behavior_show_profile: "Show behavior profile", behavior_show_history: "Show behavior history", behavior_max_items: "Behavior: maximum observations",
     care_show_day_selector: "Show day selector", care_days_ahead: "Days ahead", care_max_items: "Execution: maximum items",
     programs_show_disabled: "Show disabled programs", programs_max_items: "Programs: maximum items",
     programs_compact: "Show programs compactly", programs_sort_order: "Sort programs by",
@@ -321,6 +332,7 @@ class PuppyTrackerWorkspaceCard extends HTMLElement {
       dossier: { show_litter_selector: showLitter, default_selected: selected, puppy_id: selectedPuppyId },
       timeline: { show_litter_selector: showLitter, default_selected: selected, puppy_id: selectedPuppyId },
       temperature: { show_litter_selector: showLitter, default_selected: selected === "all" ? "litter" : selected, puppy_id: selectedPuppyId },
+      behavior: { show_litter_selector: showLitter, puppy_id: selectedPuppyId },
       bulk: { show_litter_selector: showLitter, active_only: true },
       care: { show_litter_selector: showLitter, show_day_selector: this._preset !== "mobile", days_ahead: this._preset === "mobile" ? 0 : 14 },
       programs: { show_litter_selector: showLitter },

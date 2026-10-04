@@ -6,6 +6,7 @@ from collections import Counter, defaultdict, deque
 from datetime import datetime
 from typing import Any
 
+from .behavior import BEHAVIOR_RECORD_TYPE, validate_behavior_data
 from .records import RECORD_SCOPE_LITTER, RECORD_SCOPE_PUPPY, validate_record_type
 
 
@@ -133,8 +134,9 @@ def inspect_and_repair_data(
                     puppy_id=puppy_id,
                 )
 
+            record_type: str | None = None
             try:
-                validate_record_type(str(record.get("type") or ""))
+                record_type = validate_record_type(str(record.get("type") or ""))
             except ValueError:
                 issue(
                     "invalid_record_type",
@@ -143,6 +145,25 @@ def inspect_and_repair_data(
                     puppy_id=puppy_id,
                     record_id=rid,
                 )
+
+            if record_type == BEHAVIOR_RECORD_TYPE:
+                if puppy_id is None:
+                    issue(
+                        "behavior_record_requires_puppy",
+                        severity="critical",
+                        litter_id=litter_id,
+                        record_id=rid,
+                    )
+                try:
+                    validate_behavior_data(record.get("data"))
+                except ValueError:
+                    issue(
+                        "invalid_behavior_record_data",
+                        severity="critical",
+                        litter_id=litter_id,
+                        puppy_id=puppy_id,
+                        record_id=rid,
+                    )
 
             ownership = {
                 "scope": expected_scope,

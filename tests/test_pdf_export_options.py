@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from custom_components.puppy_tracker import pdf_export
+from custom_components.puppy_tracker.behavior import BEHAVIOR_CRITERIA
 
 
 NOW = datetime(2026, 9, 22, 12, 0, tzinfo=UTC)
@@ -18,11 +19,17 @@ SECTION_KEYS = (
     "chart",
     "measurements",
     "care",
+    "behavior",
     "dossier",
     "attention",
     "owners",
     "owner_contact",
 )
+
+
+def test_pdf_behavior_labels_cover_every_criterion() -> None:
+    assert set(pdf_export._BEHAVIOR_LABELS["nl"]) == BEHAVIOR_CRITERIA
+    assert set(pdf_export._BEHAVIOR_LABELS["en"]) == BEHAVIOR_CRITERIA
 
 
 def _freeze_time(monkeypatch) -> None:
@@ -78,6 +85,14 @@ async def test_every_pdf_section_can_be_enabled_and_disabled_independently(
         title="Temperature section marker",
         data={"temperature_c": 38.5},
     )
+    await storage.async_add_record(
+        litter_id,
+        puppy_id=puppy_id,
+        record_type="behavior_observation",
+        occurred_at=recent.isoformat(),
+        title="Behavior section marker",
+        data={"scores": {"curiosity": 4}, "observer": "Behavior observer marker"},
+    )
     owners = [{"id": "owner-1", "name": "Owner section marker", "email": "contact-marker@example.com"}]
 
     empty = _pdf_bytes(
@@ -93,6 +108,7 @@ async def test_every_pdf_section_can_be_enabled_and_disabled_independently(
         b"Gewichtsontwikkeling",
         b"Verschil",
         b"Zorgprogrammaresultaten",
+        b"Gedragsprofiel",
         b"Actuele status",
         b"Baasjegegevens",
         b"Temperature",
@@ -106,6 +122,7 @@ async def test_every_pdf_section_can_be_enabled_and_disabled_independently(
         "chart": b"Gewichtsontwikkeling",
         "measurements": b"Verschil",
         "care": b"Zorgprogrammaresultaten",
+        "behavior": b"Gedragsprofiel",
         "dossier": b"Temperature",
         "attention": b"Actuele status",
         "owners": b"Baasjegegevens",
@@ -120,6 +137,23 @@ async def test_every_pdf_section_can_be_enabled_and_disabled_independently(
         )
         assert marker in document
 
+    dossier_only = _pdf_bytes(
+        storage,
+        litter_id,
+        puppy_id=puppy_id,
+        sections=_sections("dossier"),
+        owner_records=owners,
+    )
+    behavior_only = _pdf_bytes(
+        storage,
+        litter_id,
+        puppy_id=puppy_id,
+        sections=_sections("behavior"),
+        owner_records=owners,
+    )
+    assert b"Behavior observer marker" not in dossier_only
+    assert b"Temperature section marker" not in behavior_only
+
     contact_document = _pdf_bytes(
         storage,
         litter_id,
@@ -130,7 +164,7 @@ async def test_every_pdf_section_can_be_enabled_and_disabled_independently(
     assert b"contact-marker@example.com" in contact_document
 
 
-async def test_pdf_period_filters_measurements_and_care_results(
+async def test_pdf_period_filters_measurements_care_and_behavior(
     monkeypatch,
     storage,
     install_litter,
@@ -157,19 +191,29 @@ async def test_pdf_period_filters_measurements_and_care_results(
                 "care_status": "completed",
             },
         )
+    for occurred_at, marker in ((old, "old-behavior-marker"), (recent, "recent-behavior-marker")):
+        await storage.async_add_record(
+            litter_id,
+            record_type="behavior_observation",
+            puppy_id=puppy_id,
+            occurred_at=occurred_at.isoformat(),
+            data={"scores": {"curiosity": 4}, "observer": marker},
+        )
 
     document = _pdf_bytes(
         storage,
         litter_id,
         puppy_id=puppy_id,
         range_hours=24,
-        sections=_sections("measurements", "care"),
+        sections=_sections("measurements", "care", "behavior"),
     )
 
     assert b"recent-weight-marker" in document
     assert b"old-weight-marker" not in document
     assert b"recent-care-marker" in document
     assert b"old-care-marker" not in document
+    assert b"recent-behavior-marker" in document
+    assert b"old-behavior-marker" not in document
 
 
 def test_pdf_keeps_inactive_puppies_available_for_historical_reports(

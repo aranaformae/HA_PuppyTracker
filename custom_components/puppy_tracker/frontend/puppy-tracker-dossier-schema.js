@@ -25,6 +25,7 @@ export const BULK_RECORD_TYPES = [
 export const TYPE_META = Object.fromEntries(
   RECORD_TYPES.map(([value, labelKey, icon]) => [value, { labelKey, icon }]),
 );
+TYPE_META.behavior_observation = { labelKey: "behaviorObservation", icon: "mdi:head-heart-outline" };
 
 const SURFACE_TYPE_META = {
   weight: { icon: "mdi:scale", en: "Weight", nl: "Gewicht" },

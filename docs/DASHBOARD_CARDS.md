@@ -25,9 +25,9 @@ movement.
 | --- | --- | --- |
 | `home` | Today, Attention, Puppies | Current status and exceptions; includes Summary by default |
 | `growth` | Weigh, Analysis | Weighing sessions, collar-colour charts and growth analysis |
-| `journal` | Quick log, Dossier, Timeline, Temperature | All observation and dossier workflows |
+| `journal` | Quick log, Dossier, Behavior, Timeline, Temperature | All observation and dossier workflows |
 | `care` | Execute, Programs, Reminders | Complete and manage scheduled care |
-| `mobile` | Weigh, Quick log, Today, Execute | Touch-first daily workflow without leaving the card |
+| `mobile` | Weigh, Quick log, Today, Execute, Behavior | Touch-first daily workflow without leaving the card |
 
 Basic examples:
 
@@ -55,7 +55,7 @@ focused:
 | Home | Workspace `home` plus camera, climate or other Home Assistant cards | Separate Summary, Today, Attention and Puppies cards |
 | Mobile | Workspace `mobile` | The former Mobile Controls card |
 | Growth | Workspace `growth` | Separate Weighing and Growth pages |
-| Journal | Workspace `journal` | Quick Log, Dossier, Timeline, Temperature and Bulk Dossier cards |
+| Journal | Workspace `journal` | Quick Log, Dossier, Behavior, Timeline, Temperature and Bulk Dossier workflows |
 | Care | Workspace `care` | Care Execution, Programs and Reminders cards |
 | Management | Owners and Report | No change |
 
@@ -90,7 +90,7 @@ removed.
 
 Only tabs belonging to the chosen preset are accepted. The available keys are
 `today`, `attention`, `puppies`, `weighing`, `analysis`, `quickLog`, `dossier`,
-`timeline`, `temperature`, `care`, `programs` and `reminders`.
+`behavior`, `timeline`, `temperature`, `care`, `programs` and `reminders`.
 
 Aggregate scope `all` is supported by Dossier and Timeline. Quick Log and
 Temperature require one exact owner and therefore fall back to `litter` when
@@ -162,6 +162,7 @@ Useful surface-specific options include:
 - `weighing`: `show_puppies`, `show_details`;
 - `analysis`: `default_range`, `default_metric`, summary, analysis and milestone switches;
 - `dossier`: `show_profile_note`, `show_timeline_items`;
+- `behavior`: `show_profile`, `show_history`, `max_items`;
 - `timeline`: `max_items`, `show_history_toggle`, `show_timeline_items`;
 - `temperature`: range, chart, thresholds, history and editor options documented in [Temperature](temperature-card.md);
 - `care`: `show_day_selector`, `days_ahead`, `max_items`;
@@ -224,8 +225,10 @@ Individual checkboxes can create a custom profile. **Identity** controls the
 nest/puppy identity table and puppy profile fields; the report title and
 headings still identify the selected subject when other sections need them.
 **Dossier items** includes ordinary notes, temperature, feeding, veterinary
-and other dossier entries. Care-program results are separate and never
-duplicated there. Its expandable filters can include whole-litter records,
+and other dossier entries. Care-program results and behavior observations are
+separate and never duplicated there. **Behavior profile** independently adds
+the per-puppy summary and matching observation history. Its expandable dossier
+filters can include whole-litter records,
 selected-puppy records, any available categories, or none. For a single-puppy
 report, whole-litter items are included once when that source is selected;
 mother records remain in the mother JSON export only. The PDF language can be
@@ -249,7 +252,7 @@ longer supported. Replace old types as follows:
 | --- | --- |
 | Summary, Today, Attention, Litter | Workspace with `preset: home` |
 | Weighing Station, Growth Overview | Workspace with `preset: growth` |
-| Quick Log, Dossier, Timeline, Temperature, Bulk Dossier | Workspace with `preset: journal` |
+| Quick Log, Dossier, Behavior, Timeline, Temperature, Bulk Dossier | Workspace with `preset: journal` |
 | Care Execution, Care Programs, Recurring Reminders | Workspace with `preset: care` |
 | Mobile Controls | Workspace with `preset: mobile` |
 | Owners | No change |

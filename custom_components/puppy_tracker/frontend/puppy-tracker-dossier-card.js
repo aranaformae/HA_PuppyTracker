@@ -86,6 +86,7 @@ const INTERNAL_DATA_KEYS = new Set([
   "reference_type",
   "source_id",
   "source_type",
+  "scores",
 ]);
 
 const CARE_DETAIL_KEYS = new Set([
@@ -738,6 +739,16 @@ class PuppyTrackerDossierCard extends HTMLElement {
     const rows = [];
     const renderedKeys = new Set();
 
+    if (record.type === "behavior_observation" && data.scores && typeof data.scores === "object") {
+      const scores = Object.values(data.scores).map(Number).filter((value) => Number.isInteger(value) && value >= 1 && value <= 5);
+      if (scores.length) {
+        const average = scores.reduce((sum, value) => sum + value, 0) / scores.length;
+        const locale = languageForHass(this._hass) === "en" ? "en-US" : "nl-NL";
+        const label = dossierText(this._hass, "Gemiddelde zichtbaarheid", "Average visibility");
+        rows.push(`<div class="record-data-row"><span>${escapeHtml(label)}</span><strong>${escapeHtml(average.toLocaleString(locale, { maximumFractionDigits: 2 }))}/5 · ${scores.length} ${escapeHtml(dossierText(this._hass, "criteria", "criteria"))}</strong></div>`);
+      }
+    }
+
     for (const field of schema) {
       const raw = data[field.key];
       if (raw === null || raw === undefined || raw === "") continue;
@@ -926,7 +937,10 @@ class PuppyTrackerDossierCard extends HTMLElement {
       { scope: "litter", id: null, name: this._litterData?.litter?.name || localize(this._hass, "litterDossier") },
       ...(this._litterData?.litter?.mother ? [{ scope: "mother", id: null, name: `${localize(this._hass, "mother")} · ${this._litterData.litter.mother}` }] : []),
       ...(this._litterData?.puppies || []).map((puppy) => ({ scope: "puppy", id: puppy.id, name: `${localize(this._hass, "puppy")} · ${puppy.name || puppy.id}` })),
-    ].filter((owner) => owner.scope !== sourceScope || (owner.scope === "puppy" && owner.id !== sourcePuppyId));
+    ].filter((owner) => (
+      (record.type !== "behavior_observation" || owner.scope === "puppy")
+      && (owner.scope !== sourceScope || (owner.scope === "puppy" && owner.id !== sourcePuppyId))
+    ));
     const choices = owners.map((owner, index) => `${index}: ${owner.name}`).join("\n");
     const answer = window.prompt(`${localize(this._hass, "changeOwnerPrompt")}\n\n${choices}`);
     if (answer === null) return;
@@ -1119,7 +1133,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
         </div>
         <div class="form-grid">
           <label>${escapeHtml(localize(this._hass, "type"))}
-            <select id="record-type">${this._recordTypeOptions(this._editor.record_type)}</select>
+            <select id="record-type" ${editing && this._editor.record_type === "behavior_observation" ? "disabled" : ""}>${this._recordTypeOptions(this._editor.record_type)}</select>
           </label>
           <label>${escapeHtml(localize(this._hass, "dateAndTime"))}
             <input id="record-occurred" type="datetime-local" step="1" value="${escapeHtml(this._editor.occurred_at)}">

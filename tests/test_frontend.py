@@ -97,7 +97,7 @@ def test_workspace_preserves_scroll_and_programmatic_focus_does_not_scroll() -> 
 
     assert "export function preserveScrollPosition" in common
     assert "preserveScrollPosition(this" in workspace
-    assert 'mobile: { tabs: ["weighing", "quickLog", "today", "care"]' in workspace
+    assert 'mobile: { tabs: ["weighing", "quickLog", "today", "care", "behavior"]' in workspace
     assert 'show_day_selector: this._preset !== "mobile"' in workspace
     assert "focus({ preventScroll: true })" in dossier
     assert "focus({ preventScroll: true })" in quick_log

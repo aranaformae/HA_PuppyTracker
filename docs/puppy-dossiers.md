@@ -30,6 +30,13 @@ tests, deworming, medication, veterinary visits, milestones and other events.
 Type-specific values are stored as structured fields so cards, reminders and
 reports do not need to interpret free text.
 
+Behavior observations are also timestamped puppy dossier records, but are
+created in the dedicated **Behavior** surface because one observation can hold
+multiple 1-5 criterion scores. They are puppy-only: changing the owner may
+correct an observation to another puppy, but not move it to the litter or
+mother. The Dossier surface preserves and summarizes these entries without
+exposing the raw score object. See [Behavior observations](BEHAVIOR.md).
+
 Feeding supports feeding type, amount, unit and an observation. Temperature
 supports a Celsius value, method/location and observation. Existing legacy
 free-text records remain readable.
@@ -50,6 +57,9 @@ Use **Change owner** on a Dossier item to move it to the whole litter, the
 linked mother or another puppy. This is a move, not a copy: the same record ID,
 timestamps and audit history are retained and the item appears only under its
 new owner after saving.
+
+Behavior observations are the exception: their destination list contains only
+other puppies because a longitudinal profile always belongs to one puppy.
 
 The mother destination is available only when the litter has a linked mother.
 The backend rejects invalid owner/ID combinations.
