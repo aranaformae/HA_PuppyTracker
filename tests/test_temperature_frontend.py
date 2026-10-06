@@ -16,16 +16,18 @@ def test_temperature_is_structured_dossier_type() -> None:
 
 def test_quick_log_supports_temperature_value() -> None:
     source = QUICK_LOG.read_text(encoding="utf-8")
-    assert 'id: "temperature", recordType: "temperature"' in source
-    assert 'data: preset.id === "temperature" ? { temperature_c: temperature } : {}' in source
-    assert 'id="quick-temperature"' in source
+    assert "const PRESETS = RECORD_TYPES.flatMap" in source
+    assert 'preset.recordType === "temperature"' in source
+    assert "normalizedData.temperature_c = temperature" in source
+    assert 'field.key === "temperature_c" ? "quick-temperature"' in source
     assert 'type: "puppy_tracker/mother/record/add"' in source
 
 
 def test_bulk_log_adds_temperature_type() -> None:
     source = SCHEMA.read_text(encoding="utf-8")
-    assert 'export const BULK_RECORD_TYPES = [' in source
-    assert '["temperature", "temperature"]' in source
+    bulk = (FRONTEND / "puppy-tracker-bulk-dossier-card.js").read_text(encoding="utf-8")
+    assert '["temperature", "temperature", "mdi:thermometer"]' in source
+    assert "RECORD_TYPES," in bulk
 
 
 def test_timeline_promotes_temperature_and_displays_value() -> None:

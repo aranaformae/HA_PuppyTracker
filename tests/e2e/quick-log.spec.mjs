@@ -167,6 +167,48 @@ test("supports litter-scoped medication and puppy-scoped milestone logging", asy
   expect(calls[1].puppy_id).toBe("p2");
 });
 
+test("exposes every shared dossier type and saves structured deworming", { tag: ["@cross-browser", "@tablet"] }, async ({ page }) => {
+  const card = await mountQuickLog(page, "en");
+  const presetValues = await card.locator("[data-preset]").evaluateAll((buttons) =>
+    buttons.map((button) => button.dataset.preset)
+  );
+  expect(presetValues).toEqual([
+    "note",
+    "feeding",
+    "elimination",
+    "temperature",
+    "vaccination",
+    "test",
+    "deworming",
+    "medication",
+    "vet_visit",
+    "milestone",
+    "other",
+  ]);
+
+  await card.locator("#owner-select").selectOption("p1");
+  await card.locator('[data-preset="deworming"]').click();
+  await card.locator("#quick-data-product").fill("Puppy wormer");
+  await card.locator("#quick-data-amount").fill("1.5");
+  await card.locator("#quick-data-unit").fill("ml");
+  await card.locator("#quick-save").click();
+
+  const calls = await recordAddCalls(page);
+  expect(calls).toHaveLength(1);
+  expect(calls[0]).toEqual(expect.objectContaining({
+    puppy_id: "p1",
+    record_type: "deworming",
+    title: "Deworming",
+    data: { product: "Puppy wormer", amount: "1.5", unit: "ml" },
+  }));
+
+  const dimensions = await card.evaluate((element) => {
+    const container = element.shadowRoot.querySelector("ha-card");
+    return { clientWidth: container.clientWidth, scrollWidth: container.scrollWidth };
+  });
+  expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
+});
+
 test("logs a temperature for the selected mother instead of the whole litter", async ({ page }) => {
   const card = await mountQuickLog(page, "en");
 
@@ -217,6 +259,13 @@ test("switching presets preserves unsaved input", async ({ page }) => {
 
   await expect(card.locator("#quick-note")).toHaveValue("Keep this text");
   await expect(card.locator("#quick-occurred")).toHaveValue(occurred);
+
+  await card.locator('[data-preset="feeding"]').click();
+  await card.locator("#quick-data-amount").fill("45");
+  await card.locator('[data-preset="medication"]').click();
+  await card.locator("#quick-data-medication").fill("Draft medicine");
+  await card.locator('[data-preset="feeding"]').click();
+  await expect(card.locator("#quick-data-amount")).toHaveValue("45");
 });
 
 test("live updates are deferred while Quick Log contains unsaved input", async ({ page }) => {

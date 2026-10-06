@@ -5,11 +5,22 @@ import {
   fetchLitters,
   languageForHass,
   loadCardState,
+  localize,
   requestLitterChange,
   saveCardState,
   selectDefaultLitter,
   subscribeUpdates,
 } from "./puppy-tracker-card-common.js";
+import {
+  fieldLabel,
+  fieldPlaceholder,
+  inputAttributes,
+  RECORD_TYPES,
+  recordTypeLabel,
+  requiredFieldsMessage,
+  schemaText,
+  TYPE_FIELDS,
+} from "./puppy-tracker-dossier-schema.js";
 
 const QUICK_LOG_TRANSLATIONS = {
   en: {
@@ -35,6 +46,7 @@ const QUICK_LOG_TRANSLATIONS = {
     milestonePlaceholder: "What milestone was reached?",
     temperaturePlaceholder: "For example 38.4",
     temperatureObservationPlaceholder: "Optional observation",
+    detailsPlaceholder: "Optional additional details",
     temperatureInvalid: "Enter a temperature between 20.0 and 45.0 °C.",
     save: "Save log",
     cancel: "Cancel",
@@ -70,6 +82,7 @@ const QUICK_LOG_TRANSLATIONS = {
     milestonePlaceholder: "Welke mijlpaal is bereikt?",
     temperaturePlaceholder: "Bijvoorbeeld 38,4",
     temperatureObservationPlaceholder: "Optionele observatie",
+    detailsPlaceholder: "Optionele aanvullende details",
     temperatureInvalid: "Vul een temperatuur tussen 20,0 en 45,0 °C in.",
     save: "Log opslaan",
     cancel: "Annuleren",
@@ -84,14 +97,34 @@ const QUICK_LOG_TRANSLATIONS = {
   },
 };
 
-const PRESETS = [
-  { id: "note", recordType: "note", icon: "mdi:note-text-outline", titleKey: null },
-  { id: "feeding", recordType: "feeding", icon: "mdi:baby-bottle-outline", titleKey: "feeding" },
-  { id: "elimination", recordType: "note", icon: "mdi:toilet", titleKey: "elimination" },
-  { id: "medication", recordType: "medication", icon: "mdi:pill", titleKey: null },
-  { id: "milestone", recordType: "milestone", icon: "mdi:flag-checkered", titleKey: null },
-  { id: "temperature", recordType: "temperature", icon: "mdi:thermometer", titleKey: "temperature" },
-];
+const QUICK_PLACEHOLDERS = {
+  note: "notePlaceholder",
+  feeding: "feedingPlaceholder",
+  medication: "medicationPlaceholder",
+  milestone: "milestonePlaceholder",
+  temperature: "temperatureObservationPlaceholder",
+};
+
+const ELIMINATION_PRESET = {
+  id: "elimination",
+  recordType: "note",
+  icon: "mdi:toilet",
+  customLabelKey: "elimination",
+  customTitleKey: "elimination",
+  placeholderKey: "eliminationPlaceholder",
+};
+
+const PRESETS = RECORD_TYPES.flatMap(([id, labelKey, icon]) => {
+  const preset = {
+    id,
+    recordType: id,
+    icon,
+    labelKey,
+    titleKey: ["note", "other"].includes(id) ? null : labelKey,
+    placeholderKey: QUICK_PLACEHOLDERS[id] || "detailsPlaceholder",
+  };
+  return id === "feeding" ? [preset, ELIMINATION_PRESET] : [preset];
+});
 
 const LITTER_OWNER = "__litter__";
 const MOTHER_OWNER = "__mother__";
@@ -105,6 +138,17 @@ function text(hass, key, replacements = {}) {
     (value, [name, replacement]) => value.replaceAll(`{${name}}`, String(replacement ?? "")),
     template,
   );
+}
+
+function presetLabel(hass, preset) {
+  return preset.customLabelKey
+    ? text(hass, preset.customLabelKey)
+    : recordTypeLabel(hass, preset.recordType);
+}
+
+function presetTitle(hass, preset) {
+  if (preset.customTitleKey) return text(hass, preset.customTitleKey);
+  return preset.titleKey ? localize(hass, preset.titleKey) : null;
 }
 
 function toLocalDateTimeInput(value = null) {
@@ -356,16 +400,19 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
       this.__motherSelected = remembered === MOTHER_OWNER;
       this._selectedPuppyId = remembered === LITTER_OWNER || remembered === MOTHER_OWNER ? null : remembered;
     }
+    const previousDraft = this._draft;
     this._draft = {
       presetId: preset.id,
-      occurred_at: this._draft?.occurred_at || toLocalDateTimeInput(),
-      note: this._draft?.note || "",
-      temperature_c: this._draft?.temperature_c || "",
+      occurred_at: previousDraft?.occurred_at || toLocalDateTimeInput(),
+      note: previousDraft?.note || "",
+      dataByPreset: { ...(previousDraft?.dataByPreset || {}) },
     };
+    if (!this._draft.dataByPreset[preset.id]) this._draft.dataByPreset[preset.id] = {};
     this._error = "";
     this._status = "";
     this._render();
-    const focusId = preset.id === "temperature" ? "quick-temperature" : "quick-note";
+    const firstField = (TYPE_FIELDS[preset.recordType] || [])[0];
+    const focusId = firstField ? this._fieldInputId(firstField) : "quick-note";
     queueMicrotask(() => this.shadowRoot?.getElementById(focusId)?.focus({ preventScroll: true }));
   }
 
@@ -377,12 +424,31 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
 
   _captureDraft() {
     if (!this._draft) return;
+    const preset = PRESETS.find((item) => item.id === this._draft.presetId) || PRESETS[0];
     const occurred = this.shadowRoot?.getElementById("quick-occurred");
     const note = this.shadowRoot?.getElementById("quick-note");
-    const temperature = this.shadowRoot?.getElementById("quick-temperature");
     this._draft.occurred_at = occurred?.value ?? this._draft.occurred_at;
     this._draft.note = note?.value ?? this._draft.note;
-    this._draft.temperature_c = temperature?.value ?? this._draft.temperature_c;
+    const data = { ...(this._draft.dataByPreset?.[preset.id] || {}) };
+    for (const field of TYPE_FIELDS[preset.recordType] || []) {
+      const input = this.shadowRoot?.getElementById(this._fieldInputId(field));
+      if (input) data[field.key] = input.value;
+    }
+    this._draft.dataByPreset = { ...(this._draft.dataByPreset || {}), [preset.id]: data };
+  }
+
+  _fieldInputId(field) {
+    return field.key === "temperature_c" ? "quick-temperature" : `quick-data-${field.key}`;
+  }
+
+  _currentData(preset) {
+    const source = this._draft?.dataByPreset?.[preset.id] || {};
+    const data = {};
+    for (const field of TYPE_FIELDS[preset.recordType] || []) {
+      const value = String(source[field.key] ?? "").trim();
+      if (value) data[field.key] = value;
+    }
+    return data;
   }
 
   async _finishDraft() {
@@ -403,23 +469,33 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
     this._rememberOwner(preset.id, ownerValue);
     const occurredAt = toIsoTimestamp(this._draft.occurred_at);
     const note = String(this._draft.note || "").trim();
-    const temperature = Number(String(this._draft.temperature_c || "").replace(",", "."));
+    const data = this._currentData(preset);
+    const temperature = Number(String(data.temperature_c || "").replace(",", "."));
 
     if (!occurredAt) {
       this._error = text(this._hass, "invalidDateTime");
       this._render();
       return;
     }
-    if (preset.id === "temperature" && (!Number.isFinite(temperature) || temperature < 20 || temperature > 45)) {
+    if (preset.recordType === "temperature" && (!Number.isFinite(temperature) || temperature < 20 || temperature > 45)) {
       this._error = text(this._hass, "temperatureInvalid");
       this._render();
       return;
     }
-    if (preset.id !== "temperature" && !note) {
+    const validationError = requiredFieldsMessage(this._hass, preset.recordType, data);
+    if (validationError) {
+      this._error = validationError;
+      this._render();
+      return;
+    }
+    if (!note && !Object.keys(data).length) {
       this._error = text(this._hass, "detailsRequired");
       this._render();
       return;
     }
+
+    const normalizedData = { ...data };
+    if (preset.recordType === "temperature") normalizedData.temperature_c = temperature;
 
     this._saving = true;
     this._error = "";
@@ -428,9 +504,9 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
       const payload = {
         record_type: preset.recordType,
         occurred_at: occurredAt,
-        title: preset.titleKey ? text(this._hass, preset.titleKey) : null,
+        title: presetTitle(this._hass, preset),
         note: note || null,
-        data: preset.id === "temperature" ? { temperature_c: temperature } : {},
+        data: normalizedData,
       };
       if (this.__motherSelected) {
         await this._hass.callWS({
@@ -455,6 +531,26 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
     }
   }
 
+  _renderTypeFields(preset) {
+    const fields = TYPE_FIELDS[preset.recordType] || [];
+    if (!fields.length) return "";
+    const data = this._draft?.dataByPreset?.[preset.id] || {};
+    return `<div class="typed-grid">${fields.map((field) => {
+      const id = this._fieldInputId(field);
+      const value = data[field.key] ?? "";
+      const placeholderValue = fieldPlaceholder(this._hass, field);
+      const placeholder = placeholderValue ? ` placeholder="${escapeHtml(placeholderValue)}"` : "";
+      const attributes = inputAttributes(field);
+      const control = field.type === "textarea"
+        ? `<textarea id="${id}" rows="3"${placeholder}>${escapeHtml(value)}</textarea>`
+        : `<input id="${id}" type="${field.type || "text"}" value="${escapeHtml(value)}"${placeholder}${attributes ? ` ${attributes}` : ""}>`;
+      const requirement = field.required
+        ? `<span class="required">${escapeHtml(schemaText(this._hass, "required"))}</span>`
+        : `<span class="optional">${escapeHtml(localize(this._hass, "optional"))}</span>`;
+      return `<label class="field typed-field ${field.wide ? "wide" : ""}"><span>${escapeHtml(fieldLabel(this._hass, field))} ${requirement}</span>${control}</label>`;
+    }).join("")}</div>`;
+  }
+
   _render() {
     if (!this.shadowRoot) return;
     const litter = this._litterData?.litter;
@@ -470,19 +566,16 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
 
     const presetButtons = PRESETS.map((preset) => `
       <button class="preset ${this._draft?.presetId === preset.id ? "selected" : ""}" data-preset="${preset.id}" ${!litter || this._loading || this._saving ? "disabled" : ""}>
-        <ha-icon icon="${preset.icon}"></ha-icon><span>${escapeHtml(text(this._hass, preset.id))}</span>
+        <ha-icon icon="${preset.icon}"></ha-icon><span>${escapeHtml(presetLabel(this._hass, preset))}</span>
       </button>`).join("");
 
     const draft = this._draft;
-    const placeholder = draft
-      ? text(this._hass, draft.presetId === "temperature" ? "temperatureObservationPlaceholder" : `${draft.presetId}Placeholder`)
-      : "";
-    const temperatureField = draft?.presetId === "temperature" ? `
-        <label class="field"><span>${escapeHtml(text(this._hass, "temperature"))} (°C)</span><input id="quick-temperature" type="number" min="20" max="45" step="0.1" inputmode="decimal" placeholder="${escapeHtml(text(this._hass, "temperaturePlaceholder"))}" value="${escapeHtml(draft.temperature_c)}"></label>` : "";
+    const activePreset = draft ? (PRESETS.find((item) => item.id === draft.presetId) || PRESETS[0]) : null;
+    const placeholder = activePreset ? text(this._hass, activePreset.placeholderKey) : "";
     const editor = draft ? `
       <div class="editor">
         <label class="field"><span>${escapeHtml(text(this._hass, "when"))}</span><input id="quick-occurred" type="datetime-local" step="1" value="${escapeHtml(draft.occurred_at)}"></label>
-        ${temperatureField}
+        ${this._renderTypeFields(activePreset)}
         <label class="field details"><span>${escapeHtml(text(this._hass, "details"))}</span><textarea id="quick-note" rows="2" placeholder="${escapeHtml(placeholder)}">${escapeHtml(draft.note)}</textarea></label>
         <div class="actions">
           <button class="secondary" id="quick-cancel" ${this._saving ? "disabled" : ""}>${escapeHtml(text(this._hass, "cancel"))}</button>
@@ -498,10 +591,10 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
           .field{display:block;margin:0;color:var(--secondary-text-color);font-size:11px}.field>span{display:block;margin:0 0 4px 2px}.field.compact select{min-width:140px}.context .field:last-child select{min-width:150px}
           select,input,textarea{width:100%;border:1px solid var(--divider-color);border-radius:10px;background:var(--card-background-color);color:var(--primary-text-color);font:inherit}select,input{height:40px;padding:0 9px}textarea{padding:9px 10px;resize:vertical;line-height:1.4}
           .presets{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:7px;margin-top:13px}.preset{min-width:0;min-height:56px;padding:7px 5px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:1px solid var(--divider-color);border-radius:11px;background:var(--secondary-background-color);color:var(--primary-text-color);font:inherit;cursor:pointer}.preset ha-icon{--mdc-icon-size:20px;color:var(--primary-color)}.preset span{font-size:11px;line-height:1.15;text-align:center;overflow-wrap:anywhere}.preset.selected{border-color:var(--primary-color);background:color-mix(in srgb,var(--primary-color) 10%,var(--secondary-background-color))}.preset:disabled{opacity:.5;cursor:default}
-          .editor{display:grid;grid-template-columns:minmax(170px,.45fr) minmax(220px,1fr) auto;align-items:end;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--divider-color)}.details textarea{min-height:64px}.actions{display:flex;gap:7px;align-items:center}.actions button{height:40px;padding:0 11px;border-radius:10px;border:1px solid var(--divider-color);font:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}.primary{background:var(--primary-color);border-color:var(--primary-color)!important;color:var(--text-primary-color,#fff);font-weight:600}.secondary{background:var(--secondary-background-color);color:var(--primary-text-color)}button:disabled{opacity:.55;cursor:default}
+          .editor{display:grid;grid-template-columns:minmax(170px,.45fr) minmax(220px,1fr) auto;align-items:end;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--divider-color)}.typed-grid{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.typed-field.wide{grid-column:1/-1}.optional,.required{display:inline!important;margin-left:4px;font-size:10px}.optional{color:var(--secondary-text-color)}.required{color:var(--error-color);font-weight:650}.details textarea{min-height:64px}.actions{display:flex;gap:7px;align-items:center}.actions button{height:40px;padding:0 11px;border-radius:10px;border:1px solid var(--divider-color);font:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}.primary{background:var(--primary-color);border-color:var(--primary-color)!important;color:var(--text-primary-color,#fff);font-weight:600}.secondary{background:var(--secondary-background-color);color:var(--primary-text-color)}button:disabled{opacity:.55;cursor:default}
           .message{margin-top:9px;padding:8px 10px;border-radius:9px;font-size:12px}.status{background:var(--secondary-background-color);color:var(--secondary-text-color)}.error{background:color-mix(in srgb,var(--error-color) 10%,transparent);color:var(--error-color)}.empty{padding:12px 0 2px;color:var(--secondary-text-color);font-size:12px;text-align:center}
           @container quick-log-card (max-width:720px){.head{flex-direction:column}.context{width:100%;justify-content:stretch}.context .field{flex:1}.context .field select{min-width:0;width:100%}.presets{grid-template-columns:repeat(5,minmax(66px,1fr));overflow-x:auto;padding-bottom:2px}.editor{grid-template-columns:1fr 1fr}.details{grid-column:1/-1}.actions{grid-column:1/-1;justify-content:flex-end}}
-          @container quick-log-card (max-width:430px){ha-card{padding:13px}.context{display:grid;grid-template-columns:1fr}.presets{grid-template-columns:repeat(3,1fr);overflow:visible}.preset{min-height:54px}.editor{grid-template-columns:1fr}.details,.actions{grid-column:auto}.actions{display:grid;grid-template-columns:1fr 1fr}.actions button{justify-content:center}}
+          @container quick-log-card (max-width:430px){ha-card{padding:13px}.context{display:grid;grid-template-columns:1fr}.presets{grid-template-columns:repeat(3,1fr);overflow:visible}.preset{min-height:54px}.editor,.typed-grid{grid-template-columns:1fr}.typed-field.wide,.details,.actions{grid-column:auto}.actions{display:grid;grid-template-columns:1fr 1fr}.actions button{justify-content:center}}
         </style>
         <div class="head">
           <div><div class="title">${escapeHtml(this._config.title || text(this._hass, "title"))}</div><div class="subtitle">${escapeHtml(text(this._hass, "subtitle"))}</div></div>
@@ -526,9 +619,15 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
     this.shadowRoot.getElementById("quick-note")?.addEventListener("input", (event) => {
       if (this._draft) this._draft.note = event.target.value;
     });
-    this.shadowRoot.getElementById("quick-temperature")?.addEventListener("input", (event) => {
-      if (this._draft) this._draft.temperature_c = event.target.value;
-    });
+    if (activePreset) {
+      for (const field of TYPE_FIELDS[activePreset.recordType] || []) {
+        this.shadowRoot.getElementById(this._fieldInputId(field))?.addEventListener("input", (event) => {
+          if (!this._draft) return;
+          const data = { ...(this._draft.dataByPreset?.[activePreset.id] || {}), [field.key]: event.target.value };
+          this._draft.dataByPreset = { ...(this._draft.dataByPreset || {}), [activePreset.id]: data };
+        });
+      }
+    }
     this.shadowRoot.getElementById("quick-cancel")?.addEventListener("click", () => this._finishDraft());
     this.shadowRoot.getElementById("quick-save")?.addEventListener("click", () => this._saveQuickLog());
   }

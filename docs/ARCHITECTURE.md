@@ -697,9 +697,12 @@ and current/all-litter history are part of the normal Dossier state and render
 flow. No separate mother-dossier or aggregate-scope patch module is loaded.
 
 Quick Log owns its complete single-owner workflow directly. Litter, mother and
-puppy selection, remembered owners per preset, structured temperature input and
-the corresponding owner-specific save endpoint are handled in the base card.
-Bulk Dossier declares temperature in the shared dossier schema. There is no
+puppy selection, remembered owners per preset, structured type fields and the
+corresponding owner-specific save endpoint are handled in the base card. Its
+presets and Bulk Dossier's type selector both derive from the same
+`RECORD_TYPES` and `TYPE_FIELDS` schema used by Dossier; no surface-specific
+category subset is maintained. Quick Log's Stool / urine shortcut remains a
+titled `note` record rather than a separate stored type. There is no
 temperature compatibility module and `mother-surfaces.js` exports the mother
 load/render operations invoked explicitly by Attention.
 
@@ -770,6 +773,14 @@ and derives the current profile from active records. The frontend and PDF use
 the same criterion grouping and neutral 1-5 visibility semantics; scores do not
 encode good/bad behavior. `show_profile`, `show_history` and `max_items` are
 presentation options. Mobile hides the longer history by default.
+
+The Calculator surface is a read-only projection available in Care and Mobile.
+For each selected-litter puppy it reads the canonical
+`summary.current_weight`, multiplies kilograms by the user-entered amount per
+kilogram and derives a litter total. It does not persist a dose, feeding amount
+or dossier event. Missing weights are excluded, stale weights are marked, and
+the card defers subscription-driven refreshes while an amount or unit field has
+focus so live updates cannot interrupt entry.
 
 The recurring-reminder card must resolve the linked mother through the mother scope rather than requiring `litter.mother_id` in the ordinary litter payload.
 

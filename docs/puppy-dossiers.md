@@ -30,6 +30,11 @@ tests, deworming, medication, veterinary visits, milestones and other events.
 Type-specific values are stored as structured fields so cards, reminders and
 reports do not need to interpret free text.
 
+Dossier, Quick Log and Bulk Log use this same category list and the same
+type-specific fields. Quick Log additionally offers **Stool / urine** as a
+shortcut for a titled note. Adding a normal dossier category to the shared
+schema therefore makes it available in all three general logging workflows.
+
 Behavior observations are also timestamped puppy dossier records, but are
 created in the dedicated **Behavior** surface because one observation can hold
 multiple 1-5 criterion scores. They are puppy-only: changing the owner may

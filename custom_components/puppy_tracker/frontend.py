@@ -43,6 +43,7 @@ CARD_FILES = (
     "puppy-tracker-timeline-card.js",
     "puppy-tracker-temperature-card.js",
     "puppy-tracker-behavior-card.js",
+    "puppy-tracker-calculator-card.js",
     # Public entry point for daily use. Feature card elements above remain
     # internal composition surfaces and are removed from the card picker.
     "puppy-tracker-workspace-card.js",

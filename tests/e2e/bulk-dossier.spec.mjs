@@ -155,19 +155,30 @@ test("bulk care review blocks missing required product fields", async ({ page })
   expect(await recordAddCalls(page)).toHaveLength(0);
 });
 
-test("supports all planned bulk care record types", async ({ page }) => {
+test("supports every shared dossier record type", async ({ page }) => {
   const card = await mountBulkDossier(page, "en");
   const values = await card.locator("#bulk-type option").evaluateAll((options) =>
     options.map((option) => option.value)
   );
   expect(values).toEqual([
+    "note",
+    "feeding",
     "temperature",
-    "deworming",
     "vaccination",
     "test",
+    "deworming",
+    "medication",
     "vet_visit",
     "milestone",
+    "other",
   ]);
+
+  await card.locator("#bulk-data-product").fill("Draft wormer");
+  await card.locator("#bulk-type").selectOption("medication");
+  await expect(card.locator("#bulk-data-medication")).toBeVisible();
+  await expect(card.locator("#bulk-data-dose")).toBeVisible();
+  await card.locator("#bulk-type").selectOption("deworming");
+  await expect(card.locator("#bulk-data-product")).toHaveValue("Draft wormer");
 });
 
 test("partial failure keeps only failed puppies selected for a safe retry", async ({ page }) => {

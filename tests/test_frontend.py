@@ -97,7 +97,7 @@ def test_workspace_preserves_scroll_and_programmatic_focus_does_not_scroll() -> 
 
     assert "export function preserveScrollPosition" in common
     assert "preserveScrollPosition(this" in workspace
-    assert 'mobile: { tabs: ["weighing", "quickLog", "today", "care", "behavior"]' in workspace
+    assert 'mobile: { tabs: ["weighing", "calculator", "quickLog", "today", "care", "behavior"]' in workspace
     assert 'show_day_selector: this._preset !== "mobile"' in workspace
     assert "focus({ preventScroll: true })" in dossier
     assert "focus({ preventScroll: true })" in quick_log
@@ -131,6 +131,7 @@ def test_workspace_owns_shared_litter_context_and_pauses_hidden_surfaces() -> No
         "puppy-tracker-dossier-card.js",
         "puppy-tracker-timeline-card.js",
         "puppy-tracker-temperature-card.js",
+        "puppy-tracker-calculator-card.js",
         "puppy-tracker-care-execution-card.js",
         "puppy-tracker-care-program-card.js",
         "puppy-tracker-recurring-reminder-card.js",
@@ -272,15 +273,21 @@ def test_dossier_and_timeline_expose_configurable_default_scopes() -> None:
     assert '{ value: "mother", label: "Moederhond" }' in timeline
 
 
-def test_dossier_and_quick_log_expose_feeding_record_type() -> None:
-    """Feeding is a first-class dossier type on both logging surfaces."""
+def test_logging_surfaces_share_the_dossier_record_type_contract() -> None:
+    """Dossier, Quick Log and Bulk Log derive their choices from one list."""
     frontend = Path(__file__).parents[1] / "custom_components" / "puppy_tracker" / "frontend"
     schema = (frontend / "puppy-tracker-dossier-schema.js").read_text(encoding="utf-8")
     quick_log = (frontend / "puppy-tracker-quick-log-card.js").read_text(encoding="utf-8")
+    bulk_log = (frontend / "puppy-tracker-bulk-dossier-card.js").read_text(encoding="utf-8")
 
     assert '["feeding", "feeding", "mdi:baby-bottle-outline"]' in schema
+    assert '["deworming", "deworming", "mdi:shield-bug-outline"]' in schema
+    assert '["medication", "medication", "mdi:pill"]' in schema
     assert "feeding: [" in schema
-    assert '{ id: "feeding", recordType: "feeding"' in quick_log
+    assert "const PRESETS = RECORD_TYPES.flatMap" in quick_log
+    assert "BULK_RECORD_TYPES" not in schema
+    assert "BULK_RECORD_TYPES" not in bulk_log
+    assert "RECORD_TYPES," in bulk_log
 
 
 def test_overview_renders_litter_weight_comparison() -> None:

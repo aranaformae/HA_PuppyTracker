@@ -41,8 +41,8 @@ def test_quick_log_supports_mother_records_including_temperature() -> None:
 
     assert 'const MOTHER_OWNER = "__mother__"' in source
     assert 'type: "puppy_tracker/mother/record/add"' in source
-    assert 'id: "temperature", recordType: "temperature"' in source
-    assert '{ temperature_c: temperature }' in source
+    assert "const PRESETS = RECORD_TYPES.flatMap" in source
+    assert 'if (preset.recordType === "temperature") normalizedData.temperature_c = temperature;' in source
     assert '${escapeHtml(text(this._hass, "mother"))} · ${escapeHtml(litter.mother)}' in source
     assert "this.__motherSelected = value === MOTHER_OWNER" in source
     assert ".prototype" not in extension

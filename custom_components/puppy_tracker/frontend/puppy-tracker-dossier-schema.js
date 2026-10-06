@@ -13,15 +13,6 @@ export const RECORD_TYPES = [
   ["other", "other", "mdi:dots-horizontal-circle-outline"],
 ];
 
-export const BULK_RECORD_TYPES = [
-  ["temperature", "temperature"],
-  ["deworming", "deworming"],
-  ["vaccination", "vaccination"],
-  ["test", "test"],
-  ["vet_visit", "vetVisit"],
-  ["milestone", "milestone"],
-];
-
 export const TYPE_META = Object.fromEntries(
   RECORD_TYPES.map(([value, labelKey, icon]) => [value, { labelKey, icon }]),
 );

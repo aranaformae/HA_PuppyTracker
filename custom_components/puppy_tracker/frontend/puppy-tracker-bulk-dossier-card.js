@@ -9,7 +9,7 @@ import {
   subscribeUpdates,
 } from "./puppy-tracker-card-common.js";
 import {
-  BULK_RECORD_TYPES as RECORD_TYPES,
+  RECORD_TYPES,
   fieldLabel,
   fieldPlaceholder,
   inputAttributes,
@@ -288,14 +288,17 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
     }
   }
 
-  _captureForm() {
+  _captureForm(recordTypeOverride = null) {
     if (!this.shadowRoot) return;
-    this._form.record_type = this.shadowRoot.getElementById("bulk-type")?.value || this._form.record_type;
+    const recordType = recordTypeOverride
+      || this.shadowRoot.getElementById("bulk-type")?.value
+      || this._form.record_type;
+    this._form.record_type = recordType;
     this._form.occurred_at = this.shadowRoot.getElementById("bulk-occurred")?.value ?? this._form.occurred_at;
     this._form.title = this.shadowRoot.getElementById("bulk-title")?.value ?? this._form.title;
     this._form.note = this.shadowRoot.getElementById("bulk-note")?.value ?? this._form.note;
     const data = { ...(this._form.data || {}) };
-    for (const field of TYPE_FIELDS[this._form.record_type] || []) {
+    for (const field of TYPE_FIELDS[recordType] || []) {
       const input = this.shadowRoot.getElementById(`bulk-data-${field.key}`);
       if (input) data[field.key] = input.value;
     }
@@ -331,7 +334,7 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
   }
 
   _changeType(value) {
-    this._captureForm();
+    this._captureForm(this._form.record_type);
     this._form.record_type = value;
     this._dirty = true;
     this._result = null;

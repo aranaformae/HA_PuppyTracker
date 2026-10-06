@@ -9,6 +9,7 @@ feature overview.
 | Guide | Contents |
 | --- | --- |
 | [Dashboard cards](DASHBOARD_CARDS.md) | Workspace presets, visual editor, recommended layout, migration and YAML options |
+| [Per-kilogram calculator](CALCULATOR.md) | Calculate an entered amount for every puppy from its latest weight |
 | [Puppy dossiers and owners](puppy-dossiers.md) | Ownership scopes, record editing, contacts, placement and payment data |
 | [Temperature](temperature-card.md) | Journal temperature view, entry and configuration |
 | [Behavior observations](BEHAVIOR.md) | Repeated puppy scoring, profile calculation and PDF output |

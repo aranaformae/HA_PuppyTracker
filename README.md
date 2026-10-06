@@ -20,6 +20,8 @@ longitudinal behavior observations, reports and backups.
 - Use recurring reminders and age-based care programs such as ENS, ESI and
   deworming schedules.
 - Complete daily care from the Home, Care or Mobile workspace.
+- Calculate a per-kilogram amount for every active puppy from its latest
+  recorded weight, including a litter total.
 - Score repeated behavior observations per puppy and build a neutral profile
   over time.
 - Store owner/contact, placement and payment information and link contacts to
@@ -59,7 +61,8 @@ Companion App when a dashboard still shows an older card.
 3. Add a Workspace card to a dashboard and choose the Home, Growth, Journal,
    Care or Mobile preset in its visual editor.
 4. Use the **Weigh** tab for weights and **Quick Log** or **Dossier** for daily
-   observations. Use **Behavior** for repeated scored puppy observations.
+   observations. Use **Calculator** in Care or Mobile for a per-kilogram
+   calculation, and **Behavior** for repeated scored puppy observations.
 5. Add recurring reminders or care programs when scheduled actions are needed.
 6. Create a full JSON backup after the initial setup.
 
@@ -149,6 +152,7 @@ The [documentation index](docs/README.md) links the user and technical guides.
 The most useful starting points are:
 
 - [Dashboard cards](docs/DASHBOARD_CARDS.md)
+- [Per-kilogram calculator](docs/CALCULATOR.md)
 - [Puppy dossiers and owners](docs/puppy-dossiers.md)
 - [Temperature card](docs/temperature-card.md)
 - [Behavior observations](docs/BEHAVIOR.md)

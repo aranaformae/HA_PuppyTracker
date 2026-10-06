@@ -26,8 +26,8 @@ movement.
 | `home` | Today, Attention, Puppies | Current status and exceptions; includes Summary by default |
 | `growth` | Weigh, Analysis | Weighing sessions, collar-colour charts and growth analysis |
 | `journal` | Quick log, Dossier, Behavior, Timeline, Temperature | All observation and dossier workflows |
-| `care` | Execute, Programs, Reminders | Complete and manage scheduled care |
-| `mobile` | Weigh, Quick log, Today, Execute, Behavior | Touch-first daily workflow without leaving the card |
+| `care` | Execute, Calculator, Programs, Reminders | Complete and manage scheduled care or calculate per-kilogram amounts |
+| `mobile` | Weigh, Calculator, Quick log, Today, Execute, Behavior | Touch-first daily workflow without leaving the card |
 
 Basic examples:
 
@@ -56,7 +56,7 @@ focused:
 | Mobile | Workspace `mobile` | The former Mobile Controls card |
 | Growth | Workspace `growth` | Separate Weighing and Growth pages |
 | Journal | Workspace `journal` | Quick Log, Dossier, Behavior, Timeline, Temperature and Bulk Dossier workflows |
-| Care | Workspace `care` | Care Execution, Programs and Reminders cards |
+| Care | Workspace `care` | Care Execution, per-kilogram Calculator, Programs and Reminders cards |
 | Management | Owners and Report | No change |
 
 The standalone Today and Weighing dashboard views can usually be removed:
@@ -90,7 +90,8 @@ removed.
 
 Only tabs belonging to the chosen preset are accepted. The available keys are
 `today`, `attention`, `puppies`, `weighing`, `analysis`, `quickLog`, `dossier`,
-`behavior`, `timeline`, `temperature`, `care`, `programs` and `reminders`.
+`behavior`, `timeline`, `temperature`, `care`, `calculator`, `programs` and
+`reminders`.
 
 Aggregate scope `all` is supported by Dossier and Timeline. Quick Log and
 Temperature require one exact owner and therefore fall back to `litter` when
@@ -106,9 +107,10 @@ are not part of the visual editor.
 
 `show_litter_selector: false` is inherited by Today, Attention, Puppies,
 Weighing, Analysis, Quick Log, Dossier, Timeline, Temperature, Bulk, Execute,
-Programs and Reminders. It only hides the nest control; owner, puppy, metric,
-period and day controls remain available. The Home Summary has no separate nest
-selector because it follows the Workspace's shared nest context.
+Calculator, Programs and Reminders. It only hides the nest control; owner,
+puppy, metric, period and day controls remain available. The Home Summary has
+no separate nest selector because it follows the Workspace's shared nest
+context.
 
 ## Advanced tab configuration
 
@@ -166,10 +168,13 @@ Useful surface-specific options include:
 - `timeline`: `max_items`, `show_history_toggle`, `show_timeline_items`;
 - `temperature`: range, chart, thresholds, history and editor options documented in [Temperature](temperature-card.md);
 - `care`: `show_day_selector`, `days_ahead`, `max_items`;
+- `calculator`: `active_only`, `stale_after_hours`, `max_height`, `default_unit`;
 - `programs`: `show_disabled`, `max_items`, `compact`, `sort_order`.
 
 The Mobile preset intentionally hides the day selector and loads today plus
 overdue care actions. Opening a care item uses the full result and note editor.
+Its Calculator tab uses the same litter context and latest puppy weights as the
+Care preset.
 Changing the litter in any visible Workspace surface updates the other tabs.
 The active weighing surface is retained during that change so a draft weight
 and input focus are not discarded.
