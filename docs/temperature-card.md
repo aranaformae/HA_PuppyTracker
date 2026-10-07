@@ -137,7 +137,9 @@ The surface is responsive and collapses its selectors to one column on narrow
 screens. The add action becomes full width on a phone, form fields remain large
 enough for touch input, and history is independently scrollable. Add
 `temperature` to a Journal workspace when it needs a dedicated dashboard view;
-the Mobile preset stays focused on weighing, quick logging, today and care.
+the Mobile preset stays focused on weighing, calculator, quick logging, today,
+care and behavior. Use Quick Log for a single mobile temperature entry and the
+Journal temperature tab when the chart or full history is needed.
 
 ## Troubleshooting
 

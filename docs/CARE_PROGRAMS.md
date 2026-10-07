@@ -169,10 +169,10 @@ put the actual step-by-step workflow in `instructions`.
 ### 2. Choose the dossier type
 
 Set `record_type` to the kind of dossier entry the completed action should
-create. Common values are `note`, `temperature`, `vaccination`, `test`,
-`deworming`, `medication`, `vet_visit`, `milestone` and `other`. Choose the
-most specific type available because it makes dossier filters, reports and
-follow-up actions more useful.
+create. Common values are `note`, `feeding`, `temperature`, `vaccination`,
+`test`, `deworming`, `medication`, `vet_visit`, `milestone` and `other`.
+Choose the most specific type available because it makes dossier filters,
+reports and follow-up actions more useful.
 
 ### 3. Define the age schedule
 

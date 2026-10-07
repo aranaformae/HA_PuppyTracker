@@ -10,6 +10,8 @@ amount needed = weight in kilograms x amount per kilogram
 Enter the amount per kilogram and a unit such as `ml`, `mg` or `g`. Decimal
 commas and decimal points are accepted. The result appears immediately for
 each puppy, together with the collar colour, weight used and a litter total.
+Each row also shows the measurement time, elapsed time and calculation formula
+so it is clear which stored value produced the result.
 
 Puppies without a valid weight are not included in the total. A weight older
 than the configured threshold is clearly marked but remains available for the
@@ -18,6 +20,7 @@ are hidden.
 
 The calculator is a read-only aid. It does not save a dose, feeding amount or
 dossier entry and it does not determine whether an entered amount is suitable.
+It does not round to a product-specific syringe, tablet or package increment.
 Always use the instructions for the relevant product or a veterinarian's
 advice.
 
@@ -48,3 +51,5 @@ tab_config:
 
 The entered amount and unit are working values for the current card session.
 They are intentionally not stored as medication or feeding instructions.
+Live Puppy Tracker updates are applied after the active amount/unit field loses
+focus, so a background weight refresh cannot interrupt typing on mobile.

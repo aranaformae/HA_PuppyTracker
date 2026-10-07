@@ -24,6 +24,9 @@ The current suite covers the main backend, frontend contract and browser flows.
 | `test_care_programs.py` / `test_care_occurrences.py` / `test_care_results.py` | Age-based care program validation, deterministic occurrences, result recording and protocol locking |
 | `test_care_templates.py` / `test_care_program_frontend.py` | Built-in and user template validation, day-specific instructions, JSON import/export and atomic batch saves |
 | `test_temperature_frontend.py` / `test_temperature_card.py` | Structured temperature logging, localization and dedicated temperature-card contracts |
+| `test_behavior.py` / `test_behavior_frontend.py` | Partial 1-5 observations, puppy-only ownership, longitudinal profiles and Workspace/PDF contracts |
+| `test_calculator_frontend.py` / `tests/e2e/calculator-card.spec.mjs` | Per-kilogram arithmetic, latest/stale weight presentation, responsive layout and non-persistence |
+| `test_frontend.py` / Quick and Bulk Playwright specs | Shared dossier category/schema parity, card registration and frontend composition contracts |
 | `test_owner_backup.py` / `test_recurring_mother_owner_frontend.py` | Reusable contact backup/restore, placement/payment fields, puppy links and owner-related frontend contracts |
 | `test_age_based_care_notifications.py` / `test_notification_settings_storage.py` | Notification settings, default lead-time fallback, care-program overrides, grouping and delivery contracts |
 | `test_notification_lifecycle.py` | Coalesced notification checks, transition-only mobile cleanup, inactive-owner cleanup and global notification shutdown |
@@ -42,7 +45,9 @@ Keep each regression at the lowest useful level and avoid proving the same behav
 
 ## Requirements
 
-Use a supported Python version for the Home Assistant version you are developing against. A virtual environment is strongly recommended.
+Use a supported Python version for the Home Assistant version you are
+developing against and Node.js 22 or newer. A virtual environment is strongly
+recommended.
 
 From the repository root:
 
@@ -89,6 +94,12 @@ npm run test:all
 ```
 
 This runs Python compilation, all backend tests, JavaScript syntax checks and the complete tiered Playwright matrix. The Playwright web server is started automatically.
+
+Run only the browser suite with:
+
+```bash
+npm run test:e2e
+```
 
 ## Run the backend suite only
 
@@ -269,6 +280,30 @@ The intended distinction is:
 
 Tests should preserve this distinction.
 
+### Measurement timestamp precision
+
+Weight-only corrections must preserve the original measurement instant
+exactly. The regression suite includes measurements that differ only by
+seconds/fractional seconds, as well as measurements with the exact same
+measurement timestamp. This protects current/previous ordering from
+datetime-local controls that display a lower precision than Home Assistant
+stores.
+
+### Dossier record architecture
+
+Puppy Tracker keeps three kinds of information deliberately separate:
+
+- `profile_note`: one editable summary on the puppy profile;
+- `records`: chronological dossier entries such as notes, vaccination, tests,
+  treatment, behavior and milestones;
+- `measurements`: specialized weight history with correction-chain semantics.
+
+Dossier regressions cover litter, mother and puppy ownership. Every record has
+its own UUID and stores `occurred_at` separately from `created_at`. Deletion is
+soft-delete, so delete/restore must preserve identity and content. Generic
+logging tests also keep Dossier, Quick Log and Bulk Log on the shared record
+type and field schema.
+
 ## Adding a regression test
 
 When fixing a bug, prefer this sequence:
@@ -283,13 +318,16 @@ Whenever possible, keep tests deterministic. Freeze the current time with `monke
 
 ## Before a release
 
-At minimum, run:
+Run the complete local gate:
 
 ```bash
-python -m pytest
+npm run test:all
 ```
 
-Also validate the production Python and frontend files separately, because the pytest suite does not execute the Lovelace JavaScript cards.
+This includes compilation, pytest, JavaScript syntax and the tiered Playwright
+matrix. Then complete the relevant real-device checks from
+[`docs/ios-ipados-release-checklist.md`](../docs/ios-ipados-release-checklist.md)
+when frontend interaction, downloading or mobile behavior changed.
 
 A release should not proceed when a test failure is unexplained. If behavior is intentionally changed, update or replace the relevant regression test in the same commit as that behavior change.
 
@@ -321,28 +359,6 @@ Patch `homeassistant.util.dt.now()` in the module under test. Existing metrics a
 
 ---
 
-The goal of this suite is not maximum line coverage. Its priority is protecting **data integrity, correction history, monitoring calculations, timezone behavior, and exports** as Puppy Tracker approaches 1.0.
-
-
-### Measurement timestamp precision regression
-
-Weight-only corrections must preserve the original measurement instant exactly. The
-regression suite includes measurements that differ only by seconds/fractional seconds,
-as well as measurements with the exact same measurement timestamp. This protects the
-`current`/`previous` weight ordering from datetime-local controls that display a lower
-precision than the timestamp stored by Home Assistant.
-
-
-## Dossier record architecture
-
-Puppy Tracker keeps three kinds of information deliberately separate:
-
-- `profile_note`: one editable summary on the puppy profile;
-- `records`: chronological dossier entries such as notes, vaccinations, tests, treatments and milestones;
-- `measurements`: the specialized weight history with its own correction-chain semantics.
-
-Dossier regression tests verify both litter-scoped and puppy-scoped records. Every record owns its own UUID and stores `occurred_at` separately from `created_at`, so entering an event later does not change when it actually happened.
-
-Record deletion is soft-delete. Tests therefore require delete/restore to preserve the same record identity and content. Ownership metadata may be repaired automatically when the intended owner is unambiguous, but duplicate IDs and invalid record types must remain unresolved integrity findings instead of being guessed.
-
-New dossier modules should prefer a lowercase snake_case `type` and type-specific fields inside the record's `data` mapping. Add a regression test whenever a new record type gains business rules beyond the generic envelope.
+The goal of this suite is not maximum line coverage. Its priority is protecting
+data integrity, correction history, monitoring calculations, timezone
+behavior, frontend workflows and exports as Puppy Tracker approaches 1.0.

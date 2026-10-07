@@ -28,6 +28,8 @@ Use this checklist before a release that changes dashboard cards, frontend loadi
 - [ ] Start weighing session, save a weight, and reset the session.
 - [ ] Scroll below a Workspace with `preset: mobile`, leave the Weighing tab active for at least 30 seconds and confirm background updates do not move the page to the top.
 - [ ] Switch among Weighing, Quick Log, Today and Care today and confirm the surrounding dashboard keeps its scroll position.
+- [ ] Open Calculator, type a decimal comma and decimal point, and confirm keyboard focus and page position stay stable while live updates arrive.
+- [ ] Confirm Calculator shows the latest weight/time per puppy, marks stale or missing weights and excludes missing weights from the litter total.
 - [ ] Disable `show_litter_selector` and confirm the nest control is absent on Weighing, Quick Log, Today and Care while their other selectors remain usable.
 - [ ] Complete a Care today item, enter configured result/score/note values and confirm the dialog closes without moving the page.
 - [ ] The Home preset Attention tab loads alerts/upcoming actions after data arrives.
@@ -53,6 +55,8 @@ Use this checklist before a release that changes dashboard cards, frontend loadi
 - [ ] Create a general note.
 - [ ] Select the linked mother as a dossier owner when available.
 - [ ] Create at least one structured record type (feeding, vaccination, deworming, medication, test, vet visit, or milestone).
+- [ ] Confirm Dossier, Quick Log and Multiple puppies expose the same ten general categories and their matching structured fields.
+- [ ] Switch Quick Log between two structured categories and confirm each category retains its own unsaved draft values.
 - [ ] Move a dossier record between puppy, mother and litter owners and confirm it appears only under the new owner.
 - [ ] Change record type while editing and confirm entered values are preserved where expected.
 - [ ] Edit an existing record.
@@ -71,6 +75,17 @@ Use this checklist before a release that changes dashboard cards, frontend loadi
 - [ ] Edit a measurement and verify the corrected value appears.
 - [ ] Delete and restore a measurement.
 - [ ] Confirm tapping a chart point still opens/highlights its measurement on touch devices.
+- [ ] Confirm every puppy line and each weight/growth subgraph use the puppy's collar colour.
+- [ ] Verify that a slowing growth-rate label does not present itself as actual weight loss when the newest weight is still higher.
+- [ ] Check reached and projected birth-weight milestones, including confidence/range text when enough samples exist.
+
+## Behavior and calculator
+
+- [ ] Save a partial behavior observation and confirm unscored criteria remain empty rather than becoming zero.
+- [ ] Confirm a behavior observation can select only a puppy, not the litter or mother.
+- [ ] Verify profile averages and history update after saving and remain readable on iPhone and both iPad orientations.
+- [ ] Compare Calculator results with `weight kg x amount per kg`, including the litter total and a puppy without a valid weight.
+- [ ] Confirm Calculator does not create a dossier record or alter a stored weight.
 
 ## Reports and downloads
 

@@ -267,6 +267,15 @@ views:
                 show_day_selector: false
                 days_ahead: 0
                 max_items: 50
+              calculator:
+                active_only: true
+                stale_after_hours: 24
+                max_height: 440
+                default_unit: ml
+              behavior:
+                show_profile: true
+                show_history: false
+                max_items: 10
             grid_options:
               columns: full
               rows: auto
@@ -342,6 +351,10 @@ views:
                 show_chart: true
                 show_history: true
                 show_editor: true
+              behavior:
+                show_profile: true
+                show_history: true
+                max_items: 20
             grid_options:
               columns: full
               rows: auto
@@ -365,6 +378,11 @@ views:
                 show_day_selector: true
                 days_ahead: 14
                 max_items: 50
+              calculator:
+                active_only: true
+                stale_after_hours: 24
+                max_height: 520
+                default_unit: ml
               programs:
                 show_disabled: true
                 max_items: 50

@@ -89,6 +89,29 @@ WebSocket:    puppy_tracker/*
 
 The old prerelease `puppy_weight_tracker` identity is intentionally not retained as a compatibility layer.
 
+### Home Assistant platform boundary
+
+The integration exposes sensor, binary-sensor, select, number, switch and
+button platforms. Per-puppy and per-litter entities are projections of the
+same storage and metric functions used by the cards; they are not an
+independent state model. The weighing-station controls use runtime selection
+and session state, while a saved weight always enters authoritative
+measurement storage.
+
+Four Home Assistant actions form the supported automation boundary:
+
+```text
+puppy_tracker.create_litter
+puppy_tracker.add_puppy
+puppy_tracker.record_weight
+puppy_tracker.backup_to_file
+```
+
+Their runtime schemas in `__init__.py` are authoritative. `services.yaml`
+mirrors those fields for the Developer Tools action UI and must be updated in
+the same change whenever an action schema changes. Litter and puppy arguments
+are stable Puppy Tracker UUIDs, not names or entity IDs.
+
 ## Core hierarchy
 
 ```text
@@ -648,6 +671,11 @@ Date-only dossier follow-up fields remain local calendar dates and must not shif
 
 Custom cards consume `puppy_tracker/*` WebSocket APIs rather than re-deriving domain relationships from Home Assistant entity names.
 
+Frontend resources are served under a path containing the integration
+`VERSION`. Relative ES-module imports inherit that path, so a release cannot
+combine a newly loaded card with a cached shared module from an older release.
+The manifest and `const.py` version therefore form one release/cache contract.
+
 The backend remains source of truth for monitoring state, effective measurements, dossier data, mother identity, recurring reminder definitions/status, care program definitions, care occurrence status and completion.
 
 Frontend composition layers may enrich presentation, but must not invent a second persistence model.
@@ -912,6 +940,11 @@ Regression tests should protect data meaning and cross-surface contracts, includ
 - dossier ownership/CRUD and mother identity resolution;
 - owner/contact CRUD, puppy links and full-backup inclusion;
 - temperature structured-data rendering;
+- behavior score validation, partial observations, longitudinal profile
+  derivation and PDF output;
+- per-kilogram calculator parsing, latest-weight selection, stale-weight
+  presentation and non-persistence;
+- shared Dossier, Quick Log and Bulk Log category/schema parity;
 - upcoming action derivation;
 - recurring-reminder normalization, interval/fixed-time/once scheduling and exact owner matching;
 - reminder fixed-time timezone behaviour;
@@ -923,6 +956,8 @@ Regression tests should protect data meaning and cross-surface contracts, includ
 - care-template validation, day-specific instructions, JSON batch import/export and failed-write rollback;
 - notification settings/default migration, deduplication, state isolation and error propagation;
 - explicit frontend composition order without global hooks or prototype patches;
+- Workspace preset/editor contracts, shared litter context and inactive-tab
+  subscription lifecycle;
 - real browser care-result flow from row to dialog to WebSocket save to immediate row removal;
 - export selection, care PDF output and runtime selection;
 - diagnostics scheduler health counts.

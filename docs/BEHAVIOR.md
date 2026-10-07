@@ -49,7 +49,8 @@ De tweede groep legt de algemene indruk op dat moment vast:
 - meegaand en eigenwijs.
 
 Een observatie mag gedeeltelijk worden ingevuld. Niet-waargenomen criteria
-blijven leeg en tellen niet als nul.
+blijven leeg en tellen niet als nul. Minimaal een criterium moet een score
+hebben voordat de observatie kan worden opgeslagen.
 
 ## Profiel en eindscore
 

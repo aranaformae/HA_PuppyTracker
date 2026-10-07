@@ -6,7 +6,7 @@ with dossiers, temperature logging, care schedules, reminders, owner contacts,
 longitudinal behavior observations, reports and backups.
 
 > **Status:** Puppy Tracker is pre-1.0. The current stable development line is
-> **0.26.x**. Back up your data before updating because compatibility changes
+> **0.27.x**. Back up your data before updating because compatibility changes
 > are still possible before 1.0.
 
 ## What You Can Do
@@ -152,13 +152,16 @@ The [documentation index](docs/README.md) links the user and technical guides.
 The most useful starting points are:
 
 - [Dashboard cards](docs/DASHBOARD_CARDS.md)
+- [Weighing and growth analysis](docs/GROWTH_ANALYSIS.md)
 - [Per-kilogram calculator](docs/CALCULATOR.md)
 - [Puppy dossiers and owners](docs/puppy-dossiers.md)
 - [Temperature card](docs/temperature-card.md)
 - [Behavior observations](docs/BEHAVIOR.md)
+- [Reports and exports](docs/REPORTS_EXPORTS.md)
 - [Age-based care programs and template format](docs/CARE_PROGRAMS.md)
 - [Notifications](docs/NOTIFICATIONS.md)
 - [Backup, restore and transfer](docs/backup-restore.md)
+- [Home Assistant entities and actions](docs/HOME_ASSISTANT.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Local tests](tests/README.md)
 

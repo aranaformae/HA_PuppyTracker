@@ -30,10 +30,24 @@ tests, deworming, medication, veterinary visits, milestones and other events.
 Type-specific values are stored as structured fields so cards, reminders and
 reports do not need to interpret free text.
 
+| Category | Structured fields |
+| --- | --- |
+| Note / Other | Free title and note |
+| Feeding | Feeding type, amount, unit and observation |
+| Temperature | Celsius value (required), method/location and observation |
+| Vaccination | Vaccine (required), indication, batch, veterinarian, clinic, reaction, administration weight and next due date |
+| Test / result | Test name, result and laboratory |
+| Deworming | Product (required), active ingredient, amount/unit, free-text dose, route, batch, administrator, administration weight and next due date |
+| Medication | Medication, dose, frequency and duration |
+| Vet visit | Veterinarian, clinic, reason, diagnosis and treatment |
+| Milestone | Milestone and category |
+
 Dossier, Quick Log and Bulk Log use this same category list and the same
 type-specific fields. Quick Log additionally offers **Stool / urine** as a
 shortcut for a titled note. Adding a normal dossier category to the shared
 schema therefore makes it available in all three general logging workflows.
+Care Programs and Recurring Reminders also use this list when choosing which
+dossier type a completion should create.
 
 Behavior observations are also timestamped puppy dossier records, but are
 created in the dedicated **Behavior** surface because one observation can hold
@@ -42,9 +56,10 @@ correct an observation to another puppy, but not move it to the litter or
 mother. The Dossier surface preserves and summarizes these entries without
 exposing the raw score object. See [Behavior observations](BEHAVIOR.md).
 
-Feeding supports feeding type, amount, unit and an observation. Temperature
-supports a Celsius value, method/location and observation. Existing legacy
-free-text records remain readable.
+Fields marked required are validated before saving in Dossier, Quick Log and
+Bulk Log. Switching categories while entering data retains the draft values
+for the categories already visited. Existing legacy free-text records remain
+readable even when they predate the structured fields.
 
 Care-program results are normal puppy dossier records. Their expanded details
 show the care day, scheduled time, localized status, result, score,

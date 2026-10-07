@@ -98,6 +98,13 @@ Temperature require one exact owner and therefore fall back to `litter` when
 the workspace default is `all`. Existing dossier items remain editable in the
 aggregate view; select a specific owner before adding a new item.
 
+Quick Log, Dossier and the Journal **Multiple puppies** action share one
+category schema: Note, Feeding, Temperature, Vaccination, Test/result,
+Deworming, Medication, Vet visit, Milestone and Other. Their structured fields
+and required-field validation therefore stay aligned. Quick Log also keeps a
+Stool/urine shortcut that saves a titled note. Bulk Log remains puppy-only,
+while Quick Log can write to the litter, mother or one puppy.
+
 The visual editor changes with the selected preset. It exposes navigation and
 the relevant Home, Growth, Journal, Care or Mobile surface options in grouped
 sections, while writing those values to the same `tab_config` structure used
@@ -114,9 +121,11 @@ context.
 
 ## Advanced tab configuration
 
-Use `tab_config` only for options not exposed by the workspace editor. Keys are
-the tab names above; values are passed to that surface. For example, a compact
-Growth workspace and a Journal focused on temperature can be configured as:
+In YAML, use `tab_config` for settings that belong to one internal surface.
+The visual editor writes its surface-specific controls into the same
+structure. Keys are the tab names above; values are passed to that surface.
+For example, a compact Growth workspace and a Journal focused on temperature
+can be configured as:
 
 ```yaml
 type: custom:puppy-tracker-workspace-card
@@ -171,10 +180,13 @@ Useful surface-specific options include:
 - `calculator`: `active_only`, `stale_after_hours`, `max_height`, `default_unit`;
 - `programs`: `show_disabled`, `max_items`, `compact`, `sort_order`.
 
-The Mobile preset intentionally hides the day selector and loads today plus
-overdue care actions. Opening a care item uses the full result and note editor.
-Its Calculator tab uses the same litter context and latest puppy weights as the
-Care preset.
+The Mobile preset hides the care day selector by default and loads today plus
+overdue care actions. Set `tab_config.care.show_day_selector: true` to browse
+other days without leaving the mobile Workspace. Opening a care item uses the
+full result and note editor. Its Calculator tab uses the same litter context
+and latest puppy weights as the Care preset. Mobile Quick Log exposes the
+complete shared dossier category list, so temperature, deworming and
+medication do not require switching to the Journal Workspace.
 Changing the litter in any visible Workspace surface updates the other tabs.
 The active weighing surface is retained during that change so a draft weight
 and input focus are not discarded.
@@ -240,6 +252,9 @@ mother records remain in the mother JSON export only. The PDF language can be
 automatic (following Home Assistant), Dutch or English. User-entered notes
 remain as written. The preview shows the chosen scope, period, language,
 sections and matching item counts before download.
+
+See [Reports and exports](REPORTS_EXPORTS.md) for the exact section
+dependencies, individual-puppy behavior, dossier filters and CSV/JSON rules.
 
 **Contact details** is a privacy-sensitive sub-option of **Owners and placement** and is automatically
 disabled when that parent section is off. A selected section remains visible in

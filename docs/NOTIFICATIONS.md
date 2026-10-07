@@ -23,7 +23,9 @@ minutes. A value of 0 waits until the due time.
 
 ## What becomes actionable
 
-- Weight monitoring follows the configured monitoring and weighing thresholds.
+- Weight monitoring follows the configured monitoring and weighing thresholds;
+  [Growth Analysis](GROWTH_ANALYSIS.md) explains the user-facing statuses and
+  metric meanings.
 - A recurring reminder becomes `due_soon` inside its lead-time window and
   `overdue` after the deadline.
 - A clocked care occurrence can become `due_soon`, then `due_today` at its

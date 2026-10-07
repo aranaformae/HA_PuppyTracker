@@ -97,6 +97,13 @@ add_puppy:
         text:
           multiline: true
 
+    chip_number:
+      name: Chipnummer
+      description: Optioneel chipnummer van de pup. Wordt als tekst bewaard zodat voorloopnullen behouden blijven.
+      required: false
+      selector:
+        text:
+
 
 record_weight:
   name: Gewicht registreren
