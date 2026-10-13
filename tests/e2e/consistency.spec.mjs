@@ -42,6 +42,52 @@ async function mount(page, tag, config = {}, overrides = {}) {
   return page.locator(tag);
 }
 
+async function mountOwnerMatrix(page, { width = "" } = {}) {
+  await page.goto("/tests/e2e/cards.html?production=1");
+  await page.waitForFunction(() => window.__puppyTrackerReady);
+  await page.evaluate(({ width }) => {
+    const owners = [
+      {
+        id: "o1", name: "Family Jansen", role: "owner", placement_status: "interested",
+        puppy_preferences: [
+          { puppy_id: "p1", note: "Calm match for the children" },
+          { puppy_id: "p2", note: "Strong second choice" },
+        ],
+      },
+      {
+        id: "o2", name: "Family De Boer", role: "owner", placement_status: "option",
+        puppy_preferences: [
+          { puppy_id: "p1", note: "Best connection during the visit" },
+          { puppy_id: "p3", note: null },
+        ],
+      },
+      { id: "o3", name: "Family Smit", role: "co_owner", placement_status: "reserved", puppy_preferences: [] },
+      {
+        id: "o4", name: "Family Placed", role: "owner", placement_status: "sold",
+        puppy_preferences: [{ puppy_id: "p2", note: "Placement completed" }],
+      },
+    ];
+    const card = document.createElement("puppy-tracker-owner-card");
+    if (width) card.style.width = width;
+    card.setConfig({ default_view: "matrix" });
+    document.querySelector("#cards").append(card);
+    card.hass = {
+      language: "en", locale: { language: "en" },
+      callWS: async (message) => {
+        if (message.type === "puppy_tracker/owners/list") return { owners };
+        if (message.type === "puppy_tracker/litters") return { litters: [{ id: "l1", name: "Milky Way" }] };
+        if (message.type === "puppy_tracker/data") return { litter: { id: "l1", name: "Milky Way" }, puppies: [
+          { id: "p1", name: "Nova", collar_color: "Roze", owner_ids: [] },
+          { id: "p2", name: "Boris", collar_color: "Blauw", owner_ids: ["o1"] },
+          { id: "p3", name: "Pip", collar_color: "Groen", owner_ids: [] },
+        ] };
+        throw new Error(message.type);
+      },
+    };
+  }, { width });
+  return page.locator("puppy-tracker-owner-card");
+}
+
 test("production timeline keeps no categories selected for mother and all scopes", async ({ page }) => {
   const card = await mount(page, "puppy-tracker-timeline-card", { default_selected: "mother" });
   await expect(card.locator('[data-filter-type="feeding"]')).toBeVisible();
@@ -242,6 +288,61 @@ test("owner dates and stored values are labeled and localized", async ({ page })
     const saved = window.calls.find((message) => message.type === "puppy_tracker/owners/save");
     return Object.keys(saved).filter((key) => key.startsWith("preference_"));
   })).toEqual([]);
+});
+
+test("owner preference matrix compares ranks, conflicts, notes and existing links", async ({ page }) => {
+  const card = await mountOwnerMatrix(page);
+
+  await expect(card.locator("#matrix-view")).toHaveAttribute("aria-selected", "true");
+  await expect(card.locator(".matrix-desktop .preference-matrix tbody tr")).toHaveCount(3);
+  await expect(card.locator(".matrix-desktop .preference-matrix thead th")).toHaveCount(4);
+  await expect(card.locator(".matrix-desktop .matrix-cell.conflict")).toHaveCount(2);
+  await expect(card.locator(".matrix-summary > div").nth(0)).toContainText("1");
+  await expect(card.locator(".matrix-summary > div").nth(2)).toContainText("1");
+  await expect(card.locator(".matrix-summary > div").nth(3)).toContainText("1");
+  await expect(card.locator(".matrix-desktop .collar-swatch").first()).toHaveCSS("background-color", "rgb(236, 64, 122)");
+
+  await card.locator('.matrix-desktop [data-matrix-owner="o1"][data-matrix-puppy="p1"]').click();
+  await expect(card.locator("#matrix-detail")).toContainText("Calm match for the children");
+  await expect(card.locator("#matrix-detail")).toContainText("Not linked");
+
+  await card.locator('.matrix-desktop [data-matrix-owner="o1"][data-matrix-puppy="p2"]').click();
+  await expect(card.locator("#matrix-detail")).toContainText("Strong second choice");
+  await expect(card.locator("#matrix-detail")).toContainText("Linked");
+
+  await card.locator("#matrix-only-conflicts").check();
+  await expect(card.locator(".matrix-desktop .preference-matrix thead th")).toHaveCount(2);
+  await expect(card.locator(".matrix-desktop .preference-matrix tbody tr")).toHaveCount(2);
+  await card.locator("#matrix-only-conflicts").uncheck();
+  await card.locator("#matrix-show-resolved").check();
+  await expect(card.locator(".matrix-desktop .preference-matrix tbody tr")).toHaveCount(4);
+
+  await card.locator('.matrix-desktop [data-matrix-owner="o1"][data-matrix-puppy="p1"]').click();
+  await card.locator("[data-matrix-edit-owner='o1']").click();
+  await expect(card.locator("#owners-view")).toHaveAttribute("aria-selected", "true");
+  await expect(card.locator('input[name="name"]')).toHaveValue("Family Jansen");
+});
+
+test("@mobile @tablet owner preference matrix becomes a pup-focused list in a narrow card", async ({ page }) => {
+  const card = await mountOwnerMatrix(page, { width: "390px" });
+
+  await expect(card.locator(".matrix-mobile")).toBeVisible();
+  await expect(card.locator(".matrix-desktop")).toBeHidden();
+  await expect(card.locator("#matrix-puppy")).toHaveValue("p1");
+  await expect(card.locator(".mobile-match")).toHaveCount(2);
+  await expect(card.locator(".mobile-match.conflict")).toHaveCount(2);
+
+  await card.locator("#matrix-puppy").selectOption("p2");
+  await expect(card.locator(".mobile-match")).toHaveCount(1);
+  await expect(card.locator(".mobile-match")).toContainText("Strong second choice");
+  await card.locator(".mobile-match").click();
+  await expect(card.locator("#matrix-detail")).toContainText("Linked");
+
+  const widths = await card.evaluate((element) => {
+    const surface = element.querySelector("ha-card");
+    return { client: surface.clientWidth, scroll: surface.scrollWidth };
+  });
+  expect(widths.scroll).toBeLessThanOrEqual(widths.client + 1);
 });
 
 test("owner CSV is comma-separated, keeps unlinked owners and exports one row per puppy link", async ({ page }) => {

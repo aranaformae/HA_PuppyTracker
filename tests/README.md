@@ -28,7 +28,7 @@ The current suite covers the main backend, frontend contract and browser flows.
 | `test_behavior.py` / `test_behavior_frontend.py` | Partial 1-5 observations, puppy-only ownership, longitudinal profiles and Workspace/PDF contracts |
 | `test_calculator_frontend.py` / `tests/e2e/calculator-card.spec.mjs` | Per-kilogram arithmetic, latest/stale weight presentation, responsive layout and non-persistence |
 | `test_frontend.py` / Quick and Bulk Playwright specs | Shared dossier category/schema parity, card registration and frontend composition contracts |
-| `test_owner_backup.py` / owner Playwright tests | Reusable contact backup/restore, split/legacy address migration, payment validation/calculation, ranked puppy preferences and notes, puppy links, localized contract CSV fields/delimiters and owner-related frontend contracts |
+| `test_owner_backup.py` / owner Playwright tests | Reusable contact backup/restore, split/legacy address migration, payment validation/calculation, ranked puppy preferences and notes, responsive conflict matrix, puppy links, localized contract CSV fields/delimiters and owner-related frontend contracts |
 | `test_age_based_care_notifications.py` / `test_notification_settings_storage.py` | Notification settings, default lead-time fallback, care-program overrides, grouping and delivery contracts |
 | `test_notification_lifecycle.py` | Coalesced notification checks, transition-only mobile cleanup, inactive-owner cleanup and global notification shutdown |
 | `tests/e2e/*.spec.mjs` | Lovelace behavior in Chromium plus targeted WebKit mobile, tablet and cross-browser checks |

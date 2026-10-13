@@ -135,9 +135,13 @@ city fields; these contract-ready values are available in owner CSV and PDF
 reports.
 
 The shortlist is planning information only: it does not reserve a puppy, change
-its placement status or create the final owner link.
+its placement status or create the final owner link. Switch the Owners card to
+**Preference matrix** to compare the ranked choices per litter, identify shared
+first choices and inspect preference notes or existing links. Narrow cards
+automatically use a puppy-focused list instead of a wide table.
 
-See [Puppy dossiers and owners](docs/puppy-dossiers.md).
+See [Puppy dossiers and owners](docs/puppy-dossiers.md) and the focused
+[owner puppy-preference matrix guide](docs/OWNER_PREFERENCE_MATRIX.md).
 
 ## Reports And Backups
 

@@ -203,10 +203,15 @@ Owners remains a separate card:
 ```yaml
 type: custom:puppy-tracker-owner-card
 title: Baasjes
+default_view: owners
 csv_delimiter: comma
 ```
 
-Its create/edit form starts collapsed. Selecting an owner expands all stored
+Use `default_view: owners` for contact management or `default_view: matrix` to
+open directly on the puppy-preference comparison. Both choices are available
+in the visual editor and the segmented control remains available in the card.
+
+The create/edit form starts collapsed. Selecting an owner expands all stored
 contact, placement, payment and note information, including an ordered top
 three puppy shortlist with one short note per preference. The shortlist is
 planning data; it does not alter placement status or create a puppy link. Its
@@ -219,6 +224,26 @@ also available in the visual editor. Address entry is split into street/house
 number, postal code and city. Linked rows include the complete puppy and parent
 contract identity, including registered/call names, coat colour, breed/type and
 WALA values. The six shortlist columns are included on every owner row.
+
+The **Preference matrix** is calculated from the same shortlist and puppy-link
+data; it does not store a second matching state. Select one litter to place
+owners on rows and puppies on columns. Cells show first, second or third choice,
+whether a note exists and whether that owner is already linked to the puppy.
+Puppy headers use their collar colours. The summary identifies puppies with
+multiple first choices, puppies without any choice, owners without a choice and
+existing links. Optional switches reveal sold/placed owners or reduce the table
+to first-choice conflicts. Selecting a populated cell exposes its complete note
+and an edit action without rerendering the matrix.
+
+At narrow card widths the same information becomes a puppy-focused list with a
+puppy selector. This avoids horizontal page overflow on mobile while retaining
+rank, note, placement status and link information. The matrix remains planning
+support only: use **Link owner to puppy** in the management view for an
+authoritative link.
+
+The complete workflow, matrix legend, inclusion rules and summary definitions
+are documented in
+[Owner puppy-preference matrix](OWNER_PREFERENCE_MATRIX.md).
 
 Report also remains separate:
 

@@ -1,4 +1,5 @@
 import { downloadExportFile, escapeHtml, languageForHass } from "./puppy-tracker-card-common.js";
+import { collarColor } from "./puppy-tracker-collar-chart-colors.js";
 
 const TAG = "puppy-tracker-owner-card";
 
@@ -34,6 +35,34 @@ const COPY = {
   nl: {
     title: "Baasjes beheren",
     subtitle: "Contactpersonen die later aan een pup gekoppeld kunnen worden.",
+    ownersView: "Baasjes beheren",
+    matrixView: "Voorkeurenmatrix",
+    defaultView: "Standaardweergave",
+    matrixSubtitle: "Vergelijk pupvoorkeuren en bestaande koppelingen per nest.",
+    matrixLitter: "Nest voor vergelijking",
+    showResolved: "Toon verkochte en geplaatste baasjes",
+    onlyConflicts: "Alleen conflicten in eerste voorkeur",
+    firstChoiceConflicts: "Conflicten eerste voorkeur",
+    puppiesWithoutPreferences: "Pups zonder voorkeur",
+    ownersWithoutPreferences: "Baasjes zonder keuze",
+    linkedMatches: "Bestaande koppelingen",
+    matrixOwner: "Baasje",
+    matrixTotals: "Voorkeuren",
+    matrixEmpty: "Voor dit nest zijn nog geen passende baasjes of voorkeuren beschikbaar.",
+    matrixNoPuppies: "Dit nest heeft nog geen pups.",
+    matrixNoLitters: "Er zijn nog geen nesten beschikbaar.",
+    matrixLoading: "Voorkeuren laden…",
+    matrixNoConflicts: "Er zijn geen conflicten in de eerste voorkeur.",
+    noPreferenceForPuppy: "Voor deze pup zijn geen voorkeuren of koppelingen vastgelegd.",
+    preferenceDetails: "Voorkeurdetails",
+    preferenceRank: "Voorkeurspositie",
+    linkedStatus: "Gekoppeld",
+    notLinkedStatus: "Niet gekoppeld",
+    editFromMatrix: "Baasje bewerken",
+    firstShort: "1e",
+    secondShort: "2e",
+    thirdShort: "3e",
+    noCollarColor: "Geen halsbandkleur",
     addOwner: "Baasje toevoegen",
     editOwner: "Baasje wijzigen",
     update: "Wijzigingen opslaan",
@@ -123,6 +152,34 @@ const COPY = {
   en: {
     title: "Manage owners",
     subtitle: "Contacts that can be linked to a puppy later.",
+    ownersView: "Manage owners",
+    matrixView: "Preference matrix",
+    defaultView: "Default view",
+    matrixSubtitle: "Compare puppy preferences and existing links per litter.",
+    matrixLitter: "Litter to compare",
+    showResolved: "Show sold and placed owners",
+    onlyConflicts: "First-choice conflicts only",
+    firstChoiceConflicts: "First-choice conflicts",
+    puppiesWithoutPreferences: "Puppies without preferences",
+    ownersWithoutPreferences: "Owners without a choice",
+    linkedMatches: "Existing links",
+    matrixOwner: "Owner",
+    matrixTotals: "Preferences",
+    matrixEmpty: "No matching owners or preferences are available for this litter yet.",
+    matrixNoPuppies: "This litter does not have any puppies yet.",
+    matrixNoLitters: "No litters are available yet.",
+    matrixLoading: "Loading preferences…",
+    matrixNoConflicts: "There are no first-choice conflicts.",
+    noPreferenceForPuppy: "No preferences or links have been recorded for this puppy.",
+    preferenceDetails: "Preference details",
+    preferenceRank: "Preference rank",
+    linkedStatus: "Linked",
+    notLinkedStatus: "Not linked",
+    editFromMatrix: "Edit owner",
+    firstShort: "1st",
+    secondShort: "2nd",
+    thirdShort: "3rd",
+    noCollarColor: "No collar color",
     addOwner: "Add owner",
     editOwner: "Edit owner",
     update: "Save changes",
@@ -279,6 +336,11 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     this._puppies = [];
     this._selectedPuppy = "";
     this._selectedLitter = "";
+    this._activeView = null;
+    this._matrixShowResolved = false;
+    this._matrixOnlyConflicts = false;
+    this._matrixSelectedPuppy = "";
+    this._matrixSelection = null;
     this._editing = null;
     this._expandedOwnerId = null;
     this._showOwnerEditor = false;
@@ -289,11 +351,15 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     this._busy = false;
   }
 
-  static getStubConfig() { return { title: "", csv_delimiter: "comma" }; }
+  static getStubConfig() { return { title: "", default_view: "owners", csv_delimiter: "comma" }; }
   static getConfigForm() {
     const configCard = { _hass: document.querySelector("home-assistant")?.hass || null };
     return { schema: [
       { name: "title", selector: { text: {} } },
+      { name: "default_view", selector: { select: { mode: "dropdown", options: [
+        { value: "owners", label: text(configCard, "ownersView") },
+        { value: "matrix", label: text(configCard, "matrixView") },
+      ] } } },
       { name: "csv_delimiter", selector: { select: { mode: "dropdown", options: [
         { value: "comma", label: text(configCard, "csvComma") },
         { value: "semicolon", label: text(configCard, "csvSemicolon") },
@@ -302,7 +368,13 @@ class PuppyTrackerOwnerCard extends HTMLElement {
   }
 
   setConfig(config) {
-    this._config = { ...PuppyTrackerOwnerCard.getStubConfig(), ...config };
+    const previousDefaultView = this._config?.default_view;
+    const nextConfig = { ...PuppyTrackerOwnerCard.getStubConfig(), ...config };
+    if (!["owners", "matrix"].includes(nextConfig.default_view)) nextConfig.default_view = "owners";
+    this._config = nextConfig;
+    if (!this._activeView || previousDefaultView !== nextConfig.default_view) {
+      this._activeView = nextConfig.default_view;
+    }
     this._render();
     if (this._hass && !this._loaded) this._load();
   }
@@ -331,7 +403,9 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       ]);
       this._owners = ownerResult?.owners || [];
       this._litters = litterResult?.litters || [];
-      if (!this._selectedLitter && this._litters[0]) this._selectedLitter = this._litters[0].id;
+      if (!this._litters.some((litter) => litter.id === this._selectedLitter)) {
+        this._selectedLitter = this._litters[0]?.id || "";
+      }
       const data = await Promise.all(this._litters.map(async (litter) => {
         const result = await this._hass.callWS({ type: "puppy_tracker/data", litter_id: litter.id });
         const litterDetails = result?.litter || litter;
@@ -347,6 +421,10 @@ class PuppyTrackerOwnerCard extends HTMLElement {
         }));
       }));
       this._puppies = data.flat();
+      const selectedLitterPuppies = this._puppies.filter((puppy) => puppy.litter_id === this._selectedLitter);
+      if (!selectedLitterPuppies.some((puppy) => puppy.id === this._matrixSelectedPuppy)) {
+        this._matrixSelectedPuppy = selectedLitterPuppies[0]?.id || "";
+      }
       this._loaded = true;
       if (this._expandedOwnerId && !this._owners.some((owner) => owner.id === this._expandedOwnerId)) this._expandedOwnerId = null;
     } catch (error) {
@@ -493,6 +571,208 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     }).join("");
   }
 
+  _rankLabel(rank, compact = false) {
+    if (![1, 2, 3].includes(rank)) return "—";
+    return text(this, compact ? ["firstShort", "secondShort", "thirdShort"][rank - 1] : `preference${rank}`);
+  }
+
+  _matrixModel() {
+    const allPuppies = this._puppies.filter((puppy) => puppy.litter_id === this._selectedLitter);
+    const puppyIds = new Set(allPuppies.map((puppy) => puppy.id));
+    const preferencesByOwner = new Map();
+    const linksByOwner = new Map();
+    const resolvedStatuses = new Set(["sold", "placed"]);
+
+    const owners = this._owners.filter((owner) => {
+      const allPreferences = Array.isArray(owner.puppy_preferences) ? owner.puppy_preferences : [];
+      const preferences = new Map();
+      allPreferences.slice(0, 3).forEach((preference, index) => {
+        if (puppyIds.has(preference?.puppy_id)) {
+          preferences.set(preference.puppy_id, { rank: index + 1, note: preference.note || "" });
+        }
+      });
+      const linkedPuppyIds = new Set(
+        allPuppies
+          .filter((puppy) => (puppy.owner_ids || []).includes(owner.id))
+          .map((puppy) => puppy.id),
+      );
+      const candidateRole = ["owner", "co_owner"].includes(owner.role || "owner");
+      const belongsInLitter = preferences.size > 0 || linkedPuppyIds.size > 0 || (candidateRole && allPreferences.length === 0);
+      if (!belongsInLitter) return false;
+      if (!this._matrixShowResolved && resolvedStatuses.has(owner.placement_status)) return false;
+      preferencesByOwner.set(owner.id, preferences);
+      linksByOwner.set(owner.id, linkedPuppyIds);
+      return true;
+    }).sort((left, right) => String(left.name || "").localeCompare(String(right.name || "")));
+
+    const rankCounts = new Map(allPuppies.map((puppy) => [puppy.id, [0, 0, 0]]));
+    for (const owner of owners) {
+      for (const [puppyId, preference] of preferencesByOwner.get(owner.id) || []) {
+        rankCounts.get(puppyId)[preference.rank - 1] += 1;
+      }
+    }
+    const conflictPuppyIds = new Set(
+      allPuppies
+        .filter((puppy) => (rankCounts.get(puppy.id)?.[0] || 0) > 1)
+        .map((puppy) => puppy.id),
+    );
+    const puppiesWithoutPreferences = allPuppies.filter((puppy) =>
+      (rankCounts.get(puppy.id) || []).every((count) => count === 0),
+    ).length;
+    const ownersWithoutPreferences = owners.filter((owner) =>
+      (preferencesByOwner.get(owner.id)?.size || 0) === 0,
+    ).length;
+    const linkedMatches = owners.reduce(
+      (total, owner) => total + (linksByOwner.get(owner.id)?.size || 0),
+      0,
+    );
+
+    const puppies = this._matrixOnlyConflicts
+      ? allPuppies.filter((puppy) => conflictPuppyIds.has(puppy.id))
+      : allPuppies;
+    const visiblePuppyIds = new Set(puppies.map((puppy) => puppy.id));
+    const visibleOwners = this._matrixOnlyConflicts
+      ? owners.filter((owner) => {
+        const preferences = preferencesByOwner.get(owner.id) || new Map();
+        const links = linksByOwner.get(owner.id) || new Set();
+        return [...visiblePuppyIds].some((puppyId) => preferences.has(puppyId) || links.has(puppyId));
+      })
+      : owners;
+
+    if (!puppies.some((puppy) => puppy.id === this._matrixSelectedPuppy)) {
+      this._matrixSelectedPuppy = puppies[0]?.id || "";
+    }
+    if (this._matrixSelection) {
+      const selectionVisible = visibleOwners.some((owner) => owner.id === this._matrixSelection.ownerId)
+        && puppies.some((puppy) => puppy.id === this._matrixSelection.puppyId);
+      if (!selectionVisible) this._matrixSelection = null;
+    }
+
+    return {
+      allPuppies,
+      puppies,
+      owners: visibleOwners,
+      preferencesByOwner,
+      linksByOwner,
+      rankCounts,
+      conflictPuppyIds,
+      stats: {
+        conflicts: conflictPuppyIds.size,
+        puppiesWithoutPreferences,
+        ownersWithoutPreferences,
+        linkedMatches,
+      },
+    };
+  }
+
+  _matrixPuppyHeader(puppy, index) {
+    const colorName = puppy.collar_color || text(this, "noCollarColor");
+    const color = collarColor(puppy.collar_color, index);
+    return `<div class="matrix-puppy"><span class="collar-swatch" style="--collar-color:${escapeHtml(color)}" title="${escapeHtml(`${text(this, "puppyCollarColor")}: ${colorName}`)}" aria-hidden="true"></span><span><strong>${escapeHtml(puppy.name || text(this, "puppy"))}</strong><small>${escapeHtml(colorName)}</small></span></div>`;
+  }
+
+  _matrixCell(owner, puppy, model) {
+    const preference = model.preferencesByOwner.get(owner.id)?.get(puppy.id);
+    const linked = model.linksByOwner.get(owner.id)?.has(puppy.id) || false;
+    if (!preference && !linked) return `<td class="matrix-empty" aria-label="${escapeHtml(text(this, "noPuppyPreference"))}">—</td>`;
+    const conflict = preference?.rank === 1 && model.conflictPuppyIds.has(puppy.id);
+    const selected = this._matrixSelection?.ownerId === owner.id && this._matrixSelection?.puppyId === puppy.id;
+    const description = [
+      preference ? this._rankLabel(preference.rank) : null,
+      linked ? text(this, "linkedStatus") : null,
+      conflict ? text(this, "firstChoiceConflicts") : null,
+      preference?.note || null,
+    ].filter(Boolean).join(" · ");
+    return `<td><button type="button" class="matrix-cell${conflict ? " conflict" : ""}${selected ? " selected" : ""}" data-matrix-owner="${escapeHtml(owner.id)}" data-matrix-puppy="${escapeHtml(puppy.id)}" aria-pressed="${selected}" aria-label="${escapeHtml(`${owner.name} · ${puppy.name || text(this, "puppy")} · ${description}`)}" title="${escapeHtml(description)}">${preference ? `<span class="rank rank-${preference.rank}">${escapeHtml(this._rankLabel(preference.rank, true))}</span>` : ""}${preference?.note ? `<ha-icon class="cell-icon" icon="mdi:note-text-outline" aria-hidden="true"></ha-icon>` : ""}${linked ? `<ha-icon class="cell-icon linked-icon" icon="mdi:link-variant" aria-hidden="true"></ha-icon>` : ""}${conflict ? `<ha-icon class="cell-icon conflict-icon" icon="mdi:alert-circle-outline" aria-hidden="true"></ha-icon>` : ""}</button></td>`;
+  }
+
+  _matrixSummary(model) {
+    const items = [
+      [model.stats.conflicts, "firstChoiceConflicts"],
+      [model.stats.puppiesWithoutPreferences, "puppiesWithoutPreferences"],
+      [model.stats.ownersWithoutPreferences, "ownersWithoutPreferences"],
+      [model.stats.linkedMatches, "linkedMatches"],
+    ];
+    return `<div class="matrix-summary">${items.map(([value, label]) => `<div><strong>${value}</strong><span>${escapeHtml(text(this, label))}</span></div>`).join("")}</div>`;
+  }
+
+  _matrixDesktop(model) {
+    if (!model.puppies.length) {
+      return `<div class="matrix-desktop empty matrix-empty-state">${escapeHtml(text(this, this._matrixOnlyConflicts ? "matrixNoConflicts" : "matrixNoPuppies"))}</div>`;
+    }
+    if (!model.owners.length) {
+      return `<div class="matrix-desktop empty matrix-empty-state">${escapeHtml(text(this, "matrixEmpty"))}</div>`;
+    }
+    return `<div class="matrix-desktop"><div class="matrix-scroll"><table class="preference-matrix"><thead><tr><th scope="col" class="owner-column">${escapeHtml(text(this, "matrixOwner"))}</th>${model.puppies.map((puppy, index) => `<th scope="col">${this._matrixPuppyHeader(puppy, index)}</th>`).join("")}</tr></thead><tbody>${model.owners.map((owner) => `<tr><th scope="row" class="owner-column"><strong>${escapeHtml(owner.name)}</strong><small>${escapeHtml(optionLabel(this, owner.placement_status, PLACEMENT_STATUS_LABELS, "interested"))}</small></th>${model.puppies.map((puppy) => this._matrixCell(owner, puppy, model)).join("")}</tr>`).join("")}</tbody><tfoot><tr><th scope="row" class="owner-column">${escapeHtml(text(this, "matrixTotals"))}</th>${model.puppies.map((puppy) => { const counts = model.rankCounts.get(puppy.id) || [0, 0, 0]; return `<td><span class="rank-totals"><b>${escapeHtml(text(this, "firstShort"))}</b> ${counts[0]} · <b>${escapeHtml(text(this, "secondShort"))}</b> ${counts[1]} · <b>${escapeHtml(text(this, "thirdShort"))}</b> ${counts[2]}</span></td>`; }).join("")}</tr></tfoot></table></div></div>`;
+  }
+
+  _matrixMobile(model) {
+    if (!model.puppies.length) {
+      return `<div class="matrix-mobile empty matrix-empty-state">${escapeHtml(text(this, this._matrixOnlyConflicts ? "matrixNoConflicts" : "matrixNoPuppies"))}</div>`;
+    }
+    const puppy = model.puppies.find((item) => item.id === this._matrixSelectedPuppy) || model.puppies[0];
+    const puppyIndex = model.allPuppies.findIndex((item) => item.id === puppy.id);
+    const matches = model.owners.map((owner) => ({
+      owner,
+      preference: model.preferencesByOwner.get(owner.id)?.get(puppy.id),
+      linked: model.linksByOwner.get(owner.id)?.has(puppy.id) || false,
+    })).filter((item) => item.preference || item.linked).sort((left, right) =>
+      (left.preference?.rank || 99) - (right.preference?.rank || 99)
+      || String(left.owner.name || "").localeCompare(String(right.owner.name || "")),
+    );
+    const counts = model.rankCounts.get(puppy.id) || [0, 0, 0];
+    const options = model.puppies.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === puppy.id ? "selected" : ""}>${escapeHtml(item.name || text(this, "puppy"))}${item.collar_color ? ` · ${escapeHtml(item.collar_color)}` : ""}</option>`).join("");
+    return `<div class="matrix-mobile"><label class="mobile-puppy-select"><span>${escapeHtml(text(this, "puppy"))}</span><select id="matrix-puppy">${options}</select></label><div class="mobile-puppy-head">${this._matrixPuppyHeader(puppy, puppyIndex)}<span>${escapeHtml(text(this, "firstShort"))} ${counts[0]} · ${escapeHtml(text(this, "secondShort"))} ${counts[1]} · ${escapeHtml(text(this, "thirdShort"))} ${counts[2]}</span></div><div class="mobile-matches">${matches.length ? matches.map(({ owner, preference, linked }) => {
+      const selected = this._matrixSelection?.ownerId === owner.id && this._matrixSelection?.puppyId === puppy.id;
+      const conflict = preference?.rank === 1 && model.conflictPuppyIds.has(puppy.id);
+      return `<button type="button" class="mobile-match${selected ? " selected" : ""}${conflict ? " conflict" : ""}" data-matrix-owner="${escapeHtml(owner.id)}" data-matrix-puppy="${escapeHtml(puppy.id)}" aria-pressed="${selected}"><span class="mobile-match-rank">${preference ? escapeHtml(this._rankLabel(preference.rank, true)) : `<ha-icon icon="mdi:link-variant" aria-hidden="true"></ha-icon>`}</span><span class="mobile-match-main"><strong>${escapeHtml(owner.name)}</strong><small>${escapeHtml(optionLabel(this, owner.placement_status, PLACEMENT_STATUS_LABELS, "interested"))}${linked ? ` · ${escapeHtml(text(this, "linkedStatus"))}` : ""}</small>${preference?.note ? `<span>${escapeHtml(preference.note)}</span>` : ""}</span>${conflict ? `<ha-icon class="conflict-icon" icon="mdi:alert-circle-outline" aria-hidden="true"></ha-icon>` : ""}</button>`;
+    }).join("") : `<div class="empty">${escapeHtml(text(this, "noPreferenceForPuppy"))}</div>`}</div></div>`;
+  }
+
+  _matrixDetailsMarkup() {
+    if (!this._matrixSelection) return "";
+    const owner = this._owners.find((item) => item.id === this._matrixSelection.ownerId);
+    const puppy = this._puppies.find((item) => item.id === this._matrixSelection.puppyId);
+    if (!owner || !puppy) return "";
+    const preferences = Array.isArray(owner.puppy_preferences) ? owner.puppy_preferences : [];
+    const index = preferences.findIndex((preference) => preference.puppy_id === puppy.id);
+    const preference = index >= 0 ? preferences[index] : null;
+    const linked = (puppy.owner_ids || []).includes(owner.id);
+    return `<div class="matrix-detail-content"><div><span>${escapeHtml(text(this, "preferenceDetails"))}</span><strong>${escapeHtml(owner.name)} · ${escapeHtml(puppy.name || text(this, "puppy"))}</strong></div><dl><div><dt>${escapeHtml(text(this, "preferenceRank"))}</dt><dd>${escapeHtml(preference ? this._rankLabel(index + 1) : "—")}</dd></div><div><dt>${escapeHtml(text(this, "placementStatus"))}</dt><dd>${escapeHtml(optionLabel(this, owner.placement_status, PLACEMENT_STATUS_LABELS, "interested"))}</dd></div><div><dt>${escapeHtml(text(this, "linkedPuppies"))}</dt><dd>${escapeHtml(text(this, linked ? "linkedStatus" : "notLinkedStatus"))}</dd></div><div class="detail-note"><dt>${escapeHtml(text(this, "preferenceNote"))}</dt><dd>${escapeHtml(preference?.note || "—")}</dd></div></dl><button type="button" class="secondary" data-matrix-edit-owner="${escapeHtml(owner.id)}"><ha-icon icon="mdi:pencil-outline"></ha-icon>${escapeHtml(text(this, "editFromMatrix"))}</button></div>`;
+  }
+
+  _matrixView() {
+    if (!this._litters.length) return `<section class="matrix-view"><div class="empty matrix-empty-state">${escapeHtml(text(this, this._loading ? "matrixLoading" : "matrixNoLitters"))}</div></section>`;
+    const model = this._matrixModel();
+    const litterOptions = this._litters.map((litter) => `<option value="${escapeHtml(litter.id)}" ${litter.id === this._selectedLitter ? "selected" : ""}>${escapeHtml(litter.name || text(this, "litter"))}</option>`).join("");
+    const details = this._matrixDetailsMarkup();
+    return `<section class="matrix-view"><div class="matrix-controls"><label><span>${escapeHtml(text(this, "matrixLitter"))}</span><select id="matrix-litter">${litterOptions}</select></label><label class="matrix-toggle"><input id="matrix-show-resolved" type="checkbox" ${this._matrixShowResolved ? "checked" : ""}><span>${escapeHtml(text(this, "showResolved"))}</span></label><label class="matrix-toggle"><input id="matrix-only-conflicts" type="checkbox" ${this._matrixOnlyConflicts ? "checked" : ""}><span>${escapeHtml(text(this, "onlyConflicts"))}</span></label></div>${model.allPuppies.length ? this._matrixSummary(model) : ""}${this._matrixDesktop(model)}${this._matrixMobile(model)}<section id="matrix-detail" class="matrix-detail" ${details ? "" : "hidden"}>${details}</section></section>`;
+  }
+
+  _selectMatrixCell(ownerId, puppyId) {
+    const selected = this._matrixSelection?.ownerId === ownerId && this._matrixSelection?.puppyId === puppyId;
+    this._matrixSelection = selected ? null : { ownerId, puppyId };
+    this.querySelectorAll("[data-matrix-owner]").forEach((button) => {
+      const active = !selected && button.dataset.matrixOwner === ownerId && button.dataset.matrixPuppy === puppyId;
+      button.classList.toggle("selected", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+    const details = this.querySelector("#matrix-detail");
+    if (!details) return;
+    details.innerHTML = this._matrixDetailsMarkup();
+    details.hidden = !this._matrixSelection;
+    details.querySelector("[data-matrix-edit-owner]")?.addEventListener("click", (event) => this._openEditor(event.currentTarget.dataset.matrixEditOwner));
+  }
+
+  _switchView(view) {
+    if (!["owners", "matrix"].includes(view) || view === this._activeView || this._showOwnerEditor) return;
+    this._activeView = view;
+    this._matrixSelection = null;
+    this._status = "";
+    this._error = "";
+    this._render();
+  }
+
   _ownerCsvContent() {
     const headers = [
       "name", "email", "phone", "street", "postalCode", "city", "role", "contactPreference",
@@ -591,6 +871,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
   }
 
   _openEditor(ownerId = null) {
+    this._activeView = "owners";
     this._editing = ownerId;
     this._showOwnerEditor = true;
     this._status = "";
@@ -701,22 +982,171 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     const litterOptions = this._litters.map((litter) => `<option value="${escapeHtml(litter.id)}" ${litter.id === this._selectedLitter ? "selected" : ""}>${escapeHtml(litter.name || text(this, "litter"))}</option>`).join("");
     const puppyOptions = litterPuppies.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === this._selectedPuppy ? "selected" : ""}>${escapeHtml(item.name || text(this, "puppy"))}</option>`).join("");
 
-    const headerActions = `<div class="head-actions"><button type="button" id="export-owners-csv" class="secondary" ${!this._owners.length || this._loading ? "disabled" : ""}><ha-icon icon="mdi:file-delimited-outline"></ha-icon>${escapeHtml(text(this, "exportCsv"))}</button>${this._showOwnerEditor ? "" : this._ownerForm()}</div>`;
-    this.innerHTML = `<ha-card><div class="head"><div><div class="title">${escapeHtml(this._config.title || text(this, "title"))}</div><div class="sub">${escapeHtml(text(this, "subtitle"))}</div></div>${headerActions}</div>${this._showOwnerEditor ? this._ownerForm() : ""}<section class="list" aria-live="polite">${this._ownerList()}</section>${this._linkSection(litterPuppies, puppy, linked, litterOptions, puppyOptions)}<div id="owner-error" class="message error" role="alert">${escapeHtml(this._error)}</div><div id="owner-status" class="message" role="status" aria-live="polite">${escapeHtml(this._status)}</div></ha-card><style>
-      :host{display:block}ha-card{padding:16px}.head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.head-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}.title{font-size:1.25rem;font-weight:700}.sub{font-size:.85rem;color:var(--secondary-text-color);margin-top:3px}.primary,.secondary,.owner-actions button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:40px;border:1px solid var(--primary-color);border-radius:8px;padding:0 12px;background:var(--primary-color);color:var(--text-primary-color,#fff);font:inherit;font-weight:600;cursor:pointer}.secondary,.owner-actions button{background:var(--secondary-background-color);border-color:var(--divider-color);color:var(--primary-text-color)}button:disabled{opacity:.55;cursor:default}.owner-editor,.link{margin-top:16px;padding-top:14px;border-top:1px solid var(--divider-color)}h3{margin:0 0 10px;font-size:1rem;letter-spacing:0}.form,.link-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.form-heading{grid-column:1/-1;margin:8px 0 0;font-size:.86rem;letter-spacing:0}.form-heading:first-child{margin-top:0}.form label,.link-form label{display:grid;gap:4px;color:var(--secondary-text-color);font-size:.78rem}.form input,.form select,.form textarea,.form output,.link-form select{box-sizing:border-box;width:100%;min-height:42px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color);padding:9px;font:inherit}.form output{display:flex;align-items:center;background:var(--secondary-background-color)}.form textarea{min-height:112px;resize:vertical}.wide,.checks{grid-column:1/-1}.preferences{display:grid;gap:8px}.preference-row{min-width:0;margin:0;padding:8px 10px 10px;border:1px solid var(--divider-color);border-radius:8px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.preference-row legend{padding:0 5px;color:var(--primary-text-color);font-size:.8rem;font-weight:600}.actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}.list{display:grid;gap:8px;margin-top:16px}.owner{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;border-top:1px solid var(--divider-color);padding-top:9px}.owner-toggle{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;border:0;background:transparent;color:var(--primary-text-color);padding:5px 2px;text-align:left;font:inherit;cursor:pointer}.owner-toggle span{min-width:0}.owner-toggle strong,.owner-toggle small{display:block;overflow-wrap:anywhere}.owner-toggle small{color:var(--secondary-text-color);margin-top:2px;font-size:.78rem}.owner-actions{display:flex;gap:5px}.owner-actions button{width:38px;padding:0}.owner-actions ha-icon{--mdc-icon-size:19px}.owner-detail{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:12px;background:var(--secondary-background-color);border-radius:8px;font-size:.85rem}.owner-detail>div{min-width:0;overflow-wrap:anywhere}.owner-detail span{display:block;color:var(--secondary-text-color);font-size:.72rem;margin-bottom:3px}.owner-detail .wide{grid-column:1/-1}.owner-detail .preformatted>div{white-space:pre-wrap;word-break:break-word}.owner-detail .notes>div{max-height:none;overflow:visible}.checks{min-width:0;margin:2px 0 0;padding:10px;border:1px solid var(--divider-color);border-radius:8px;display:grid;gap:7px}.checks legend{padding:0 4px;color:var(--secondary-text-color);font-size:.78rem}.checks label{display:flex;align-items:center;gap:7px;color:var(--primary-text-color)}.empty,.message{color:var(--secondary-text-color);padding:10px 2px}.message:empty{display:none}.error{color:var(--error-color)}@media(max-width:520px){.head{display:grid}.head-actions{display:grid;justify-content:stretch}.head-actions button{width:100%}.form,.link-form,.owner-detail,.preference-row{grid-template-columns:1fr}.wide,.checks,.owner-detail .wide{grid-column:auto}.owner{grid-template-columns:minmax(0,1fr) auto}.owner-actions{flex-direction:column}.actions{flex-wrap:wrap}.actions button{flex:1 1 auto}}
+    const ownersView = this._activeView !== "matrix";
+    const headerActions = `<div class="head-actions"><button type="button" id="export-owners-csv" class="secondary" ${!this._owners.length || this._loading ? "disabled" : ""}><ha-icon icon="mdi:file-delimited-outline"></ha-icon>${escapeHtml(text(this, "exportCsv"))}</button>${ownersView && !this._showOwnerEditor ? this._ownerForm() : ""}</div>`;
+    const viewTabs = `<div class="view-tabs" role="tablist" aria-label="${escapeHtml(text(this, "title"))}"><button type="button" id="owners-view" role="tab" aria-selected="${ownersView}" class="${ownersView ? "active" : ""}"><ha-icon icon="mdi:account-multiple-outline"></ha-icon>${escapeHtml(text(this, "ownersView"))}</button><button type="button" id="matrix-view" role="tab" aria-selected="${!ownersView}" class="${ownersView ? "" : "active"}" ${this._showOwnerEditor ? "disabled" : ""}><ha-icon icon="mdi:table-large"></ha-icon>${escapeHtml(text(this, "matrixView"))}</button></div>`;
+    const ownersContent = `${this._showOwnerEditor ? this._ownerForm() : ""}<section class="list" aria-live="polite">${this._ownerList()}</section>${this._linkSection(litterPuppies, puppy, linked, litterOptions, puppyOptions)}`;
+    const content = ownersView ? ownersContent : this._matrixView();
+    const subtitle = text(this, ownersView ? "subtitle" : "matrixSubtitle");
+    this.innerHTML = `<ha-card><div class="head"><div><div class="title">${escapeHtml(this._config.title || text(this, "title"))}</div><div class="sub">${escapeHtml(subtitle)}</div></div>${headerActions}</div>${viewTabs}${content}<div id="owner-error" class="message error" role="alert">${escapeHtml(this._error)}</div><div id="owner-status" class="message" role="status" aria-live="polite">${escapeHtml(this._status)}</div></ha-card><style>
+      :host{display:block}
+      ha-card{padding:16px;container-type:inline-size;container-name:owner-card}
+      .head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+      .head-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+      .title{font-size:1.25rem;font-weight:700}
+      .sub{font-size:.85rem;color:var(--secondary-text-color);margin-top:3px}
+      .primary,.secondary,.owner-actions button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:40px;border:1px solid var(--primary-color);border-radius:8px;padding:0 12px;background:var(--primary-color);color:var(--text-primary-color,#fff);font:inherit;font-weight:600;cursor:pointer}
+      .secondary,.owner-actions button{background:var(--secondary-background-color);border-color:var(--divider-color);color:var(--primary-text-color)}
+      button:disabled{opacity:.55;cursor:default}
+      .view-tabs{display:inline-grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:3px;margin-top:14px;padding:3px;border-radius:8px;background:var(--secondary-background-color)}
+      .view-tabs button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:38px;padding:0 12px;border:0;border-radius:6px;background:transparent;color:var(--secondary-text-color);font:inherit;font-weight:600;cursor:pointer}
+      .view-tabs button.active{background:var(--card-background-color);color:var(--primary-text-color);box-shadow:0 1px 3px rgba(0,0,0,.16)}
+      .view-tabs ha-icon{--mdc-icon-size:19px}
+      .owner-editor,.link{margin-top:16px;padding-top:14px;border-top:1px solid var(--divider-color)}
+      h3{margin:0 0 10px;font-size:1rem;letter-spacing:0}
+      .form,.link-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+      .form-heading{grid-column:1/-1;margin:8px 0 0;font-size:.86rem;letter-spacing:0}
+      .form-heading:first-child{margin-top:0}
+      .form label,.link-form label{display:grid;gap:4px;color:var(--secondary-text-color);font-size:.78rem}
+      .form input,.form select,.form textarea,.form output,.link-form select{box-sizing:border-box;width:100%;min-height:42px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color);padding:9px;font:inherit}
+      .form output{display:flex;align-items:center;background:var(--secondary-background-color)}
+      .form textarea{min-height:112px;resize:vertical}
+      .wide,.checks{grid-column:1/-1}
+      .preferences{display:grid;gap:8px}
+      .preference-row{min-width:0;margin:0;padding:8px 10px 10px;border:1px solid var(--divider-color);border-radius:8px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+      .preference-row legend{padding:0 5px;color:var(--primary-text-color);font-size:.8rem;font-weight:600}
+      .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+      .list{display:grid;gap:8px;margin-top:16px}
+      .owner{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;border-top:1px solid var(--divider-color);padding-top:9px}
+      .owner-toggle{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;border:0;background:transparent;color:var(--primary-text-color);padding:5px 2px;text-align:left;font:inherit;cursor:pointer}
+      .owner-toggle span{min-width:0}
+      .owner-toggle strong,.owner-toggle small{display:block;overflow-wrap:anywhere}
+      .owner-toggle small{color:var(--secondary-text-color);margin-top:2px;font-size:.78rem}
+      .owner-actions{display:flex;gap:5px}
+      .owner-actions button{width:38px;padding:0}
+      .owner-actions ha-icon{--mdc-icon-size:19px}
+      .owner-detail{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:12px;background:var(--secondary-background-color);border-radius:8px;font-size:.85rem}
+      .owner-detail>div{min-width:0;overflow-wrap:anywhere}
+      .owner-detail span{display:block;color:var(--secondary-text-color);font-size:.72rem;margin-bottom:3px}
+      .owner-detail .wide{grid-column:1/-1}
+      .owner-detail .preformatted>div{white-space:pre-wrap;word-break:break-word}
+      .owner-detail .notes>div{max-height:none;overflow:visible}
+      .checks{min-width:0;margin:2px 0 0;padding:10px;border:1px solid var(--divider-color);border-radius:8px;display:grid;gap:7px}
+      .checks legend{padding:0 4px;color:var(--secondary-text-color);font-size:.78rem}
+      .checks label{display:flex;align-items:center;gap:7px;color:var(--primary-text-color)}
+      .empty,.message{color:var(--secondary-text-color);padding:10px 2px}
+      .message:empty{display:none}
+      .error{color:var(--error-color)}
+      .matrix-view{margin-top:14px}
+      .matrix-controls{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+      .matrix-controls>label:first-child,.mobile-puppy-select{display:grid;gap:4px;color:var(--secondary-text-color);font-size:.78rem}
+      .matrix-controls>label:first-child{flex:1 1 220px}
+      .matrix-controls select,.mobile-puppy-select select{box-sizing:border-box;width:100%;min-height:42px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color);padding:0 9px;font:inherit}
+      .matrix-toggle{display:flex;align-items:center;gap:7px;min-height:42px;color:var(--primary-text-color);font-size:.8rem}
+      .matrix-toggle input{width:18px;height:18px;accent-color:var(--primary-color)}
+      .matrix-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:14px 0;border-top:1px solid var(--divider-color);border-bottom:1px solid var(--divider-color)}
+      .matrix-summary>div{min-width:0;padding:10px;border-right:1px solid var(--divider-color)}
+      .matrix-summary>div:last-child{border-right:0}
+      .matrix-summary strong,.matrix-summary span{display:block}
+      .matrix-summary strong{font-size:1.2rem}
+      .matrix-summary span{margin-top:2px;color:var(--secondary-text-color);font-size:.72rem;overflow-wrap:anywhere}
+      .matrix-empty-state{margin-top:14px;text-align:center}
+      .matrix-scroll{max-height:min(620px,65vh);overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;border:1px solid var(--divider-color);border-radius:8px}
+      .preference-matrix{border-collapse:separate;border-spacing:0;min-width:100%;width:max-content;background:var(--card-background-color);font-size:.8rem}
+      .preference-matrix th,.preference-matrix td{box-sizing:border-box;min-width:104px;height:58px;padding:6px 8px;border-right:1px solid var(--divider-color);border-bottom:1px solid var(--divider-color);text-align:center;vertical-align:middle}
+      .preference-matrix tr>*:last-child{border-right:0}
+      .preference-matrix tfoot tr>*{border-bottom:0}
+      .preference-matrix thead th{position:sticky;top:0;z-index:3;background:var(--card-background-color)}
+      .preference-matrix .owner-column{position:sticky;left:0;z-index:2;min-width:160px;max-width:210px;text-align:left;background:var(--card-background-color)}
+      .preference-matrix thead .owner-column{z-index:4}
+      .preference-matrix tbody .owner-column strong,.preference-matrix tbody .owner-column small{display:block;overflow-wrap:anywhere}
+      .preference-matrix tbody .owner-column small{margin-top:2px;color:var(--secondary-text-color);font-weight:400}
+      .matrix-puppy{display:flex;align-items:center;justify-content:center;gap:7px;min-width:0}
+      .matrix-puppy>span:last-child{min-width:0}
+      .matrix-puppy strong,.matrix-puppy small{display:block;overflow-wrap:anywhere}
+      .matrix-puppy small{margin-top:2px;color:var(--secondary-text-color);font-weight:400}
+      .collar-swatch{display:block;flex:0 0 auto;width:18px;height:18px;border:2px solid var(--card-background-color);border-radius:50%;background:var(--collar-color);box-shadow:0 0 0 1px var(--divider-color)}
+      .matrix-cell{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:4px;width:82px;min-height:42px;padding:4px;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--primary-text-color);cursor:pointer}
+      .matrix-cell:hover,.matrix-cell.selected,.mobile-match.selected{border-color:var(--primary-color,#039be5);background:color-mix(in srgb,var(--primary-color,#039be5) 10%,transparent)}
+      .matrix-cell.conflict,.mobile-match.conflict{border-color:var(--error-color,#db4437)}
+      .rank{display:inline-flex;align-items:center;justify-content:center;width:29px;height:29px;border-radius:50%;font-weight:700}
+      .rank-1{background:var(--primary-color,#039be5);color:var(--text-primary-color,#fff)}
+      .rank-2{border:2px solid var(--primary-color,#039be5);color:var(--primary-color,#039be5)}
+      .rank-3{background:var(--secondary-background-color,#f2f2f2);color:var(--primary-text-color,#212121)}
+      .cell-icon{--mdc-icon-size:17px;color:var(--secondary-text-color)}
+      .linked-icon{color:var(--primary-color,#039be5)}
+      .conflict-icon{color:var(--error-color,#db4437)}
+      .matrix-cell .conflict-icon{position:absolute;top:1px;right:1px;--mdc-icon-size:14px}
+      .matrix-empty{color:var(--disabled-text-color,var(--secondary-text-color))}
+      .rank-totals{white-space:nowrap;color:var(--secondary-text-color);font-size:.72rem}
+      .rank-totals b{color:var(--primary-text-color)}
+      .matrix-mobile{display:none}
+      .matrix-detail{margin-top:14px;padding-top:14px;border-top:1px solid var(--divider-color)}
+      .matrix-detail[hidden]{display:none}
+      .matrix-detail-content{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:start}
+      .matrix-detail-content>div:first-child>span{display:block;color:var(--secondary-text-color);font-size:.72rem}
+      .matrix-detail-content>div:first-child>strong{display:block;margin-top:3px}
+      .matrix-detail dl{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0}
+      .matrix-detail dl>div{min-width:0}
+      .matrix-detail dt{color:var(--secondary-text-color);font-size:.72rem}
+      .matrix-detail dd{margin:3px 0 0;overflow-wrap:anywhere}
+      .matrix-detail .detail-note{grid-column:1/-1}
+      @container owner-card (max-width:620px){
+        .matrix-controls{display:grid;grid-template-columns:1fr;align-items:stretch}
+        .matrix-toggle{min-height:32px}
+        .matrix-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+        .matrix-summary>div:nth-child(2){border-right:0}
+        .matrix-summary>div:nth-child(-n+2){border-bottom:1px solid var(--divider-color)}
+        .matrix-desktop{display:none}
+        .matrix-mobile{display:block}
+        .mobile-puppy-select{margin-bottom:10px}
+        .mobile-puppy-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--divider-color)}
+        .mobile-puppy-head>span{color:var(--secondary-text-color);font-size:.75rem;white-space:nowrap}
+        .mobile-matches{display:grid}
+        .mobile-match{display:grid;grid-template-columns:42px minmax(0,1fr) auto;gap:9px;align-items:center;min-width:0;padding:10px 4px;border:1px solid transparent;border-bottom-color:var(--divider-color);background:transparent;color:var(--primary-text-color);text-align:left;font:inherit;cursor:pointer}
+        .mobile-match-rank{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:var(--secondary-background-color);font-weight:700}
+        .mobile-match-rank ha-icon{--mdc-icon-size:19px;color:var(--primary-color)}
+        .mobile-match-main{min-width:0}
+        .mobile-match-main strong,.mobile-match-main small,.mobile-match-main>span{display:block;overflow-wrap:anywhere}
+        .mobile-match-main small{margin-top:2px;color:var(--secondary-text-color);font-size:.72rem}
+        .mobile-match-main>span{margin-top:5px;font-size:.8rem;line-height:1.35}
+        .matrix-detail-content{grid-template-columns:1fr}
+        .matrix-detail-content .secondary{justify-self:start}
+        .matrix-detail dl{grid-template-columns:1fr 1fr}
+      }
+      @container owner-card (max-width:520px){
+        .head{display:grid}
+        .head-actions{display:grid;justify-content:stretch}
+        .head-actions button{width:100%}
+        .view-tabs{display:grid}
+        .form,.link-form,.owner-detail,.preference-row{grid-template-columns:1fr}
+        .wide,.checks,.owner-detail .wide{grid-column:auto}
+        .owner{grid-template-columns:minmax(0,1fr) auto}
+        .owner-actions{flex-direction:column}
+        .actions{flex-wrap:wrap}
+        .actions button{flex:1 1 auto}
+      }
     </style>`;
 
-    this.querySelector("form")?.addEventListener("submit", (event) => { event.preventDefault(); this._save(event.currentTarget); });
+    this.querySelector(".owner-editor form")?.addEventListener("submit", (event) => { event.preventDefault(); this._save(event.currentTarget); });
     this.querySelector("#export-owners-csv")?.addEventListener("click", () => this._downloadOwnersCsv());
+    this.querySelector("#owners-view")?.addEventListener("click", () => this._switchView("owners"));
+    this.querySelector("#matrix-view")?.addEventListener("click", () => this._switchView("matrix"));
     this.querySelector("#add-owner")?.addEventListener("click", () => this._openEditor());
     this.querySelector("#cancel-owner")?.addEventListener("click", () => { this._editing = null; this._showOwnerEditor = false; this._error = ""; this._render(); });
     this.querySelectorAll("[data-toggle-owner]").forEach((button) => button.addEventListener("click", () => { this._expandedOwnerId = this._expandedOwnerId === button.dataset.toggleOwner ? null : button.dataset.toggleOwner; this._render(); }));
     this.querySelectorAll("[data-edit]").forEach((button) => button.addEventListener("click", () => this._openEditor(button.dataset.edit)));
     this.querySelectorAll("[data-delete]").forEach((button) => button.addEventListener("click", () => this._delete(button.dataset.delete)));
     this.querySelectorAll('input[name="payment_amount"], input[name="registration_fee_amount"], input[name="deposit_amount"]').forEach((input) => input.addEventListener("input", () => this._updateFinalPaymentPreview()));
-    this.querySelector("#link-litter")?.addEventListener("change", (event) => { this._selectedLitter = event.target.value; this._selectedPuppy = ""; this._render(); });
+    this.querySelector("#link-litter")?.addEventListener("change", (event) => { this._selectedLitter = event.target.value; this._selectedPuppy = ""; this._matrixSelectedPuppy = ""; this._matrixSelection = null; this._render(); });
     this.querySelector("#link-puppy")?.addEventListener("change", (event) => { this._selectedPuppy = event.target.value; this._render(); });
     this.querySelector("#link-save")?.addEventListener("click", () => this._link());
+    this.querySelector("#matrix-litter")?.addEventListener("change", (event) => { this._selectedLitter = event.target.value; this._selectedPuppy = ""; this._matrixSelectedPuppy = ""; this._matrixSelection = null; this._render(); });
+    this.querySelector("#matrix-show-resolved")?.addEventListener("change", (event) => { this._matrixShowResolved = event.target.checked; this._matrixSelection = null; this._render(); });
+    this.querySelector("#matrix-only-conflicts")?.addEventListener("change", (event) => { this._matrixOnlyConflicts = event.target.checked; this._matrixSelection = null; this._render(); });
+    this.querySelector("#matrix-puppy")?.addEventListener("change", (event) => { this._matrixSelectedPuppy = event.target.value; this._matrixSelection = null; this._render(); });
+    this.querySelectorAll("[data-matrix-owner]").forEach((button) => button.addEventListener("click", () => this._selectMatrixCell(button.dataset.matrixOwner, button.dataset.matrixPuppy)));
+    this.querySelector("[data-matrix-edit-owner]")?.addEventListener("click", (event) => this._openEditor(event.currentTarget.dataset.matrixEditOwner));
   }
 }
 

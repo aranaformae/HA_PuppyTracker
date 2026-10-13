@@ -580,6 +580,15 @@ restore or later puppy removal lossless; the card renders such a reference as
 unavailable and never exposes its internal ID. Final placement still requires
 the separate `puppy_tracker/owners/link` command.
 
+The Owners card derives its preference matrix entirely from `OwnerStore`
+shortlists, litter puppy metadata and each puppy's authoritative `owner_ids`.
+No matrix, conflict or aggregate count is persisted. A conflict means more than
+one currently visible owner has the same puppy as first choice; sold and placed
+owners are excluded unless explicitly shown. Wide cards render a scrollable
+owner-by-puppy table with sticky headers. A container query replaces it with a
+puppy-focused list at narrow card widths. Cell selection updates only the local
+detail region, avoiding a full card render and preserving dashboard scroll.
+
 Full v5 backups include the owner store; partial transfers omit it because
 references cannot be remapped safely without an explicit owner-transfer flow.
 The owner's microchip value is a separate puppy `chip_number` text field and is

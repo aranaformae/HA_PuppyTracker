@@ -169,6 +169,15 @@ def test_owner_card_is_declarative_localized_and_keeps_long_notes_visible() -> N
     assert 'paymentBalance: "Werkelijk openstaand bedrag"' in source
     assert 'puppyPreferences: "Top 3 pupvoorkeuren"' in source
     assert 'puppyPreferences: "Top 3 puppy preferences"' in source
+    assert 'matrixView: "Voorkeurenmatrix"' in source
+    assert 'matrixView: "Preference matrix"' in source
+    assert 'default_view: "owners"' in source
+    assert 'value: "matrix"' in source
+    assert 'id="matrix-only-conflicts"' in source
+    assert 'id="matrix-show-resolved"' in source
+    assert 'class="matrix-mobile"' in source
+    assert 'data-matrix-owner=' in source
+    assert 'collarColor(puppy.collar_color, index)' in source
     assert 'preference1Puppy: "Pup 1e voorkeur"' in source
     assert 'preference1Puppy: "1st preference puppy"' in source
     assert 'maxlength="240"' in source

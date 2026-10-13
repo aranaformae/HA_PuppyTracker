@@ -147,6 +147,30 @@ so the original matching considerations remain available until you edit or
 clear them. If a selected puppy is later unavailable or removed, the saved
 position is shown as unavailable instead of silently switching to another pup.
 
+### Comparing preferences
+
+Use **Preference matrix** at the top of the Owners card to compare one litter at
+a time. On a wide card, owners are rows and puppies are columns. Every populated
+cell shows the preference rank, a note indicator where applicable and a link
+indicator when the owner is already connected to that puppy. Puppy headings use
+the stored collar colour, while totals below each puppy show the number of first,
+second and third choices.
+
+The summary highlights shared first choices, puppies without preferences,
+owners who have not selected a puppy for the litter and existing owner-puppy
+links. **First-choice conflicts only** reduces the matrix to the affected pups
+and owners. Sold and placed owners are hidden initially and can be revealed with
+the adjacent switch. Select a cell to read the complete preference note or open
+that owner in the editor.
+
+On a narrow card, the matrix automatically becomes a per-puppy list. Choose a
+puppy to see interested owners in rank order without horizontally scrolling the
+dashboard. These views never reserve, sell or link a puppy automatically.
+
+See [Owner puppy-preference matrix](OWNER_PREFERENCE_MATRIX.md) for the complete
+matching workflow, exact inclusion and counting rules, signal legend, mobile
+behavior and troubleshooting.
+
 ### Payments
 
 The final-payment amount is shown as a calculated read-only value:

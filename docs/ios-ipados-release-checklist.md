@@ -94,6 +94,7 @@ Test in both Companion App and Safari where practical.
 - [ ] PDF download starts and the resulting PDF opens or can be shared/saved.
 - [ ] CSV download starts and produces the selected puppy/range data.
 - [ ] Owners card can save, edit and clear three ordered puppy preferences with their notes without moving the page unexpectedly.
+- [ ] Owners preference matrix switches to the pup-focused layout in a narrow card, shows full notes and does not create horizontal page overflow.
 - [ ] Owners CSV downloads with one row per owner-puppy link, includes the preference columns and retains an unlinked owner with empty linked-puppy columns.
 - [ ] JSON backup download starts and contains the full litter backup.
 - [ ] Full backup includes owner/contact data and user-owned care-program templates.
