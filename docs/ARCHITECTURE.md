@@ -555,12 +555,25 @@ coordinated scheduler transaction. Partial litter/puppy transfers omit them.
 `OwnerStore` contains reusable contact records. Puppies store an `owner_ids`
 reference list rather than embedding personal data, which allows contacts to be
 created and edited before a puppy is selected for placement. Owner records carry
-contact details plus role, preferred contact method, placement status/date,
-payment status/date, payment amount/balance/method, status history and notes.
+contact details plus role, preferred contact method, placement status, actual
+placement date, expected pickup date, payment status, total amount, registration
+fee, deposit amount/date, actual outstanding amount, final-payment date/method,
+status history and notes. The scheduled final-payment amount is derived as
+`total - registration fee - deposit` by the shared backend helper and is never
+persisted as a second source of truth. Monetary values are normalized as
+non-negative decimal strings; registration fee plus deposit cannot exceed a
+known total.
 Full v5 backups include the owner store; partial transfers omit it because
 references cannot be remapped safely without an explicit owner-transfer flow.
 The owner's microchip value is a separate puppy `chip_number` text field and is
 not part of owner/contact storage.
+
+The Owners-card presentation CSV joins each reusable owner to its linked puppy
+and litter at export time. Puppy name, birth time (with litter birth-date
+fallback), collar colour and chip number come from the puppy profile; father and
+mother come from the litter. This keeps exported identity data current without
+duplicating it in `OwnerStore`. The configured comma or semicolon delimiter
+changes serialization only, never stored data.
 
 ## Notification architecture
 
@@ -892,6 +905,9 @@ does not remove the control or change the underlying data.
   owners and weight-alert status requires attention. Summary, weight-attention
   and owner sections remain current-state context. Owner contact data is
   emitted only when both the owner and explicit contact sections are enabled.
+  The owner section reports expected pickup and the normalized payment fields;
+  its final-payment value is calculated from the same helper used by storage
+  tests and is not read from a stale persisted total.
 
 Recurring-reminder, age-based-care and user-owned care-template definitions,
 as well as reusable owner/contact profiles, are stored outside the main Puppy

@@ -18,6 +18,7 @@ from homeassistant.util import dt as dt_util
 from .behavior import BEHAVIOR_GROUPS, BEHAVIOR_RECORD_TYPE, build_behavior_profile
 from .measurements import puppy_measurements
 from .metrics import calculate_puppy_metrics
+from .owners import final_payment_amount
 from .storage import PuppyTrackerStorage
 from .time_utils import format_local_timestamp, timestamp_sort_key
 
@@ -83,8 +84,12 @@ _PDF_LABELS = {
         "last_days": "Laatste {value} dagen", "last_hours": "Laatste {value} uur",
         "owners": "Baasjegegevens", "no_owners": "Geen gekoppelde baasjes voor de pups in dit rapport.",
         "puppy": "Pup", "owner": "Baasje", "role": "Rol", "placement": "Plaatsing",
-        "payment": "Betaling", "contact": "Contactgegevens", "amount": "Bedrag",
-        "balance": "Open", "paid": "Betaald", "email": "E-mail", "phone": "Tel", "address": "Adres",
+        "payment": "Betaling", "contact": "Contactgegevens", "amount": "Totaalbedrag",
+        "registration_fee": "Inschrijfgeld", "deposit": "Aanbetaling",
+        "final_payment": "Slotbetaling", "balance": "Werkelijk open",
+        "placement_date": "Geplaatst", "expected_pickup": "Verwacht ophalen",
+        "deposit_date": "Aanbetaling op", "paid": "Slotbetaling op",
+        "email": "E-mail", "phone": "Tel", "address": "Adres",
         "attention": "Actuele aandachtspunten", "no_attention": "Actuele status: geen actieve waarschuwingen voor de pups in dit rapport.",
         "summary": "Samenvatting", "collar": "Band", "sex": "Gesl.", "female": "Teef",
         "male": "Reu", "birth": "Geboorte", "current": "Huidig", "growth_24h": "Groei 24u",
@@ -114,8 +119,12 @@ _PDF_LABELS = {
         "last_days": "Last {value} days", "last_hours": "Last {value} hours",
         "owners": "Owner details", "no_owners": "No owners linked to the puppies in this report.",
         "puppy": "Puppy", "owner": "Owner", "role": "Role", "placement": "Placement",
-        "payment": "Payment", "contact": "Contact details", "amount": "Amount",
-        "balance": "Outstanding", "paid": "Paid", "email": "Email", "phone": "Phone", "address": "Address",
+        "payment": "Payment", "contact": "Contact details", "amount": "Total amount",
+        "registration_fee": "Registration fee", "deposit": "Deposit",
+        "final_payment": "Final payment", "balance": "Actual outstanding",
+        "placement_date": "Placed", "expected_pickup": "Expected pickup",
+        "deposit_date": "Deposit date", "paid": "Final payment date",
+        "email": "Email", "phone": "Phone", "address": "Address",
         "attention": "Current weight alerts", "no_attention": "Current status: no active weight alerts for the puppies in this report.",
         "summary": "Summary", "collar": "Collar", "sex": "Sex", "female": "Female",
         "male": "Male", "birth": "Birth", "current": "Current", "growth_24h": "Growth 24h",
@@ -836,21 +845,36 @@ def build_pdf_export(
                 placement_parts = [
                     _display_enum(
                         owner.get("placement_status"),
-                    _PDF_ENUMS[language]["placement"],
+                        _PDF_ENUMS[language]["placement"],
                         "interested",
                     )
                 ]
                 if owner.get("placement_date"):
-                    placement_parts.append(str(owner["placement_date"]))
+                    placement_parts.append(f"{t('placement_date')}: {owner['placement_date']}")
+                if owner.get("expected_pickup_date"):
+                    placement_parts.append(f"{t('expected_pickup')}: {owner['expected_pickup_date']}")
                 payment_parts = [
                     _display_enum(
                         owner.get("payment_status"),
-                    _PDF_ENUMS[language]["payment"],
+                        _PDF_ENUMS[language]["payment"],
                         "none",
                     )
                 ]
                 if owner.get("payment_amount") not in (None, ""):
                     payment_parts.append(f"{t('amount')}: {owner['payment_amount']}")
+                if owner.get("registration_fee_amount") not in (None, ""):
+                    payment_parts.append(
+                        f"{t('registration_fee')}: {owner['registration_fee_amount']}"
+                    )
+                if owner.get("deposit_amount") not in (None, ""):
+                    payment_parts.append(f"{t('deposit')}: {owner['deposit_amount']}")
+                if owner.get("deposit_date"):
+                    payment_parts.append(f"{t('deposit_date')}: {owner['deposit_date']}")
+                calculated_final_payment = final_payment_amount(owner)
+                if calculated_final_payment is not None:
+                    payment_parts.append(
+                        f"{t('final_payment')}: {calculated_final_payment}"
+                    )
                 payment_parts.append(
                     _display_enum(
                         owner.get("payment_method"),

@@ -92,11 +92,15 @@ async def test_pdf_owner_section_respects_contact_privacy(storage, install_litte
         "role": "owner",
         "placement_status": "reserved",
         "placement_date": "2026-09-01",
+        "expected_pickup_date": "2026-10-01",
         "payment_status": "deposit",
-        "payment_amount": "1250",
+        "payment_amount": "2500",
+        "registration_fee_amount": "250",
+        "deposit_amount": "500",
+        "deposit_date": "2026-09-02",
         "payment_method": "bank_transfer",
-        "payment_balance": "250",
-        "payment_date": "2026-09-02",
+        "payment_balance": "1400",
+        "payment_date": "2026-09-20",
     }
 
     _filename, _mime, encoded = build_pdf_export(
@@ -105,7 +109,10 @@ async def test_pdf_owner_section_respects_contact_privacy(storage, install_litte
     private_pdf = base64.b64decode(encoded)
     assert b"Alex" in private_pdf
     assert b"alex@example.com" not in private_pdf
-    assert b"1250" in private_pdf
+    assert b"2500" in private_pdf
+    assert b"1750" in private_pdf
+    assert b"1400" in private_pdf
+    assert b"2026-10-01" in private_pdf
 
     _filename, _mime, encoded = build_pdf_export(
         storage,

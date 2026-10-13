@@ -100,6 +100,7 @@ Add the Owners card to create and manage contacts:
 ```yaml
 type: custom:puppy-tracker-owner-card
 title: Baasjes
+csv_delimiter: comma
 ```
 
 The create/edit form starts collapsed. Select **Add owner** or edit an existing
@@ -110,27 +111,39 @@ Contact fields include:
 
 - name, email, telephone and address;
 - role and preferred contact method;
-- placement status and placement date;
-- payment status, date, amount, outstanding balance and method;
+- placement status, actual placement date and expected pickup date;
+- payment status, total amount, registration fee, deposit amount/date, actual
+  outstanding amount, final-payment date and method;
 - status history and free notes.
+
+The final-payment amount is shown as a calculated read-only value:
+`total amount - registration fee - deposit`. **Actual outstanding amount** is a
+separate editable value, so partial or additional payments after the deposit can
+be represented without changing the agreed payment schedule. The registration
+fee plus deposit cannot exceed the configured total amount.
 
 Linking contacts to a puppy is a separate section. One or more contacts can be
 linked later, and editing a contact updates the reusable information without
 duplicating it into each puppy.
 
 Use **CSV exporteren** in the Owners card to download the complete visible
-contact list for Word or another mail-merge tool. The UTF-8, semicolon-delimited
-file contains localized column headings and one row per owner-puppy link. An
+contact list for Word, Nextcloud or another mail-merge tool. The UTF-8 file
+contains localized column headings and one row per owner-puppy link. Choose
+`csv_delimiter: comma` (the default, suitable for Nextcloud) or
+`csv_delimiter: semicolon` (often convenient for regional Excel settings) in
+YAML or the visual card editor. An
 owner linked to two puppies therefore has two rows; an owner without a puppy is
 kept once with empty litter and puppy columns. Contact, placement, payment,
-notes, status history, litter, puppy, collar colour and chip number are
-included. Internal Puppy Tracker IDs are not exported.
+notes and status history are included. Linked rows also contain litter, puppy
+name, puppy birth date, collar colour, chip number, father and mother. Internal
+Puppy Tracker IDs are not exported.
 
 ## Reports and backups
 
 PDF report sections can include linked owners and, when selected, their contact,
-placement and payment details. The Owners-card CSV is a presentation export and
-cannot be restored. The full JSON backup includes contacts and puppy links.
+placement schedule and detailed payment values. The Owners-card CSV is a
+presentation export and cannot be restored. The full JSON backup includes
+contacts and puppy links.
 Partial litter and puppy transfers intentionally omit reusable contacts because
 safely remapping those links requires an explicit transfer workflow.
 

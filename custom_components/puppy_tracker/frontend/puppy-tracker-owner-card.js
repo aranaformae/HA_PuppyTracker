@@ -28,12 +28,120 @@ const PAYMENT_METHOD_LABELS = {
 
 const COPY = {
   nl: {
-    title: "Baasjes beheren", subtitle: "Contactpersonen die later aan een pup gekoppeld kunnen worden.", addOwner: "Baasje toevoegen", editOwner: "Baasje wijzigen", update: "Wijzigingen opslaan", cancel: "Annuleren", name: "Naam", email: "E-mail", phone: "Telefoon", address: "Adres", role: "Rol", placementStatus: "Plaatsingsstatus", placementDate: "Plaatsingsdatum", paymentStatus: "Betalingsstatus", paymentAmount: "Totaalbedrag", paymentBalance: "Openstaand bedrag", paymentMethod: "Betaalmethode", paymentDate: "Betaaldatum", contactPreference: "Voorkeurscontact", notes: "Notities", owners: "Baasjes", linkedPuppies: "Gekoppelde pups", noLinkedPuppies: "Geen gekoppelde pups", statusHistory: "Statusgeschiedenis", noContact: "Geen contactgegevens", linkTitle: "Baasje koppelen aan pup", linkSave: "Koppeling opslaan", litter: "Nest", puppy: "Pup", saved: "Baasje opgeslagen.", linked: "Koppeling opgeslagen.", deleted: "Baasje verwijderd.", confirmDelete: "Dit baasje verwijderen?", edit: "Bewerken", remove: "Verwijderen", loading: "Baasjes laden…", empty: "Nog geen baasjes toegevoegd.", unknown: "Niet opgegeven",
-    exportCsv: "CSV exporteren", csvDone: "Baasjes-CSV gedownload.", collarColor: "Halsbandkleur", chipNumber: "Chipnummer",
+    title: "Baasjes beheren",
+    subtitle: "Contactpersonen die later aan een pup gekoppeld kunnen worden.",
+    addOwner: "Baasje toevoegen",
+    editOwner: "Baasje wijzigen",
+    update: "Wijzigingen opslaan",
+    cancel: "Annuleren",
+    contactDetails: "Contactgegevens",
+    placementDetails: "Plaatsing",
+    paymentDetails: "Betalingen",
+    name: "Naam",
+    email: "E-mail",
+    phone: "Telefoon",
+    address: "Adres",
+    role: "Rol",
+    placementStatus: "Plaatsingsstatus",
+    placementDate: "Plaatsingsdatum",
+    expectedPickupDate: "Verwachte ophaaldatum",
+    paymentStatus: "Betalingsstatus",
+    paymentAmount: "Totaalbedrag",
+    registrationFeeAmount: "Inschrijfgeld",
+    depositAmount: "Bedrag aanbetaling",
+    depositDate: "Datum aanbetaling",
+    finalPaymentAmount: "Slotbetaling (berekend)",
+    paymentBalance: "Werkelijk openstaand bedrag",
+    paymentMethod: "Betaalmethode",
+    paymentDate: "Datum slotbetaling",
+    contactPreference: "Voorkeurscontact",
+    notes: "Notities",
+    owners: "Baasjes",
+    linkedPuppies: "Gekoppelde pups",
+    noLinkedPuppies: "Geen gekoppelde pups",
+    statusHistory: "Statusgeschiedenis",
+    noContact: "Geen contactgegevens",
+    linkTitle: "Baasje koppelen aan pup",
+    linkSave: "Koppeling opslaan",
+    litter: "Nest",
+    puppy: "Pup",
+    puppyName: "Naam pup",
+    puppyBirthDate: "Geboortedatum pup",
+    puppyCollarColor: "Halsbandkleur pup",
+    puppyFather: "Vader pup",
+    puppyMother: "Moeder pup",
+    chipNumber: "Chipnummer pup",
+    saved: "Baasje opgeslagen.",
+    linked: "Koppeling opgeslagen.",
+    deleted: "Baasje verwijderd.",
+    confirmDelete: "Dit baasje verwijderen?",
+    edit: "Bewerken",
+    remove: "Verwijderen",
+    loading: "Baasjes laden…",
+    empty: "Nog geen baasjes toegevoegd.",
+    unknown: "Niet opgegeven",
+    exportCsv: "CSV exporteren",
+    csvDone: "Baasjes-CSV gedownload.",
+    csvComma: "Komma (,) - Nextcloud",
+    csvSemicolon: "Puntkomma (;) - Excel NL",
   },
   en: {
-    title: "Manage owners", subtitle: "Contacts that can be linked to a puppy later.", addOwner: "Add owner", editOwner: "Edit owner", update: "Save changes", cancel: "Cancel", name: "Name", email: "Email", phone: "Phone", address: "Address", role: "Role", placementStatus: "Placement status", placementDate: "Placement date", paymentStatus: "Payment status", paymentAmount: "Total amount", paymentBalance: "Outstanding amount", paymentMethod: "Payment method", paymentDate: "Payment date", contactPreference: "Preferred contact", notes: "Notes", owners: "Owners", linkedPuppies: "Linked puppies", noLinkedPuppies: "No linked puppies", statusHistory: "Status history", noContact: "No contact details", linkTitle: "Link owner to puppy", linkSave: "Save link", litter: "Litter", puppy: "Puppy", saved: "Owner saved.", linked: "Link saved.", deleted: "Owner deleted.", confirmDelete: "Delete this owner?", edit: "Edit", remove: "Delete", loading: "Loading owners…", empty: "No owners added yet.", unknown: "Not specified",
-    exportCsv: "Export CSV", csvDone: "Owner CSV downloaded.", collarColor: "Collar color", chipNumber: "Microchip number",
+    title: "Manage owners",
+    subtitle: "Contacts that can be linked to a puppy later.",
+    addOwner: "Add owner",
+    editOwner: "Edit owner",
+    update: "Save changes",
+    cancel: "Cancel",
+    contactDetails: "Contact details",
+    placementDetails: "Placement",
+    paymentDetails: "Payments",
+    name: "Name",
+    email: "Email",
+    phone: "Phone",
+    address: "Address",
+    role: "Role",
+    placementStatus: "Placement status",
+    placementDate: "Placement date",
+    expectedPickupDate: "Expected pickup date",
+    paymentStatus: "Payment status",
+    paymentAmount: "Total amount",
+    registrationFeeAmount: "Registration fee",
+    depositAmount: "Deposit amount",
+    depositDate: "Deposit date",
+    finalPaymentAmount: "Final payment (calculated)",
+    paymentBalance: "Actual outstanding amount",
+    paymentMethod: "Payment method",
+    paymentDate: "Final payment date",
+    contactPreference: "Preferred contact",
+    notes: "Notes",
+    owners: "Owners",
+    linkedPuppies: "Linked puppies",
+    noLinkedPuppies: "No linked puppies",
+    statusHistory: "Status history",
+    noContact: "No contact details",
+    linkTitle: "Link owner to puppy",
+    linkSave: "Save link",
+    litter: "Litter",
+    puppy: "Puppy",
+    puppyName: "Puppy name",
+    puppyBirthDate: "Puppy birth date",
+    puppyCollarColor: "Puppy collar color",
+    puppyFather: "Puppy father",
+    puppyMother: "Puppy mother",
+    chipNumber: "Puppy microchip number",
+    saved: "Owner saved.",
+    linked: "Link saved.",
+    deleted: "Owner deleted.",
+    confirmDelete: "Delete this owner?",
+    edit: "Edit",
+    remove: "Delete",
+    loading: "Loading owners…",
+    empty: "No owners added yet.",
+    unknown: "Not specified",
+    exportCsv: "Export CSV",
+    csvDone: "Owner CSV downloaded.",
+    csvComma: "Comma (,) - Nextcloud",
+    csvSemicolon: "Semicolon (;) - Excel NL",
   },
 };
 
@@ -65,6 +173,31 @@ function csvCell(value) {
   return `"${String(value ?? "").replace(/\r\n?/g, "\n").replaceAll('"', '""')}"`;
 }
 
+function configuredCsvDelimiter(config) {
+  return config?.csv_delimiter === "semicolon" || config?.csv_delimiter === ";" ? ";" : ",";
+}
+
+function dateOnly(value, fallback = "") {
+  const selected = String(value || fallback || "");
+  return /^\d{4}-\d{2}-\d{2}/.test(selected) ? selected.slice(0, 10) : selected;
+}
+
+function numericAmount(value) {
+  if (value === null || value === undefined || String(value).trim() === "") return null;
+  const parsed = Number(String(value).trim().replace(",", "."));
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function finalPaymentAmount(values) {
+  const total = numericAmount(values?.payment_amount);
+  if (total === null) return "";
+  const registrationFee = numericAmount(values?.registration_fee_amount) ?? 0;
+  const deposit = numericAmount(values?.deposit_amount) ?? 0;
+  const result = Math.round((total - registrationFee - deposit + Number.EPSILON) * 100) / 100;
+  if (result < 0) return "";
+  return result.toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1");
+}
+
 function csvFilename() {
   const stamp = new Date().toISOString().replaceAll("-", "").replaceAll(":", "").slice(0, 15);
   return `puppy-tracker-owners-${stamp}Z.csv`;
@@ -90,11 +223,20 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     this._busy = false;
   }
 
-  static getStubConfig() { return { title: "" }; }
-  static getConfigForm() { return { schema: [{ name: "title", selector: { text: {} } }] }; }
+  static getStubConfig() { return { title: "", csv_delimiter: "comma" }; }
+  static getConfigForm() {
+    const configCard = { _hass: document.querySelector("home-assistant")?.hass || null };
+    return { schema: [
+      { name: "title", selector: { text: {} } },
+      { name: "csv_delimiter", selector: { select: { mode: "dropdown", options: [
+        { value: "comma", label: text(configCard, "csvComma") },
+        { value: "semicolon", label: text(configCard, "csvSemicolon") },
+      ] } } },
+    ] };
+  }
 
   setConfig(config) {
-    this._config = { title: "", ...config };
+    this._config = { ...PuppyTrackerOwnerCard.getStubConfig(), ...config };
     this._render();
     if (this._hass && !this._loaded) this._load();
   }
@@ -126,7 +268,14 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       if (!this._selectedLitter && this._litters[0]) this._selectedLitter = this._litters[0].id;
       const data = await Promise.all(this._litters.map(async (litter) => {
         const result = await this._hass.callWS({ type: "puppy_tracker/data", litter_id: litter.id });
-        return (result?.puppies || []).map((puppy) => ({ ...puppy, litter_id: litter.id, litter_name: litter.name || text(this, "litter") }));
+        return (result?.puppies || []).map((puppy) => ({
+          ...puppy,
+          litter_id: litter.id,
+          litter_name: litter.name || text(this, "litter"),
+          litter_birth_date: litter.birth_date,
+          mother: litter.mother,
+          father: litter.father,
+        }));
       }));
       this._puppies = data.flat();
       this._loaded = true;
@@ -205,9 +354,11 @@ class PuppyTrackerOwnerCard extends HTMLElement {
   _ownerCsvContent() {
     const headers = [
       "name", "email", "phone", "address", "role", "contactPreference",
-      "placementStatus", "placementDate", "paymentStatus", "paymentDate",
-      "paymentAmount", "paymentBalance", "paymentMethod", "notes",
-      "statusHistory", "litter", "puppy", "collarColor", "chipNumber",
+      "placementStatus", "placementDate", "expectedPickupDate", "paymentStatus",
+      "paymentAmount", "registrationFeeAmount", "depositAmount", "depositDate",
+      "finalPaymentAmount", "paymentBalance", "paymentMethod", "paymentDate",
+      "notes", "statusHistory", "litter", "puppyName", "puppyBirthDate",
+      "puppyCollarColor", "chipNumber", "puppyFather", "puppyMother",
     ].map((key) => text(this, key));
     const rows = [headers];
     for (const owner of this._owners) {
@@ -224,11 +375,16 @@ class PuppyTrackerOwnerCard extends HTMLElement {
         optionLabel(this, owner.contact_preference, CONTACT_PREFERENCE_LABELS, "none"),
         optionLabel(this, owner.placement_status, PLACEMENT_STATUS_LABELS, "interested"),
         owner.placement_date,
+        owner.expected_pickup_date,
         optionLabel(this, owner.payment_status, PAYMENT_STATUS_LABELS, "none"),
-        owner.payment_date,
         owner.payment_amount,
+        owner.registration_fee_amount,
+        owner.deposit_amount,
+        owner.deposit_date,
+        finalPaymentAmount(owner),
         owner.payment_balance,
         optionLabel(this, owner.payment_method, PAYMENT_METHOD_LABELS, "none"),
+        owner.payment_date,
         owner.notes,
         history,
       ];
@@ -240,12 +396,16 @@ class PuppyTrackerOwnerCard extends HTMLElement {
           ...ownerValues,
           puppy?.litter_name,
           puppy?.name,
+          puppy ? dateOnly(puppy.birth_time, puppy.litter_birth_date) : "",
           puppy?.collar_color,
           puppy?.chip_number,
+          puppy?.father,
+          puppy?.mother,
         ]);
       }
     }
-    return `\ufeff${rows.map((row) => row.map(csvCell).join(";")).join("\r\n")}\r\n`;
+    const delimiter = configuredCsvDelimiter(this._config);
+    return `\ufeff${rows.map((row) => row.map(csvCell).join(delimiter)).join("\r\n")}\r\n`;
   }
 
   _downloadOwnersCsv() {
@@ -284,8 +444,13 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       ${this._detail(text(this, "role"), optionLabel(this, owner.role, OWNER_ROLE_LABELS, "owner"))}
       ${this._detail(text(this, "placementStatus"), optionLabel(this, owner.placement_status, PLACEMENT_STATUS_LABELS, "interested"))}
       ${this._detail(text(this, "placementDate"), formattedDate(this, owner.placement_date))}
+      ${this._detail(text(this, "expectedPickupDate"), formattedDate(this, owner.expected_pickup_date))}
       ${this._detail(text(this, "paymentStatus"), optionLabel(this, owner.payment_status, PAYMENT_STATUS_LABELS, "none"))}
       ${this._detail(text(this, "paymentAmount"), owner.payment_amount ?? "—")}
+      ${this._detail(text(this, "registrationFeeAmount"), owner.registration_fee_amount ?? "—")}
+      ${this._detail(text(this, "depositAmount"), owner.deposit_amount ?? "—")}
+      ${this._detail(text(this, "depositDate"), formattedDate(this, owner.deposit_date))}
+      ${this._detail(text(this, "finalPaymentAmount"), finalPaymentAmount(owner) || "—")}
       ${this._detail(text(this, "paymentMethod"), optionLabel(this, owner.payment_method, PAYMENT_METHOD_LABELS, "none"))}
       ${this._detail(text(this, "paymentBalance"), owner.payment_balance ?? "—")}
       ${this._detail(text(this, "paymentDate"), formattedDate(this, owner.payment_date))}
@@ -316,19 +481,27 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     if (!this._showOwnerEditor) return `<button type="button" id="add-owner" class="primary add-owner"><ha-icon icon="mdi:plus"></ha-icon>${escapeHtml(text(this, "addOwner"))}</button>`;
     const owner = this._owners.find((item) => item.id === this._editing) || {};
     return `<section class="owner-editor"><h3>${escapeHtml(text(this, this._editing ? "editOwner" : "addOwner"))}</h3><form class="form">
+      <h4 class="form-heading">${escapeHtml(text(this, "contactDetails"))}</h4>
       <label><span>${escapeHtml(text(this, "name"))}</span><input name="name" required autocomplete="name" value="${escapeHtml(owner.name || "")}"></label>
       <label><span>${escapeHtml(text(this, "email"))}</span><input name="email" type="email" autocomplete="email" value="${escapeHtml(owner.email || "")}"></label>
       <label><span>${escapeHtml(text(this, "phone"))}</span><input name="phone" autocomplete="tel" value="${escapeHtml(owner.phone || "")}"></label>
       <label><span>${escapeHtml(text(this, "address"))}</span><input name="address" autocomplete="street-address" value="${escapeHtml(owner.address || "")}"></label>
       ${selectField(this, "role", text(this, "role"), OWNER_ROLE_LABELS, owner.role || "owner")}
+      ${selectField(this, "contact_preference", text(this, "contactPreference"), CONTACT_PREFERENCE_LABELS, owner.contact_preference || "none")}
+      <h4 class="form-heading">${escapeHtml(text(this, "placementDetails"))}</h4>
       ${selectField(this, "placement_status", text(this, "placementStatus"), PLACEMENT_STATUS_LABELS, owner.placement_status || "interested")}
       <label><span>${escapeHtml(text(this, "placementDate"))}</span><input name="placement_date" type="date" value="${escapeHtml(owner.placement_date || "")}"></label>
+      <label><span>${escapeHtml(text(this, "expectedPickupDate"))}</span><input name="expected_pickup_date" type="date" value="${escapeHtml(owner.expected_pickup_date || "")}"></label>
+      <h4 class="form-heading">${escapeHtml(text(this, "paymentDetails"))}</h4>
       ${selectField(this, "payment_status", text(this, "paymentStatus"), PAYMENT_STATUS_LABELS, owner.payment_status || "none")}
-      <label><span>${escapeHtml(text(this, "paymentAmount"))}</span><input name="payment_amount" type="number" step="any" inputmode="decimal" value="${escapeHtml(owner.payment_amount ?? "")}"></label>
-      <label><span>${escapeHtml(text(this, "paymentBalance"))}</span><input name="payment_balance" type="number" step="any" inputmode="decimal" value="${escapeHtml(owner.payment_balance ?? "")}"></label>
+      <label><span>${escapeHtml(text(this, "paymentAmount"))}</span><input name="payment_amount" type="number" min="0" step="0.01" inputmode="decimal" value="${escapeHtml(owner.payment_amount ?? "")}"></label>
+      <label><span>${escapeHtml(text(this, "registrationFeeAmount"))}</span><input name="registration_fee_amount" type="number" min="0" step="0.01" inputmode="decimal" value="${escapeHtml(owner.registration_fee_amount ?? "")}"></label>
+      <label><span>${escapeHtml(text(this, "depositAmount"))}</span><input name="deposit_amount" type="number" min="0" step="0.01" inputmode="decimal" value="${escapeHtml(owner.deposit_amount ?? "")}"></label>
+      <label><span>${escapeHtml(text(this, "depositDate"))}</span><input name="deposit_date" type="date" value="${escapeHtml(owner.deposit_date || "")}"></label>
+      <label class="calculated"><span>${escapeHtml(text(this, "finalPaymentAmount"))}</span><output id="final-payment-amount">${escapeHtml(finalPaymentAmount(owner) || "—")}</output></label>
+      <label><span>${escapeHtml(text(this, "paymentBalance"))}</span><input name="payment_balance" type="number" min="0" step="0.01" inputmode="decimal" value="${escapeHtml(owner.payment_balance ?? "")}"></label>
       ${selectField(this, "payment_method", text(this, "paymentMethod"), PAYMENT_METHOD_LABELS, owner.payment_method || "none")}
       <label><span>${escapeHtml(text(this, "paymentDate"))}</span><input name="payment_date" type="date" value="${escapeHtml(owner.payment_date || "")}"></label>
-      ${selectField(this, "contact_preference", text(this, "contactPreference"), CONTACT_PREFERENCE_LABELS, owner.contact_preference || "none")}
       <label class="wide"><span>${escapeHtml(text(this, "notes"))}</span><textarea name="notes" rows="5">${escapeHtml(owner.notes || "")}</textarea></label>
       <div class="actions wide"><button type="button" class="secondary" id="cancel-owner">${escapeHtml(text(this, "cancel"))}</button><button type="submit" class="primary">${escapeHtml(text(this, this._editing ? "update" : "addOwner"))}</button></div>
     </form></section>`;
@@ -336,6 +509,13 @@ class PuppyTrackerOwnerCard extends HTMLElement {
 
   _linkSection(litterPuppies, puppy, linked, litterOptions, puppyOptions) {
     return `<section class="link"><h3>${escapeHtml(text(this, "linkTitle"))}</h3><div class="link-form"><label><span>${escapeHtml(text(this, "litter"))}</span><select id="link-litter">${litterOptions}</select></label><label><span>${escapeHtml(text(this, "puppy"))}</span><select id="link-puppy" ${litterPuppies.length ? "" : "disabled"}>${puppyOptions}</select></label><fieldset class="checks"><legend>${escapeHtml(text(this, "owners"))}</legend>${this._owners.map((owner) => `<label><input type="checkbox" name="linked_owner" value="${escapeHtml(owner.id)}" ${linked.has(owner.id) ? "checked" : ""}>${escapeHtml(owner.name)}</label>`).join("") || `<span class="empty">${escapeHtml(text(this, "empty"))}</span>`}</fieldset></div><div class="actions"><button type="button" id="link-save" class="primary" ${!puppy || this._busy ? "disabled" : ""}>${escapeHtml(text(this, "linkSave"))}</button></div></section>`;
+  }
+
+  _updateFinalPaymentPreview() {
+    const form = this.querySelector(".owner-editor form");
+    const output = this.querySelector("#final-payment-amount");
+    if (!form || !output) return;
+    output.textContent = finalPaymentAmount(Object.fromEntries(new FormData(form).entries())) || "—";
   }
 
   _render() {
@@ -349,7 +529,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
 
     const headerActions = `<div class="head-actions"><button type="button" id="export-owners-csv" class="secondary" ${!this._owners.length || this._loading ? "disabled" : ""}><ha-icon icon="mdi:file-delimited-outline"></ha-icon>${escapeHtml(text(this, "exportCsv"))}</button>${this._showOwnerEditor ? "" : this._ownerForm()}</div>`;
     this.innerHTML = `<ha-card><div class="head"><div><div class="title">${escapeHtml(this._config.title || text(this, "title"))}</div><div class="sub">${escapeHtml(text(this, "subtitle"))}</div></div>${headerActions}</div>${this._showOwnerEditor ? this._ownerForm() : ""}<section class="list" aria-live="polite">${this._ownerList()}</section>${this._linkSection(litterPuppies, puppy, linked, litterOptions, puppyOptions)}<div id="owner-error" class="message error" role="alert">${escapeHtml(this._error)}</div><div id="owner-status" class="message" role="status" aria-live="polite">${escapeHtml(this._status)}</div></ha-card><style>
-      :host{display:block}ha-card{padding:16px}.head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.head-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}.title{font-size:1.25rem;font-weight:700}.sub{font-size:.85rem;color:var(--secondary-text-color);margin-top:3px}.primary,.secondary,.owner-actions button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:40px;border:1px solid var(--primary-color);border-radius:8px;padding:0 12px;background:var(--primary-color);color:var(--text-primary-color,#fff);font:inherit;font-weight:600;cursor:pointer}.secondary,.owner-actions button{background:var(--secondary-background-color);border-color:var(--divider-color);color:var(--primary-text-color)}button:disabled{opacity:.55;cursor:default}.owner-editor,.link{margin-top:16px;padding-top:14px;border-top:1px solid var(--divider-color)}h3{margin:0 0 10px;font-size:1rem;letter-spacing:0}.form,.link-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.form label,.link-form label{display:grid;gap:4px;color:var(--secondary-text-color);font-size:.78rem}.form input,.form select,.form textarea,.link-form select{box-sizing:border-box;width:100%;min-height:42px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color);padding:9px;font:inherit}.form textarea{min-height:112px;resize:vertical}.wide,.checks{grid-column:1/-1}.actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}.list{display:grid;gap:8px;margin-top:16px}.owner{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;border-top:1px solid var(--divider-color);padding-top:9px}.owner-toggle{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;border:0;background:transparent;color:var(--primary-text-color);padding:5px 2px;text-align:left;font:inherit;cursor:pointer}.owner-toggle span{min-width:0}.owner-toggle strong,.owner-toggle small{display:block;overflow-wrap:anywhere}.owner-toggle small{color:var(--secondary-text-color);margin-top:2px;font-size:.78rem}.owner-actions{display:flex;gap:5px}.owner-actions button{width:38px;padding:0}.owner-actions ha-icon{--mdc-icon-size:19px}.owner-detail{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:12px;background:var(--secondary-background-color);border-radius:8px;font-size:.85rem}.owner-detail>div{min-width:0;overflow-wrap:anywhere}.owner-detail span{display:block;color:var(--secondary-text-color);font-size:.72rem;margin-bottom:3px}.owner-detail .wide{grid-column:1/-1}.owner-detail .preformatted>div{white-space:pre-wrap;word-break:break-word}.owner-detail .notes>div{max-height:none;overflow:visible}.checks{min-width:0;margin:2px 0 0;padding:10px;border:1px solid var(--divider-color);border-radius:8px;display:grid;gap:7px}.checks legend{padding:0 4px;color:var(--secondary-text-color);font-size:.78rem}.checks label{display:flex;align-items:center;gap:7px;color:var(--primary-text-color)}.empty,.message{color:var(--secondary-text-color);padding:10px 2px}.message:empty{display:none}.error{color:var(--error-color)}@media(max-width:520px){.head{display:grid}.head-actions{display:grid;justify-content:stretch}.head-actions button{width:100%}.form,.link-form,.owner-detail{grid-template-columns:1fr}.wide,.checks,.owner-detail .wide{grid-column:auto}.owner{grid-template-columns:minmax(0,1fr) auto}.owner-actions{flex-direction:column}.actions{flex-wrap:wrap}.actions button{flex:1 1 auto}}
+      :host{display:block}ha-card{padding:16px}.head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.head-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}.title{font-size:1.25rem;font-weight:700}.sub{font-size:.85rem;color:var(--secondary-text-color);margin-top:3px}.primary,.secondary,.owner-actions button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:40px;border:1px solid var(--primary-color);border-radius:8px;padding:0 12px;background:var(--primary-color);color:var(--text-primary-color,#fff);font:inherit;font-weight:600;cursor:pointer}.secondary,.owner-actions button{background:var(--secondary-background-color);border-color:var(--divider-color);color:var(--primary-text-color)}button:disabled{opacity:.55;cursor:default}.owner-editor,.link{margin-top:16px;padding-top:14px;border-top:1px solid var(--divider-color)}h3{margin:0 0 10px;font-size:1rem;letter-spacing:0}.form,.link-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.form-heading{grid-column:1/-1;margin:8px 0 0;font-size:.86rem;letter-spacing:0}.form-heading:first-child{margin-top:0}.form label,.link-form label{display:grid;gap:4px;color:var(--secondary-text-color);font-size:.78rem}.form input,.form select,.form textarea,.form output,.link-form select{box-sizing:border-box;width:100%;min-height:42px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color);padding:9px;font:inherit}.form output{display:flex;align-items:center;background:var(--secondary-background-color)}.form textarea{min-height:112px;resize:vertical}.wide,.checks{grid-column:1/-1}.actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}.list{display:grid;gap:8px;margin-top:16px}.owner{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;border-top:1px solid var(--divider-color);padding-top:9px}.owner-toggle{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;border:0;background:transparent;color:var(--primary-text-color);padding:5px 2px;text-align:left;font:inherit;cursor:pointer}.owner-toggle span{min-width:0}.owner-toggle strong,.owner-toggle small{display:block;overflow-wrap:anywhere}.owner-toggle small{color:var(--secondary-text-color);margin-top:2px;font-size:.78rem}.owner-actions{display:flex;gap:5px}.owner-actions button{width:38px;padding:0}.owner-actions ha-icon{--mdc-icon-size:19px}.owner-detail{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:12px;background:var(--secondary-background-color);border-radius:8px;font-size:.85rem}.owner-detail>div{min-width:0;overflow-wrap:anywhere}.owner-detail span{display:block;color:var(--secondary-text-color);font-size:.72rem;margin-bottom:3px}.owner-detail .wide{grid-column:1/-1}.owner-detail .preformatted>div{white-space:pre-wrap;word-break:break-word}.owner-detail .notes>div{max-height:none;overflow:visible}.checks{min-width:0;margin:2px 0 0;padding:10px;border:1px solid var(--divider-color);border-radius:8px;display:grid;gap:7px}.checks legend{padding:0 4px;color:var(--secondary-text-color);font-size:.78rem}.checks label{display:flex;align-items:center;gap:7px;color:var(--primary-text-color)}.empty,.message{color:var(--secondary-text-color);padding:10px 2px}.message:empty{display:none}.error{color:var(--error-color)}@media(max-width:520px){.head{display:grid}.head-actions{display:grid;justify-content:stretch}.head-actions button{width:100%}.form,.link-form,.owner-detail{grid-template-columns:1fr}.wide,.checks,.owner-detail .wide{grid-column:auto}.owner{grid-template-columns:minmax(0,1fr) auto}.owner-actions{flex-direction:column}.actions{flex-wrap:wrap}.actions button{flex:1 1 auto}}
     </style>`;
 
     this.querySelector("form")?.addEventListener("submit", (event) => { event.preventDefault(); this._save(event.currentTarget); });
@@ -359,6 +539,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     this.querySelectorAll("[data-toggle-owner]").forEach((button) => button.addEventListener("click", () => { this._expandedOwnerId = this._expandedOwnerId === button.dataset.toggleOwner ? null : button.dataset.toggleOwner; this._render(); }));
     this.querySelectorAll("[data-edit]").forEach((button) => button.addEventListener("click", () => this._openEditor(button.dataset.edit)));
     this.querySelectorAll("[data-delete]").forEach((button) => button.addEventListener("click", () => this._delete(button.dataset.delete)));
+    this.querySelectorAll('input[name="payment_amount"], input[name="registration_fee_amount"], input[name="deposit_amount"]').forEach((input) => input.addEventListener("input", () => this._updateFinalPaymentPreview()));
     this.querySelector("#link-litter")?.addEventListener("change", (event) => { this._selectedLitter = event.target.value; this._selectedPuppy = ""; this._render(); });
     this.querySelector("#link-puppy")?.addEventListener("change", (event) => { this._selectedPuppy = event.target.value; this._render(); });
     this.querySelector("#link-save")?.addEventListener("click", () => this._link());

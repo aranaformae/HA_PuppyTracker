@@ -163,15 +163,25 @@ test("owner dates and stored values are labeled and localized", async ({ page })
   await page.goto("/tests/e2e/cards.html?production=1");
   await page.waitForFunction(() => window.__puppyTrackerReady);
   await page.evaluate(() => {
-    const owner = { id: "o1", name: "Alex", role: "owner", placement_status: "reserved", placement_date: "2026-09-01", payment_status: "registration_fee", payment_date: "2026-09-02", notes: "A long note that must remain completely visible." };
+    window.calls = [];
+    const owner = {
+      id: "o1", name: "Alex", role: "owner", placement_status: "reserved",
+      placement_date: "2026-09-01", expected_pickup_date: "2026-10-01",
+      payment_status: "deposit", payment_amount: "2500", registration_fee_amount: "250",
+      deposit_amount: "500", deposit_date: "2026-09-02", payment_balance: "1400",
+      payment_method: "bank_transfer", payment_date: "2026-09-20",
+      notes: "A long note that must remain completely visible.",
+    };
     const card = document.createElement("puppy-tracker-owner-card");
     card.setConfig({});
     document.querySelector("#cards").append(card);
     card.hass = {
       language: "en", locale: { language: "en" },
       callWS: async (message) => {
+        window.calls.push(message);
         if (message.type === "puppy_tracker/owners/list") return { owners: [owner] };
         if (message.type === "puppy_tracker/litters") return { litters: [] };
+        if (message.type === "puppy_tracker/owners/save") return { owner };
         throw new Error(message.type);
       },
     };
@@ -183,10 +193,25 @@ test("owner dates and stored values are labeled and localized", async ({ page })
   await expect(card.locator(".owner-detail .notes")).toContainText("A long note that must remain completely visible.");
   await card.locator("[data-edit='o1']").click();
   await expect(card.locator('label:has-text("Placement date") input[name="placement_date"]')).toHaveValue("2026-09-01");
-  await expect(card.locator('label:has-text("Payment date") input[name="payment_date"]')).toHaveValue("2026-09-02");
+  await expect(card.locator('label:has-text("Expected pickup date") input[name="expected_pickup_date"]')).toHaveValue("2026-10-01");
+  await expect(card.locator('input[name="deposit_date"]')).toHaveValue("2026-09-02");
+  await expect(card.locator('input[name="payment_date"]')).toHaveValue("2026-09-20");
+  await expect(card.locator("#final-payment-amount")).toHaveText("1750");
+  await card.locator('input[name="deposit_amount"]').fill("600");
+  await expect(card.locator("#final-payment-amount")).toHaveText("1650");
+  await card.locator(".owner-editor form button[type='submit']").click();
+  await expect.poll(() => page.evaluate(() => window.calls.find((message) => message.type === "puppy_tracker/owners/save"))).toMatchObject({
+    owner_id: "o1",
+    expected_pickup_date: "2026-10-01",
+    payment_amount: "2500",
+    registration_fee_amount: "250",
+    deposit_amount: "600",
+    deposit_date: "2026-09-02",
+    payment_balance: "1400",
+  });
 });
 
-test("owner CSV exports one row per puppy link and keeps unlinked owners", async ({ page }) => {
+test("owner CSV is comma-separated, keeps unlinked owners and exports one row per puppy link", async ({ page }) => {
   await page.goto("/tests/e2e/cards.html?production=1");
   await page.waitForFunction(() => window.__puppyTrackerReady);
   await page.evaluate(() => {
@@ -196,17 +221,21 @@ test("owner CSV exports one row per puppy link and keeps unlinked owners", async
         name: "Alex",
         email: "alex@example.com",
         phone: "+31612345678",
-        address: "Main street 1",
+        address: "Main street 1, Amsterdam",
         role: "owner",
         contact_preference: "email",
         placement_status: "reserved",
         placement_date: "2026-09-01",
+        expected_pickup_date: "2026-10-01",
         payment_status: "registration_fee",
-        payment_date: "2026-09-02",
+        payment_date: "2026-09-20",
         payment_amount: "2500",
-        payment_balance: "2250",
+        registration_fee_amount: "250",
+        deposit_amount: "500",
+        deposit_date: "2026-09-02",
+        payment_balance: "1400",
         payment_method: "bank_transfer",
-        notes: 'Contract "signed"; ready',
+        notes: 'Contract "signed"; ready, paid',
         status_history: [{ status: "interested", changed_at: "2026-08-01T10:00:00Z" }],
       },
       {
@@ -227,9 +256,12 @@ test("owner CSV exports one row per puppy link and keeps unlinked owners", async
       language: "en", locale: { language: "en" },
       callWS: async (message) => {
         if (message.type === "puppy_tracker/owners/list") return { owners };
-        if (message.type === "puppy_tracker/litters") return { litters: [{ id: "l1", name: "First" }, { id: "l2", name: "Second" }] };
+        if (message.type === "puppy_tracker/litters") return { litters: [
+          { id: "l1", name: "First", birth_date: "2026-06-01", mother: "Luna", father: "Max" },
+          { id: "l2", name: "Second", birth_date: "2026-07-02", mother: "Nova", father: "Cooper" },
+        ] };
         if (message.type === "puppy_tracker/data" && message.litter_id === "l1") {
-          return { puppies: [{ id: "p1", name: "Red", collar_color: "red", chip_number: "0001", owner_ids: ["owner-alex"] }] };
+          return { puppies: [{ id: "p1", name: "Red", birth_time: "2026-06-01T03:15:00+02:00", collar_color: "red", chip_number: "0001", owner_ids: ["owner-alex"] }] };
         }
         if (message.type === "puppy_tracker/data" && message.litter_id === "l2") {
           return { puppies: [{ id: "p2", name: "Blue", collar_color: "blue", chip_number: "0002", owner_ids: ["owner-alex"] }] };
@@ -248,17 +280,34 @@ test("owner CSV exports one row per puppy link and keeps unlinked owners", async
   const content = await readFile(await download.path(), "utf8");
 
   expect(content.charCodeAt(0)).toBe(0xfeff);
-  expect(content).toContain('"Name";"Email";"Phone";"Address";"Role"');
-  expect(content).toContain('"Contract ""signed""; ready"');
-  expect(content).toContain('"First";"Red";"red";"0001"');
-  expect(content).toContain('"Second";"Blue";"blue";"0002"');
-  expect(content.match(/"Alex";/g)).toHaveLength(2);
-  expect(content.match(/"Blair";/g)).toHaveLength(1);
-  const blairRow = content.split("\r\n").find((row) => row.startsWith('"Blair";'));
-  expect(blairRow).toMatch(/;"";"";"";""$/);
+  const header = content.slice(1).split("\r\n")[0];
+  expect(header).toContain('"Name","Email","Phone","Address","Role"');
+  expect(header).toContain('"Expected pickup date"');
+  expect(header).toContain('"Final payment (calculated)","Actual outstanding amount"');
+  expect(header).toContain('"Puppy name","Puppy birth date","Puppy collar color"');
+  expect(header).toContain('"Puppy father","Puppy mother"');
+  expect(header).not.toContain('";"');
+  expect(content).toContain('"Main street 1, Amsterdam"');
+  expect(content).toContain('"Contract ""signed""; ready, paid"');
+  expect(content).toContain('"First","Red","2026-06-01","red","0001","Max","Luna"');
+  expect(content).toContain('"Second","Blue","2026-07-02","blue","0002","Cooper","Nova"');
+  expect(content).toContain('"2500","250","500","2026-09-02","1750","1400"');
+  expect(content.match(/"Alex",/g)).toHaveLength(2);
+  expect(content.match(/"Blair",/g)).toHaveLength(1);
+  const blairRow = content.split("\r\n").find((row) => row.startsWith('"Blair",'));
+  expect(blairRow).toMatch(/(?:,""){7}$/);
   expect(content).not.toContain("owner-alex");
   expect(content).not.toContain("owner-blair");
   await expect(card.locator("#owner-status")).toHaveText("Owner CSV downloaded.");
+
+  await card.evaluate((element) => element.setConfig({ csv_delimiter: "semicolon" }));
+  const semicolonDownloadPromise = page.waitForEvent("download");
+  await card.locator("#export-owners-csv").click();
+  const semicolonDownload = await semicolonDownloadPromise;
+  const semicolonContent = await readFile(await semicolonDownload.path(), "utf8");
+  const semicolonHeader = semicolonContent.slice(1).split("\r\n")[0];
+  expect(semicolonHeader).toContain('"Name";"Email";"Phone";"Address";"Role"');
+  expect(semicolonHeader).not.toContain('","');
 });
 
 test("@mobile @tablet owner actions stay within the card", async ({ page }) => {

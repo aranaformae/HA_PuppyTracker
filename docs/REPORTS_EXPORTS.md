@@ -112,9 +112,13 @@ by an update.
 - **CSV** contains effective weight measurements for the selected litter or
   puppy and selected period. It is intended for external analysis.
 - **Owners CSV** is downloaded from the Owners card. It contains one row per
-  owner-puppy link, plus one row for every unlinked owner, and is formatted as
-  UTF-8 semicolon-delimited data for Word/Excel mail merge. It includes contact,
-  placement, payment, notes and linked puppy identity without internal IDs.
+  owner-puppy link, plus one row for every unlinked owner. The card's
+  `csv_delimiter` option selects `comma` (default, including Nextcloud) or
+  `semicolon` (useful for some regional Excel settings). Delimiters, quotes and
+  line breaks inside values are safely quoted. It includes contact and placement
+  data, the detailed payment schedule and actual outstanding amount, notes and
+  status history. Linked puppy rows add name, birth date, collar colour,
+  microchip number, father and mother without exposing internal IDs.
 - **Litter JSON backup** always contains the complete importable litter data,
   including history required for safe restore. PDF section/category/period
   filters do not alter it.

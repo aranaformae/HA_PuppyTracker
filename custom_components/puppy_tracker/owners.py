@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from copy import deepcopy
 from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation
 from typing import Any
 from uuid import uuid4
 
@@ -21,6 +22,18 @@ PLACEMENT_STATUSES = ("interested", "option", "reserved", "sold", "placed")
 PAYMENT_STATUSES = ("none", "registration_fee", "deposit", "full")
 CONTACT_PREFERENCES = ("none", "email", "phone", "whatsapp")
 PAYMENT_METHODS = ("none", "bank_transfer", "cash", "card", "other")
+AMOUNT_FIELDS = (
+    "payment_amount",
+    "registration_fee_amount",
+    "deposit_amount",
+    "payment_balance",
+)
+DATE_FIELDS = (
+    "placement_date",
+    "expected_pickup_date",
+    "deposit_date",
+    "payment_date",
+)
 
 
 def normalize_owner_backup_data(data: Any) -> dict[str, Any]:
@@ -39,6 +52,57 @@ def normalize_owner_backup_data(data: Any) -> dict[str, Any]:
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _optional_date(source: dict[str, Any], field: str) -> str | None:
+    value = str(source.get(field) or "").strip() or None
+    if value:
+        try:
+            datetime.fromisoformat(value)
+        except ValueError as err:
+            raise ValueError(f"{field} must be an ISO date") from err
+    return value
+
+
+def _decimal_text(value: Decimal) -> str:
+    if value == 0:
+        return "0"
+    normalized = format(value, "f")
+    if "." in normalized:
+        normalized = normalized.rstrip("0").rstrip(".")
+    return normalized or "0"
+
+
+def _optional_amount(source: dict[str, Any], field: str) -> str | None:
+    value = str(source.get(field) or "").strip()
+    if not value:
+        return None
+    if "," in value and "." not in value:
+        value = value.replace(",", ".")
+    try:
+        amount = Decimal(value)
+    except InvalidOperation as err:
+        raise ValueError(f"{field} must be a number") from err
+    if not amount.is_finite() or amount < 0:
+        raise ValueError(f"{field} must be a non-negative number")
+    return _decimal_text(amount)
+
+
+def final_payment_amount(owner: dict[str, Any]) -> str | None:
+    """Return total minus registration fee and deposit for one placement."""
+    total_raw = owner.get("payment_amount")
+    if total_raw in (None, ""):
+        return None
+    try:
+        total = Decimal(str(total_raw))
+        registration_fee = Decimal(str(owner.get("registration_fee_amount") or 0))
+        deposit = Decimal(str(owner.get("deposit_amount") or 0))
+    except InvalidOperation:
+        return None
+    if not all(value.is_finite() for value in (total, registration_fee, deposit)):
+        return None
+    result = total - registration_fee - deposit
+    return _decimal_text(result) if result >= 0 else None
 
 
 def _normalize(data: dict[str, Any], *, owner_id: str | None = None, existing: dict[str, Any] | None = None, preserve_timestamps: bool = False) -> dict[str, Any]:
@@ -72,24 +136,28 @@ def _normalize(data: dict[str, Any], *, owner_id: str | None = None, existing: d
     ]
     if existing and existing.get("placement_status") != status:
         normalized_history.append({"status": status, "changed_at": _now()})
-    placement_date = str(source.get("placement_date") or "").strip() or None
-    if placement_date:
-        try:
-            datetime.fromisoformat(placement_date)
-        except ValueError as err:
-            raise ValueError("placement_date must be an ISO date") from err
+    dates = {field: _optional_date(source, field) for field in DATE_FIELDS}
+    amounts = {field: _optional_amount(source, field) for field in AMOUNT_FIELDS}
+    total = Decimal(amounts["payment_amount"]) if amounts["payment_amount"] is not None else None
+    paid_before_final = Decimal(amounts["registration_fee_amount"] or 0) + Decimal(amounts["deposit_amount"] or 0)
+    if total is not None and paid_before_final > total:
+        raise ValueError("registration fee and deposit cannot exceed total amount")
     now = _now()
     return {
         "id": owner_id or str(source.get("id") or uuid4()),
         **{field: str(source.get(field) or "").strip() or None for field in OWNER_FIELDS},
         "role": role,
         "placement_status": status,
-        "placement_date": placement_date,
+        "placement_date": dates["placement_date"],
+        "expected_pickup_date": dates["expected_pickup_date"],
         "payment_status": payment_status,
-        "payment_date": str(source.get("payment_date") or "").strip() or None,
-        "payment_amount": str(source.get("payment_amount") or "").strip() or None,
+        "payment_date": dates["payment_date"],
+        "payment_amount": amounts["payment_amount"],
+        "registration_fee_amount": amounts["registration_fee_amount"],
+        "deposit_amount": amounts["deposit_amount"],
+        "deposit_date": dates["deposit_date"],
         "payment_method": payment_method,
-        "payment_balance": str(source.get("payment_balance") or "").strip() or None,
+        "payment_balance": amounts["payment_balance"],
         "contact_preference": contact_preference,
         "status_history": normalized_history,
         "created_at": (existing or {}).get("created_at") or (source.get("created_at") if preserve_timestamps else None) or now,

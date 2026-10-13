@@ -151,14 +151,22 @@ def test_owner_card_is_declarative_localized_and_keeps_long_notes_visible() -> N
     ).read_text(encoding="utf-8")
 
     assert 'placementDate: "Plaatsingsdatum"' in source
-    assert 'paymentDate: "Betaaldatum"' in source
+    assert 'expectedPickupDate: "Verwachte ophaaldatum"' in source
+    assert 'paymentDate: "Datum slotbetaling"' in source
     assert 'placementDate: "Placement date"' in source
-    assert 'paymentDate: "Payment date"' in source
+    assert 'expectedPickupDate: "Expected pickup date"' in source
+    assert 'paymentDate: "Final payment date"' in source
+    assert 'registrationFeeAmount: "Inschrijfgeld"' in source
+    assert 'depositAmount: "Bedrag aanbetaling"' in source
+    assert 'finalPaymentAmount: "Slotbetaling (berekend)"' in source
+    assert 'paymentBalance: "Werkelijk openstaand bedrag"' in source
     assert 'owners: "Baasjes"' in source
     assert 'owners: "Owners"' in source
     assert 'exportCsv: "CSV exporteren"' in source
     assert 'exportCsv: "Export CSV"' in source
     assert 'id="export-owners-csv"' in source
+    assert 'csv_delimiter: "comma"' in source
+    assert 'value: "semicolon"' in source
     assert "downloadExportFile" in source
     assert source.count('textarea name="notes"') == 1
     assert '"wide notes preformatted"' in source

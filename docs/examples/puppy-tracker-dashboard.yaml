@@ -402,6 +402,7 @@ views:
         cards:
           - type: custom:puppy-tracker-owner-card
             title: Baasjes
+            csv_delimiter: comma
             grid_options:
               columns: full
               rows: auto

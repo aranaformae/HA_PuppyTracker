@@ -203,12 +203,15 @@ Owners remains a separate card:
 ```yaml
 type: custom:puppy-tracker-owner-card
 title: Baasjes
+csv_delimiter: comma
 ```
 
 Its create/edit form starts collapsed. Selecting an owner expands all stored
 contact, placement, payment and note information; puppy linking is a separate
 step. **Export CSV** downloads one Word/Excel-friendly row per owner-puppy link
-and retains unlinked owners with empty puppy columns.
+and retains unlinked owners with empty puppy columns. Set `csv_delimiter` to
+`comma` (default and suitable for Nextcloud) or `semicolon`; both choices are
+also available in the visual editor.
 
 Report also remains separate:
 

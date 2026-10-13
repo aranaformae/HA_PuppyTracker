@@ -18,7 +18,8 @@ Puppy Tracker provides authoritative JSON backup and restore from the integratio
 Use this for disaster recovery. A current full v5 backup contains the authoritative Puppy Tracker data and the portable configuration needed to reconstruct scheduled care:
 
 - complete main storage, including mother profiles, litters, puppies, measurement versions, dossier records, settings and audit history;
-- reusable owner/contact records and puppy links to those contacts;
+- reusable owner/contact records, including placement/payment schedules and
+  actual outstanding balances, plus puppy links to those contacts;
 - portable care-reminder preferences such as category toggles and the default notification lead time;
 - age-based care-program definitions, including optional per-program notification lead-time overrides;
 - user-owned care-program templates, including general and day-specific instructions;

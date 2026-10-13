@@ -4,7 +4,12 @@ import pytest
 from copy import deepcopy
 from unittest.mock import AsyncMock
 
-from custom_components.puppy_tracker.owners import OwnerStore, _normalize, normalize_owner_backup_data
+from custom_components.puppy_tracker.owners import (
+    OwnerStore,
+    _normalize,
+    final_payment_amount,
+    normalize_owner_backup_data,
+)
 
 
 def test_owner_backup_normalizes_owner_records() -> None:
@@ -15,12 +20,17 @@ def test_owner_backup_normalizes_owner_records() -> None:
                 "name": "Alex",
                 "role": "owner",
                 "placement_status": "reserved",
+                "placement_date": "2026-09-01",
+                "expected_pickup_date": "2026-10-01",
                 "payment_status": "registration_fee",
-                "payment_date": "2026-09-02",
+                "payment_date": "2026-09-20",
                 "contact_preference": "whatsapp",
-                "payment_amount": "1250",
+                "payment_amount": "2500.00",
+                "registration_fee_amount": "250",
+                "deposit_amount": "500,00",
+                "deposit_date": "2026-09-02",
                 "payment_method": "bank_transfer",
-                "payment_balance": "250",
+                "payment_balance": "1400",
                 "status_history": [{"status": "interested", "changed_at": "2026-08-01T10:00:00+00:00"}],
             }
         }
@@ -29,13 +39,47 @@ def test_owner_backup_normalizes_owner_records() -> None:
     assert result["owners"]["owner-1"]["name"] == "Alex"
     assert result["owners"]["owner-1"]["payment_status"] == "registration_fee"
     assert result["owners"]["owner-1"]["contact_preference"] == "whatsapp"
-    assert result["owners"]["owner-1"]["payment_balance"] == "250"
+    assert result["owners"]["owner-1"]["expected_pickup_date"] == "2026-10-01"
+    assert result["owners"]["owner-1"]["payment_amount"] == "2500"
+    assert result["owners"]["owner-1"]["registration_fee_amount"] == "250"
+    assert result["owners"]["owner-1"]["deposit_amount"] == "500"
+    assert result["owners"]["owner-1"]["deposit_date"] == "2026-09-02"
+    assert result["owners"]["owner-1"]["payment_balance"] == "1400"
+    assert final_payment_amount(result["owners"]["owner-1"]) == "1750"
     assert result["owners"]["owner-1"]["status_history"][0]["status"] == "interested"
 
 
 def test_owner_backup_rejects_invalid_owner_record() -> None:
     with pytest.raises(ValueError, match="invalid owner"):
         normalize_owner_backup_data({"owners": {"owner-1": "invalid"}})
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("expected_pickup_date", "tomorrow", "must be an ISO date"),
+        ("deposit_amount", "many", "must be a number"),
+        ("registration_fee_amount", "-1", "must be a non-negative number"),
+    ],
+)
+def test_owner_rejects_invalid_payment_fields(field, value, message) -> None:
+    with pytest.raises(ValueError, match=message):
+        _normalize({"name": "Alex", field: value})
+
+
+def test_owner_rejects_advance_payments_above_total() -> None:
+    with pytest.raises(ValueError, match="cannot exceed total amount"):
+        _normalize({
+            "name": "Alex",
+            "payment_amount": "500",
+            "registration_fee_amount": "250",
+            "deposit_amount": "300",
+        })
+
+
+def test_final_payment_requires_valid_total() -> None:
+    assert final_payment_amount({"registration_fee_amount": "250"}) is None
+    assert final_payment_amount({"payment_amount": "NaN"}) is None
 
 
 def test_owner_status_change_is_added_to_history() -> None:
@@ -62,6 +106,40 @@ async def test_owner_reload_and_restore_preserve_history_timestamps(hass) -> Non
     store._store.async_save.assert_not_awaited()
     await store.async_restore_backup_data(snapshot)
     assert store.get_backup_data() == snapshot
+
+
+@pytest.mark.asyncio
+async def test_owner_reload_adds_new_optional_fields_to_legacy_records(hass) -> None:
+    legacy_owner = {
+        "id": "owner-1",
+        "name": "Alex",
+        "role": "owner",
+        "placement_status": "reserved",
+        "placement_date": "2026-09-01",
+        "payment_status": "deposit",
+        "payment_date": "2026-09-02",
+        "payment_amount": "2500",
+        "payment_method": "bank_transfer",
+        "payment_balance": "1400",
+        "contact_preference": "email",
+        "status_history": [],
+        "created_at": "2026-08-01T10:00:00+00:00",
+        "updated_at": "2026-08-02T10:00:00+00:00",
+    }
+    store = OwnerStore(hass)
+    store._store.async_load = AsyncMock(return_value={"owners": {"owner-1": legacy_owner}})
+    store._store.async_save = AsyncMock()
+
+    await store.async_load()
+
+    migrated = store.get("owner-1")
+    assert migrated is not None
+    assert migrated["payment_amount"] == "2500"
+    assert migrated["expected_pickup_date"] is None
+    assert migrated["registration_fee_amount"] is None
+    assert migrated["deposit_amount"] is None
+    assert migrated["deposit_date"] is None
+    store._store.async_save.assert_awaited_once()
 
 
 @pytest.mark.asyncio
