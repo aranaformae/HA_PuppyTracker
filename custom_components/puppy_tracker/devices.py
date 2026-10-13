@@ -95,7 +95,7 @@ def async_sync_devices(
             "puppies",
             {},
         ).items():
-            registry.async_get_or_create(
+            puppy_device = registry.async_get_or_create(
                 config_entry_id=entry.entry_id,
                 identifiers={
                     _puppy_identifier(
@@ -113,7 +113,9 @@ def async_sync_devices(
                 manufacturer="Puppy Tracker",
                 model="Puppy",
 
-                # Puppy belongs to this litter.
+            )
+            registry.async_update_device(
+                puppy_device.id,
                 via_device_id=litter_device.id,
             )
 
@@ -128,11 +130,13 @@ def async_remove_puppy_device(
     device_registry = dr.async_get(hass)
     entity_registry = er.async_get(hass)
 
-    device = device_registry.async_get_device_by_identifier(
-        _puppy_identifier(
-            puppy_id
+    device = next(
+        (
+            item
+            for item in dr.async_entries_for_config_entry(device_registry, entry.entry_id)
+            if _puppy_identifier(puppy_id) in item.identifiers
         ),
-        entry.entry_id,
+        None,
     )
 
     if device is None:
@@ -171,11 +175,13 @@ def async_remove_litter_device(
 
     device_registry = dr.async_get(hass)
 
-    device = device_registry.async_get_device_by_identifier(
-        _litter_identifier(
-            litter_id
+    device = next(
+        (
+            item
+            for item in dr.async_entries_for_config_entry(device_registry, entry.entry_id)
+            if _litter_identifier(litter_id) in item.identifiers
         ),
-        entry.entry_id,
+        None,
     )
 
     if device is not None:

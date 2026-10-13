@@ -5,10 +5,12 @@ from unittest.mock import AsyncMock
 import pytest
 import voluptuous as vol
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers import device_registry as dr
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.puppy_tracker.config_flow import PuppyTrackerOptionsFlow
 from custom_components.puppy_tracker.const import DOMAIN
+from custom_components.puppy_tracker.devices import async_sync_devices
 from custom_components.puppy_tracker.mother_storage import MotherScopeStorage
 from custom_components.puppy_tracker.runtime import PuppyTrackerRuntimeData
 from custom_components.puppy_tracker.storage import _empty_data
@@ -150,3 +152,36 @@ async def test_monitoring_settings_preserve_all_notification_preferences(options
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert storage.get_settings() == {**before, "min_daily_growth_percent": 6.5}
+
+
+def test_device_sync_retains_puppy_litter_link_and_device_ids(options_flow):
+    flow, storage = options_flow
+    registry = dr.async_get(flow.hass)
+    async_sync_devices(flow.hass, flow.config_entry, storage.get_data())
+    before = list(dr.async_entries_for_config_entry(registry, flow.handler))
+    litter = next(device for device in before if device.model == "Litter")
+    puppy = next(device for device in before if device.model == "Puppy")
+    assert puppy.via_device_id == litter.id
+
+    async_sync_devices(flow.hass, flow.config_entry, storage.get_data())
+    after = list(dr.async_entries_for_config_entry(registry, flow.handler))
+    assert {device.id for device in after} == {device.id for device in before}
+    assert registry.async_get(puppy.id).via_device_id == litter.id
+
+
+@pytest.mark.parametrize("delete_litter", [False, True])
+async def test_confirmed_deletion_removes_matching_devices(options_flow, delete_litter):
+    flow, storage = options_flow
+    registry = dr.async_get(flow.hass)
+    async_sync_devices(flow.hass, flow.config_entry, storage.get_data())
+    before = list(dr.async_entries_for_config_entry(registry, flow.handler))
+    step = "confirm_delete_litter" if delete_litter else "confirm_delete_puppy"
+    result = await getattr(flow, f"async_step_{step}")({"confirm": True})
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    after = list(dr.async_entries_for_config_entry(registry, flow.handler))
+    assert {device.model for device in after} == (
+        {"Mother dog"} if delete_litter else {"Mother dog", "Litter"}
+    )
+    assert {device.id for device in after} < {device.id for device in before}
+    assert storage.get_puppy(flow._selected_litter_id, flow._selected_puppy_id) is None
