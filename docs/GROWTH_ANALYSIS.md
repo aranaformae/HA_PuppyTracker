@@ -101,10 +101,14 @@ and edit that litter. Available fields include:
 - growth-monitoring age in days;
 - first-day maximum weight loss percentage;
 - expected adult-weight minimum and maximum;
+- birth-weight milestone percentages and the reference age for doubling;
 - number of recent intervals used for milestone projection.
 
 An empty per-litter threshold uses the integration-wide fallback. Changes
 affect derived status and projections; they do not rewrite measurements.
+Existing values are prefilled and can be cleared. Empty milestone fields use
+200% and 400%, a 14-day doubling reference and four recent growth intervals.
+Litter and parent changes are saved when you submit the form.
 
 ## Growth Workspace configuration
 

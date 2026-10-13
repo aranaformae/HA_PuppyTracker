@@ -195,6 +195,20 @@ The initial configuration envelope supports minimum daily growth, maximum time
 between weighings, monitoring age, first-day maximum loss, an optional expected
 adult-weight range and descriptive `breed_profile`/`size_class` metadata.
 
+The litter options form uses `suggested_value` for clearable growth fields.
+Absent overrides have no schema default: `NumberSelector` cannot validate
+`None` as a float. Clearing a suggested override restores its fallback on
+submission. Milestone percentages, doubling reference age and projection
+sample count are exposed in the same form and normalized by storage.
+
+Puppy and parent optional identity fields follow the same clearable suggestion
+contract, including dates and birth weight. Notification recipients are also
+suggestions, so an omitted picker value clears the list. Monitoring and
+notification forms preserve the other form's settings through the shared storage
+API. `NotificationSettingsMixin` owns the sole monitoring settings route.
+Unchanged puppy birth-time input retains the original timestamp because the
+datetime selector only displays whole seconds.
+
 The derived `growth_analysis` summary also compares the latest change with the
 recent series. A sufficiently large isolated jump is returned as a data-quality
 hint (`possible_input_error`), so the UI can ask for a scale/input check without

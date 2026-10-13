@@ -18,6 +18,7 @@ The current suite covers the main backend, frontend contract and browser flows.
 | `test_integrity.py` | Safe integrity repairs, duplicate IDs, dangling references and ambiguous correction branches |
 | `test_exports.py` / `test_pdf_export_options.py` | CSV filtering, complete JSON history, direct PDF generation and every PDF selection/section contract |
 | `test_contract_identity.py` | Puppy and parent registered/call names, dates, breed/type, coat colour, chip and WALA persistence |
+| `test_config_flow.py` / `test_options_actions.py` / `test_litter_growth_settings.py` | Valid management-form prefills, read-only opening, saving/clearing profile and growth fields, timestamp precision and monitoring/notification setting isolation |
 | `test_records.py` | Profile-note migration, dossier record CRUD, owner scopes, sorting and integrity checks |
 | `test_upcoming.py` | Derived vaccination/deworming follow-ups, due-state classification, filtering and sorting |
 | `test_runtime_selection.py` | Typed runtime selection, explicit defaults and archived-selection fallback behavior |

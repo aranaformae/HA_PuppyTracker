@@ -102,6 +102,11 @@ and remains editable. Manage these fields under **Settings -> Devices &
 services -> Puppy Tracker -> Configure**, or through the corresponding Home
 Assistant actions.
 
+In the management forms, optional saved values are prefilled and can be cleared
+before submitting. Clearing a puppy's birth weight also removes its active
+birth-weight measurement; the historical measurement remains available for
+restore. An unchanged birth time retains its original stored precision.
+
 ## Owner/contact card
 
 Add the Owners card to create and manage contacts:

@@ -274,10 +274,10 @@ class NotificationSettingsMixin:
                     ): selector.BooleanSelector(),
                     vol.Optional(
                         "notify_entities",
-                        default=settings.get(
+                        description={"suggested_value": settings.get(
                             "notify_entities",
                             list(DEFAULT_NOTIFY_ENTITIES),
-                        ),
+                        )},
                     ): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain="notify", multiple=True)
                     ),

@@ -91,7 +91,7 @@ def _normalize_litter_growth_analysis(value: Any) -> dict[str, Any]:
     result["size_class"] = str(raw.get("size_class") or "unknown").strip() or "unknown"
     raw_milestones = raw.get("growth_milestones_percent")
     if raw_milestones in (None, ""):
-        result["growth_milestones_percent"] = list(DEFAULT_GROWTH_MILESTONES_PERCENT)
+        milestones = list(DEFAULT_GROWTH_MILESTONES_PERCENT)
     else:
         values = raw_milestones.split(",") if isinstance(raw_milestones, str) else raw_milestones
         if not isinstance(values, (list, tuple)):
