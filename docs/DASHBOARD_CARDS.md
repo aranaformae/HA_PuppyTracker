@@ -207,7 +207,8 @@ title: Baasjes
 
 Its create/edit form starts collapsed. Selecting an owner expands all stored
 contact, placement, payment and note information; puppy linking is a separate
-step.
+step. **Export CSV** downloads one Word/Excel-friendly row per owner-puppy link
+and retains unlinked owners with empty puppy columns.
 
 Report also remains separate:
 

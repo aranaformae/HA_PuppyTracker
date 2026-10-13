@@ -118,12 +118,21 @@ Linking contacts to a puppy is a separate section. One or more contacts can be
 linked later, and editing a contact updates the reusable information without
 duplicating it into each puppy.
 
+Use **CSV exporteren** in the Owners card to download the complete visible
+contact list for Word or another mail-merge tool. The UTF-8, semicolon-delimited
+file contains localized column headings and one row per owner-puppy link. An
+owner linked to two puppies therefore has two rows; an owner without a puppy is
+kept once with empty litter and puppy columns. Contact, placement, payment,
+notes, status history, litter, puppy, collar colour and chip number are
+included. Internal Puppy Tracker IDs are not exported.
+
 ## Reports and backups
 
 PDF report sections can include linked owners and, when selected, their contact,
-placement and payment details. The full JSON backup includes contacts and puppy
-links. Partial litter and puppy transfers intentionally omit reusable contacts
-because safely remapping those links requires an explicit transfer workflow.
+placement and payment details. The Owners-card CSV is a presentation export and
+cannot be restored. The full JSON backup includes contacts and puppy links.
+Partial litter and puppy transfers intentionally omit reusable contacts because
+safely remapping those links requires an explicit transfer workflow.
 
 See [Backup, restore and transfer](backup-restore.md) for the exact backup
 contract and [Architecture](ARCHITECTURE.md#dossier-record-envelope) for the

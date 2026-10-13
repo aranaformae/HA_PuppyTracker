@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { readFile } from "node:fs/promises";
 
 async function mount(page, tag, config = {}, overrides = {}) {
   await page.goto("/tests/e2e/cards.html?production=1");
@@ -183,4 +184,106 @@ test("owner dates and stored values are labeled and localized", async ({ page })
   await card.locator("[data-edit='o1']").click();
   await expect(card.locator('label:has-text("Placement date") input[name="placement_date"]')).toHaveValue("2026-09-01");
   await expect(card.locator('label:has-text("Payment date") input[name="payment_date"]')).toHaveValue("2026-09-02");
+});
+
+test("owner CSV exports one row per puppy link and keeps unlinked owners", async ({ page }) => {
+  await page.goto("/tests/e2e/cards.html?production=1");
+  await page.waitForFunction(() => window.__puppyTrackerReady);
+  await page.evaluate(() => {
+    const owners = [
+      {
+        id: "owner-alex",
+        name: "Alex",
+        email: "alex@example.com",
+        phone: "+31612345678",
+        address: "Main street 1",
+        role: "owner",
+        contact_preference: "email",
+        placement_status: "reserved",
+        placement_date: "2026-09-01",
+        payment_status: "registration_fee",
+        payment_date: "2026-09-02",
+        payment_amount: "2500",
+        payment_balance: "2250",
+        payment_method: "bank_transfer",
+        notes: 'Contract "signed"; ready',
+        status_history: [{ status: "interested", changed_at: "2026-08-01T10:00:00Z" }],
+      },
+      {
+        id: "owner-blair",
+        name: "Blair",
+        email: "blair@example.com",
+        role: "co_owner",
+        placement_status: "interested",
+        payment_status: "none",
+        payment_method: "none",
+        contact_preference: "none",
+      },
+    ];
+    const card = document.createElement("puppy-tracker-owner-card");
+    card.setConfig({});
+    document.querySelector("#cards").append(card);
+    card.hass = {
+      language: "en", locale: { language: "en" },
+      callWS: async (message) => {
+        if (message.type === "puppy_tracker/owners/list") return { owners };
+        if (message.type === "puppy_tracker/litters") return { litters: [{ id: "l1", name: "First" }, { id: "l2", name: "Second" }] };
+        if (message.type === "puppy_tracker/data" && message.litter_id === "l1") {
+          return { puppies: [{ id: "p1", name: "Red", collar_color: "red", chip_number: "0001", owner_ids: ["owner-alex"] }] };
+        }
+        if (message.type === "puppy_tracker/data" && message.litter_id === "l2") {
+          return { puppies: [{ id: "p2", name: "Blue", collar_color: "blue", chip_number: "0002", owner_ids: ["owner-alex"] }] };
+        }
+        throw new Error(message.type);
+      },
+    };
+  });
+
+  const card = page.locator("puppy-tracker-owner-card");
+  await expect(card.locator("#export-owners-csv")).toBeEnabled();
+  const downloadPromise = page.waitForEvent("download");
+  await card.locator("#export-owners-csv").click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/^puppy-tracker-owners-\d{8}T\d{6}Z\.csv$/);
+  const content = await readFile(await download.path(), "utf8");
+
+  expect(content.charCodeAt(0)).toBe(0xfeff);
+  expect(content).toContain('"Name";"Email";"Phone";"Address";"Role"');
+  expect(content).toContain('"Contract ""signed""; ready"');
+  expect(content).toContain('"First";"Red";"red";"0001"');
+  expect(content).toContain('"Second";"Blue";"blue";"0002"');
+  expect(content.match(/"Alex";/g)).toHaveLength(2);
+  expect(content.match(/"Blair";/g)).toHaveLength(1);
+  const blairRow = content.split("\r\n").find((row) => row.startsWith('"Blair";'));
+  expect(blairRow).toMatch(/;"";"";"";""$/);
+  expect(content).not.toContain("owner-alex");
+  expect(content).not.toContain("owner-blair");
+  await expect(card.locator("#owner-status")).toHaveText("Owner CSV downloaded.");
+});
+
+test("@mobile @tablet owner actions stay within the card", async ({ page }) => {
+  await page.goto("/tests/e2e/cards.html?production=1");
+  await page.waitForFunction(() => window.__puppyTrackerReady);
+  await page.evaluate(() => {
+    const card = document.createElement("puppy-tracker-owner-card");
+    card.setConfig({});
+    document.querySelector("#cards").append(card);
+    card.hass = {
+      language: "nl", locale: { language: "nl" },
+      callWS: async (message) => {
+        if (message.type === "puppy_tracker/owners/list") return { owners: [{ id: "o1", name: "Alex" }] };
+        if (message.type === "puppy_tracker/litters") return { litters: [] };
+        throw new Error(message.type);
+      },
+    };
+  });
+
+  const card = page.locator("puppy-tracker-owner-card");
+  await expect(card.locator("#export-owners-csv")).toBeEnabled();
+  await expect(card.locator("#add-owner")).toBeVisible();
+  const widths = await card.evaluate((element) => {
+    const surface = element.querySelector("ha-card");
+    return { client: surface.clientWidth, scroll: surface.scrollWidth };
+  });
+  expect(widths.scroll).toBeLessThanOrEqual(widths.client + 1);
 });

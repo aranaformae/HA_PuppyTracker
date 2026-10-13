@@ -25,7 +25,7 @@ longitudinal behavior observations, reports and backups.
 - Score repeated behavior observations per puppy and build a neutral profile
   over time.
 - Store owner/contact, placement and payment information and link contacts to
-  puppies later.
+  puppies later, with a separate CSV export for Word mail merge.
 - Create configurable PDF reports and export CSV or JSON data.
 - Make validated manual or automated JSON backups.
 

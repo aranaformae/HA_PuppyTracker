@@ -156,6 +156,10 @@ def test_owner_card_is_declarative_localized_and_keeps_long_notes_visible() -> N
     assert 'paymentDate: "Payment date"' in source
     assert 'owners: "Baasjes"' in source
     assert 'owners: "Owners"' in source
+    assert 'exportCsv: "CSV exporteren"' in source
+    assert 'exportCsv: "Export CSV"' in source
+    assert 'id="export-owners-csv"' in source
+    assert "downloadExportFile" in source
     assert source.count('textarea name="notes"') == 1
     assert '"wide notes preformatted"' in source
     assert ".owner-detail .notes>div{max-height:none;overflow:visible}" in source

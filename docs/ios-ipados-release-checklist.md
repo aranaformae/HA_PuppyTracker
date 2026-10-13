@@ -93,6 +93,7 @@ Test in both Companion App and Safari where practical.
 
 - [ ] PDF download starts and the resulting PDF opens or can be shared/saved.
 - [ ] CSV download starts and produces the selected puppy/range data.
+- [ ] Owners CSV downloads with one row per owner-puppy link and retains an unlinked owner with empty puppy columns.
 - [ ] JSON backup download starts and contains the full litter backup.
 - [ ] Full backup includes owner/contact data and user-owned care-program templates.
 - [ ] PDF section switches can include or omit care results, owners and contact details as intended.

@@ -1,4 +1,4 @@
-import { escapeHtml, languageForHass } from "./puppy-tracker-card-common.js";
+import { downloadExportFile, escapeHtml, languageForHass } from "./puppy-tracker-card-common.js";
 
 const TAG = "puppy-tracker-owner-card";
 
@@ -29,9 +29,11 @@ const PAYMENT_METHOD_LABELS = {
 const COPY = {
   nl: {
     title: "Baasjes beheren", subtitle: "Contactpersonen die later aan een pup gekoppeld kunnen worden.", addOwner: "Baasje toevoegen", editOwner: "Baasje wijzigen", update: "Wijzigingen opslaan", cancel: "Annuleren", name: "Naam", email: "E-mail", phone: "Telefoon", address: "Adres", role: "Rol", placementStatus: "Plaatsingsstatus", placementDate: "Plaatsingsdatum", paymentStatus: "Betalingsstatus", paymentAmount: "Totaalbedrag", paymentBalance: "Openstaand bedrag", paymentMethod: "Betaalmethode", paymentDate: "Betaaldatum", contactPreference: "Voorkeurscontact", notes: "Notities", owners: "Baasjes", linkedPuppies: "Gekoppelde pups", noLinkedPuppies: "Geen gekoppelde pups", statusHistory: "Statusgeschiedenis", noContact: "Geen contactgegevens", linkTitle: "Baasje koppelen aan pup", linkSave: "Koppeling opslaan", litter: "Nest", puppy: "Pup", saved: "Baasje opgeslagen.", linked: "Koppeling opgeslagen.", deleted: "Baasje verwijderd.", confirmDelete: "Dit baasje verwijderen?", edit: "Bewerken", remove: "Verwijderen", loading: "Baasjes laden…", empty: "Nog geen baasjes toegevoegd.", unknown: "Niet opgegeven",
+    exportCsv: "CSV exporteren", csvDone: "Baasjes-CSV gedownload.", collarColor: "Halsbandkleur", chipNumber: "Chipnummer",
   },
   en: {
     title: "Manage owners", subtitle: "Contacts that can be linked to a puppy later.", addOwner: "Add owner", editOwner: "Edit owner", update: "Save changes", cancel: "Cancel", name: "Name", email: "Email", phone: "Phone", address: "Address", role: "Role", placementStatus: "Placement status", placementDate: "Placement date", paymentStatus: "Payment status", paymentAmount: "Total amount", paymentBalance: "Outstanding amount", paymentMethod: "Payment method", paymentDate: "Payment date", contactPreference: "Preferred contact", notes: "Notes", owners: "Owners", linkedPuppies: "Linked puppies", noLinkedPuppies: "No linked puppies", statusHistory: "Status history", noContact: "No contact details", linkTitle: "Link owner to puppy", linkSave: "Save link", litter: "Litter", puppy: "Puppy", saved: "Owner saved.", linked: "Link saved.", deleted: "Owner deleted.", confirmDelete: "Delete this owner?", edit: "Edit", remove: "Delete", loading: "Loading owners…", empty: "No owners added yet.", unknown: "Not specified",
+    exportCsv: "Export CSV", csvDone: "Owner CSV downloaded.", collarColor: "Collar color", chipNumber: "Microchip number",
   },
 };
 
@@ -57,6 +59,15 @@ function formattedDate(card, value, includeTime = false) {
   return new Intl.DateTimeFormat(languageForHass(card?._hass) === "en" ? "en-US" : "nl-NL", includeTime
     ? { dateStyle: "medium", timeStyle: "short" }
     : { dateStyle: "medium" }).format(date);
+}
+
+function csvCell(value) {
+  return `"${String(value ?? "").replace(/\r\n?/g, "\n").replaceAll('"', '""')}"`;
+}
+
+function csvFilename() {
+  const stamp = new Date().toISOString().replaceAll("-", "").replaceAll(":", "").slice(0, 15);
+  return `puppy-tracker-owners-${stamp}Z.csv`;
 }
 
 class PuppyTrackerOwnerCard extends HTMLElement {
@@ -191,6 +202,67 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     return this._puppies.filter((puppy) => (puppy.owner_ids || []).includes(ownerId));
   }
 
+  _ownerCsvContent() {
+    const headers = [
+      "name", "email", "phone", "address", "role", "contactPreference",
+      "placementStatus", "placementDate", "paymentStatus", "paymentDate",
+      "paymentAmount", "paymentBalance", "paymentMethod", "notes",
+      "statusHistory", "litter", "puppy", "collarColor", "chipNumber",
+    ].map((key) => text(this, key));
+    const rows = [headers];
+    for (const owner of this._owners) {
+      const history = (owner.status_history || []).map((entry) => {
+        const status = optionLabel(this, entry.status, PLACEMENT_STATUS_LABELS, entry.status);
+        return `${status} · ${formattedDate(this, entry.changed_at, true)}`;
+      }).join(" | ");
+      const ownerValues = [
+        owner.name,
+        owner.email,
+        owner.phone,
+        owner.address,
+        optionLabel(this, owner.role, OWNER_ROLE_LABELS, "owner"),
+        optionLabel(this, owner.contact_preference, CONTACT_PREFERENCE_LABELS, "none"),
+        optionLabel(this, owner.placement_status, PLACEMENT_STATUS_LABELS, "interested"),
+        owner.placement_date,
+        optionLabel(this, owner.payment_status, PAYMENT_STATUS_LABELS, "none"),
+        owner.payment_date,
+        owner.payment_amount,
+        owner.payment_balance,
+        optionLabel(this, owner.payment_method, PAYMENT_METHOD_LABELS, "none"),
+        owner.notes,
+        history,
+      ];
+      const linkedPuppies = this._linkedPuppies(owner.id).sort((left, right) =>
+        `${left.litter_name || ""}\u0000${left.name || ""}`.localeCompare(`${right.litter_name || ""}\u0000${right.name || ""}`),
+      );
+      for (const puppy of linkedPuppies.length ? linkedPuppies : [null]) {
+        rows.push([
+          ...ownerValues,
+          puppy?.litter_name,
+          puppy?.name,
+          puppy?.collar_color,
+          puppy?.chip_number,
+        ]);
+      }
+    }
+    return `\ufeff${rows.map((row) => row.map(csvCell).join(";")).join("\r\n")}\r\n`;
+  }
+
+  _downloadOwnersCsv() {
+    if (!this._owners.length) return;
+    downloadExportFile({
+      content: this._ownerCsvContent(),
+      filename: csvFilename(),
+      mime_type: "text/csv;charset=utf-8",
+    });
+    this._status = text(this, "csvDone");
+    this._error = "";
+    const status = this.querySelector("#owner-status");
+    const error = this.querySelector("#owner-error");
+    if (status) status.textContent = this._status;
+    if (error) error.textContent = "";
+  }
+
   _openEditor(ownerId = null) {
     this._editing = ownerId;
     this._showOwnerEditor = true;
@@ -275,11 +347,13 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     const litterOptions = this._litters.map((litter) => `<option value="${escapeHtml(litter.id)}" ${litter.id === this._selectedLitter ? "selected" : ""}>${escapeHtml(litter.name || text(this, "litter"))}</option>`).join("");
     const puppyOptions = litterPuppies.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === this._selectedPuppy ? "selected" : ""}>${escapeHtml(item.name || text(this, "puppy"))}</option>`).join("");
 
-    this.innerHTML = `<ha-card><div class="head"><div><div class="title">${escapeHtml(this._config.title || text(this, "title"))}</div><div class="sub">${escapeHtml(text(this, "subtitle"))}</div></div>${this._showOwnerEditor ? "" : this._ownerForm()}</div>${this._showOwnerEditor ? this._ownerForm() : ""}<section class="list" aria-live="polite">${this._ownerList()}</section>${this._linkSection(litterPuppies, puppy, linked, litterOptions, puppyOptions)}${this._error ? `<div class="message error" role="alert">${escapeHtml(this._error)}</div>` : ""}${this._status ? `<div class="message" role="status">${escapeHtml(this._status)}</div>` : ""}</ha-card><style>
-      :host{display:block}ha-card{padding:16px}.head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.title{font-size:1.25rem;font-weight:700}.sub{font-size:.85rem;color:var(--secondary-text-color);margin-top:3px}.primary,.secondary,.owner-actions button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:40px;border:1px solid var(--primary-color);border-radius:8px;padding:0 12px;background:var(--primary-color);color:var(--text-primary-color,#fff);font:inherit;font-weight:600;cursor:pointer}.secondary,.owner-actions button{background:var(--secondary-background-color);border-color:var(--divider-color);color:var(--primary-text-color)}button:disabled{opacity:.55;cursor:default}.owner-editor,.link{margin-top:16px;padding-top:14px;border-top:1px solid var(--divider-color)}h3{margin:0 0 10px;font-size:1rem;letter-spacing:0}.form,.link-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.form label,.link-form label{display:grid;gap:4px;color:var(--secondary-text-color);font-size:.78rem}.form input,.form select,.form textarea,.link-form select{box-sizing:border-box;width:100%;min-height:42px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color);padding:9px;font:inherit}.form textarea{min-height:112px;resize:vertical}.wide,.checks{grid-column:1/-1}.actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}.list{display:grid;gap:8px;margin-top:16px}.owner{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;border-top:1px solid var(--divider-color);padding-top:9px}.owner-toggle{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;border:0;background:transparent;color:var(--primary-text-color);padding:5px 2px;text-align:left;font:inherit;cursor:pointer}.owner-toggle span{min-width:0}.owner-toggle strong,.owner-toggle small{display:block;overflow-wrap:anywhere}.owner-toggle small{color:var(--secondary-text-color);margin-top:2px;font-size:.78rem}.owner-actions{display:flex;gap:5px}.owner-actions button{width:38px;padding:0}.owner-actions ha-icon{--mdc-icon-size:19px}.owner-detail{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:12px;background:var(--secondary-background-color);border-radius:8px;font-size:.85rem}.owner-detail>div{min-width:0;overflow-wrap:anywhere}.owner-detail span{display:block;color:var(--secondary-text-color);font-size:.72rem;margin-bottom:3px}.owner-detail .wide{grid-column:1/-1}.owner-detail .preformatted>div{white-space:pre-wrap;word-break:break-word}.owner-detail .notes>div{max-height:none;overflow:visible}.checks{min-width:0;margin:2px 0 0;padding:10px;border:1px solid var(--divider-color);border-radius:8px;display:grid;gap:7px}.checks legend{padding:0 4px;color:var(--secondary-text-color);font-size:.78rem}.checks label{display:flex;align-items:center;gap:7px;color:var(--primary-text-color)}.empty,.message{color:var(--secondary-text-color);padding:10px 2px}.error{color:var(--error-color)}@media(max-width:520px){.head{display:grid}.add-owner{width:100%}.form,.link-form,.owner-detail{grid-template-columns:1fr}.wide,.checks,.owner-detail .wide{grid-column:auto}.owner{grid-template-columns:minmax(0,1fr) auto}.owner-actions{flex-direction:column}.actions{flex-wrap:wrap}.actions button{flex:1 1 auto}}
+    const headerActions = `<div class="head-actions"><button type="button" id="export-owners-csv" class="secondary" ${!this._owners.length || this._loading ? "disabled" : ""}><ha-icon icon="mdi:file-delimited-outline"></ha-icon>${escapeHtml(text(this, "exportCsv"))}</button>${this._showOwnerEditor ? "" : this._ownerForm()}</div>`;
+    this.innerHTML = `<ha-card><div class="head"><div><div class="title">${escapeHtml(this._config.title || text(this, "title"))}</div><div class="sub">${escapeHtml(text(this, "subtitle"))}</div></div>${headerActions}</div>${this._showOwnerEditor ? this._ownerForm() : ""}<section class="list" aria-live="polite">${this._ownerList()}</section>${this._linkSection(litterPuppies, puppy, linked, litterOptions, puppyOptions)}<div id="owner-error" class="message error" role="alert">${escapeHtml(this._error)}</div><div id="owner-status" class="message" role="status" aria-live="polite">${escapeHtml(this._status)}</div></ha-card><style>
+      :host{display:block}ha-card{padding:16px}.head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.head-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}.title{font-size:1.25rem;font-weight:700}.sub{font-size:.85rem;color:var(--secondary-text-color);margin-top:3px}.primary,.secondary,.owner-actions button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:40px;border:1px solid var(--primary-color);border-radius:8px;padding:0 12px;background:var(--primary-color);color:var(--text-primary-color,#fff);font:inherit;font-weight:600;cursor:pointer}.secondary,.owner-actions button{background:var(--secondary-background-color);border-color:var(--divider-color);color:var(--primary-text-color)}button:disabled{opacity:.55;cursor:default}.owner-editor,.link{margin-top:16px;padding-top:14px;border-top:1px solid var(--divider-color)}h3{margin:0 0 10px;font-size:1rem;letter-spacing:0}.form,.link-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.form label,.link-form label{display:grid;gap:4px;color:var(--secondary-text-color);font-size:.78rem}.form input,.form select,.form textarea,.link-form select{box-sizing:border-box;width:100%;min-height:42px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color);padding:9px;font:inherit}.form textarea{min-height:112px;resize:vertical}.wide,.checks{grid-column:1/-1}.actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}.list{display:grid;gap:8px;margin-top:16px}.owner{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;border-top:1px solid var(--divider-color);padding-top:9px}.owner-toggle{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;border:0;background:transparent;color:var(--primary-text-color);padding:5px 2px;text-align:left;font:inherit;cursor:pointer}.owner-toggle span{min-width:0}.owner-toggle strong,.owner-toggle small{display:block;overflow-wrap:anywhere}.owner-toggle small{color:var(--secondary-text-color);margin-top:2px;font-size:.78rem}.owner-actions{display:flex;gap:5px}.owner-actions button{width:38px;padding:0}.owner-actions ha-icon{--mdc-icon-size:19px}.owner-detail{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:12px;background:var(--secondary-background-color);border-radius:8px;font-size:.85rem}.owner-detail>div{min-width:0;overflow-wrap:anywhere}.owner-detail span{display:block;color:var(--secondary-text-color);font-size:.72rem;margin-bottom:3px}.owner-detail .wide{grid-column:1/-1}.owner-detail .preformatted>div{white-space:pre-wrap;word-break:break-word}.owner-detail .notes>div{max-height:none;overflow:visible}.checks{min-width:0;margin:2px 0 0;padding:10px;border:1px solid var(--divider-color);border-radius:8px;display:grid;gap:7px}.checks legend{padding:0 4px;color:var(--secondary-text-color);font-size:.78rem}.checks label{display:flex;align-items:center;gap:7px;color:var(--primary-text-color)}.empty,.message{color:var(--secondary-text-color);padding:10px 2px}.message:empty{display:none}.error{color:var(--error-color)}@media(max-width:520px){.head{display:grid}.head-actions{display:grid;justify-content:stretch}.head-actions button{width:100%}.form,.link-form,.owner-detail{grid-template-columns:1fr}.wide,.checks,.owner-detail .wide{grid-column:auto}.owner{grid-template-columns:minmax(0,1fr) auto}.owner-actions{flex-direction:column}.actions{flex-wrap:wrap}.actions button{flex:1 1 auto}}
     </style>`;
 
     this.querySelector("form")?.addEventListener("submit", (event) => { event.preventDefault(); this._save(event.currentTarget); });
+    this.querySelector("#export-owners-csv")?.addEventListener("click", () => this._downloadOwnersCsv());
     this.querySelector("#add-owner")?.addEventListener("click", () => this._openEditor());
     this.querySelector("#cancel-owner")?.addEventListener("click", () => { this._editing = null; this._showOwnerEditor = false; this._error = ""; this._render(); });
     this.querySelectorAll("[data-toggle-owner]").forEach((button) => button.addEventListener("click", () => { this._expandedOwnerId = this._expandedOwnerId === button.dataset.toggleOwner ? null : button.dataset.toggleOwner; this._render(); }));

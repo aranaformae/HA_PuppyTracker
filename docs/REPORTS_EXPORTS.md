@@ -1,8 +1,9 @@
 # Reports and exports
 
 The Report card creates a readable PDF dossier, a weight CSV or an importable
-JSON backup. PDF and CSV are presentation exports; JSON deliberately keeps the
-complete stored history so it can be restored later.
+JSON backup. The separate Owners card exports contact and placement data as a
+mail-merge CSV. PDF and CSV are presentation exports; JSON deliberately keeps
+the complete stored history so it can be restored later.
 
 ```yaml
 type: custom:puppy-tracker-report-card
@@ -110,6 +111,10 @@ by an update.
 
 - **CSV** contains effective weight measurements for the selected litter or
   puppy and selected period. It is intended for external analysis.
+- **Owners CSV** is downloaded from the Owners card. It contains one row per
+  owner-puppy link, plus one row for every unlinked owner, and is formatted as
+  UTF-8 semicolon-delimited data for Word/Excel mail merge. It includes contact,
+  placement, payment, notes and linked puppy identity without internal IDs.
 - **Litter JSON backup** always contains the complete importable litter data,
   including history required for safe restore. PDF section/category/period
   filters do not alter it.
