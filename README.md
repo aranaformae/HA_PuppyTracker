@@ -5,9 +5,12 @@ mother dog and individual puppies. It combines weighing and growth monitoring
 with dossiers, temperature logging, care schedules, reminders, owner contacts,
 longitudinal behavior observations, reports and backups.
 
-> **Status:** Puppy Tracker is pre-1.0. The current stable development line is
-> **0.27.x**. Back up your data before updating because compatibility changes
-> are still possible before 1.0.
+> **Personal project:** I originally developed Puppy Tracker for my own use.
+> Suggestions, practical tips and ideas for improvements are very welcome. Feel
+> free to share them through [GitHub Issues](https://github.com/aranaformae/HA_PuppyTracker/issues)!
+
+> **Status:** Puppy Tracker is pre-1.0. Back up your data before updating because
+> compatibility changes are still possible before 1.0.
 
 ## What You Can Do
 
