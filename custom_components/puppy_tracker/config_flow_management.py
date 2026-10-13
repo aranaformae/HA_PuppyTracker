@@ -39,6 +39,7 @@ from .devices import (
     async_remove_puppy_device,
     async_sync_devices,
 )
+from .dog_identity import DEFAULT_DOG_BREED
 from .measurements import measurement_status
 from .runtime import PuppyTrackerRuntimeData
 from .storage import PuppyTrackerStorage
@@ -109,6 +110,18 @@ class PuppyTrackerManagementOptionsFlow(
                     father=user_input.get(
                         "father"
                     ),
+                    mother_details={
+                        "registered_name": user_input.get("mother_registered_name"),
+                        "birth_date": user_input.get("mother_birth_date"),
+                        "breed": user_input.get("mother_breed"),
+                        "wala_number": user_input.get("mother_wala_number"),
+                    },
+                    father_details={
+                        "registered_name": user_input.get("father_registered_name"),
+                        "birth_date": user_input.get("father_birth_date"),
+                        "breed": user_input.get("father_breed"),
+                        "wala_number": user_input.get("father_wala_number"),
+                    },
                 )
 
                 async_sync_devices(
@@ -157,7 +170,41 @@ class PuppyTrackerManagementOptionsFlow(
                     ): selector.TextSelector(),
 
                     vol.Optional(
+                        "mother_registered_name"
+                    ): selector.TextSelector(),
+
+                    vol.Optional(
+                        "mother_birth_date"
+                    ): selector.DateSelector(),
+
+                    vol.Optional(
+                        "mother_breed",
+                        default=DEFAULT_DOG_BREED,
+                    ): selector.TextSelector(),
+
+                    vol.Optional(
+                        "mother_wala_number"
+                    ): selector.TextSelector(),
+
+                    vol.Optional(
                         "father"
+                    ): selector.TextSelector(),
+
+                    vol.Optional(
+                        "father_registered_name"
+                    ): selector.TextSelector(),
+
+                    vol.Optional(
+                        "father_birth_date"
+                    ): selector.DateSelector(),
+
+                    vol.Optional(
+                        "father_breed",
+                        default=DEFAULT_DOG_BREED,
+                    ): selector.TextSelector(),
+
+                    vol.Optional(
+                        "father_wala_number"
                     ): selector.TextSelector(),
                 }
             ),
@@ -230,6 +277,12 @@ class PuppyTrackerManagementOptionsFlow(
                 reason="invalid_litter"
             )
 
+        mother_profile = (
+            storage.get_mother_for_litter(self._selected_litter_id)
+            if hasattr(storage, "get_mother_for_litter")
+            else None
+        )
+
         if user_input is not None:
             action = user_input[
                 "action"
@@ -249,6 +302,18 @@ class PuppyTrackerManagementOptionsFlow(
                         father=user_input.get(
                             "father"
                         ),
+                        mother_details={
+                            "registered_name": user_input.get("mother_registered_name"),
+                            "birth_date": user_input.get("mother_birth_date"),
+                            "breed": user_input.get("mother_breed"),
+                            "wala_number": user_input.get("mother_wala_number"),
+                        },
+                        father_details={
+                            "registered_name": user_input.get("father_registered_name"),
+                            "birth_date": user_input.get("father_birth_date"),
+                            "breed": user_input.get("father_breed"),
+                            "wala_number": user_input.get("father_wala_number"),
+                        },
                         growth_analysis={
                             "breed_profile": user_input.get("breed_profile") or "unknown",
                             "size_class": user_input.get("size_class") or "unknown",
@@ -310,7 +375,8 @@ class PuppyTrackerManagementOptionsFlow(
                 return self.async_show_form(
                     step_id="edit_litter",
                     data_schema=self._litter_edit_schema(
-                        litter
+                        litter,
+                        mother_profile,
                     ),
                     errors={
                         "base": "unknown"
@@ -320,13 +386,15 @@ class PuppyTrackerManagementOptionsFlow(
         return self.async_show_form(
             step_id="edit_litter",
             data_schema=self._litter_edit_schema(
-                litter
+                litter,
+                mother_profile,
             ),
         )
 
     def _litter_edit_schema(
         self,
         litter: dict[str, Any],
+        mother_profile: dict[str, Any] | None = None,
     ) -> vol.Schema:
         """Build litter edit schema."""
 
@@ -369,6 +437,35 @@ class PuppyTrackerManagementOptionsFlow(
             )
         ] = selector.TextSelector()
 
+        mother_identity = mother_profile or {}
+        fields[
+            vol.Optional(
+                "mother_registered_name",
+                default=mother_identity.get("registered_name") or "",
+            )
+        ] = selector.TextSelector()
+
+        mother_birth_date = mother_identity.get("birth_date")
+        if mother_birth_date:
+            fields[vol.Optional("mother_birth_date", default=mother_birth_date)] = (
+                selector.DateSelector()
+            )
+        else:
+            fields[vol.Optional("mother_birth_date")] = selector.DateSelector()
+
+        fields[
+            vol.Optional(
+                "mother_breed",
+                default=mother_identity.get("breed") or DEFAULT_DOG_BREED,
+            )
+        ] = selector.TextSelector()
+        fields[
+            vol.Optional(
+                "mother_wala_number",
+                default=mother_identity.get("wala_number") or "",
+            )
+        ] = selector.TextSelector()
+
         fields[
             vol.Optional(
                 "father",
@@ -377,6 +474,35 @@ class PuppyTrackerManagementOptionsFlow(
                     "",
                 )
                 or "",
+            )
+        ] = selector.TextSelector()
+
+        father_identity = litter.get("father_details") or {}
+        fields[
+            vol.Optional(
+                "father_registered_name",
+                default=father_identity.get("registered_name") or "",
+            )
+        ] = selector.TextSelector()
+
+        father_birth_date = father_identity.get("birth_date")
+        if father_birth_date:
+            fields[vol.Optional("father_birth_date", default=father_birth_date)] = (
+                selector.DateSelector()
+            )
+        else:
+            fields[vol.Optional("father_birth_date")] = selector.DateSelector()
+
+        fields[
+            vol.Optional(
+                "father_breed",
+                default=father_identity.get("breed") or DEFAULT_DOG_BREED,
+            )
+        ] = selector.TextSelector()
+        fields[
+            vol.Optional(
+                "father_wala_number",
+                default=father_identity.get("wala_number") or "",
             )
         ] = selector.TextSelector()
 
@@ -568,8 +694,17 @@ class PuppyTrackerManagementOptionsFlow(
                     name=user_input[
                         "name"
                     ],
+                    registered_name=user_input.get(
+                        "registered_name"
+                    ),
                     collar_color=user_input.get(
                         "collar_color"
+                    ),
+                    coat_color=user_input.get(
+                        "coat_color"
+                    ),
+                    breed=user_input.get(
+                        "breed"
                     ),
                     sex=user_input.get(
                         "sex"
@@ -661,7 +796,20 @@ class PuppyTrackerManagementOptionsFlow(
                     ): selector.TextSelector(),
 
                     vol.Optional(
+                        "registered_name"
+                    ): selector.TextSelector(),
+
+                    vol.Optional(
+                        "coat_color"
+                    ): selector.TextSelector(),
+
+                    vol.Optional(
                         "collar_color"
+                    ): selector.TextSelector(),
+
+                    vol.Optional(
+                        "breed",
+                        default=DEFAULT_DOG_BREED,
                     ): selector.TextSelector(),
 
                     vol.Optional(
@@ -813,8 +961,17 @@ class PuppyTrackerManagementOptionsFlow(
                         name=user_input[
                             "name"
                         ],
+                        registered_name=user_input.get(
+                            "registered_name"
+                        ),
                         collar_color=user_input.get(
                             "collar_color"
+                        ),
+                        coat_color=user_input.get(
+                            "coat_color"
+                        ),
+                        breed=user_input.get(
+                            "breed"
                         ),
                         sex=user_input.get(
                             "sex"
@@ -920,12 +1077,35 @@ class PuppyTrackerManagementOptionsFlow(
             ): selector.TextSelector(),
 
             vol.Optional(
+                "registered_name",
+                default=puppy.get(
+                    "registered_name",
+                    "",
+                )
+                or "",
+            ): selector.TextSelector(),
+
+            vol.Optional(
+                "coat_color",
+                default=puppy.get(
+                    "coat_color",
+                    "",
+                )
+                or "",
+            ): selector.TextSelector(),
+
+            vol.Optional(
                 "collar_color",
                 default=puppy.get(
                     "collar_color",
                     "",
                 )
                 or "",
+            ): selector.TextSelector(),
+
+            vol.Optional(
+                "breed",
+                default=puppy.get("breed") or DEFAULT_DOG_BREED,
             ): selector.TextSelector(),
         }
 

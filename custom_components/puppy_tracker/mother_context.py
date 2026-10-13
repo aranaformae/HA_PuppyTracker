@@ -91,6 +91,10 @@ def mother_context_payload(
         "mother": {
             "id": str(mother.get("id") or mother_id),
             "name": mother.get("name"),
+            "registered_name": mother.get("registered_name"),
+            "birth_date": mother.get("birth_date"),
+            "breed": mother.get("breed"),
+            "wala_number": mother.get("wala_number"),
             "profile_note": mother.get("profile_note"),
         },
         "filter": {

@@ -29,6 +29,12 @@ from .const import (
     STORAGE_KEY,
     STORAGE_VERSION,
 )
+from .dog_identity import (
+    DEFAULT_DOG_BREED,
+    migrate_contract_identity_data,
+    normalize_parent_details,
+    optional_text,
+)
 from .integrity import inspect_and_repair_data
 from .measurements import is_active_measurement, sorted_measurements
 from .records import (
@@ -221,6 +227,9 @@ class PuppyTrackerStorage:
             if isinstance(litter, dict) and "growth_analysis" not in litter:
                 litter["growth_analysis"] = deepcopy(DEFAULT_LITTER_GROWTH_ANALYSIS)
                 changed = True
+
+        if migrate_contract_identity_data(self._data):
+            changed = True
 
         settings = self._data["settings"]
         defaults = _default_settings()
@@ -947,6 +956,7 @@ class PuppyTrackerStorage:
         birth_date: str | None = None,
         mother: str | None = None,
         father: str | None = None,
+        father_details: dict[str, Any] | None = None,
     ) -> str:
         """Create a new litter."""
 
@@ -954,12 +964,17 @@ class PuppyTrackerStorage:
             litter_id = str(uuid4())
             now = _now_iso()
 
+            normalized_father = normalize_parent_details(
+                father_details,
+                call_name=father,
+            )
             self._data["litters"][litter_id] = {
                 "id": litter_id,
                 "name": name,
                 "birth_date": birth_date,
                 "mother": mother,
-                "father": father,
+                "father": normalized_father["call_name"],
+                "father_details": normalized_father,
                 "active": True,
                 "created_at": now,
                 "updated_at": now,
@@ -976,7 +991,8 @@ class PuppyTrackerStorage:
                     "name": name,
                     "birth_date": birth_date,
                     "mother": mother,
-                    "father": father,
+                    "father": normalized_father["call_name"],
+                    "father_details": deepcopy(normalized_father),
                 },
             )
 
@@ -992,6 +1008,7 @@ class PuppyTrackerStorage:
         birth_date: str | None,
         mother: str | None,
         father: str | None,
+        father_details: dict[str, Any] | None = None,
         growth_analysis: dict[str, Any] | None = None,
     ) -> None:
         """Update litter details."""
@@ -1006,19 +1023,30 @@ class PuppyTrackerStorage:
                 "birth_date": litter.get("birth_date"),
                 "mother": litter.get("mother"),
                 "father": litter.get("father"),
+                "father_details": deepcopy(litter.get("father_details", {})),
                 "active": litter.get("active", True),
                 "growth_analysis": deepcopy(litter.get("growth_analysis", {})),
             }
 
+            normalized_father = normalize_parent_details(
+                father_details
+                if father_details is not None
+                else litter.get("father_details"),
+                call_name=father,
+            )
+            normalized_growth_analysis = _normalize_litter_growth_analysis(
+                growth_analysis
+                if growth_analysis is not None
+                else litter.get("growth_analysis")
+            )
             now = _now_iso()
 
             litter["name"] = name
             litter["birth_date"] = birth_date
             litter["mother"] = mother
-            litter["father"] = father
-            litter["growth_analysis"] = _normalize_litter_growth_analysis(
-                growth_analysis if growth_analysis is not None else litter.get("growth_analysis")
-            )
+            litter["father"] = normalized_father["call_name"]
+            litter["father_details"] = normalized_father
+            litter["growth_analysis"] = normalized_growth_analysis
             litter["updated_at"] = now
 
             self._add_audit_entry(
@@ -1030,7 +1058,8 @@ class PuppyTrackerStorage:
                         "name": name,
                         "birth_date": birth_date,
                         "mother": mother,
-                        "father": father,
+                        "father": normalized_father["call_name"],
+                        "father_details": deepcopy(normalized_father),
                         "active": litter.get(
                             "active",
                             True,
@@ -1133,6 +1162,9 @@ class PuppyTrackerStorage:
         sex: str | None = None,
         profile_note: str | None = None,
         chip_number: str | None = None,
+        registered_name: str | None = None,
+        coat_color: str | None = None,
+        breed: str | None = DEFAULT_DOG_BREED,
     ) -> str:
         """Add a puppy to a litter."""
 
@@ -1152,7 +1184,10 @@ class PuppyTrackerStorage:
             puppy = {
                 "id": puppy_id,
                 "name": name,
+                "registered_name": optional_text(registered_name),
                 "collar_color": collar_color,
+                "coat_color": optional_text(coat_color),
+                "breed": optional_text(breed) or DEFAULT_DOG_BREED,
                 "sex": sex,
                 "birth_weight": (
                     float(birth_weight)
@@ -1183,9 +1218,12 @@ class PuppyTrackerStorage:
                 puppy_id=puppy_id,
                 details={
                     "name": name,
+                    "registered_name": optional_text(registered_name),
                     "birth_weight": birth_weight,
                     "birth_time": normalized_birth_time,
                     "collar_color": collar_color,
+                    "coat_color": optional_text(coat_color),
+                    "breed": optional_text(breed) or DEFAULT_DOG_BREED,
                     "sex": sex,
                     "chip_number": str(chip_number or "").strip() or None,
                 },
@@ -1236,6 +1274,9 @@ class PuppyTrackerStorage:
         birth_weight: float | None,
         birth_time: str | None,
         profile_note: str | None,
+        registered_name: str | None,
+        coat_color: str | None,
+        breed: str | None,
         chip_number: str | None = None,
     ) -> None:
         """Update puppy details and keep the birth measurement synchronized."""
@@ -1245,7 +1286,10 @@ class PuppyTrackerStorage:
 
             before = {
                 "name": puppy.get("name"),
+                "registered_name": puppy.get("registered_name"),
                 "collar_color": puppy.get("collar_color"),
+                "coat_color": puppy.get("coat_color"),
+                "breed": puppy.get("breed"),
                 "sex": puppy.get("sex"),
                 "birth_weight": puppy.get("birth_weight"),
                 "birth_time": puppy.get("birth_time"),
@@ -1263,7 +1307,10 @@ class PuppyTrackerStorage:
             )
 
             puppy["name"] = name
+            puppy["registered_name"] = optional_text(registered_name)
             puppy["collar_color"] = collar_color
+            puppy["coat_color"] = optional_text(coat_color)
+            puppy["breed"] = optional_text(breed) or DEFAULT_DOG_BREED
             puppy["sex"] = sex
             puppy["birth_weight"] = new_birth_weight
             puppy["birth_time"] = normalized_birth_time
@@ -1366,7 +1413,10 @@ class PuppyTrackerStorage:
                     "before": before,
                     "after": {
                         "name": name,
+                        "registered_name": puppy.get("registered_name"),
                         "collar_color": collar_color,
+                        "coat_color": puppy.get("coat_color"),
+                        "breed": puppy.get("breed"),
                         "sex": sex,
                         "birth_weight": new_birth_weight,
                         "birth_time": normalized_birth_time,

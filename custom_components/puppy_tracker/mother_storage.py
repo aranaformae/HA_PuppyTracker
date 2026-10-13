@@ -7,19 +7,18 @@ from typing import Any
 from uuid import uuid4
 
 from .behavior import BEHAVIOR_RECORD_TYPE
+from .dog_identity import PARENT_IDENTITY_FIELDS, normalize_parent_details
+from .mother_schema import MOTHER_SCHEMA_VERSION, migrate_mother_scope_data
 from .records import (
     RECORD_SCOPE_LITTER,
     RECORD_SCOPE_MOTHER,
     RECORD_SCOPE_PUPPY,
     create_record,
-    normalize_record,
     sorted_records,
     validate_record_type,
 )
 from .storage import PuppyTrackerStorage, _now_iso
 from .time_utils import normalize_timestamp
-
-MOTHER_SCHEMA_VERSION = 8
 
 
 def _clean_name(value: str | None) -> str | None:
@@ -47,87 +46,7 @@ class MotherScopeStorage(PuppyTrackerStorage):
 
     def _migrate_mothers(self) -> bool:
         """Create reusable mother profiles and link existing litters safely."""
-        changed = False
-        now = _now_iso()
-        mothers = self._data.setdefault("mothers", {})
-        if not isinstance(mothers, dict):
-            return False
-
-        by_name = {
-            _name_key(mother.get("name")): str(mother_id)
-            for mother_id, mother in mothers.items()
-            if isinstance(mother, dict) and _name_key(mother.get("name"))
-        }
-
-        for litter_id, litter in self._data.get("litters", {}).items():
-            if not isinstance(litter, dict):
-                continue
-            mother_name = _clean_name(litter.get("mother"))
-            mother_id = litter.get("mother_id")
-            mother = mothers.get(str(mother_id)) if mother_id else None
-
-            if mother is None and mother_name:
-                existing_id = by_name.get(_name_key(mother_name))
-                if existing_id:
-                    mother_id = existing_id
-                    mother = mothers[existing_id]
-                else:
-                    mother_id = str(uuid4())
-                    mother = {
-                        "id": mother_id,
-                        "name": mother_name,
-                        "profile_note": None,
-                        "records": [],
-                        "created_at": now,
-                        "updated_at": now,
-                    }
-                    mothers[mother_id] = mother
-                    by_name[_name_key(mother_name)] = mother_id
-                    changed = True
-
-            if mother is not None:
-                mother.setdefault("id", str(mother_id))
-                mother.setdefault("name", mother_name or "Moederhond")
-                mother.setdefault("profile_note", None)
-                mother.setdefault("records", [])
-                mother.setdefault("created_at", now)
-                mother.setdefault("updated_at", now)
-                if litter.get("mother_id") != str(mother_id):
-                    litter["mother_id"] = str(mother_id)
-                    changed = True
-                if not mother_name and mother.get("name"):
-                    litter["mother"] = mother.get("name")
-                    changed = True
-            elif "mother_id" not in litter:
-                litter["mother_id"] = None
-                changed = True
-
-        linked_litters: dict[str, str] = {}
-        for litter_id, litter in self._data.get("litters", {}).items():
-            if isinstance(litter, dict) and litter.get("mother_id"):
-                linked_litters.setdefault(str(litter["mother_id"]), str(litter_id))
-
-        for mother_id, mother in mothers.items():
-            if not isinstance(mother, dict):
-                continue
-            records = mother.get("records")
-            if not isinstance(records, list):
-                continue
-            fallback_litter_id = linked_litters.get(str(mother_id), "")
-            for record in records:
-                if not isinstance(record, dict):
-                    continue
-                litter_id = str(record.get("litter_id") or fallback_litter_id)
-                if litter_id and normalize_record(
-                    record,
-                    litter_id=litter_id,
-                    mother_id=str(mother_id),
-                    puppy_id=None,
-                    now=now,
-                ):
-                    changed = True
-
-        return changed
+        return migrate_mother_scope_data(self._data)
 
     def _find_mother_by_name(self, name: str | None) -> dict[str, Any] | None:
         key = _name_key(name)
@@ -138,9 +57,15 @@ class MotherScopeStorage(PuppyTrackerStorage):
                 return mother
         return None
 
-    async def _link_litter_mother(self, litter_id: str, mother_name: str | None) -> None:
+    async def _link_litter_mother(
+        self,
+        litter_id: str,
+        mother_name: str | None,
+        mother_details: dict[str, Any] | None = None,
+    ) -> None:
         async with self._lock:
             litter = self._require_litter(litter_id)
+            current_mother_id = str(litter.get("mother_id") or "")
             name = _clean_name(mother_name)
             now = _now_iso()
             if not name:
@@ -148,18 +73,45 @@ class MotherScopeStorage(PuppyTrackerStorage):
                 litter["mother"] = None
                 litter["updated_at"] = now
             else:
+                normalized_details = normalize_parent_details(
+                    mother_details,
+                    call_name=name,
+                )
                 mother = self._find_mother_by_name(name)
                 if mother is None:
                     mother_id = str(uuid4())
                     mother = {
                         "id": mother_id,
                         "name": name,
+                        **{
+                            field: normalized_details[field]
+                            for field in PARENT_IDENTITY_FIELDS
+                        },
                         "profile_note": None,
                         "records": [],
                         "created_at": now,
                         "updated_at": now,
                     }
                     self._data.setdefault("mothers", {})[mother_id] = mother
+                elif mother_details is not None:
+                    same_profile = str(mother.get("id") or "") == current_mother_id
+                    changed = False
+                    if same_profile and mother.get("name") != name:
+                        mother["name"] = name
+                        changed = True
+                    for field in PARENT_IDENTITY_FIELDS:
+                        value = normalized_details[field]
+                        if same_profile:
+                            if mother.get(field) != value:
+                                mother[field] = value
+                                changed = True
+                        elif not current_mother_id and not mother.get(field) and value:
+                            # A new litter may enrich an existing profile, but must
+                            # never erase or replace identity data with empty form values.
+                            mother[field] = value
+                            changed = True
+                    if changed:
+                        mother["updated_at"] = now
                 litter["mother_id"] = mother["id"]
                 litter["mother"] = mother["name"]
                 litter["updated_at"] = now
@@ -172,14 +124,22 @@ class MotherScopeStorage(PuppyTrackerStorage):
         birth_date: str | None = None,
         mother: str | None = None,
         father: str | None = None,
+        mother_details: dict[str, Any] | None = None,
+        father_details: dict[str, Any] | None = None,
     ) -> str:
+        normalized_mother = (
+            normalize_parent_details(mother_details, call_name=mother)
+            if mother_details is not None
+            else None
+        )
         litter_id = await super().async_create_litter(
             name=name,
             birth_date=birth_date,
             mother=mother,
             father=father,
+            father_details=father_details,
         )
-        await self._link_litter_mother(litter_id, mother)
+        await self._link_litter_mother(litter_id, mother, normalized_mother)
         return litter_id
 
     async def async_update_litter(
@@ -190,17 +150,25 @@ class MotherScopeStorage(PuppyTrackerStorage):
         birth_date: str | None,
         mother: str | None,
         father: str | None,
+        mother_details: dict[str, Any] | None = None,
+        father_details: dict[str, Any] | None = None,
         growth_analysis: dict[str, Any] | None = None,
     ) -> None:
+        normalized_mother = (
+            normalize_parent_details(mother_details, call_name=mother)
+            if mother_details is not None
+            else None
+        )
         await super().async_update_litter(
             litter_id,
             name=name,
             birth_date=birth_date,
             mother=mother,
             father=father,
+            father_details=father_details,
             growth_analysis=growth_analysis,
         )
-        await self._link_litter_mother(litter_id, mother)
+        await self._link_litter_mother(litter_id, mother, normalized_mother)
 
     def get_mothers(self) -> list[dict[str, Any]]:
         """Return all mother profiles sorted by name."""

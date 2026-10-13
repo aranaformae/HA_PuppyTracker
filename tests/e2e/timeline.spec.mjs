@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 function litterData() {
   return {
-    api_version: 9,
+    api_version: 10,
     can_manage_measurements: true,
     can_manage_records: true,
     litter: {
@@ -190,7 +190,7 @@ async function mountTimeline(page, config = {}) {
   await page.evaluate((cardConfig) => {
     const data = window.__timelineFixtureData = {
       litter: {
-        api_version: 9,
+        api_version: 10,
         can_manage_measurements: true,
         can_manage_records: true,
         litter: {

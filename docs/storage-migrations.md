@@ -2,7 +2,7 @@
 
 Puppy Tracker treats persistent storage migrations as a compatibility contract. A migration may add or normalize metadata, but it must not silently replace the identity or historical meaning of existing litter, puppy, measurement, dossier, mother, or audit data.
 
-The production runtime currently ends on **storage schema 8** through `MotherScopeIntegrityStorage`.
+The production runtime currently ends on **storage schema 9** through `MotherScopeIntegrityStorage`.
 
 ## Historical schema path
 
@@ -16,12 +16,13 @@ The production runtime currently ends on **storage schema 8** through `MotherSco
 | 6 | Storage-integrity and metadata-timestamp hardening. | Only unambiguous integrity repairs are automatic; IDs, correction history and audit history remain stable. |
 | 7 | Generic dossier records and `profile_note`. | Legacy puppy `notes` migrate to `profile_note`; litter/puppy dossier record UUIDs, ownership, soft-delete state and occurred-at history are preserved. |
 | 8 | Persistent reusable mother profiles and mother-scoped dossier records. | Existing mother IDs remain stable, litter-to-mother links remain exact, and mother record ownership/identity is preserved. |
+| 9 | Contract identity for puppies and parent dogs. | Existing call names remain unchanged; missing registered names, coat colours and WALA values stay empty, while missing breed/type fields receive the editable project default. |
 
 ## Automated regression fixtures
 
-`tests/fixtures/storage_schema_versions.json` contains one representative historical fixture for each schema 1 through 8. Schema 1 intentionally has no `schema_version` field because that is how the loader recognizes pre-versioned data.
+`tests/fixtures/storage_schema_versions.json` contains one representative historical fixture for each schema 1 through 8. Schema 1 intentionally has no `schema_version` field because that is how the loader recognizes pre-versioned data. Schema 9 is the current output rather than a historical input fixture.
 
-`tests/test_storage_schema_migrations.py` loads every fixture through the same `MotherScopeIntegrityStorage.async_load()` path used by the Home Assistant integration. The suite verifies that migration to schema 8 preserves:
+`tests/test_storage_schema_migrations.py` loads every fixture through the same `MotherScopeIntegrityStorage.async_load()` path used by the Home Assistant integration. The suite verifies that migration to schema 9 preserves:
 
 - litter and puppy IDs;
 - archived/inactive state;
@@ -34,6 +35,7 @@ The production runtime currently ends on **storage schema 8** through `MotherSco
 - legacy `notes` → `profile_note` content;
 - dossier record UUIDs, ownership and soft-delete state;
 - mother profile and mother-record identity/ownership;
+- puppy and parent call names while adding normalized contract identity fields;
 - original audit entries;
 - storage integrity with no unresolved critical issues after a supported migration.
 
@@ -41,7 +43,7 @@ Every migrated fixture is then loaded a second time. The second load must be **i
 
 ## Rules for future schema changes
 
-When adding schema 9 or later:
+When adding schema 10 or later:
 
 1. Add the migration before increasing the runtime schema number.
 2. Add a fixture representing the previous schema before the migration.

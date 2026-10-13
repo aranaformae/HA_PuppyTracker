@@ -211,7 +211,10 @@ contact, placement, payment and note information; puppy linking is a separate
 step. **Export CSV** downloads one Word/Excel-friendly row per owner-puppy link
 and retains unlinked owners with empty puppy columns. Set `csv_delimiter` to
 `comma` (default and suitable for Nextcloud) or `semicolon`; both choices are
-also available in the visual editor.
+also available in the visual editor. Address entry is split into street/house
+number, postal code and city. Linked rows include the complete puppy and parent
+contract identity, including registered/call names, coat colour, breed/type and
+WALA values.
 
 Report also remains separate:
 
@@ -245,6 +248,8 @@ importable litter backup and therefore does not follow presentation filters.
 Individual checkboxes can create a custom profile. **Identity** controls the
 nest/puppy identity table and puppy profile fields; the report title and
 headings still identify the selected subject when other sections need them.
+The Identity section includes the litter date, full puppy identity and the
+registered/call names, birth dates, breed/type and WALA details of both parents.
 **Dossier items** includes ordinary notes, temperature, feeding, veterinary
 and other dossier entries. Care-program results and behavior observations are
 separate and never duplicated there. **Behavior profile** independently adds

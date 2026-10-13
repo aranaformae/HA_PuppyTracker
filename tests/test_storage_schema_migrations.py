@@ -17,7 +17,7 @@ from custom_components.puppy_tracker.mother_storage_integrity import (
 
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "storage_schema_versions.json"
-HISTORICAL_SCHEMAS = tuple(range(1, MOTHER_SCHEMA_VERSION + 1))
+HISTORICAL_SCHEMAS = tuple(range(1, MOTHER_SCHEMA_VERSION))
 
 
 def _load_fixtures() -> dict[int, dict]:
@@ -112,6 +112,11 @@ async def test_every_historical_schema_migrates_to_current_without_identity_loss
     assert mother_id
     assert mother_id in data["mothers"]
     assert data["mothers"][mother_id]["name"] == "Luna"
+    assert data["mothers"][mother_id]["breed"] == "Multi-generation Australian Labradoodle"
+    assert puppy["registered_name"] is None
+    assert puppy["coat_color"] is None
+    assert puppy["breed"] == "Multi-generation Australian Labradoodle"
+    assert litter["father_details"]["call_name"] == "Dutch"
 
     report = storage.get_integrity_report()
     assert report["unresolved_critical"] == 0

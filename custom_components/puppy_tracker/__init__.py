@@ -32,6 +32,7 @@ from .const import (
     SIGNAL_UPDATE,
 )
 from .devices import async_sync_devices
+from .dog_identity import DEFAULT_DOG_BREED
 from .frontend import async_setup_frontend, async_unload_frontend
 from .mother_api import async_setup_mother_api
 from .mother_storage_integrity import MotherScopeIntegrityStorage
@@ -82,7 +83,15 @@ CREATE_LITTER_SCHEMA = vol.Schema(
         vol.Required("name"): cv.string,
         vol.Optional("birth_date"): cv.string,
         vol.Optional("mother"): cv.string,
+        vol.Optional("mother_registered_name"): cv.string,
+        vol.Optional("mother_birth_date"): cv.string,
+        vol.Optional("mother_breed"): cv.string,
+        vol.Optional("mother_wala_number"): cv.string,
         vol.Optional("father"): cv.string,
+        vol.Optional("father_registered_name"): cv.string,
+        vol.Optional("father_birth_date"): cv.string,
+        vol.Optional("father_breed"): cv.string,
+        vol.Optional("father_wala_number"): cv.string,
     }
 )
 
@@ -91,7 +100,10 @@ ADD_PUPPY_SCHEMA = vol.Schema(
     {
         vol.Required("litter_id"): cv.string,
         vol.Required("name"): cv.string,
+        vol.Optional("registered_name"): cv.string,
         vol.Optional("collar_color"): cv.string,
+        vol.Optional("coat_color"): cv.string,
+        vol.Optional("breed"): cv.string,
         vol.Optional("sex"): cv.string,
         vol.Optional("birth_weight"): vol.All(
             vol.Coerce(float),
@@ -199,6 +211,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             birth_date=call.data.get("birth_date"),
             mother=call.data.get("mother"),
             father=call.data.get("father"),
+            mother_details={
+                "registered_name": call.data.get("mother_registered_name"),
+                "birth_date": call.data.get("mother_birth_date"),
+                "breed": call.data.get("mother_breed") or DEFAULT_DOG_BREED,
+                "wala_number": call.data.get("mother_wala_number"),
+            },
+            father_details={
+                "registered_name": call.data.get("father_registered_name"),
+                "birth_date": call.data.get("father_birth_date"),
+                "breed": call.data.get("father_breed") or DEFAULT_DOG_BREED,
+                "wala_number": call.data.get("father_wala_number"),
+            },
         )
         async_sync_devices(hass, entry, storage.get_data())
         async_dispatcher_send(hass, SIGNAL_NEW_LITTER, litter_id)
@@ -210,9 +234,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         puppy_id = await storage.async_add_puppy(
             litter_id=call.data["litter_id"],
             name=call.data["name"],
+            registered_name=call.data.get("registered_name"),
             birth_weight=call.data.get("birth_weight"),
             birth_time=call.data.get("birth_time"),
             collar_color=call.data.get("collar_color"),
+            coat_color=call.data.get("coat_color"),
+            breed=call.data.get("breed") or DEFAULT_DOG_BREED,
             sex=call.data.get("sex"),
             profile_note=call.data.get("profile_note"),
             chip_number=call.data.get("chip_number"),

@@ -35,6 +35,10 @@ def websocket_list_owners(hass: HomeAssistant, connection, msg: dict[str, Any]) 
     vol.Required("name"): str,
     vol.Optional("email"): vol.Any(str, None),
     vol.Optional("phone"): vol.Any(str, None),
+    vol.Optional("street"): vol.Any(str, None),
+    vol.Optional("postal_code"): vol.Any(str, None),
+    vol.Optional("city"): vol.Any(str, None),
+    # Accepted for cached pre-schema-9 cards; OwnerStore migrates it to street.
     vol.Optional("address"): vol.Any(str, None),
     vol.Optional("notes"): vol.Any(str, None),
     vol.Optional("role"): str,

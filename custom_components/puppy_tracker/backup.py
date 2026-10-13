@@ -14,6 +14,7 @@ from .care_programs import normalize_care_program_backup_data
 from .care_reminders import CARE_REMINDER_CATEGORIES, MAX_CARE_REMINDER_LEAD_DAYS
 from .care_templates import normalize_care_template_backup_data
 from .const import DOMAIN
+from .dog_identity import parent_details_for_litter
 from .integrity import inspect_and_repair_data
 from .mother_integrity import inspect_mother_data, merge_integrity_reports
 from .mother_schema import migrate_mother_scope_data
@@ -27,7 +28,9 @@ LEGACY_EXPORT_VERSION = 4
 SCHEDULER_BACKUP_VERSION = 1
 LEGACY_SCHEMA_VERSION = 7
 CURRENT_SCHEMA_VERSION = MOTHER_SCHEMA_VERSION
-SUPPORTED_SCHEMA_VERSIONS = frozenset({LEGACY_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION})
+SUPPORTED_SCHEMA_VERSIONS = frozenset(
+    {LEGACY_SCHEMA_VERSION, 8, CURRENT_SCHEMA_VERSION}
+)
 SUPPORTED_EXPORT_VERSIONS = frozenset({LEGACY_EXPORT_VERSION, EXPORT_VERSION})
 VALID_SCOPES = frozenset({"full", "litter", "puppy"})
 VALID_IMPORT_MODES = {
@@ -310,7 +313,14 @@ def build_export_document(
         raise ValueError("Unknown litter")
 
     if scope == "litter":
-        document["litter"] = litter
+        exported_litter = deepcopy(litter)
+        exported_litter["mother_details"] = parent_details_for_litter(
+            data, litter, "mother"
+        )
+        exported_litter["father_details"] = parent_details_for_litter(
+            data, litter, "father"
+        )
+        document["litter"] = exported_litter
         document["audit_log"] = _audit_for_litter(data, litter_id)
         return document
 
@@ -325,7 +335,9 @@ def build_export_document(
         "name": litter.get("name"),
         "birth_date": litter.get("birth_date"),
         "mother": litter.get("mother"),
+        "mother_details": parent_details_for_litter(data, litter, "mother"),
         "father": litter.get("father"),
+        "father_details": parent_details_for_litter(data, litter, "father"),
     }
     document["puppy"] = puppy
     document["audit_log"] = _audit_for_puppy(data, litter_id, puppy_id)
@@ -758,7 +770,9 @@ def _new_litter_from_source(source_litter: dict[str, Any], litter_id: str) -> di
         "name": source_litter.get("name") or "Imported litter",
         "birth_date": source_litter.get("birth_date"),
         "mother": source_litter.get("mother"),
+        "mother_details": deepcopy(source_litter.get("mother_details")),
         "father": source_litter.get("father"),
+        "father_details": deepcopy(source_litter.get("father_details")),
         "active": True,
         "created_at": now,
         "updated_at": now,

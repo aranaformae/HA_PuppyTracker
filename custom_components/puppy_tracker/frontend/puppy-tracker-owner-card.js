@@ -25,6 +25,10 @@ const PAYMENT_METHOD_LABELS = {
   none: { nl: "Niet opgegeven", en: "Not specified" }, bank_transfer: { nl: "Bankoverschrijving", en: "Bank transfer" },
   cash: { nl: "Contant", en: "Cash" }, card: { nl: "Kaart", en: "Card" }, other: { nl: "Anders", en: "Other" },
 };
+const SEX_LABELS = {
+  male: { nl: "Reu", en: "Male" },
+  female: { nl: "Teef", en: "Female" },
+};
 
 const COPY = {
   nl: {
@@ -40,7 +44,9 @@ const COPY = {
     name: "Naam",
     email: "E-mail",
     phone: "Telefoon",
-    address: "Adres",
+    street: "Straat en huisnummer",
+    postalCode: "Postcode",
+    city: "Plaats",
     role: "Rol",
     placementStatus: "Plaatsingsstatus",
     placementDate: "Plaatsingsdatum",
@@ -65,11 +71,23 @@ const COPY = {
     linkSave: "Koppeling opslaan",
     litter: "Nest",
     puppy: "Pup",
-    puppyName: "Naam pup",
+    puppyRegisteredName: "Nestnaam pup",
+    puppyCallName: "Roepnaam pup",
     puppyBirthDate: "Geboortedatum pup",
+    puppySex: "Geslacht pup",
+    puppyCoatColor: "Vachtkleur pup",
     puppyCollarColor: "Halsbandkleur pup",
-    puppyFather: "Vader pup",
-    puppyMother: "Moeder pup",
+    puppyBreed: "Soort pup",
+    fatherRegisteredName: "Naam vader",
+    fatherCallName: "Roepnaam vader",
+    fatherBirthDate: "Geboortedatum vader",
+    fatherBreed: "Soort vader",
+    fatherWala: "WALA vader",
+    motherRegisteredName: "Naam moeder",
+    motherCallName: "Roepnaam moeder",
+    motherBirthDate: "Geboortedatum moeder",
+    motherBreed: "Soort moeder",
+    motherWala: "WALA moeder",
     chipNumber: "Chipnummer pup",
     saved: "Baasje opgeslagen.",
     linked: "Koppeling opgeslagen.",
@@ -98,7 +116,9 @@ const COPY = {
     name: "Name",
     email: "Email",
     phone: "Phone",
-    address: "Address",
+    street: "Street and house number",
+    postalCode: "Postal code",
+    city: "City",
     role: "Role",
     placementStatus: "Placement status",
     placementDate: "Placement date",
@@ -123,11 +143,23 @@ const COPY = {
     linkSave: "Save link",
     litter: "Litter",
     puppy: "Puppy",
-    puppyName: "Puppy name",
+    puppyRegisteredName: "Puppy registered name",
+    puppyCallName: "Puppy call name",
     puppyBirthDate: "Puppy birth date",
+    puppySex: "Puppy sex",
+    puppyCoatColor: "Puppy coat color",
     puppyCollarColor: "Puppy collar color",
-    puppyFather: "Puppy father",
-    puppyMother: "Puppy mother",
+    puppyBreed: "Puppy breed / type",
+    fatherRegisteredName: "Father registered name",
+    fatherCallName: "Father call name",
+    fatherBirthDate: "Father birth date",
+    fatherBreed: "Father breed / type",
+    fatherWala: "Father WALA",
+    motherRegisteredName: "Mother registered name",
+    motherCallName: "Mother call name",
+    motherBirthDate: "Mother birth date",
+    motherBreed: "Mother breed / type",
+    motherWala: "Mother WALA",
     chipNumber: "Puppy microchip number",
     saved: "Owner saved.",
     linked: "Link saved.",
@@ -268,13 +300,16 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       if (!this._selectedLitter && this._litters[0]) this._selectedLitter = this._litters[0].id;
       const data = await Promise.all(this._litters.map(async (litter) => {
         const result = await this._hass.callWS({ type: "puppy_tracker/data", litter_id: litter.id });
+        const litterDetails = result?.litter || litter;
         return (result?.puppies || []).map((puppy) => ({
           ...puppy,
           litter_id: litter.id,
-          litter_name: litter.name || text(this, "litter"),
-          litter_birth_date: litter.birth_date,
-          mother: litter.mother,
-          father: litter.father,
+          litter_name: litterDetails.name || text(this, "litter"),
+          litter_birth_date: litterDetails.birth_date,
+          mother: litterDetails.mother,
+          mother_details: litterDetails.mother_details || {},
+          father: litterDetails.father,
+          father_details: litterDetails.father_details || {},
         }));
       }));
       this._puppies = data.flat();
@@ -353,12 +388,15 @@ class PuppyTrackerOwnerCard extends HTMLElement {
 
   _ownerCsvContent() {
     const headers = [
-      "name", "email", "phone", "address", "role", "contactPreference",
+      "name", "email", "phone", "street", "postalCode", "city", "role", "contactPreference",
       "placementStatus", "placementDate", "expectedPickupDate", "paymentStatus",
       "paymentAmount", "registrationFeeAmount", "depositAmount", "depositDate",
       "finalPaymentAmount", "paymentBalance", "paymentMethod", "paymentDate",
-      "notes", "statusHistory", "litter", "puppyName", "puppyBirthDate",
-      "puppyCollarColor", "chipNumber", "puppyFather", "puppyMother",
+      "notes", "statusHistory", "litter", "puppyRegisteredName", "puppyCallName",
+      "puppyBirthDate", "puppySex", "puppyCoatColor", "puppyCollarColor",
+      "chipNumber", "puppyBreed", "fatherRegisteredName", "fatherCallName",
+      "fatherBirthDate", "fatherBreed", "fatherWala", "motherRegisteredName",
+      "motherCallName", "motherBirthDate", "motherBreed", "motherWala",
     ].map((key) => text(this, key));
     const rows = [headers];
     for (const owner of this._owners) {
@@ -370,7 +408,9 @@ class PuppyTrackerOwnerCard extends HTMLElement {
         owner.name,
         owner.email,
         owner.phone,
-        owner.address,
+        owner.street || owner.address,
+        owner.postal_code,
+        owner.city,
         optionLabel(this, owner.role, OWNER_ROLE_LABELS, "owner"),
         optionLabel(this, owner.contact_preference, CONTACT_PREFERENCE_LABELS, "none"),
         optionLabel(this, owner.placement_status, PLACEMENT_STATUS_LABELS, "interested"),
@@ -395,12 +435,24 @@ class PuppyTrackerOwnerCard extends HTMLElement {
         rows.push([
           ...ownerValues,
           puppy?.litter_name,
+          puppy?.registered_name,
           puppy?.name,
           puppy ? dateOnly(puppy.birth_time, puppy.litter_birth_date) : "",
+          puppy ? optionLabel(this, puppy.sex, SEX_LABELS, puppy.sex) : "",
+          puppy?.coat_color,
           puppy?.collar_color,
           puppy?.chip_number,
+          puppy?.breed,
+          puppy?.father_details?.registered_name,
           puppy?.father,
+          puppy?.father_details?.birth_date,
+          puppy?.father_details?.breed,
+          puppy?.father_details?.wala_number,
+          puppy?.mother_details?.registered_name,
           puppy?.mother,
+          puppy?.mother_details?.birth_date,
+          puppy?.mother_details?.breed,
+          puppy?.mother_details?.wala_number,
         ]);
       }
     }
@@ -457,7 +509,9 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       ${this._detail(text(this, "contactPreference"), optionLabel(this, owner.contact_preference, CONTACT_PREFERENCE_LABELS, "none"))}
       ${this._detail(text(this, "email"), owner.email || "—")}
       ${this._detail(text(this, "phone"), owner.phone || "—")}
-      ${this._detail(text(this, "address"), owner.address || "—")}
+      ${this._detail(text(this, "street"), owner.street || owner.address || "—")}
+      ${this._detail(text(this, "postalCode"), owner.postal_code || "—")}
+      ${this._detail(text(this, "city"), owner.city || "—")}
       ${this._detail(text(this, "linkedPuppies"), linked, "wide")}
       ${this._detail(text(this, "statusHistory"), history, "wide preformatted")}
       ${this._detail(text(this, "notes"), owner.notes || "—", "wide notes preformatted")}
@@ -485,7 +539,9 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       <label><span>${escapeHtml(text(this, "name"))}</span><input name="name" required autocomplete="name" value="${escapeHtml(owner.name || "")}"></label>
       <label><span>${escapeHtml(text(this, "email"))}</span><input name="email" type="email" autocomplete="email" value="${escapeHtml(owner.email || "")}"></label>
       <label><span>${escapeHtml(text(this, "phone"))}</span><input name="phone" autocomplete="tel" value="${escapeHtml(owner.phone || "")}"></label>
-      <label><span>${escapeHtml(text(this, "address"))}</span><input name="address" autocomplete="street-address" value="${escapeHtml(owner.address || "")}"></label>
+      <label><span>${escapeHtml(text(this, "street"))}</span><input name="street" autocomplete="street-address" value="${escapeHtml(owner.street || owner.address || "")}"></label>
+      <label><span>${escapeHtml(text(this, "postalCode"))}</span><input name="postal_code" autocomplete="postal-code" value="${escapeHtml(owner.postal_code || "")}"></label>
+      <label><span>${escapeHtml(text(this, "city"))}</span><input name="city" autocomplete="address-level2" value="${escapeHtml(owner.city || "")}"></label>
       ${selectField(this, "role", text(this, "role"), OWNER_ROLE_LABELS, owner.role || "owner")}
       ${selectField(this, "contact_preference", text(this, "contactPreference"), CONTACT_PREFERENCE_LABELS, owner.contact_preference || "none")}
       <h4 class="form-heading">${escapeHtml(text(this, "placementDetails"))}</h4>

@@ -17,9 +17,12 @@ Puppy Tracker provides authoritative JSON backup and restore from the integratio
 
 Use this for disaster recovery. A current full v5 backup contains the authoritative Puppy Tracker data and the portable configuration needed to reconstruct scheduled care:
 
-- complete main storage, including mother profiles, litters, puppies, measurement versions, dossier records, settings and audit history;
+- complete main storage, including mother/father contract identity, puppy
+  registered/call names, coat colour, breed/type, litters, measurement versions,
+  dossier records, settings and audit history;
 - reusable owner/contact records, including placement/payment schedules and
-  actual outstanding balances, plus puppy links to those contacts;
+  actual outstanding balances, split address fields and puppy links to those
+  contacts;
 - portable care-reminder preferences such as category toggles and the default notification lead time;
 - age-based care-program definitions, including optional per-program notification lead-time overrides;
 - user-owned care-program templates, including general and day-specific instructions;
@@ -46,7 +49,8 @@ Exports one puppy with:
 - correction chains and correction metadata;
 - all dossier records, including deleted records where present in storage;
 - relevant audit history;
-- basic source-litter metadata so the puppy can also be restored into a newly created litter.
+- source-litter and parent identity metadata so the puppy can also be restored
+  into a newly created litter without losing contract fields.
 
 Global settings and scheduler stores are not included in a single-puppy transfer.
 
@@ -121,7 +125,7 @@ A v4 full backup predates portable owner, template and scheduler-store snapshots
 For a complete restore:
 
 1. Export a **Complete Puppy Tracker backup** regularly and store it outside Home Assistant.
-2. In the replacement or recovered Home Assistant installation, install a Puppy Tracker version that supports backup format v5/v4 and storage schema 7/8 restore.
+2. In the replacement or recovered Home Assistant installation, install a Puppy Tracker version that supports backup format v5/v4 and storage schema 7/8/9 restore.
 3. Open **Data management → Import / restore backup**.
 4. Upload the full JSON backup.
 5. Choose **Replace all current Puppy Tracker data with this backup**.
@@ -166,7 +170,12 @@ Use full replacement only for intentional disaster recovery. Use merge-as-new wh
 
 The restore workflow accepts backup formats **v4 and v5**.
 
-Supported main-storage schemas are **7 and 8**. Schema 7 is treated as a supported legacy input and is normalized to the current mother-aware schema 8 in the in-memory restore candidate before integrity validation and commit. Future unknown storage schemas are rejected rather than guessed.
+Supported main-storage schemas are **7, 8 and 9**. Schemas 7 and 8 are treated
+as supported legacy inputs and are normalized to current schema 9 in the
+in-memory restore candidate before integrity validation and commit. Future
+unknown storage schemas are rejected rather than guessed. Legacy owner records
+with a single free-form address retain that complete value as the street field;
+postal code and city are not guessed.
 
 Backup v5 is the current format and adds portable scheduler-store snapshots plus coordinated restore semantics. Backup v4 remains readable so existing production backups do not become unusable merely because scheduler backup support was added.
 

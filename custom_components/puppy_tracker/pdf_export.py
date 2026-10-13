@@ -16,9 +16,10 @@ from typing import Any
 from homeassistant.util import dt as dt_util
 
 from .behavior import BEHAVIOR_GROUPS, BEHAVIOR_RECORD_TYPE, build_behavior_profile
+from .dog_identity import parent_details_for_litter
 from .measurements import puppy_measurements
 from .metrics import calculate_puppy_metrics
-from .owners import final_payment_amount
+from .owners import final_payment_amount, owner_address_parts
 from .storage import PuppyTrackerStorage
 from .time_utils import format_local_timestamp, timestamp_sort_key
 
@@ -89,13 +90,17 @@ _PDF_LABELS = {
         "final_payment": "Slotbetaling", "balance": "Werkelijk open",
         "placement_date": "Geplaatst", "expected_pickup": "Verwacht ophalen",
         "deposit_date": "Aanbetaling op", "paid": "Slotbetaling op",
-        "email": "E-mail", "phone": "Tel", "address": "Adres",
+        "email": "E-mail", "phone": "Tel", "street": "Straat en huisnummer",
+        "postal_code": "Postcode", "city": "Plaats",
         "attention": "Actuele aandachtspunten", "no_attention": "Actuele status: geen actieve waarschuwingen voor de pups in dit rapport.",
         "summary": "Samenvatting", "collar": "Band", "sex": "Gesl.", "female": "Teef",
         "male": "Reu", "birth": "Geboorte", "current": "Huidig", "growth_24h": "Groei 24u",
         "total": "Totaal", "status": "Status", "weight_chart": "Gewichtsontwikkeling",
         "no_chart": "Geen geldige metingen voor een grafiek in deze periode.",
         "chip": "Chip", "born": "Geboren", "birth_weight": "Geboortegewicht",
+        "identity_details": "Identiteitsgegevens", "parent_details": "Oudergegevens",
+        "registered_name": "Naam", "puppy_registered_name": "Nestnaam", "call_name": "Roepnaam", "birth_date": "Geboortedatum",
+        "coat_color": "Vachtkleur", "breed": "Soort", "wala": "WALA", "parent": "Ouder", "value": "Waarde",
         "date_time": "Datum/tijd", "weight": "Gewicht", "difference": "Verschil", "type": "Type",
         "note": "Notitie", "weighing": "weging", "no_measurements": "Geen geldige metingen in deze periode.",
         "care": "Zorgprogrammaresultaten", "care_action": "Zorgactie", "day": "Dag",
@@ -124,13 +129,17 @@ _PDF_LABELS = {
         "final_payment": "Final payment", "balance": "Actual outstanding",
         "placement_date": "Placed", "expected_pickup": "Expected pickup",
         "deposit_date": "Deposit date", "paid": "Final payment date",
-        "email": "Email", "phone": "Phone", "address": "Address",
+        "email": "Email", "phone": "Phone", "street": "Street and house number",
+        "postal_code": "Postal code", "city": "City",
         "attention": "Current weight alerts", "no_attention": "Current status: no active weight alerts for the puppies in this report.",
         "summary": "Summary", "collar": "Collar", "sex": "Sex", "female": "Female",
         "male": "Male", "birth": "Birth", "current": "Current", "growth_24h": "Growth 24h",
         "total": "Total", "status": "Status", "weight_chart": "Weight development",
         "no_chart": "No valid measurements for a chart in this period.",
         "chip": "Chip", "born": "Born", "birth_weight": "Birth weight",
+        "identity_details": "Identity details", "parent_details": "Parent details",
+        "registered_name": "Registered name", "puppy_registered_name": "Registered name", "call_name": "Call name", "birth_date": "Birth date",
+        "coat_color": "Coat color", "breed": "Breed / type", "wala": "WALA", "parent": "Parent", "value": "Value",
         "date_time": "Date/time", "weight": "Weight", "difference": "Change", "type": "Type",
         "note": "Note", "weighing": "weighing", "no_measurements": "No valid measurements in this period.",
         "care": "Care program results", "care_action": "Care action", "day": "Day",
@@ -330,6 +339,18 @@ def _active_care_records(
 
 def _format_local_datetime(value: str | None, language: str = "nl") -> str:
     return format_local_timestamp(value, "%Y-%m-%d %H:%M" if language == "en" else "%d-%m-%Y %H:%M")
+
+
+def _format_date(value: Any, language: str = "nl") -> str:
+    """Format an ISO date or timestamp without inventing a time."""
+    text = str(value or "").strip()
+    if not text:
+        return "—"
+    match = re.match(r"^(\d{4})-(\d{2})-(\d{2})", text)
+    if not match:
+        return text
+    year, month, day = match.groups()
+    return f"{year}-{month}-{day}" if language == "en" else f"{day}-{month}-{year}"
 
 
 def _format_weight(value: Any, language: str = "nl") -> str:
@@ -786,6 +807,9 @@ def build_pdf_export(
         dossier_scopes = ["litter", "puppy"]
     if any(scope not in {"litter", "puppy"} for scope in dossier_scopes):
         raise ValueError("Unsupported dossier scope")
+    data = storage.get_data()
+    mother_details = parent_details_for_litter(data, litter, "mother")
+    father_details = parent_details_for_litter(data, litter, "father")
 
     def t(key: str, **values: Any) -> str:
         return _pdf_text(language, key, **values)
@@ -821,15 +845,24 @@ def build_pdf_export(
 
     if visible["identity"]:
         report.table(
-            [t("litter"), t("mother"), t("father"), t("puppies")],
+            [t("litter"), t("birth_date"), t("puppies")],
             [[
                 str(litter.get("name") or "—"),
-                str(litter.get("mother") or "—"),
-                str(litter.get("father") or "—"),
+                _format_date(litter.get("birth_date"), language),
                 str(len(puppies)),
             ]],
-            [150, 125, 125, 80],
+            [221, 150, 110],
             font_size=8.5,
+        )
+        report.heading(t("parent_details"), level=2)
+        report.table(
+            [t("parent"), t("registered_name"), t("call_name"), t("birth_date"), t("breed"), t("wala")],
+            [
+                [t("father"), father_details.get("registered_name") or "—", father_details.get("call_name") or "—", _format_date(father_details.get("birth_date"), language), father_details.get("breed") or "—", father_details.get("wala_number") or "—"],
+                [t("mother"), mother_details.get("registered_name") or "—", mother_details.get("call_name") or "—", _format_date(mother_details.get("birth_date"), language), mother_details.get("breed") or "—", mother_details.get("wala_number") or "—"],
+            ],
+            [43, 88, 63, 67, 151, 69],
+            font_size=7.1,
         )
 
     if visible["owners"]:
@@ -894,12 +927,15 @@ def build_pdf_export(
                     " · ".join(payment_parts),
                 ]
                 if visible["owner_contact"]:
+                    street, postal_code, city = owner_address_parts(owner)
                     row.append(
                         " · ".join(
                             (
                                 f"{t('email')}: {owner.get('email') or '—'}",
                                 f"{t('phone')}: {owner.get('phone') or '—'}",
-                                f"{t('address')}: {owner.get('address') or '—'}",
+                                f"{t('street')}: {street or '—'}",
+                                f"{t('postal_code')}: {postal_code or '—'}",
+                                f"{t('city')}: {city or '—'}",
                             )
                         )
                     )
@@ -999,10 +1035,22 @@ def build_pdf_export(
         if any(visible[key] for key in ("identity", "measurements", "care", "behavior", "dossier")):
             report.heading(str(puppy.get("name") or t("puppy")), level=2)
         if visible["identity"]:
-            report.paragraph(
-                f"{t('collar')}: {puppy.get('collar_color') or '—'}  |  {t('chip')}: {puppy.get('chip_number') or '—'}  |  {t('born')}: {_format_local_datetime(puppy.get('birth_time'), language)}  |  {t('birth_weight')}: {_format_weight(puppy.get('birth_weight'), language)}",
-                size=8.5,
-                gray=0.25,
+            report.heading(t("identity_details"), level=3)
+            report.table(
+                [t("details"), t("value")],
+                [
+                    [t("puppy_registered_name"), str(puppy.get("registered_name") or "—")],
+                    [t("call_name"), str(puppy.get("name") or "—")],
+                    [t("birth_date"), _format_date(puppy.get("birth_time") or litter.get("birth_date"), language)],
+                    [t("sex"), t("female") if puppy.get("sex") == "female" else t("male") if puppy.get("sex") == "male" else str(puppy.get("sex") or "—")],
+                    [t("coat_color"), str(puppy.get("coat_color") or "—")],
+                    [t("chip"), str(puppy.get("chip_number") or "—")],
+                    [t("breed"), str(puppy.get("breed") or "—")],
+                    [t("collar"), str(puppy.get("collar_color") or "—")],
+                    [t("birth_weight"), _format_weight(puppy.get("birth_weight"), language)],
+                ],
+                [130, 351],
+                font_size=8,
             )
         if visible["measurements"]:
             all_rows = puppy_measurements(puppy, active_only=True)

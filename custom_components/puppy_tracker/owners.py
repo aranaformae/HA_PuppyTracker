@@ -16,7 +16,15 @@ from .const import DOMAIN
 
 STORE_KEY = f"{DOMAIN}_owners"
 STORE_VERSION = 1
-OWNER_FIELDS = ("name", "email", "phone", "address", "notes")
+OWNER_FIELDS = (
+    "name",
+    "email",
+    "phone",
+    "street",
+    "postal_code",
+    "city",
+    "notes",
+)
 OWNER_ROLES = ("owner", "co_owner", "breeder", "veterinarian", "contact")
 PLACEMENT_STATUSES = ("interested", "option", "reserved", "sold", "placed")
 PAYMENT_STATUSES = ("none", "registration_fee", "deposit", "full")
@@ -106,8 +114,15 @@ def final_payment_amount(owner: dict[str, Any]) -> str | None:
 
 
 def _normalize(data: dict[str, Any], *, owner_id: str | None = None, existing: dict[str, Any] | None = None, preserve_timestamps: bool = False) -> dict[str, Any]:
-    """Normalize a contact without imposing a country-specific address format."""
+    """Normalize one reusable contact and migrate legacy address values."""
     source = {**(existing or {}), **data}
+    split_address_fields = ("street", "postal_code", "city")
+    if "address" in data and not any(field in data for field in split_address_fields):
+        source["street"] = str(data.get("address") or "").strip() or None
+    elif not any(
+        str(source.get(field) or "").strip() for field in split_address_fields
+    ):
+        source["street"] = str(source.get("address") or "").strip() or None
     name = str(source.get("name") or "").strip()
     if not name:
         raise ValueError("name is required")
@@ -163,6 +178,14 @@ def _normalize(data: dict[str, Any], *, owner_id: str | None = None, existing: d
         "created_at": (existing or {}).get("created_at") or (source.get("created_at") if preserve_timestamps else None) or now,
         "updated_at": (source.get("updated_at") if preserve_timestamps else None) or now,
     }
+
+
+def owner_address_parts(owner: dict[str, Any]) -> tuple[str | None, str | None, str | None]:
+    """Return split address fields with a lossless legacy-address fallback."""
+    street = str(owner.get("street") or owner.get("address") or "").strip() or None
+    postal_code = str(owner.get("postal_code") or "").strip() or None
+    city = str(owner.get("city") or "").strip() or None
+    return street, postal_code, city
 
 
 class OwnerStore:

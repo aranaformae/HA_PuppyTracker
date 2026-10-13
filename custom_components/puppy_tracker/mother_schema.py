@@ -5,8 +5,15 @@ from __future__ import annotations
 from typing import Any
 from uuid import uuid4
 
+from .dog_identity import (
+    PARENT_IDENTITY_FIELDS,
+    migrate_contract_identity_data,
+    normalize_parent_details,
+)
 from .records import normalize_record
 from .storage import _now_iso
+
+MOTHER_SCHEMA_VERSION = 9
 
 
 def _clean_name(value: str | None) -> str | None:
@@ -30,11 +37,11 @@ def migrate_mother_scope_data(data: dict[str, Any]) -> bool:
     apply the exact same mother migration as normal runtime loading before a
     candidate is committed.
     """
-    changed = False
+    changed = migrate_contract_identity_data(data)
     now = _now_iso()
     mothers = data.setdefault("mothers", {})
     if not isinstance(mothers, dict):
-        return False
+        return changed
 
     by_name = {
         _name_key(mother.get("name")): str(mother_id)
@@ -46,6 +53,13 @@ def migrate_mother_scope_data(data: dict[str, Any]) -> bool:
         if not isinstance(litter, dict):
             continue
         mother_name = _clean_name(litter.get("mother"))
+        raw_mother_details = litter.pop("mother_details", None)
+        if raw_mother_details is not None:
+            changed = True
+        imported_details = normalize_parent_details(
+            raw_mother_details,
+            call_name=mother_name,
+        )
         mother_id = litter.get("mother_id")
         mother = mothers.get(str(mother_id)) if mother_id else None
 
@@ -59,6 +73,10 @@ def migrate_mother_scope_data(data: dict[str, Any]) -> bool:
                 mother = {
                     "id": mother_id,
                     "name": mother_name,
+                    **{
+                        field: imported_details[field]
+                        for field in PARENT_IDENTITY_FIELDS
+                    },
                     "profile_note": None,
                     "records": [],
                     "created_at": now,
@@ -69,9 +87,20 @@ def migrate_mother_scope_data(data: dict[str, Any]) -> bool:
                 changed = True
 
         if mother is not None:
+            existing_identity = {
+                field: mother.get(field) for field in PARENT_IDENTITY_FIELDS
+            }
+            normalized_identity = normalize_parent_details(
+                mother,
+                call_name=mother.get("name") or mother_name,
+            )
             defaults = {
                 "id": str(mother_id),
                 "name": mother_name or "Moederhond",
+                **{
+                    field: normalized_identity[field]
+                    for field in PARENT_IDENTITY_FIELDS
+                },
                 "profile_note": None,
                 "records": [],
                 "created_at": now,
@@ -81,6 +110,17 @@ def migrate_mother_scope_data(data: dict[str, Any]) -> bool:
                 if key not in mother:
                     mother[key] = value
                     changed = True
+            for field in PARENT_IDENTITY_FIELDS:
+                normalized_value = normalized_identity[field]
+                if mother.get(field) != normalized_value:
+                    mother[field] = normalized_value
+                    changed = True
+            if isinstance(raw_mother_details, dict):
+                for field in PARENT_IDENTITY_FIELDS:
+                    imported_value = imported_details[field]
+                    if imported_value is not None and not existing_identity[field]:
+                        mother[field] = imported_value
+                        changed = True
             if litter.get("mother_id") != str(mother_id):
                 litter["mother_id"] = str(mother_id)
                 changed = True

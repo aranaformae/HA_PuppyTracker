@@ -18,6 +18,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import API_VERSION, DOMAIN, SIGNAL_DASHBOARD_UPDATE
 from .backup import build_export_document
+from .dog_identity import parent_details_for_litter
 from .measurements import measurement_status, puppy_measurements
 from .metrics import calculate_puppy_metrics
 from .pdf_export import build_pdf_export
@@ -290,6 +291,9 @@ def _litter_payload(
     litter = storage.get_litter(litter_id)
     if litter is None:
         raise ValueError("Unknown litter")
+    data = storage.get_data()
+    mother_details = parent_details_for_litter(data, litter, "mother")
+    father_details = parent_details_for_litter(data, litter, "father")
 
     puppies: list[dict[str, Any]] = []
     puppy_summaries: dict[str, dict[str, Any]] = {}
@@ -300,7 +304,10 @@ def _litter_payload(
             {
                 "id": puppy_id,
                 "name": puppy.get("name"),
+                "registered_name": puppy.get("registered_name"),
                 "collar_color": puppy.get("collar_color"),
+                "coat_color": puppy.get("coat_color"),
+                "breed": puppy.get("breed"),
                 "sex": puppy.get("sex"),
                 "birth_weight": puppy.get("birth_weight"),
                 "birth_time": puppy.get("birth_time"),
@@ -328,7 +335,7 @@ def _litter_payload(
     return {
         "api_version": API_VERSION,
         "generated_at": dt_util.now().isoformat(),
-        "storage_updated_at": storage.get_data().get("updated_at"),
+        "storage_updated_at": data.get("updated_at"),
         "can_manage_measurements": can_manage_measurements,
         "can_manage_records": can_manage_measurements,
         "integrity": storage.get_integrity_report(),
@@ -337,7 +344,10 @@ def _litter_payload(
             "name": litter.get("name"),
             "birth_date": litter.get("birth_date"),
             "mother": litter.get("mother"),
+            "mother_id": litter.get("mother_id"),
+            "mother_details": mother_details,
             "father": litter.get("father"),
+            "father_details": father_details,
             "active": litter.get("active", True),
             "created_at": litter.get("created_at"),
             "updated_at": litter.get("updated_at"),
@@ -387,7 +397,10 @@ def _puppy_measurements_payload(
         "puppy": {
             "id": puppy_id,
             "name": puppy.get("name"),
+            "registered_name": puppy.get("registered_name"),
             "collar_color": puppy.get("collar_color"),
+            "coat_color": puppy.get("coat_color"),
+            "breed": puppy.get("breed"),
             "sex": puppy.get("sex"),
             "birth_weight": puppy.get("birth_weight"),
             "birth_time": puppy.get("birth_time"),
@@ -427,16 +440,30 @@ def _csv_export(
 
     output = io.StringIO(newline="")
     writer = csv.writer(output, delimiter=";", lineterminator="\n")
+    data = storage.get_data()
+    mother_details = parent_details_for_litter(data, litter, "mother")
+    father_details = parent_details_for_litter(data, litter, "father")
     writer.writerow(
         [
             "litter_id",
             "litter_name",
             "litter_birth_date",
             "mother",
+            "mother_registered_name",
+            "mother_birth_date",
+            "mother_breed",
+            "mother_wala_number",
             "father",
+            "father_registered_name",
+            "father_birth_date",
+            "father_breed",
+            "father_wala_number",
             "puppy_id",
             "puppy_name",
+            "puppy_registered_name",
             "collar_color",
+            "coat_color",
+            "puppy_breed",
             "sex",
             "puppy_birth_time",
             "birth_weight_g",
@@ -477,10 +504,21 @@ def _csv_export(
                 litter.get("name") or "",
                 litter.get("birth_date") or "",
                 litter.get("mother") or "",
+                mother_details.get("registered_name") or "",
+                mother_details.get("birth_date") or "",
+                mother_details.get("breed") or "",
+                mother_details.get("wala_number") or "",
                 litter.get("father") or "",
+                father_details.get("registered_name") or "",
+                father_details.get("birth_date") or "",
+                father_details.get("breed") or "",
+                father_details.get("wala_number") or "",
                 puppy_id,
                 puppy.get("name") or "",
+                puppy.get("registered_name") or "",
                 puppy.get("collar_color") or "",
+                puppy.get("coat_color") or "",
+                puppy.get("breed") or "",
                 puppy.get("sex") or "",
                 puppy.get("birth_time") or "",
                 puppy.get("birth_weight") if puppy.get("birth_weight") is not None else "",
@@ -591,6 +629,7 @@ def websocket_get_litters(
 
     runtime = get_runtime_data(hass)
     session = get_session(runtime) if runtime is not None else None
+    data = storage.get_data()
     items: list[dict[str, Any]] = []
     for litter_id, litter in storage.get_litters().items():
         puppy_summaries = {
@@ -603,7 +642,10 @@ def websocket_get_litters(
                 "name": litter.get("name"),
                 "birth_date": litter.get("birth_date"),
                 "mother": litter.get("mother"),
+                "mother_id": litter.get("mother_id"),
+                "mother_details": parent_details_for_litter(data, litter, "mother"),
                 "father": litter.get("father"),
+                "father_details": parent_details_for_litter(data, litter, "father"),
                 "growth_analysis": litter.get("growth_analysis", {}),
                 "active": litter.get("active", True),
                 "summary": _litter_summary(

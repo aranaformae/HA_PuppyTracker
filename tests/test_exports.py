@@ -56,6 +56,41 @@ def test_csv_exports_only_effective_measurements(
     assert rows[0]["weight_g"] == "420.0"
 
 
+def test_csv_includes_contract_identity_fields(
+    monkeypatch,
+    storage,
+    install_litter,
+    make_measurement,
+) -> None:
+    _freeze_time(monkeypatch)
+    litter_id, _puppy_id = install_litter(
+        measurements=[make_measurement("a", 420, "2026-08-30T10:00:00+00:00")],
+        puppy_overrides={
+            "registered_name": "Milky Way Aurora",
+            "coat_color": "Caramel",
+            "breed": "Multi-generation Australian Labradoodle",
+        },
+        litter_overrides={
+            "father_details": {
+                "registered_name": "Doodle Cooper Star",
+                "call_name": "Dutch",
+                "birth_date": "2021-02-03",
+                "breed": "Multi-generation Australian Labradoodle",
+                "wala_number": "WALA-FATHER",
+            },
+        },
+    )
+
+    _filename, _mime, content = api._csv_export(storage, litter_id)
+    row = next(csv.DictReader(io.StringIO(content), delimiter=";"))
+
+    assert row["puppy_registered_name"] == "Milky Way Aurora"
+    assert row["coat_color"] == "Caramel"
+    assert row["puppy_breed"] == "Multi-generation Australian Labradoodle"
+    assert row["father_registered_name"] == "Doodle Cooper Star"
+    assert row["father_wala_number"] == "WALA-FATHER"
+
+
 def test_csv_can_filter_to_one_puppy(
     monkeypatch,
     storage,
@@ -86,6 +121,34 @@ def test_csv_can_filter_to_one_puppy(
     assert len(rows) == 1
     assert rows[0]["puppy_id"] == "puppy-2"
     assert rows[0]["measurement_id"] == "b"
+
+
+def test_litter_payload_exposes_contract_identity(storage, install_litter) -> None:
+    litter_id, puppy_id = install_litter(
+        puppy_overrides={
+            "registered_name": "Milky Way Aurora",
+            "coat_color": "Caramel",
+            "breed": "Multi-generation Australian Labradoodle",
+        },
+        litter_overrides={
+            "father_details": {
+                "registered_name": "Doodle Cooper Star",
+                "call_name": "Dutch",
+                "birth_date": "2021-02-03",
+                "breed": "Multi-generation Australian Labradoodle",
+                "wala_number": "WALA-FATHER",
+            },
+        },
+    )
+
+    payload = api._litter_payload(storage, litter_id)
+    puppy = next(item for item in payload["puppies"] if item["id"] == puppy_id)
+
+    assert puppy["registered_name"] == "Milky Way Aurora"
+    assert puppy["coat_color"] == "Caramel"
+    assert payload["litter"]["father_details"]["registered_name"] == (
+        "Doodle Cooper Star"
+    )
 
 
 def test_json_preserves_full_measurement_history_and_litter_audit(

@@ -1,4 +1,4 @@
-"""Mother dossier export helpers for schema 8 Puppy Tracker backups."""
+"""Mother dossier export helpers for Puppy Tracker backups."""
 
 from __future__ import annotations
 
@@ -10,9 +10,10 @@ from typing import Any
 
 from .const import DOMAIN
 from .mother_context import mother_context_payload
+from .mother_schema import MOTHER_SCHEMA_VERSION
 
 MOTHER_EXPORT_VERSION = 5
-MOTHER_SCHEMA_VERSION = 8
+SUPPORTED_MOTHER_SCHEMA_VERSIONS = frozenset({8, MOTHER_SCHEMA_VERSION})
 
 
 def _now_iso() -> str:
@@ -82,6 +83,7 @@ def build_mother_export_document(
                 "name": litter.get("name"),
                 "birth_date": litter.get("birth_date"),
                 "father": litter.get("father"),
+                "father_details": deepcopy(litter.get("father_details")),
             }
         )
 
@@ -102,14 +104,14 @@ def build_mother_export_document(
 
 
 def validate_mother_export_document(document: Any) -> dict[str, Any]:
-    """Validate a schema-8 mother export without accepting ambiguous context."""
+    """Validate a supported mother export without accepting ambiguous context."""
     if not isinstance(document, dict):
         raise ValueError("Mother export root must be an object")
     if document.get("integration") != DOMAIN:
         raise ValueError("Export does not belong to Puppy Tracker")
     if int(document.get("export_version", -1)) != MOTHER_EXPORT_VERSION:
         raise ValueError("Unsupported mother export version")
-    if int(document.get("schema_version", -1)) != MOTHER_SCHEMA_VERSION:
+    if int(document.get("schema_version", -1)) not in SUPPORTED_MOTHER_SCHEMA_VERSIONS:
         raise ValueError("Unsupported mother storage schema")
     if document.get("scope") != "mother":
         raise ValueError("Not a mother export")

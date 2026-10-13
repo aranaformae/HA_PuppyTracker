@@ -79,9 +79,34 @@ def _install_consistent_source(storage, install_litter, make_measurement):
         measurements=[birth, old, corrected],
         puppy_overrides={
             "birth_measurement_id": "birth-1",
+            "registered_name": "Milky Way Aurora",
+            "coat_color": "Caramel",
+            "breed": "Multi-generation Australian Labradoodle",
             "records": [_puppy_record("record-1", "litter-1", "puppy-1")],
         },
+        litter_overrides={
+            "mother_id": "mother-luna",
+            "father_details": {
+                "registered_name": "Doodle Dutch Star",
+                "call_name": "Dutch",
+                "birth_date": "2021-02-03",
+                "breed": "Multi-generation Australian Labradoodle",
+                "wala_number": "WALA-FATHER",
+            },
+        },
     )
+    storage._data["mothers"] = {
+        "mother-luna": {
+            "id": "mother-luna",
+            "name": "Luna",
+            "registered_name": "Milky Way Moonlight",
+            "birth_date": "2022-05-06",
+            "breed": "Multi-generation Australian Labradoodle",
+            "wala_number": "WALA-MOTHER",
+            "profile_note": None,
+            "records": [],
+        }
+    }
     storage._data["audit_log"] = [
         {
             "timestamp": "2026-08-29T10:05:00+00:00",
@@ -141,6 +166,8 @@ async def test_full_export_and_replace_restore_preserves_identifiers(
         "weight-new",
     }
     assert original["litters"][litter_id]["puppies"][puppy_id]["name"] == restored["name"]
+    assert restored["registered_name"] == "Milky Way Aurora"
+    assert restored["coat_color"] == "Caramel"
 
 
 async def test_puppy_export_import_into_existing_litter_remaps_all_identifiers(
@@ -255,6 +282,10 @@ async def test_puppy_import_can_create_new_litter_from_source_metadata(
     assert new_litter["name"] == "Luna 2026"
     assert new_litter["mother"] == "Luna"
     assert new_litter["father"] == "Dutch"
+    assert new_litter["father_details"]["wala_number"] == "WALA-FATHER"
+    imported_mother = storage.get_data()["mothers"][new_litter["mother_id"]]
+    assert imported_mother["registered_name"] == "Milky Way Moonlight"
+    assert imported_mother["wala_number"] == "WALA-MOTHER"
     assert len(new_litter["puppies"]) == 1
 
 

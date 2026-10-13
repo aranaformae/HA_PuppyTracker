@@ -49,6 +49,54 @@ def test_owner_backup_normalizes_owner_records() -> None:
     assert result["owners"]["owner-1"]["status_history"][0]["status"] == "interested"
 
 
+def test_legacy_owner_address_migrates_losslessly_to_street() -> None:
+    owner = _normalize(
+        {
+            "name": "Alex",
+            "address": "Dorpsstraat 12, 1234 AB Amsterdam",
+        }
+    )
+
+    assert owner["street"] == "Dorpsstraat 12, 1234 AB Amsterdam"
+    assert owner["postal_code"] is None
+    assert owner["city"] is None
+    assert "address" not in owner
+
+
+def test_split_owner_address_is_preserved() -> None:
+    owner = _normalize(
+        {
+            "name": "Alex",
+            "street": "Dorpsstraat 12",
+            "postal_code": "1234 AB",
+            "city": "Amsterdam",
+        }
+    )
+
+    assert (owner["street"], owner["postal_code"], owner["city"]) == (
+        "Dorpsstraat 12",
+        "1234 AB",
+        "Amsterdam",
+    )
+
+
+def test_cached_legacy_card_can_still_update_the_street_value() -> None:
+    owner = _normalize(
+        {"address": "Nieuweweg 5"},
+        owner_id="owner-1",
+        existing={
+            "name": "Alex",
+            "street": "Oudeweg 1",
+            "postal_code": "1234 AB",
+            "city": "Amsterdam",
+        },
+    )
+
+    assert owner["street"] == "Nieuweweg 5"
+    assert owner["postal_code"] == "1234 AB"
+    assert owner["city"] == "Amsterdam"
+
+
 def test_owner_backup_rejects_invalid_owner_record() -> None:
     with pytest.raises(ValueError, match="invalid owner"):
         normalize_owner_backup_data({"owners": {"owner-1": "invalid"}})

@@ -93,6 +93,15 @@ The microchip number is a separate `chip_number` puppy field. It is stored as
 text so leading zeroes and registry formatting are preserved. It can be shown
 in dashboard data and included in a per-puppy PDF report.
 
+Puppy identity also keeps the **nestnaam** (official/registered name),
+**roepnaam**, birth date, sex, coat colour, collar colour and breed/type as
+separate values. Mother and father profiles distinguish their registered name
+from their call name and can store birth date, breed/type and WALA number. The
+default breed/type for new dogs is `Multi-generation Australian Labradoodle`
+and remains editable. Manage these fields under **Settings -> Devices &
+services -> Puppy Tracker -> Configure**, or through the corresponding Home
+Assistant actions.
+
 ## Owner/contact card
 
 Add the Owners card to create and manage contacts:
@@ -109,7 +118,7 @@ including long notes.
 
 Contact fields include:
 
-- name, email, telephone and address;
+- name, email, telephone, street/house number, postal code and city;
 - role and preferred contact method;
 - placement status, actual placement date and expected pickup date;
 - payment status, total amount, registration fee, deposit amount/date, actual
@@ -134,9 +143,15 @@ contains localized column headings and one row per owner-puppy link. Choose
 YAML or the visual card editor. An
 owner linked to two puppies therefore has two rows; an owner without a puppy is
 kept once with empty litter and puppy columns. Contact, placement, payment,
-notes and status history are included. Linked rows also contain litter, puppy
-name, puppy birth date, collar colour, chip number, father and mother. Internal
-Puppy Tracker IDs are not exported.
+notes and status history are included. Linked rows also contain the litter,
+puppy registered name and call name, birth date, sex, coat and collar colours,
+chip number and breed/type. Father and mother each have separate registered
+name, call name, birth date, breed/type and WALA columns. Internal Puppy Tracker
+IDs are not exported.
+
+Legacy contacts with one free-form address are migrated without data loss: the
+complete old address becomes the street field, while postal code and city stay
+empty until you split them manually.
 
 ## Reports and backups
 

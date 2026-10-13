@@ -292,6 +292,75 @@ def test_owner_contact_requires_owner_section_and_codes_are_localized(
         assert internal_value not in owner_document
 
 
+def test_pdf_identity_section_contains_contract_fields(
+    monkeypatch,
+    storage,
+    install_litter,
+) -> None:
+    _freeze_time(monkeypatch)
+    litter_id, puppy_id = install_litter(
+        puppy_overrides={
+            "registered_name": "Milky Way Aurora",
+            "coat_color": "Caramel",
+            "breed": "Multi-generation Australian Labradoodle",
+            "chip_number": "000123",
+        },
+        litter_overrides={
+            "father_details": {
+                "registered_name": "Doodle Cooper Star",
+                "call_name": "Dutch",
+                "birth_date": "2021-02-03",
+                "breed": "Multi-generation Australian Labradoodle",
+                "wala_number": "WALA-FATHER",
+            },
+        },
+    )
+
+    document = _pdf_bytes(
+        storage,
+        litter_id,
+        puppy_id=puppy_id,
+        sections=_sections("identity"),
+    )
+
+    for marker in (
+        b"Milky Way Aurora",
+        b"Nestnaam",
+        b"Caramel",
+        b"Multi-generation Australian Labradoodle",
+        b"000123",
+        b"Doodle Cooper Star",
+        b"WALA-FATHER",
+    ):
+        assert marker in document
+
+
+def test_pdf_owner_contact_uses_split_address_fields(
+    monkeypatch,
+    storage,
+    install_litter,
+) -> None:
+    _freeze_time(monkeypatch)
+    litter_id, puppy_id = install_litter(puppy_overrides={"owner_ids": ["owner-1"]})
+    document = _pdf_bytes(
+        storage,
+        litter_id,
+        puppy_id=puppy_id,
+        sections=_sections("owners", "owner_contact"),
+        owner_records=[{
+            "id": "owner-1",
+            "name": "Alex",
+            "street": "Dorpsstraat 12",
+            "postal_code": "1234 AB",
+            "city": "Amsterdam",
+        }],
+    )
+
+    assert b"Dorpsstraat 12" in document
+    assert b"1234 AB" in document
+    assert b"Amsterdam" in document
+
+
 def test_selected_empty_sections_explain_why_no_rows_are_visible(
     monkeypatch,
     storage,

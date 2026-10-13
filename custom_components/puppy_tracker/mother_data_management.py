@@ -156,7 +156,7 @@ class MotherDataManagementMixin:
         self,
         user_input: dict[str, Any] | None = None,
     ) -> ConfigFlowResult:
-        """Upload either a legacy backup or a schema-8 mother dossier export."""
+        """Upload either a legacy backup or a supported mother dossier export."""
         errors: dict[str, str] = {}
         if user_input is not None:
             uploaded_file_id = str(user_input["backup_file"])

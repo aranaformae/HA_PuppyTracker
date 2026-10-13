@@ -2,7 +2,7 @@
 
 DOMAIN = "puppy_tracker"
 VERSION = "0.27.3"
-API_VERSION = 9
+API_VERSION = 10
 
 STORAGE_KEY = "puppy_tracker"
 STORAGE_VERSION = 1

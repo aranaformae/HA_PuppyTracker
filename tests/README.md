@@ -17,6 +17,7 @@ The current suite covers the main backend, frontend contract and browser flows.
 | `test_storage_corrections.py` | Non-destructive correction chains, delete/restore behavior and birth-weight synchronization |
 | `test_integrity.py` | Safe integrity repairs, duplicate IDs, dangling references and ambiguous correction branches |
 | `test_exports.py` / `test_pdf_export_options.py` | CSV filtering, complete JSON history, direct PDF generation and every PDF selection/section contract |
+| `test_contract_identity.py` | Puppy and parent registered/call names, dates, breed/type, coat colour, chip and WALA persistence |
 | `test_records.py` | Profile-note migration, dossier record CRUD, owner scopes, sorting and integrity checks |
 | `test_upcoming.py` | Derived vaccination/deworming follow-ups, due-state classification, filtering and sorting |
 | `test_runtime_selection.py` | Typed runtime selection, explicit defaults and archived-selection fallback behavior |
@@ -27,7 +28,7 @@ The current suite covers the main backend, frontend contract and browser flows.
 | `test_behavior.py` / `test_behavior_frontend.py` | Partial 1-5 observations, puppy-only ownership, longitudinal profiles and Workspace/PDF contracts |
 | `test_calculator_frontend.py` / `tests/e2e/calculator-card.spec.mjs` | Per-kilogram arithmetic, latest/stale weight presentation, responsive layout and non-persistence |
 | `test_frontend.py` / Quick and Bulk Playwright specs | Shared dossier category/schema parity, card registration and frontend composition contracts |
-| `test_owner_backup.py` / owner Playwright tests | Reusable contact backup/restore, payment validation/calculation, puppy links, localized CSV fields/delimiters and owner-related frontend contracts |
+| `test_owner_backup.py` / owner Playwright tests | Reusable contact backup/restore, split/legacy address migration, payment validation/calculation, puppy links, localized contract CSV fields/delimiters and owner-related frontend contracts |
 | `test_age_based_care_notifications.py` / `test_notification_settings_storage.py` | Notification settings, default lead-time fallback, care-program overrides, grouping and delivery contracts |
 | `test_notification_lifecycle.py` | Coalesced notification checks, transition-only mobile cleanup, inactive-owner cleanup and global notification shutdown |
 | `tests/e2e/*.spec.mjs` | Lovelace behavior in Chromium plus targeted WebKit mobile, tablet and cross-browser checks |

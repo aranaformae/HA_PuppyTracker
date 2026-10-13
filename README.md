@@ -124,7 +124,11 @@ configured to appear in Attention. See
 
 The Owners card stores reusable contact, placement and payment information.
 Contacts can be created before puppy placement and linked later. A puppy's chip
-number is a separate puppy field and can be included in its PDF dossier.
+number, registered/nest name, call name, coat colour and breed/type are separate
+profile fields. Parent profiles can store registered/call names, birth date,
+breed/type and WALA number. Owner addresses use separate street, postal-code and
+city fields; these contract-ready values are available in owner CSV and PDF
+reports.
 
 See [Puppy dossiers and owners](docs/puppy-dossiers.md).
 

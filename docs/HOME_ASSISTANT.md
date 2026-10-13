@@ -75,12 +75,21 @@ data:
   name: Luna 2026
   birth_date: "2026-10-01"
   mother: Luna
+  mother_registered_name: Milky Way Moonlight
+  mother_birth_date: "2022-05-06"
+  mother_breed: Multi-generation Australian Labradoodle
+  mother_wala_number: WALA-MOTHER
   father: Cooper
+  father_registered_name: Doodle Cooper Star
+  father_birth_date: "2021-02-03"
+  father_breed: Multi-generation Australian Labradoodle
+  father_wala_number: WALA-FATHER
 ```
 
-`name` is required. Birth date and parent names are optional. For full mother
-profile management, use the integration configuration so an existing mother
-identity can be selected instead of relying only on a display name.
+`name` is required. Birth date and parent identity fields are optional. The
+`mother` and `father` values are call names; `*_registered_name` stores the
+official name. For full mother profile management, use the integration
+configuration so an existing reusable mother identity can be selected.
 
 ### Add a puppy
 
@@ -89,7 +98,10 @@ action: puppy_tracker.add_puppy
 data:
   litter_id: 00000000-0000-0000-0000-000000000000
   name: Rood
+  registered_name: Milky Way Aurora
   collar_color: rood
+  coat_color: Caramel
+  breed: Multi-generation Australian Labradoodle
   sex: female
   birth_weight: 365
   birth_time: "2026-10-01T14:32:00+02:00"
@@ -97,8 +109,9 @@ data:
   profile_note: Rustige start
 ```
 
-`litter_id` and `name` are required. Birth weight is in grams. Sex accepts
-`male` or `female`. Keep a chip number as text so leading zeroes are preserved.
+`litter_id` and call-name `name` are required. `registered_name` is the puppy's
+official/nest name. Birth weight is in grams. Sex accepts `male` or `female`.
+Keep a chip number as text so leading zeroes are preserved.
 
 ### Record a weight
 

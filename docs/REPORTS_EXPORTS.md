@@ -35,7 +35,7 @@ Every main section can be enabled or disabled independently.
 
 | Section | Content |
 | --- | --- |
-| Identity | Litter identity plus puppy collar colour, chip number, birth time and birth weight |
+| Identity | Litter date, full puppy contract identity and registered/call names, birth dates, breed/type and WALA details for both parents |
 | Summary | Current weight and growth summary for the selected puppy or puppies |
 | Chart | Weight chart for the selected period, using each puppy's collar colour |
 | Measurements | Effective weight measurements, difference, kind and note |
@@ -44,7 +44,7 @@ Every main section can be enabled or disabled independently.
 | Dossier items | Ordinary dossier entries selected by source and category |
 | Weight attention | Current canonical weight warnings and status column |
 | Owners and placement | Linked contact name, role, placement and payment state |
-| Contact details | E-mail, telephone and address for linked owners |
+| Contact details | E-mail, telephone, street/house number, postal code and city for linked owners |
 
 **Contact details** is a privacy-sensitive child option of **Owners and
 placement**. Turning the parent off also turns contact details off. Care results
@@ -117,8 +117,10 @@ by an update.
   `semicolon` (useful for some regional Excel settings). Delimiters, quotes and
   line breaks inside values are safely quoted. It includes contact and placement
   data, the detailed payment schedule and actual outstanding amount, notes and
-  status history. Linked puppy rows add name, birth date, collar colour,
-  microchip number, father and mother without exposing internal IDs.
+  status history. Linked puppy rows add registered and call names, birth date,
+  sex, coat and collar colours, microchip number and breed/type. Both parents
+  add registered and call names, birth date, breed/type and WALA number without
+  exposing internal IDs.
 - **Litter JSON backup** always contains the complete importable litter data,
   including history required for safe restore. PDF section/category/period
   filters do not alter it.

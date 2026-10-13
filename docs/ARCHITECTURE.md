@@ -555,7 +555,8 @@ coordinated scheduler transaction. Partial litter/puppy transfers omit them.
 `OwnerStore` contains reusable contact records. Puppies store an `owner_ids`
 reference list rather than embedding personal data, which allows contacts to be
 created and edited before a puppy is selected for placement. Owner records carry
-contact details plus role, preferred contact method, placement status, actual
+contact details (street, postal code and city are stored separately) plus role,
+preferred contact method, placement status, actual
 placement date, expected pickup date, payment status, total amount, registration
 fee, deposit amount/date, actual outstanding amount, final-payment date/method,
 status history and notes. The scheduled final-payment amount is derived as
@@ -568,11 +569,26 @@ references cannot be remapped safely without an explicit owner-transfer flow.
 The owner's microchip value is a separate puppy `chip_number` text field and is
 not part of owner/contact storage.
 
+Owner normalization accepts the former free-form `address` field only as a
+legacy input. When split fields are still empty, that value is retained
+verbatim in `street`; parsing postal codes or cities from arbitrary historical
+text is deliberately avoided.
+
+### Contract identity
+
+Puppies store `registered_name`, call-name `name`, `birth_time`, `sex`,
+`coat_color`, `collar_color`, `chip_number` and `breed` as distinct fields.
+Persistent mother profiles and litter-owned `father_details` store
+`registered_name`, call name, `birth_date`, `breed` and `wala_number`. The
+display `litter.mother` and `litter.father` values remain the canonical call
+names, while mother identity remains reusable across litters. Missing breed
+values normalize to `Multi-generation Australian Labradoodle`; user-entered
+values remain editable and authoritative.
+
 The Owners-card presentation CSV joins each reusable owner to its linked puppy
-and litter at export time. Puppy name, birth time (with litter birth-date
-fallback), collar colour and chip number come from the puppy profile; father and
-mother come from the litter. This keeps exported identity data current without
-duplicating it in `OwnerStore`. The configured comma or semicolon delimiter
+and litter at export time. Puppy and parent contract identity comes from the
+authoritative main profiles, not `OwnerStore`. This keeps exported identity data
+current without duplicating it. The configured comma or semicolon delimiter
 changes serialization only, never stored data.
 
 ## Notification architecture
@@ -908,6 +924,9 @@ does not remove the control or change the underlying data.
   The owner section reports expected pickup and the normalized payment fields;
   its final-payment value is calculated from the same helper used by storage
   tests and is not read from a stale persisted total.
+  Identity output uses separate registered/call names, coat and collar colours,
+  chip number and breed/type for each puppy, plus both parent identity profiles.
+  Owner contact output uses split street, postal-code and city fields.
 
 Recurring-reminder, age-based-care and user-owned care-template definitions,
 as well as reusable owner/contact profiles, are stored outside the main Puppy

@@ -166,6 +166,7 @@ test("owner dates and stored values are labeled and localized", async ({ page })
     window.calls = [];
     const owner = {
       id: "o1", name: "Alex", role: "owner", placement_status: "reserved",
+      street: "Main Street 1", postal_code: "1234 AB", city: "Amsterdam",
       placement_date: "2026-09-01", expected_pickup_date: "2026-10-01",
       payment_status: "deposit", payment_amount: "2500", registration_fee_amount: "250",
       deposit_amount: "500", deposit_date: "2026-09-02", payment_balance: "1400",
@@ -190,18 +191,26 @@ test("owner dates and stored values are labeled and localized", async ({ page })
   await card.locator("[data-toggle-owner='o1']").click();
   await expect(card.locator(".owner-detail")).toContainText("Reserved");
   await expect(card.locator(".owner-detail")).toContainText("Registration fee");
+  await expect(card.locator(".owner-detail")).toContainText("Main Street 1");
+  await expect(card.locator(".owner-detail")).toContainText("1234 AB");
   await expect(card.locator(".owner-detail .notes")).toContainText("A long note that must remain completely visible.");
   await card.locator("[data-edit='o1']").click();
   await expect(card.locator('label:has-text("Placement date") input[name="placement_date"]')).toHaveValue("2026-09-01");
   await expect(card.locator('label:has-text("Expected pickup date") input[name="expected_pickup_date"]')).toHaveValue("2026-10-01");
   await expect(card.locator('input[name="deposit_date"]')).toHaveValue("2026-09-02");
   await expect(card.locator('input[name="payment_date"]')).toHaveValue("2026-09-20");
+  await expect(card.locator('input[name="street"]')).toHaveValue("Main Street 1");
+  await expect(card.locator('input[name="postal_code"]')).toHaveValue("1234 AB");
+  await expect(card.locator('input[name="city"]')).toHaveValue("Amsterdam");
   await expect(card.locator("#final-payment-amount")).toHaveText("1750");
   await card.locator('input[name="deposit_amount"]').fill("600");
   await expect(card.locator("#final-payment-amount")).toHaveText("1650");
   await card.locator(".owner-editor form button[type='submit']").click();
   await expect.poll(() => page.evaluate(() => window.calls.find((message) => message.type === "puppy_tracker/owners/save"))).toMatchObject({
     owner_id: "o1",
+    street: "Main Street 1",
+    postal_code: "1234 AB",
+    city: "Amsterdam",
     expected_pickup_date: "2026-10-01",
     payment_amount: "2500",
     registration_fee_amount: "250",
@@ -221,7 +230,9 @@ test("owner CSV is comma-separated, keeps unlinked owners and exports one row pe
         name: "Alex",
         email: "alex@example.com",
         phone: "+31612345678",
-        address: "Main street 1, Amsterdam",
+        street: "Main street 1",
+        postal_code: "1234 AB",
+        city: "Amsterdam",
         role: "owner",
         contact_preference: "email",
         placement_status: "reserved",
@@ -257,14 +268,14 @@ test("owner CSV is comma-separated, keeps unlinked owners and exports one row pe
       callWS: async (message) => {
         if (message.type === "puppy_tracker/owners/list") return { owners };
         if (message.type === "puppy_tracker/litters") return { litters: [
-          { id: "l1", name: "First", birth_date: "2026-06-01", mother: "Luna", father: "Max" },
-          { id: "l2", name: "Second", birth_date: "2026-07-02", mother: "Nova", father: "Cooper" },
+          { id: "l1", name: "First", birth_date: "2026-06-01", mother: "Luna", mother_details: { registered_name: "Mother Registered", birth_date: "2022-01-02", breed: "Multi-generation Australian Labradoodle", wala_number: "WALA-M" }, father: "Max", father_details: { registered_name: "Father Registered", birth_date: "2021-01-02", breed: "Multi-generation Australian Labradoodle", wala_number: "WALA-F" } },
+          { id: "l2", name: "Second", birth_date: "2026-07-02", mother: "Nova", mother_details: { registered_name: "Second Mother", breed: "Multi-generation Australian Labradoodle" }, father: "Cooper", father_details: { registered_name: "Second Father", breed: "Multi-generation Australian Labradoodle" } },
         ] };
         if (message.type === "puppy_tracker/data" && message.litter_id === "l1") {
-          return { puppies: [{ id: "p1", name: "Red", birth_time: "2026-06-01T03:15:00+02:00", collar_color: "red", chip_number: "0001", owner_ids: ["owner-alex"] }] };
+          return { puppies: [{ id: "p1", name: "Red", registered_name: "Milky Way Red", birth_time: "2026-06-01T03:15:00+02:00", sex: "male", coat_color: "Caramel", collar_color: "red", breed: "Multi-generation Australian Labradoodle", chip_number: "0001", owner_ids: ["owner-alex"] }] };
         }
         if (message.type === "puppy_tracker/data" && message.litter_id === "l2") {
-          return { puppies: [{ id: "p2", name: "Blue", collar_color: "blue", chip_number: "0002", owner_ids: ["owner-alex"] }] };
+          return { puppies: [{ id: "p2", name: "Blue", registered_name: "Milky Way Blue", coat_color: "Chocolate", collar_color: "blue", breed: "Multi-generation Australian Labradoodle", chip_number: "0002", owner_ids: ["owner-alex"] }] };
         }
         throw new Error(message.type);
       },
@@ -281,21 +292,23 @@ test("owner CSV is comma-separated, keeps unlinked owners and exports one row pe
 
   expect(content.charCodeAt(0)).toBe(0xfeff);
   const header = content.slice(1).split("\r\n")[0];
-  expect(header).toContain('"Name","Email","Phone","Address","Role"');
+  expect(header).toContain('"Name","Email","Phone","Street and house number","Postal code","City","Role"');
   expect(header).toContain('"Expected pickup date"');
   expect(header).toContain('"Final payment (calculated)","Actual outstanding amount"');
-  expect(header).toContain('"Puppy name","Puppy birth date","Puppy collar color"');
-  expect(header).toContain('"Puppy father","Puppy mother"');
+  expect(header).toContain('"Puppy registered name","Puppy call name","Puppy birth date","Puppy sex","Puppy coat color","Puppy collar color"');
+  expect(header).toContain('"Father registered name","Father call name","Father birth date","Father breed / type","Father WALA"');
+  expect(header).toContain('"Mother registered name","Mother call name","Mother birth date","Mother breed / type","Mother WALA"');
   expect(header).not.toContain('";"');
-  expect(content).toContain('"Main street 1, Amsterdam"');
+  expect(content).toContain('"Main street 1","1234 AB","Amsterdam"');
   expect(content).toContain('"Contract ""signed""; ready, paid"');
-  expect(content).toContain('"First","Red","2026-06-01","red","0001","Max","Luna"');
-  expect(content).toContain('"Second","Blue","2026-07-02","blue","0002","Cooper","Nova"');
+  expect(content).toContain('"First","Milky Way Red","Red","2026-06-01","Male","Caramel","red","0001","Multi-generation Australian Labradoodle","Father Registered","Max"');
+  expect(content).toContain('"WALA-F","Mother Registered","Luna","2022-01-02","Multi-generation Australian Labradoodle","WALA-M"');
+  expect(content).toContain('"Second","Milky Way Blue","Blue","2026-07-02"');
   expect(content).toContain('"2500","250","500","2026-09-02","1750","1400"');
   expect(content.match(/"Alex",/g)).toHaveLength(2);
   expect(content.match(/"Blair",/g)).toHaveLength(1);
   const blairRow = content.split("\r\n").find((row) => row.startsWith('"Blair",'));
-  expect(blairRow).toMatch(/(?:,""){7}$/);
+  expect(blairRow).toMatch(/(?:,""){19}$/);
   expect(content).not.toContain("owner-alex");
   expect(content).not.toContain("owner-blair");
   await expect(card.locator("#owner-status")).toHaveText("Owner CSV downloaded.");
@@ -306,7 +319,7 @@ test("owner CSV is comma-separated, keeps unlinked owners and exports one row pe
   const semicolonDownload = await semicolonDownloadPromise;
   const semicolonContent = await readFile(await semicolonDownload.path(), "utf8");
   const semicolonHeader = semicolonContent.slice(1).split("\r\n")[0];
-  expect(semicolonHeader).toContain('"Name";"Email";"Phone";"Address";"Role"');
+  expect(semicolonHeader).toContain('"Name";"Email";"Phone";"Street and house number";"Postal code";"City";"Role"');
   expect(semicolonHeader).not.toContain('","');
 });
 

@@ -156,6 +156,13 @@ def test_owner_card_is_declarative_localized_and_keeps_long_notes_visible() -> N
     assert 'placementDate: "Placement date"' in source
     assert 'expectedPickupDate: "Expected pickup date"' in source
     assert 'paymentDate: "Final payment date"' in source
+    assert 'street: "Straat en huisnummer"' in source
+    assert 'postalCode: "Postcode"' in source
+    assert 'city: "Plaats"' in source
+    assert 'puppyRegisteredName: "Nestnaam pup"' in source
+    assert 'puppyCoatColor: "Vachtkleur pup"' in source
+    assert 'fatherWala: "WALA vader"' in source
+    assert 'motherWala: "WALA moeder"' in source
     assert 'registrationFeeAmount: "Inschrijfgeld"' in source
     assert 'depositAmount: "Bedrag aanbetaling"' in source
     assert 'finalPaymentAmount: "Slotbetaling (berekend)"' in source

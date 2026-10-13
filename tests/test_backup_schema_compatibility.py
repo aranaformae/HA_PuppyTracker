@@ -1,4 +1,4 @@
-"""Backup compatibility tests across base schema 7 and mother-aware schema 8."""
+"""Backup compatibility across base schema 7 and mother-aware schemas 8-9."""
 
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ from custom_components.puppy_tracker.backup import (
     prepare_import,
 )
 from custom_components.puppy_tracker.mother_schema import migrate_mother_scope_data
+from custom_components.puppy_tracker.mother_schema import MOTHER_SCHEMA_VERSION
 from custom_components.puppy_tracker.mother_storage_integrity import MotherScopeIntegrityStorage
 
 CARE_SETTINGS = {
@@ -72,11 +73,31 @@ def test_schema8_runtime_full_backup_is_accepted(
     candidate = plan["candidate"]
     litter = candidate["litters"]["litter-1"]
     mother_id = litter["mother_id"]
-    assert candidate["schema_version"] == 8
+    assert candidate["schema_version"] == MOTHER_SCHEMA_VERSION
     assert candidate["mothers"][mother_id]["name"] == "Luna"
 
 
-def test_legacy_v4_schema7_full_backup_migrates_to_schema8(
+def test_current_schema_runtime_full_backup_is_accepted(
+    hass,
+    storage,
+    install_litter,
+) -> None:
+    install_litter(measurements=[])
+    source = _runtime_storage(hass, storage.get_data())
+    source._data["schema_version"] = MOTHER_SCHEMA_VERSION
+
+    document = build_export_document(
+        source,
+        scope="full",
+        care_reminder_settings=CARE_SETTINGS,
+        scheduler_data=EMPTY_SCHEDULERS,
+    )
+
+    assert document["schema_version"] == MOTHER_SCHEMA_VERSION
+    assert document["data"]["schema_version"] == MOTHER_SCHEMA_VERSION
+
+
+def test_legacy_v4_schema7_full_backup_migrates_to_current_schema(
     hass,
     storage,
     install_litter,
@@ -100,7 +121,7 @@ def test_legacy_v4_schema7_full_backup_migrates_to_schema8(
     litter = candidate["litters"]["litter-1"]
     mother_id = litter["mother_id"]
     assert plan["summary"]["schema_version"] == 7
-    assert candidate["schema_version"] == 8
+    assert candidate["schema_version"] == MOTHER_SCHEMA_VERSION
     assert candidate["mothers"][mother_id]["name"] == "Luna"
 
 
@@ -109,9 +130,12 @@ def test_future_storage_schema_is_rejected(storage) -> None:
         "export_version": 5,
         "exported_at": "2026-09-01T00:00:00+00:00",
         "integration": "puppy_tracker",
-        "schema_version": 9,
+        "schema_version": MOTHER_SCHEMA_VERSION + 1,
         "scope": "full",
-        "data": {**storage.get_data(), "schema_version": 9},
+        "data": {
+            **storage.get_data(),
+            "schema_version": MOTHER_SCHEMA_VERSION + 1,
+        },
         "care_reminders": CARE_SETTINGS,
         "schedulers": EMPTY_SCHEDULERS,
     }
@@ -122,7 +146,7 @@ def test_future_storage_schema_is_rejected(storage) -> None:
     assert err.value.code == "unsupported_schema_version"
 
 
-def test_schema8_candidate_rejects_unknown_mother_without_recovery_name(
+def test_current_candidate_rejects_unknown_mother_without_recovery_name(
     hass,
     storage,
     install_litter,
@@ -133,12 +157,13 @@ def test_schema8_candidate_rejects_unknown_mother_without_recovery_name(
     broken["mothers"] = {}
     broken["litters"]["litter-1"]["mother"] = None
     broken["litters"]["litter-1"]["mother_id"] = "missing-mother"
+    broken["schema_version"] = MOTHER_SCHEMA_VERSION
 
     document = {
         "export_version": 5,
         "exported_at": "2026-09-01T00:00:00+00:00",
         "integration": "puppy_tracker",
-        "schema_version": 8,
+        "schema_version": MOTHER_SCHEMA_VERSION,
         "scope": "full",
         "data": broken,
         "care_reminders": CARE_SETTINGS,

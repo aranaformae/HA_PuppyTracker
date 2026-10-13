@@ -7,6 +7,9 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
+from .dog_identity import PARENT_IDENTITY_FIELDS, normalize_parent_details
+from .mother_schema import MOTHER_SCHEMA_VERSION
+
 MOTHER_IMPORT_MERGE = "merge_existing"
 MOTHER_IMPORT_NEW = "new_profile"
 MOTHER_IMPORT_MODES = frozenset({MOTHER_IMPORT_MERGE, MOTHER_IMPORT_NEW})
@@ -227,6 +230,7 @@ def apply_mother_import(
     candidate.setdefault("audit_log", [])
     timestamp = now or _now_iso()
     mappings = _resolved_litter_map(candidate, document, litter_map)
+    source_identity = normalize_parent_details(source, call_name=source.get("name"))
 
     if plan["mode"] == MOTHER_IMPORT_MERGE:
         mother_id = str(plan["target_mother_id"])
@@ -238,6 +242,10 @@ def apply_mother_import(
         mother = {
             "id": mother_id,
             "name": _unique_import_name(candidate, plan["source_name"]),
+            **{
+                field: source_identity[field]
+                for field in PARENT_IDENTITY_FIELDS
+            },
             "profile_note": source.get("profile_note"),
             "records": [],
             "created_at": timestamp,
@@ -290,6 +298,10 @@ def apply_mother_import(
 
     if plan["mode"] == MOTHER_IMPORT_MERGE and not mother.get("profile_note"):
         mother["profile_note"] = source.get("profile_note")
+    if plan["mode"] == MOTHER_IMPORT_MERGE:
+        for field in PARENT_IDENTITY_FIELDS:
+            if not mother.get(field) and source_identity[field]:
+                mother[field] = source_identity[field]
     mother["updated_at"] = timestamp
 
     linked_targets = sorted(set(mappings.values()))
@@ -299,7 +311,9 @@ def apply_mother_import(
         litter["mother"] = mother.get("name")
         litter["updated_at"] = timestamp
 
-    candidate["schema_version"] = max(int(candidate.get("schema_version", 1)), 8)
+    candidate["schema_version"] = max(
+        int(candidate.get("schema_version", 1)), MOTHER_SCHEMA_VERSION
+    )
     candidate["updated_at"] = timestamp
     candidate["audit_log"].append(
         {

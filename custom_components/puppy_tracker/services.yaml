@@ -18,15 +18,73 @@ create_litter:
         date:
 
     mother:
-      name: Moeder
-      description: Naam van de moederhond.
+      name: Roepnaam moeder
+      description: Roepnaam van de moederhond.
+      required: false
+      selector:
+        text:
+
+    mother_registered_name:
+      name: Naam moeder
+      description: Officiële of geregistreerde naam van de moederhond.
+      required: false
+      selector:
+        text:
+
+    mother_birth_date:
+      name: Geboortedatum moeder
+      description: Geboortedatum van de moederhond.
+      required: false
+      selector:
+        date:
+
+    mother_breed:
+      name: Soort moeder
+      description: Ras of soort van de moederhond.
+      required: false
+      default: Multi-generation Australian Labradoodle
+      selector:
+        text:
+
+    mother_wala_number:
+      name: WALA moeder
+      description: WALA-registratienummer van de moederhond.
       required: false
       selector:
         text:
 
     father:
-      name: Vader
-      description: Naam van de vaderhond.
+      name: Roepnaam vader
+      description: Roepnaam van de vaderhond.
+      required: false
+      selector:
+        text:
+
+    father_registered_name:
+      name: Naam vader
+      description: Officiële of geregistreerde naam van de vaderhond.
+      required: false
+      selector:
+        text:
+
+    father_birth_date:
+      name: Geboortedatum vader
+      description: Geboortedatum van de vaderhond.
+      required: false
+      selector:
+        date:
+
+    father_breed:
+      name: Soort vader
+      description: Ras of soort van de vaderhond.
+      required: false
+      default: Multi-generation Australian Labradoodle
+      selector:
+        text:
+
+    father_wala_number:
+      name: WALA vader
+      description: WALA-registratienummer van de vaderhond.
       required: false
       selector:
         text:
@@ -44,10 +102,17 @@ add_puppy:
         text:
 
     name:
-      name: Naam
-      description: Naam of herkenningsnaam van de pup.
+      name: Roepnaam
+      description: Roepnaam of herkenningsnaam van de pup.
       required: true
       example: "Rood"
+      selector:
+        text:
+
+    registered_name:
+      name: Nestnaam
+      description: Officiële of geregistreerde naam van de pup.
+      required: false
       selector:
         text:
 
@@ -55,6 +120,21 @@ add_puppy:
       name: Halsbandkleur
       description: Herkenningskleur van de pup.
       required: false
+      selector:
+        text:
+
+    coat_color:
+      name: Vachtkleur
+      description: Vachtkleur van de pup, los van de halsbandkleur.
+      required: false
+      selector:
+        text:
+
+    breed:
+      name: Soort
+      description: Ras of soort van de pup.
+      required: false
+      default: Multi-generation Australian Labradoodle
       selector:
         text:
 
