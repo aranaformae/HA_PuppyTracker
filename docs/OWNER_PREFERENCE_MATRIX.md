@@ -81,6 +81,10 @@ does not imply an existing link. Select a populated cell to see the complete
 note, placement status and link status. **Edit owner** opens that owner's form.
 Selecting a cell updates only this detail area, which keeps the table and
 dashboard scroll position stable.
+At card widths of at least 1000 pixels, the details appear beside the table in
+a reserved side column, so selecting a cell does not resize the table. Between
+621 and 999 pixels they appear below it. Details include contact email and phone
+as well as placement, link status and the complete preference note.
 
 The footer gives the number of first, second and third choices per puppy. The
 matrix itself scrolls when it is larger than the available card space; its
@@ -109,14 +113,24 @@ there are no conflicts, the card shows an explicit empty state.
 
 ## Phone and narrow-card layout
 
-At narrow card widths the wide matrix changes automatically into a puppy-first
-list. Choose a puppy to see its interested or linked owners in preference order.
+At card widths of 620 pixels or less the wide matrix changes automatically into
+a compact list. Switch between **By puppy** and **By owner**:
+
+- **By puppy**: select a puppy to see interested or linked owners in preference order.
+- **By owner**: select an owner to see their ranked puppy preferences and existing
+  links in this litter. Links without a preference appear after ranked choices.
+
+Rows initially show only the name, placement status, rank and separate icons
+for notes, existing links and conflicts. Select a row to expand its complete
+note and contact details immediately below it; select it again to collapse.
+Only one match is expanded at a time. Switching perspective, owner, puppy or
+filters clears the expanded match; it does not change saved preferences or links.
 The list retains:
 
 - first, second and third rank totals;
 - collar colour and puppy name;
 - owner placement status;
-- complete preference notes;
+- complete preference notes in the expanded details;
 - existing-link and conflict indication.
 
 This layout is based on the card width rather than the device type. It therefore

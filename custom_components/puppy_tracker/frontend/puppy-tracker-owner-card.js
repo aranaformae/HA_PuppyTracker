@@ -47,6 +47,8 @@ const COPY = {
     ownersWithoutPreferences: "Baasjes zonder keuze",
     linkedMatches: "Bestaande koppelingen",
     matrixOwner: "Baasje",
+    perPuppy: "Per pup",
+    perOwner: "Per baasje",
     matrixTotals: "Voorkeuren",
     matrixEmpty: "Voor dit nest zijn nog geen passende baasjes of voorkeuren beschikbaar.",
     matrixNoPuppies: "Dit nest heeft nog geen pups.",
@@ -166,6 +168,8 @@ const COPY = {
     ownersWithoutPreferences: "Owners without a choice",
     linkedMatches: "Existing links",
     matrixOwner: "Owner",
+    perPuppy: "By puppy",
+    perOwner: "By owner",
     matrixTotals: "Preferences",
     matrixEmpty: "No matching owners or preferences are available for this litter yet.",
     matrixNoPuppies: "This litter does not have any puppies yet.",
@@ -344,6 +348,8 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     this._matrixShowResolved = false;
     this._matrixOnlyConflicts = false;
     this._matrixSelectedPuppy = "";
+    this._matrixSelectedOwner = "";
+    this._matrixPerspective = "puppy";
     this._matrixSelection = null;
     this._editing = null;
     this._expandedOwnerId = null;
@@ -648,6 +654,9 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     if (!puppies.some((puppy) => puppy.id === this._matrixSelectedPuppy)) {
       this._matrixSelectedPuppy = puppies[0]?.id || "";
     }
+    if (!visibleOwners.some((owner) => owner.id === this._matrixSelectedOwner)) {
+      this._matrixSelectedOwner = visibleOwners[0]?.id || "";
+    }
     if (this._matrixSelection) {
       const selectionVisible = visibleOwners.some((owner) => owner.id === this._matrixSelection.ownerId)
         && puppies.some((puppy) => puppy.id === this._matrixSelection.puppyId);
@@ -716,10 +725,26 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     if (!model.puppies.length) {
       return `<div class="matrix-mobile empty matrix-empty-state">${escapeHtml(text(this, this._matrixOnlyConflicts ? "matrixNoConflicts" : "matrixNoPuppies"))}</div>`;
     }
+    const perspective = `<div class="matrix-perspective" role="group" aria-label="${escapeHtml(text(this, "matrixView"))}">${["puppy", "owner"].map((mode) => `<button type="button" data-matrix-perspective="${mode}" aria-pressed="${this._matrixPerspective === mode}">${escapeHtml(text(this, mode === "puppy" ? "perPuppy" : "perOwner"))}</button>`).join("")}</div>`;
+    if (this._matrixPerspective === "owner") {
+      const owner = model.owners.find((item) => item.id === this._matrixSelectedOwner);
+      if (!owner) return `<div class="matrix-mobile">${perspective}<div class="empty">${escapeHtml(text(this, "matrixEmpty"))}</div></div>`;
+      const matches = model.puppies.map((puppy) => ({
+        owner, puppy,
+        preference: model.preferencesByOwner.get(owner.id)?.get(puppy.id),
+        linked: model.linksByOwner.get(owner.id)?.has(puppy.id) || false,
+      })).filter((item) => item.preference || item.linked).sort((left, right) =>
+        (left.preference?.rank || 99) - (right.preference?.rank || 99)
+        || String(left.puppy.name || "").localeCompare(String(right.puppy.name || "")),
+      );
+      const options = model.owners.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === owner.id ? "selected" : ""}>${escapeHtml(item.name)}</option>`).join("");
+      return `<div class="matrix-mobile">${perspective}<label class="mobile-puppy-select"><span>${escapeHtml(text(this, "matrixOwner"))}</span><select id="matrix-owner">${options}</select></label><div class="mobile-matches">${matches.length ? matches.map((match) => this._matrixMobileMatch(match, model)).join("") : `<div class="empty">${escapeHtml(text(this, "noPuppyPreferences"))}</div>`}</div></div>`;
+    }
     const puppy = model.puppies.find((item) => item.id === this._matrixSelectedPuppy) || model.puppies[0];
     const puppyIndex = model.allPuppies.findIndex((item) => item.id === puppy.id);
     const matches = model.owners.map((owner) => ({
       owner,
+      puppy,
       preference: model.preferencesByOwner.get(owner.id)?.get(puppy.id),
       linked: model.linksByOwner.get(owner.id)?.has(puppy.id) || false,
     })).filter((item) => item.preference || item.linked).sort((left, right) =>
@@ -728,11 +753,21 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     );
     const counts = model.rankCounts.get(puppy.id) || [0, 0, 0];
     const options = model.puppies.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === puppy.id ? "selected" : ""}>${escapeHtml(item.name || text(this, "puppy"))}${item.collar_color ? ` · ${escapeHtml(item.collar_color)}` : ""}</option>`).join("");
-    return `<div class="matrix-mobile"><label class="mobile-puppy-select"><span>${escapeHtml(text(this, "puppy"))}</span><select id="matrix-puppy">${options}</select></label><div class="mobile-puppy-head">${this._matrixPuppyHeader(puppy, puppyIndex)}<span>${escapeHtml(text(this, "firstShort"))} ${counts[0]} · ${escapeHtml(text(this, "secondShort"))} ${counts[1]} · ${escapeHtml(text(this, "thirdShort"))} ${counts[2]}</span></div><div class="mobile-matches">${matches.length ? matches.map(({ owner, preference, linked }) => {
-      const selected = this._matrixSelection?.ownerId === owner.id && this._matrixSelection?.puppyId === puppy.id;
-      const conflict = preference?.rank === 1 && model.conflictPuppyIds.has(puppy.id);
-      return `<button type="button" class="mobile-match${selected ? " selected" : ""}${conflict ? " conflict" : ""}" data-matrix-owner="${escapeHtml(owner.id)}" data-matrix-puppy="${escapeHtml(puppy.id)}" aria-pressed="${selected}"><span class="mobile-match-rank">${preference ? escapeHtml(this._rankLabel(preference.rank, true)) : `<ha-icon icon="mdi:link-variant" aria-hidden="true"></ha-icon>`}</span><span class="mobile-match-main"><strong>${escapeHtml(owner.name)}</strong><small>${escapeHtml(optionLabel(this, owner.placement_status, PLACEMENT_STATUS_LABELS, "interested"))}${linked ? ` · ${escapeHtml(text(this, "linkedStatus"))}` : ""}</small>${preference?.note ? `<span>${escapeHtml(preference.note)}</span>` : ""}</span>${conflict ? `<ha-icon class="conflict-icon" icon="mdi:alert-circle-outline" aria-hidden="true"></ha-icon>` : ""}</button>`;
-    }).join("") : `<div class="empty">${escapeHtml(text(this, "noPreferenceForPuppy"))}</div>`}</div></div>`;
+    return `<div class="matrix-mobile">${perspective}<label class="mobile-puppy-select"><span>${escapeHtml(text(this, "puppy"))}</span><select id="matrix-puppy">${options}</select></label><div class="mobile-puppy-head">${this._matrixPuppyHeader(puppy, puppyIndex)}<span>${escapeHtml(text(this, "firstShort"))} ${counts[0]} · ${escapeHtml(text(this, "secondShort"))} ${counts[1]} · ${escapeHtml(text(this, "thirdShort"))} ${counts[2]}</span></div><div class="mobile-matches">${matches.length ? matches.map((match) => this._matrixMobileMatch(match, model)).join("") : `<div class="empty">${escapeHtml(text(this, "noPreferenceForPuppy"))}</div>`}</div></div>`;
+  }
+
+  _matrixMobileMatch({ owner, puppy, preference, linked }, model) {
+    const selected = this._matrixSelection?.ownerId === owner.id && this._matrixSelection?.puppyId === puppy.id;
+    const conflict = preference?.rank === 1 && model.conflictPuppyIds.has(puppy.id);
+    const heading = this._matrixPerspective === "owner"
+      ? this._matrixPuppyHeader(puppy, model.allPuppies.findIndex((item) => item.id === puppy.id))
+      : `<strong>${escapeHtml(owner.name)}</strong>`;
+    const indicators = [
+      preference?.note ? ["mdi:note-text-outline", "preferenceNote"] : null,
+      linked ? ["mdi:link-variant", "linkedStatus"] : null,
+      conflict ? ["mdi:alert-circle-outline", "firstChoiceConflicts"] : null,
+    ].filter(Boolean).map(([icon, label]) => `<ha-icon icon="${icon}" title="${escapeHtml(text(this, label))}" aria-label="${escapeHtml(text(this, label))}"></ha-icon>`).join("");
+    return `<div class="mobile-match-row"><button type="button" class="mobile-match${selected ? " selected" : ""}${conflict ? " conflict" : ""}" data-matrix-owner="${escapeHtml(owner.id)}" data-matrix-puppy="${escapeHtml(puppy.id)}" aria-expanded="${selected}" aria-pressed="${selected}"><span class="mobile-match-rank">${preference ? `<span class="rank rank-${preference.rank}">${preference.rank}</span>` : "—"}</span><span class="mobile-match-main">${heading}<small>${escapeHtml(optionLabel(this, owner.placement_status, PLACEMENT_STATUS_LABELS, "interested"))}</small></span><span class="mobile-match-icons">${indicators}<ha-icon icon="mdi:chevron-down" aria-hidden="true"></ha-icon></span></button><section class="matrix-detail mobile-match-detail" data-detail-owner="${escapeHtml(owner.id)}" data-detail-puppy="${escapeHtml(puppy.id)}" ${selected ? "" : "hidden"}>${selected ? this._matrixDetailsMarkup() : ""}</section></div>`;
   }
 
   _matrixDetailsMarkup() {
@@ -744,7 +779,14 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     const index = preferences.findIndex((preference) => preference.puppy_id === puppy.id);
     const preference = index >= 0 ? preferences[index] : null;
     const linked = (puppy.owner_ids || []).includes(owner.id);
-    return `<div class="matrix-detail-content"><div><span>${escapeHtml(text(this, "preferenceDetails"))}</span><strong>${escapeHtml(owner.name)} · ${escapeHtml(puppy.name || text(this, "puppy"))}</strong></div><dl><div><dt>${escapeHtml(text(this, "preferenceRank"))}</dt><dd>${escapeHtml(preference ? this._rankLabel(index + 1) : "—")}</dd></div><div><dt>${escapeHtml(text(this, "placementStatus"))}</dt><dd>${escapeHtml(optionLabel(this, owner.placement_status, PLACEMENT_STATUS_LABELS, "interested"))}</dd></div><div><dt>${escapeHtml(text(this, "linkedPuppies"))}</dt><dd>${escapeHtml(text(this, linked ? "linkedStatus" : "notLinkedStatus"))}</dd></div><div class="detail-note"><dt>${escapeHtml(text(this, "preferenceNote"))}</dt><dd>${escapeHtml(preference?.note || "—")}</dd></div></dl><button type="button" class="secondary" data-matrix-edit-owner="${escapeHtml(owner.id)}"><ha-icon icon="mdi:pencil-outline"></ha-icon>${escapeHtml(text(this, "editFromMatrix"))}</button></div>`;
+    const fields = [
+      ["preferenceRank", preference ? this._rankLabel(index + 1) : "—"],
+      ["placementStatus", optionLabel(this, owner.placement_status, PLACEMENT_STATUS_LABELS, "interested")],
+      ["linkedPuppies", text(this, linked ? "linkedStatus" : "notLinkedStatus")],
+      ["email", owner.email],
+      ["phone", owner.phone],
+    ];
+    return `<div class="matrix-detail-content"><div><span>${escapeHtml(text(this, "preferenceDetails"))}</span><strong>${escapeHtml(owner.name)} · ${escapeHtml(puppy.name || text(this, "puppy"))}</strong></div><dl>${fields.map(([label, value]) => `<div><dt>${escapeHtml(text(this, label))}</dt><dd>${escapeHtml(value || "—")}</dd></div>`).join("")}<div class="detail-note"><dt>${escapeHtml(text(this, "preferenceNote"))}</dt><dd>${escapeHtml(preference?.note || "—")}</dd></div></dl><button type="button" class="secondary" data-matrix-edit-owner="${escapeHtml(owner.id)}"><ha-icon icon="mdi:pencil-outline"></ha-icon>${escapeHtml(text(this, "editFromMatrix"))}</button></div>`;
   }
 
   _matrixView() {
@@ -752,7 +794,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     const model = this._matrixModel();
     const litterOptions = this._litters.map((litter) => `<option value="${escapeHtml(litter.id)}" ${litter.id === this._selectedLitter ? "selected" : ""}>${escapeHtml(litter.name || text(this, "litter"))}</option>`).join("");
     const details = this._matrixDetailsMarkup();
-    return `<section class="matrix-view"><div class="matrix-controls"><label><span>${escapeHtml(text(this, "matrixLitter"))}</span><select id="matrix-litter">${litterOptions}</select></label><label class="matrix-toggle"><input id="matrix-show-resolved" type="checkbox" ${this._matrixShowResolved ? "checked" : ""}><span>${escapeHtml(text(this, "showResolved"))}</span></label><label class="matrix-toggle"><input id="matrix-only-conflicts" type="checkbox" ${this._matrixOnlyConflicts ? "checked" : ""}><span>${escapeHtml(text(this, "onlyConflicts"))}</span></label></div>${model.allPuppies.length ? this._matrixSummary(model) : ""}${this._matrixDesktop(model)}${this._matrixMobile(model)}<section id="matrix-detail" class="matrix-detail" ${details ? "" : "hidden"}>${details}</section></section>`;
+    return `<section class="matrix-view"><div class="matrix-controls"><label><span>${escapeHtml(text(this, "matrixLitter"))}</span><select id="matrix-litter">${litterOptions}</select></label><label class="matrix-toggle"><input id="matrix-show-resolved" type="checkbox" ${this._matrixShowResolved ? "checked" : ""}><span>${escapeHtml(text(this, "showResolved"))}</span></label><label class="matrix-toggle"><input id="matrix-only-conflicts" type="checkbox" ${this._matrixOnlyConflicts ? "checked" : ""}><span>${escapeHtml(text(this, "onlyConflicts"))}</span></label></div>${model.allPuppies.length ? this._matrixSummary(model) : ""}<div class="matrix-layout">${this._matrixDesktop(model)}${this._matrixMobile(model)}<div class="matrix-detail-region"><section id="matrix-detail" class="matrix-detail" ${details ? "" : "hidden"}>${details}</section></div></div></section>`;
   }
 
   _selectMatrixCell(ownerId, puppyId) {
@@ -763,11 +805,16 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       button.classList.toggle("selected", active);
       button.setAttribute("aria-pressed", String(active));
     });
-    const details = this.querySelector("#matrix-detail");
-    if (!details) return;
-    details.innerHTML = this._matrixDetailsMarkup();
-    details.hidden = !this._matrixSelection;
-    details.querySelector("[data-matrix-edit-owner]")?.addEventListener("click", (event) => this._openEditor(event.currentTarget.dataset.matrixEditOwner));
+    this.querySelectorAll(".mobile-match[data-matrix-owner]").forEach((button) => {
+      button.setAttribute("aria-expanded", button.getAttribute("aria-pressed"));
+    });
+    this.querySelectorAll("#matrix-detail, .mobile-match-detail").forEach((details) => {
+      const active = this._matrixSelection && (details.id === "matrix-detail"
+        || (details.dataset.detailOwner === ownerId && details.dataset.detailPuppy === puppyId));
+      details.innerHTML = active ? this._matrixDetailsMarkup() : "";
+      details.hidden = !active;
+      details.querySelector("[data-matrix-edit-owner]")?.addEventListener("click", (event) => this._openEditor(event.currentTarget.dataset.matrixEditOwner));
+    });
   }
 
   _switchView(view) {
@@ -1090,6 +1137,12 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       .rank-totals{white-space:nowrap;color:var(--secondary-text-color);font-size:.72rem}
       .rank-totals b{color:var(--primary-text-color)}
       .matrix-mobile{display:none}
+      .matrix-layout,.matrix-desktop,.matrix-detail-region{min-width:0}
+      .matrix-perspective{display:flex;gap:0;margin-bottom:12px}
+      .matrix-perspective button{flex:1;min-height:44px;border:1px solid var(--divider-color);border-radius:0;background:transparent;color:var(--primary-text-color);font:inherit;cursor:pointer}
+      .matrix-perspective button:first-child{border-radius:8px 0 0 8px}
+      .matrix-perspective button:last-child{border-radius:0 8px 8px 0}
+      .matrix-perspective button[aria-pressed="true"]{background:var(--primary-color,#039be5);color:var(--text-primary-color,#fff)}
       .matrix-detail{margin-top:14px;padding-top:14px;border-top:1px solid var(--divider-color)}
       .matrix-detail[hidden]{display:none}
       .matrix-detail-content{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:start}
@@ -1100,6 +1153,15 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       .matrix-detail dt{color:var(--secondary-text-color);font-size:.72rem}
       .matrix-detail dd{margin:3px 0 0;overflow-wrap:anywhere}
       .matrix-detail .detail-note{grid-column:1/-1}
+      .matrix-detail .detail-note dd{white-space:pre-wrap}
+      @container owner-card (min-width:1000px){
+        .matrix-layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:18px;align-items:start}
+        .matrix-detail-region{min-height:180px}
+        .matrix-detail{margin-top:0;padding:0 0 0 16px;border-top:0;border-left:1px solid var(--divider-color)}
+        .matrix-detail-content{grid-template-columns:1fr}
+        .matrix-detail dl{grid-template-columns:repeat(2,minmax(0,1fr))}
+        .matrix-detail-content .secondary{justify-self:start}
+      }
       @container owner-card (max-width:620px){
         .matrix-controls{display:grid;grid-template-columns:1fr;align-items:stretch}
         .matrix-toggle{min-height:32px}
@@ -1108,17 +1170,23 @@ class PuppyTrackerOwnerCard extends HTMLElement {
         .matrix-summary>div:nth-child(-n+2){border-bottom:1px solid var(--divider-color)}
         .matrix-desktop{display:none}
         .matrix-mobile{display:block}
+        .matrix-detail-region{display:none}
         .mobile-puppy-select{margin-bottom:10px}
         .mobile-puppy-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--divider-color)}
         .mobile-puppy-head>span{color:var(--secondary-text-color);font-size:.75rem;white-space:nowrap}
         .mobile-matches{display:grid}
-        .mobile-match{display:grid;grid-template-columns:42px minmax(0,1fr) auto;gap:9px;align-items:center;min-width:0;padding:10px 4px;border:1px solid transparent;border-bottom-color:var(--divider-color);background:transparent;color:var(--primary-text-color);text-align:left;font:inherit;cursor:pointer}
+        .mobile-match{display:grid;grid-template-columns:42px minmax(0,1fr) auto;gap:9px;align-items:center;box-sizing:border-box;width:100%;min-width:0;min-height:54px;padding:10px 4px;border:1px solid transparent;border-bottom-color:var(--divider-color);background:transparent;color:var(--primary-text-color);text-align:left;font:inherit;cursor:pointer}
         .mobile-match-rank{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:var(--secondary-background-color);font-weight:700}
         .mobile-match-rank ha-icon{--mdc-icon-size:19px;color:var(--primary-color)}
         .mobile-match-main{min-width:0}
         .mobile-match-main strong,.mobile-match-main small,.mobile-match-main>span{display:block;overflow-wrap:anywhere}
         .mobile-match-main small{margin-top:2px;color:var(--secondary-text-color);font-size:.72rem}
         .mobile-match-main>span{margin-top:5px;font-size:.8rem;line-height:1.35}
+        .mobile-match-main .matrix-puppy{justify-content:flex-start}
+        .mobile-match-icons{display:flex;gap:3px;align-items:center;flex-wrap:wrap;max-width:84px}
+        .mobile-match-icons ha-icon{display:inline-flex;width:18px;height:18px;--mdc-icon-size:18px}
+        .mobile-match[aria-expanded="true"] .mobile-match-icons ha-icon:last-child{transform:rotate(180deg)}
+        .mobile-match-detail{margin:0;padding:12px 4px;border-top:0;border-bottom:1px solid var(--divider-color)}
         .matrix-detail-content{grid-template-columns:1fr}
         .matrix-detail-content .secondary{justify-self:start}
         .matrix-detail dl{grid-template-columns:1fr 1fr}
@@ -1154,8 +1222,15 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     this.querySelector("#matrix-show-resolved")?.addEventListener("change", (event) => { this._matrixShowResolved = event.target.checked; this._matrixSelection = null; this._render(); });
     this.querySelector("#matrix-only-conflicts")?.addEventListener("change", (event) => { this._matrixOnlyConflicts = event.target.checked; this._matrixSelection = null; this._render(); });
     this.querySelector("#matrix-puppy")?.addEventListener("change", (event) => { this._matrixSelectedPuppy = event.target.value; this._matrixSelection = null; this._render(); });
+    this.querySelector("#matrix-owner")?.addEventListener("change", (event) => { this._matrixSelectedOwner = event.target.value; this._matrixSelection = null; this._render(); });
+    this.querySelectorAll("[data-matrix-perspective]").forEach((button) => button.addEventListener("click", () => {
+      if (this._matrixPerspective === button.dataset.matrixPerspective) return;
+      this._matrixPerspective = button.dataset.matrixPerspective;
+      this._matrixSelection = null;
+      this._render();
+    }));
     this.querySelectorAll("[data-matrix-owner]").forEach((button) => button.addEventListener("click", () => this._selectMatrixCell(button.dataset.matrixOwner, button.dataset.matrixPuppy)));
-    this.querySelector("[data-matrix-edit-owner]")?.addEventListener("click", (event) => this._openEditor(event.currentTarget.dataset.matrixEditOwner));
+    this.querySelectorAll("[data-matrix-edit-owner]").forEach((button) => button.addEventListener("click", (event) => this._openEditor(event.currentTarget.dataset.matrixEditOwner)));
   }
 }
 

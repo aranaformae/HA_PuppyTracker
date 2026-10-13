@@ -599,9 +599,13 @@ shortlists, litter puppy metadata and each puppy's authoritative `owner_ids`.
 No matrix, conflict or aggregate count is persisted. A conflict means more than
 one currently visible owner has the same puppy as first choice; sold and placed
 owners are excluded unless explicitly shown. Wide cards render a scrollable
-owner-by-puppy table with sticky headers. A container query replaces it with a
-puppy-focused list at narrow card widths. Cell selection updates only the local
-detail region, avoiding a full card render and preserving dashboard scroll.
+owner-by-puppy table with sticky headers. At 1000px card width, a fixed side
+column holds selected details without resizing the table. A container query
+replaces the table at 620px or less with compact lists by puppy or by owner,
+derived from the same filtered model. Perspective and selected owner are local
+presentation state, not configuration or stored data. Cell selection updates
+only selection attributes and the desktop/inline mobile detail regions,
+avoiding a full card render and retaining existing list and table DOM nodes.
 
 Full v5 backups include the owner store; partial transfers omit it because
 references cannot be remapped safely without an explicit owner-transfer flow.

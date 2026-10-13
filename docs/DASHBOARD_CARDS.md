@@ -210,6 +210,10 @@ csv_delimiter: comma
 Use `default_view: owners` for contact management or `default_view: matrix` to
 open directly on the puppy-preference comparison. Both choices are available
 in the visual editor and the segmented control remains available in the card.
+The matrix uses compact, expandable lists by puppy or by owner in narrow cards.
+Wide cards show the comparison table, with selected details alongside it when
+at least 1000 pixels are available. Preference ranks and actual puppy links stay
+separate; switching a view never creates a link.
 
 The create/edit form starts collapsed. Selecting an owner expands all stored
 contact, placement, payment and note information, including an ordered top

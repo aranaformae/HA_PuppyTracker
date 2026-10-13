@@ -318,13 +318,13 @@ test("owner preference matrix compares ranks, conflicts, notes and existing link
   await expect(card.locator(".matrix-desktop .preference-matrix tbody tr")).toHaveCount(4);
 
   await card.locator('.matrix-desktop [data-matrix-owner="o1"][data-matrix-puppy="p1"]').click();
-  await card.locator("[data-matrix-edit-owner='o1']").click();
+  await card.locator("#matrix-detail [data-matrix-edit-owner='o1']").click();
   await expect(card.locator("#owners-view")).toHaveAttribute("aria-selected", "true");
   await expect(card.locator('input[name="name"]')).toHaveValue("Family Jansen");
 });
 
 test("@mobile @tablet owner preference matrix becomes a pup-focused list in a narrow card", async ({ page }) => {
-  const card = await mountOwnerMatrix(page, { width: "390px" });
+  const card = await mountOwnerMatrix(page, { width: "min(390px, 100%)" });
 
   await expect(card.locator(".matrix-mobile")).toBeVisible();
   await expect(card.locator(".matrix-desktop")).toBeHidden();
@@ -334,15 +334,50 @@ test("@mobile @tablet owner preference matrix becomes a pup-focused list in a na
 
   await card.locator("#matrix-puppy").selectOption("p2");
   await expect(card.locator(".mobile-match")).toHaveCount(1);
-  await expect(card.locator(".mobile-match")).toContainText("Strong second choice");
+  await expect(card.locator(".mobile-match")).not.toContainText("Strong second choice");
   await card.locator(".mobile-match").click();
-  await expect(card.locator("#matrix-detail")).toContainText("Linked");
+  await expect(card.locator(".mobile-match-detail:not([hidden])")).toContainText("Strong second choice");
+  await expect(card.locator(".mobile-match-detail:not([hidden])")).toContainText("Linked");
+  await card.locator(".mobile-match").click();
+  await expect(card.locator(".mobile-match-detail")).toBeHidden();
+
+  await card.locator('[data-matrix-perspective="owner"]').click();
+  await card.locator("#matrix-owner").selectOption("o1");
+  await expect(card.locator(".mobile-match")).toHaveCount(2);
+  await expect(card.locator(".mobile-match").first()).toContainText("Nova");
+  await expect(card.locator(".mobile-match").last()).toContainText("Boris");
+  await expect(card.locator('.mobile-match .rank').first()).toHaveText("1");
+  const row = card.locator('.mobile-match[data-matrix-puppy="p2"]');
+  await expect(row.locator('[icon="mdi:link-variant"]')).toBeVisible();
+  await card.evaluate((element) => { element.querySelector(".mobile-match").dataset.stableNode = "yes"; });
+  await row.click();
+  await expect(card.locator('.mobile-match[data-stable-node="yes"]')).toHaveCount(1);
+  await expect(card.locator(".mobile-match-detail:not([hidden])")).toContainText("Strong second choice");
+  await card.screenshot({ path: `/tmp/puppy-matrix-${test.info().project.name}.png` });
+  await card.locator("#matrix-owner").selectOption("o3");
+  await expect(card.locator(".mobile-match")).toHaveCount(0);
+  await expect(card.locator(".mobile-matches")).toContainText("No puppy preferences recorded");
+  await card.locator("#matrix-only-conflicts").check();
+  await expect(card.locator('#matrix-owner option')).toHaveCount(2);
 
   const widths = await card.evaluate((element) => {
     const surface = element.querySelector("ha-card");
     return { client: surface.clientWidth, scroll: surface.scrollWidth };
   });
   expect(widths.scroll).toBeLessThanOrEqual(widths.client + 1);
+});
+
+test("wide owner matrix keeps table geometry stable beside the details", async ({ page }) => {
+  const card = await mountOwnerMatrix(page, { width: "1100px" });
+  await expect(card.locator(".matrix-desktop tbody tr")).toHaveCount(3);
+  const table = card.locator(".matrix-scroll");
+  const before = await table.boundingBox();
+  await card.locator('.matrix-desktop [data-matrix-owner="o1"][data-matrix-puppy="p1"]').click();
+  const after = await table.boundingBox();
+  expect(after).toEqual(before);
+  const detail = await card.locator("#matrix-detail").boundingBox();
+  expect(detail.x).toBeGreaterThanOrEqual(after.x + after.width);
+  await card.screenshot({ path: "/tmp/puppy-matrix-desktop.png" });
 });
 
 test("owner contract CSV refreshes parent chips before download and stops on refresh failure", async ({ page }) => {
