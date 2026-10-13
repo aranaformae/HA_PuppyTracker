@@ -121,6 +121,7 @@ Contact fields include:
 - name, email, telephone, street/house number, postal code and city;
 - role and preferred contact method;
 - placement status, actual placement date and expected pickup date;
+- an ordered top three of preferred puppies, with a short note per preference;
 - payment status, total amount, registration fee, deposit amount/date, actual
   outstanding amount, final-payment date and method;
 - status history and free notes.
@@ -135,6 +136,12 @@ Linking contacts to a puppy is a separate section. One or more contacts can be
 linked later, and editing a contact updates the reusable information without
 duplicating it into each puppy.
 
+The preference list is planning information and does not link or reserve a
+puppy. Fill it from first to third choice; skipped ranks and duplicate puppies
+are rejected. Each note is limited to 240 characters. A removed or unavailable
+puppy remains visible as unavailable until that preference is changed, so a
+saved choice is never silently reassigned.
+
 Use **CSV exporteren** in the Owners card to download the complete visible
 contact list for Word, Nextcloud or another mail-merge tool. The UTF-8 file
 contains localized column headings and one row per owner-puppy link. Choose
@@ -143,7 +150,8 @@ contains localized column headings and one row per owner-puppy link. Choose
 YAML or the visual card editor. An
 owner linked to two puppies therefore has two rows; an owner without a puppy is
 kept once with empty litter and puppy columns. Contact, placement, payment,
-notes and status history are included. Linked rows also contain the litter,
+notes, the three puppy preferences with their notes and status history are
+included. Linked rows also contain the litter,
 puppy registered name and call name, birth date, sex, coat and collar colours,
 chip number and breed/type. Father and mother each have separate registered
 name, call name, birth date, breed/type and WALA columns. Internal Puppy Tracker

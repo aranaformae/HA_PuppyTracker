@@ -31,6 +31,10 @@ def test_owner_backup_normalizes_owner_records() -> None:
                 "deposit_date": "2026-09-02",
                 "payment_method": "bank_transfer",
                 "payment_balance": "1400",
+                "puppy_preferences": [
+                    {"puppy_id": "puppy-red", "note": "Rustige eerste keuze"},
+                    {"puppy_id": "puppy-blue", "note": "Goede tweede match"},
+                ],
                 "status_history": [{"status": "interested", "changed_at": "2026-08-01T10:00:00+00:00"}],
             }
         }
@@ -45,6 +49,10 @@ def test_owner_backup_normalizes_owner_records() -> None:
     assert result["owners"]["owner-1"]["deposit_amount"] == "500"
     assert result["owners"]["owner-1"]["deposit_date"] == "2026-09-02"
     assert result["owners"]["owner-1"]["payment_balance"] == "1400"
+    assert result["owners"]["owner-1"]["puppy_preferences"] == [
+        {"puppy_id": "puppy-red", "note": "Rustige eerste keuze"},
+        {"puppy_id": "puppy-blue", "note": "Goede tweede match"},
+    ]
     assert final_payment_amount(result["owners"]["owner-1"]) == "1750"
     assert result["owners"]["owner-1"]["status_history"][0]["status"] == "interested"
 
@@ -125,6 +133,39 @@ def test_owner_rejects_advance_payments_above_total() -> None:
         })
 
 
+def test_owner_preferences_are_ordered_trimmed_and_clearable() -> None:
+    owner = _normalize({
+        "name": "Alex",
+        "puppy_preferences": [
+            {"puppy_id": " puppy-red ", "note": " Eerste keuze "},
+            {"puppy_id": "puppy-blue", "note": ""},
+        ],
+    })
+
+    assert owner["puppy_preferences"] == [
+        {"puppy_id": "puppy-red", "note": "Eerste keuze"},
+        {"puppy_id": "puppy-blue", "note": None},
+    ]
+    assert _normalize({"name": "Changed"}, existing=owner)["puppy_preferences"] == owner["puppy_preferences"]
+    assert _normalize({"name": "Changed", "puppy_preferences": []}, existing=owner)["puppy_preferences"] == []
+
+
+@pytest.mark.parametrize(
+    ("preferences", "message"),
+    [
+        ("puppy-red", "must be a list"),
+        ([{"puppy_id": str(index)} for index in range(4)], "at most 3 items"),
+        ([{"puppy_id": "puppy-red"}, {"puppy_id": "puppy-red"}], "must be unique"),
+        ([{"note": "Missing puppy"}], "requires a puppy_id"),
+        ([{"puppy_id": "puppy-red", "note": 42}], "note must be text"),
+        ([{"puppy_id": "puppy-red", "note": "x" * 241}], "at most 240 characters"),
+    ],
+)
+def test_owner_rejects_invalid_puppy_preferences(preferences, message) -> None:
+    with pytest.raises(ValueError, match=message):
+        _normalize({"name": "Alex", "puppy_preferences": preferences})
+
+
 def test_final_payment_requires_valid_total() -> None:
     assert final_payment_amount({"registration_fee_amount": "250"}) is None
     assert final_payment_amount({"payment_amount": "NaN"}) is None
@@ -187,6 +228,7 @@ async def test_owner_reload_adds_new_optional_fields_to_legacy_records(hass) -> 
     assert migrated["registration_fee_amount"] is None
     assert migrated["deposit_amount"] is None
     assert migrated["deposit_date"] is None
+    assert migrated["puppy_preferences"] == []
     store._store.async_save.assert_awaited_once()
 
 

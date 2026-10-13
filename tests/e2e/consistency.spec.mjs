@@ -171,6 +171,10 @@ test("owner dates and stored values are labeled and localized", async ({ page })
       payment_status: "deposit", payment_amount: "2500", registration_fee_amount: "250",
       deposit_amount: "500", deposit_date: "2026-09-02", payment_balance: "1400",
       payment_method: "bank_transfer", payment_date: "2026-09-20",
+      puppy_preferences: [
+        { puppy_id: "p1", note: "Best temperament match" },
+        { puppy_id: "p2", note: "Second choice" },
+      ],
       notes: "A long note that must remain completely visible.",
     };
     const card = document.createElement("puppy-tracker-owner-card");
@@ -181,7 +185,12 @@ test("owner dates and stored values are labeled and localized", async ({ page })
       callWS: async (message) => {
         window.calls.push(message);
         if (message.type === "puppy_tracker/owners/list") return { owners: [owner] };
-        if (message.type === "puppy_tracker/litters") return { litters: [] };
+        if (message.type === "puppy_tracker/litters") return { litters: [{ id: "l1", name: "Milky Way" }] };
+        if (message.type === "puppy_tracker/data") return { puppies: [
+          { id: "p1", name: "Red", owner_ids: [] },
+          { id: "p2", name: "Blue", owner_ids: [] },
+          { id: "p3", name: "Green", owner_ids: [] },
+        ] };
         if (message.type === "puppy_tracker/owners/save") return { owner };
         throw new Error(message.type);
       },
@@ -193,6 +202,9 @@ test("owner dates and stored values are labeled and localized", async ({ page })
   await expect(card.locator(".owner-detail")).toContainText("Registration fee");
   await expect(card.locator(".owner-detail")).toContainText("Main Street 1");
   await expect(card.locator(".owner-detail")).toContainText("1234 AB");
+  await expect(card.locator(".owner-detail")).toContainText("1st preference");
+  await expect(card.locator(".owner-detail")).toContainText("Milky Way · Red");
+  await expect(card.locator(".owner-detail")).toContainText("Best temperament match");
   await expect(card.locator(".owner-detail .notes")).toContainText("A long note that must remain completely visible.");
   await card.locator("[data-edit='o1']").click();
   await expect(card.locator('label:has-text("Placement date") input[name="placement_date"]')).toHaveValue("2026-09-01");
@@ -202,8 +214,12 @@ test("owner dates and stored values are labeled and localized", async ({ page })
   await expect(card.locator('input[name="street"]')).toHaveValue("Main Street 1");
   await expect(card.locator('input[name="postal_code"]')).toHaveValue("1234 AB");
   await expect(card.locator('input[name="city"]')).toHaveValue("Amsterdam");
+  await expect(card.locator('select[name="preference_puppy_1"]')).toHaveValue("p1");
+  await expect(card.locator('input[name="preference_note_1"]')).toHaveValue("Best temperament match");
+  await expect(card.locator('select[name="preference_puppy_2"]')).toHaveValue("p2");
   await expect(card.locator("#final-payment-amount")).toHaveText("1750");
   await card.locator('input[name="deposit_amount"]').fill("600");
+  await card.locator('input[name="preference_note_1"]').fill("Best match after second visit");
   await expect(card.locator("#final-payment-amount")).toHaveText("1650");
   await card.locator(".owner-editor form button[type='submit']").click();
   await expect.poll(() => page.evaluate(() => window.calls.find((message) => message.type === "puppy_tracker/owners/save"))).toMatchObject({
@@ -217,7 +233,15 @@ test("owner dates and stored values are labeled and localized", async ({ page })
     deposit_amount: "600",
     deposit_date: "2026-09-02",
     payment_balance: "1400",
+    puppy_preferences: [
+      { puppy_id: "p1", note: "Best match after second visit" },
+      { puppy_id: "p2", note: "Second choice" },
+    ],
   });
+  expect(await page.evaluate(() => {
+    const saved = window.calls.find((message) => message.type === "puppy_tracker/owners/save");
+    return Object.keys(saved).filter((key) => key.startsWith("preference_"));
+  })).toEqual([]);
 });
 
 test("owner CSV is comma-separated, keeps unlinked owners and exports one row per puppy link", async ({ page }) => {
@@ -246,6 +270,7 @@ test("owner CSV is comma-separated, keeps unlinked owners and exports one row pe
         deposit_date: "2026-09-02",
         payment_balance: "1400",
         payment_method: "bank_transfer",
+        puppy_preferences: [{ puppy_id: "p2", note: "Preferred coat and temperament" }],
         notes: 'Contract "signed"; ready, paid',
         status_history: [{ status: "interested", changed_at: "2026-08-01T10:00:00Z" }],
       },
@@ -294,12 +319,14 @@ test("owner CSV is comma-separated, keeps unlinked owners and exports one row pe
   const header = content.slice(1).split("\r\n")[0];
   expect(header).toContain('"Name","Email","Phone","Street and house number","Postal code","City","Role"');
   expect(header).toContain('"Expected pickup date"');
+  expect(header).toContain('"1st preference puppy","1st preference note","2nd preference puppy","2nd preference note","3rd preference puppy","3rd preference note"');
   expect(header).toContain('"Final payment (calculated)","Actual outstanding amount"');
   expect(header).toContain('"Puppy registered name","Puppy call name","Puppy birth date","Puppy sex","Puppy coat color","Puppy collar color"');
   expect(header).toContain('"Father registered name","Father call name","Father birth date","Father breed / type","Father WALA"');
   expect(header).toContain('"Mother registered name","Mother call name","Mother birth date","Mother breed / type","Mother WALA"');
   expect(header).not.toContain('";"');
   expect(content).toContain('"Main street 1","1234 AB","Amsterdam"');
+  expect(content).toContain('"Second · Blue","Preferred coat and temperament"');
   expect(content).toContain('"Contract ""signed""; ready, paid"');
   expect(content).toContain('"First","Milky Way Red","Red","2026-06-01","Male","Caramel","red","0001","Multi-generation Australian Labradoodle","Father Registered","Max"');
   expect(content).toContain('"WALA-F","Mother Registered","Luna","2022-01-02","Multi-generation Australian Labradoodle","WALA-M"');

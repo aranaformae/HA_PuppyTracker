@@ -30,6 +30,8 @@ PLACEMENT_STATUSES = ("interested", "option", "reserved", "sold", "placed")
 PAYMENT_STATUSES = ("none", "registration_fee", "deposit", "full")
 CONTACT_PREFERENCES = ("none", "email", "phone", "whatsapp")
 PAYMENT_METHODS = ("none", "bank_transfer", "cash", "card", "other")
+MAX_PUPPY_PREFERENCES = 3
+PUPPY_PREFERENCE_NOTE_MAX_LENGTH = 240
 AMOUNT_FIELDS = (
     "payment_amount",
     "registration_fee_amount",
@@ -96,6 +98,40 @@ def _optional_amount(source: dict[str, Any], field: str) -> str | None:
     return _decimal_text(amount)
 
 
+def _puppy_preferences(source: dict[str, Any]) -> list[dict[str, str | None]]:
+    """Normalize the ordered puppy shortlist stored with an owner."""
+    preferences = source.get("puppy_preferences") or []
+    if not isinstance(preferences, list):
+        raise ValueError("puppy_preferences must be a list")
+    if len(preferences) > MAX_PUPPY_PREFERENCES:
+        raise ValueError(f"puppy_preferences may contain at most {MAX_PUPPY_PREFERENCES} items")
+
+    normalized: list[dict[str, str | None]] = []
+    seen_puppy_ids: set[str] = set()
+    for preference in preferences:
+        if not isinstance(preference, dict):
+            raise ValueError("puppy preference must be an object")
+        puppy_id_value = preference.get("puppy_id")
+        if not isinstance(puppy_id_value, str) or not puppy_id_value.strip():
+            raise ValueError("puppy preference requires a puppy_id")
+        puppy_id = puppy_id_value.strip()
+        if puppy_id in seen_puppy_ids:
+            raise ValueError("puppy preference puppy_id must be unique")
+
+        note_value = preference.get("note")
+        if note_value is not None and not isinstance(note_value, str):
+            raise ValueError("puppy preference note must be text")
+        note = (note_value or "").strip() or None
+        if note and len(note) > PUPPY_PREFERENCE_NOTE_MAX_LENGTH:
+            raise ValueError(
+                "puppy preference note may contain at most "
+                f"{PUPPY_PREFERENCE_NOTE_MAX_LENGTH} characters"
+            )
+        normalized.append({"puppy_id": puppy_id, "note": note})
+        seen_puppy_ids.add(puppy_id)
+    return normalized
+
+
 def final_payment_amount(owner: dict[str, Any]) -> str | None:
     """Return total minus registration fee and deposit for one placement."""
     total_raw = owner.get("payment_amount")
@@ -153,6 +189,7 @@ def _normalize(data: dict[str, Any], *, owner_id: str | None = None, existing: d
         normalized_history.append({"status": status, "changed_at": _now()})
     dates = {field: _optional_date(source, field) for field in DATE_FIELDS}
     amounts = {field: _optional_amount(source, field) for field in AMOUNT_FIELDS}
+    puppy_preferences = _puppy_preferences(source)
     total = Decimal(amounts["payment_amount"]) if amounts["payment_amount"] is not None else None
     paid_before_final = Decimal(amounts["registration_fee_amount"] or 0) + Decimal(amounts["deposit_amount"] or 0)
     if total is not None and paid_before_final > total:
@@ -174,6 +211,7 @@ def _normalize(data: dict[str, Any], *, owner_id: str | None = None, existing: d
         "payment_method": payment_method,
         "payment_balance": amounts["payment_balance"],
         "contact_preference": contact_preference,
+        "puppy_preferences": puppy_preferences,
         "status_history": normalized_history,
         "created_at": (existing or {}).get("created_at") or (source.get("created_at") if preserve_timestamps else None) or now,
         "updated_at": (source.get("updated_at") if preserve_timestamps else None) or now,

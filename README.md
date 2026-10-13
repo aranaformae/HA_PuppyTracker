@@ -24,8 +24,8 @@ longitudinal behavior observations, reports and backups.
   recorded weight, including a litter total.
 - Score repeated behavior observations per puppy and build a neutral profile
   over time.
-- Store owner/contact, placement and payment information and link contacts to
-  puppies later, with a separate CSV export for Word mail merge.
+- Store owner/contact, placement and payment information, record an ordered top
+  three puppy shortlist with notes, and link contacts to puppies later.
 - Create configurable PDF reports and export CSV or JSON data.
 - Make validated manual or automated JSON backups.
 
@@ -122,8 +122,9 @@ configured to appear in Attention. See
 
 ### Owners and puppy identity
 
-The Owners card stores reusable contact, placement and payment information.
-Contacts can be created before puppy placement and linked later. A puppy's chip
+The Owners card stores reusable contact, placement and payment information plus
+an optional top three puppy shortlist with a short note per preference. Contacts
+can be created before puppy placement and linked later. A puppy's chip
 number, registered/nest name, call name, coat colour and breed/type are separate
 profile fields. Parent profiles can store registered/call names, birth date,
 breed/type and WALA number. Owner addresses use separate street, postal-code and

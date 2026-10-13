@@ -21,8 +21,8 @@ Use this for disaster recovery. A current full v5 backup contains the authoritat
   registered/call names, coat colour, breed/type, litters, measurement versions,
   dossier records, settings and audit history;
 - reusable owner/contact records, including placement/payment schedules and
-  actual outstanding balances, split address fields and puppy links to those
-  contacts;
+  actual outstanding balances, split address fields, ordered puppy preferences
+  with notes and puppy links to those contacts;
 - portable care-reminder preferences such as category toggles and the default notification lead time;
 - age-based care-program definitions, including optional per-program notification lead-time overrides;
 - user-owned care-program templates, including general and day-specific instructions;

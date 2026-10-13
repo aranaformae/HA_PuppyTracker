@@ -40,6 +40,23 @@ const COPY = {
     cancel: "Annuleren",
     contactDetails: "Contactgegevens",
     placementDetails: "Plaatsing",
+    puppyPreferences: "Top 3 pupvoorkeuren",
+    preference1: "1e voorkeur",
+    preference2: "2e voorkeur",
+    preference3: "3e voorkeur",
+    preferenceNote: "Korte notitie",
+    preference1Puppy: "Pup 1e voorkeur",
+    preference1Note: "Notitie 1e voorkeur",
+    preference2Puppy: "Pup 2e voorkeur",
+    preference2Note: "Notitie 2e voorkeur",
+    preference3Puppy: "Pup 3e voorkeur",
+    preference3Note: "Notitie 3e voorkeur",
+    noPuppyPreference: "Geen pup gekozen",
+    noPuppyPreferences: "Geen pupvoorkeuren vastgelegd",
+    unavailablePuppy: "Niet meer beschikbare pup",
+    selectPuppyForNote: "Kies eerst een pup voor deze notitie.",
+    duplicatePuppyPreference: "Kies elke pup maximaal één keer.",
+    fillEarlierPreference: "Vul eerst de voorgaande pupvoorkeur in.",
     paymentDetails: "Betalingen",
     name: "Naam",
     email: "E-mail",
@@ -112,6 +129,23 @@ const COPY = {
     cancel: "Cancel",
     contactDetails: "Contact details",
     placementDetails: "Placement",
+    puppyPreferences: "Top 3 puppy preferences",
+    preference1: "1st preference",
+    preference2: "2nd preference",
+    preference3: "3rd preference",
+    preferenceNote: "Short note",
+    preference1Puppy: "1st preference puppy",
+    preference1Note: "1st preference note",
+    preference2Puppy: "2nd preference puppy",
+    preference2Note: "2nd preference note",
+    preference3Puppy: "3rd preference puppy",
+    preference3Note: "3rd preference note",
+    noPuppyPreference: "No puppy selected",
+    noPuppyPreferences: "No puppy preferences recorded",
+    unavailablePuppy: "Puppy no longer available",
+    selectPuppyForNote: "Select a puppy before adding a note.",
+    duplicatePuppyPreference: "Select each puppy no more than once.",
+    fillEarlierPreference: "Fill the previous puppy preference first.",
     paymentDetails: "Payments",
     name: "Name",
     email: "Email",
@@ -326,6 +360,41 @@ class PuppyTrackerOwnerCard extends HTMLElement {
   async _save(form) {
     if (this._busy) return;
     const data = Object.fromEntries(new FormData(form).entries());
+    const puppyPreferences = [];
+    const selectedPuppies = new Set();
+    let hasEmptyEarlierPreference = false;
+    for (let rank = 1; rank <= 3; rank += 1) {
+      const puppyField = `preference_puppy_${rank}`;
+      const noteField = `preference_note_${rank}`;
+      const puppyId = String(data[puppyField] || "").trim();
+      const note = String(data[noteField] || "").trim();
+      const select = form.querySelector(`[name="${puppyField}"]`);
+      select?.setCustomValidity("");
+      delete data[puppyField];
+      delete data[noteField];
+      if (!puppyId) {
+        hasEmptyEarlierPreference = true;
+        if (note) {
+          select?.setCustomValidity(text(this, "selectPuppyForNote"));
+          select?.reportValidity();
+          return;
+        }
+        continue;
+      }
+      if (hasEmptyEarlierPreference) {
+        select?.setCustomValidity(text(this, "fillEarlierPreference"));
+        select?.reportValidity();
+        return;
+      }
+      if (selectedPuppies.has(puppyId)) {
+        select?.setCustomValidity(text(this, "duplicatePuppyPreference"));
+        select?.reportValidity();
+        return;
+      }
+      puppyPreferences.push({ puppy_id: puppyId, note: note || null });
+      selectedPuppies.add(puppyId);
+    }
+    data.puppy_preferences = puppyPreferences;
     if (this._editing) data.owner_id = this._editing;
     this._busy = true;
     this._error = "";
@@ -386,10 +455,50 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     return this._puppies.filter((puppy) => (puppy.owner_ids || []).includes(ownerId));
   }
 
+  _puppyPreferenceLabel(puppyId) {
+    const puppy = this._puppies.find((item) => item.id === puppyId);
+    if (!puppy) return text(this, "unavailablePuppy");
+    return [puppy.litter_name, puppy.name || text(this, "puppy")].filter(Boolean).join(" · ");
+  }
+
+  _puppyPreferenceOptions(selectedId) {
+    const puppies = [...this._puppies].sort((left, right) =>
+      `${left.litter_name || ""}\u0000${left.name || ""}`.localeCompare(`${right.litter_name || ""}\u0000${right.name || ""}`),
+    );
+    const options = puppies.map((puppy) => `<option value="${escapeHtml(puppy.id)}" ${puppy.id === selectedId ? "selected" : ""}>${escapeHtml(this._puppyPreferenceLabel(puppy.id))}</option>`);
+    if (selectedId && !puppies.some((puppy) => puppy.id === selectedId)) {
+      options.unshift(`<option value="${escapeHtml(selectedId)}" selected>${escapeHtml(text(this, "unavailablePuppy"))}</option>`);
+    }
+    options.unshift(`<option value="">${escapeHtml(text(this, "noPuppyPreference"))}</option>`);
+    return options.join("");
+  }
+
+  _puppyPreferenceFields(owner) {
+    const preferences = Array.isArray(owner.puppy_preferences) ? owner.puppy_preferences.slice(0, 3) : [];
+    return `<div class="preferences wide">${[0, 1, 2].map((index) => {
+      const preference = preferences[index] || {};
+      const rank = index + 1;
+      return `<fieldset class="preference-row"><legend>${escapeHtml(text(this, `preference${rank}`))}</legend><label><span>${escapeHtml(text(this, "puppy"))}</span><select name="preference_puppy_${rank}">${this._puppyPreferenceOptions(preference.puppy_id || "")}</select></label><label><span>${escapeHtml(text(this, "preferenceNote"))}</span><input name="preference_note_${rank}" maxlength="240" value="${escapeHtml(preference.note || "")}"></label></fieldset>`;
+    }).join("")}</div>`;
+  }
+
+  _puppyPreferenceDetails(owner) {
+    const preferences = Array.isArray(owner.puppy_preferences) ? owner.puppy_preferences.slice(0, 3) : [];
+    if (!preferences.length) {
+      return this._detail(text(this, "puppyPreferences"), text(this, "noPuppyPreferences"), "wide");
+    }
+    return preferences.map((preference, index) => {
+      const note = preference.note ? `\n${text(this, "preferenceNote")}: ${preference.note}` : "";
+      return this._detail(text(this, `preference${index + 1}`), `${this._puppyPreferenceLabel(preference.puppy_id)}${note}`, "wide preformatted");
+    }).join("");
+  }
+
   _ownerCsvContent() {
     const headers = [
       "name", "email", "phone", "street", "postalCode", "city", "role", "contactPreference",
-      "placementStatus", "placementDate", "expectedPickupDate", "paymentStatus",
+      "placementStatus", "placementDate", "expectedPickupDate",
+      "preference1Puppy", "preference1Note", "preference2Puppy", "preference2Note",
+      "preference3Puppy", "preference3Note", "paymentStatus",
       "paymentAmount", "registrationFeeAmount", "depositAmount", "depositDate",
       "finalPaymentAmount", "paymentBalance", "paymentMethod", "paymentDate",
       "notes", "statusHistory", "litter", "puppyRegisteredName", "puppyCallName",
@@ -404,6 +513,11 @@ class PuppyTrackerOwnerCard extends HTMLElement {
         const status = optionLabel(this, entry.status, PLACEMENT_STATUS_LABELS, entry.status);
         return `${status} · ${formattedDate(this, entry.changed_at, true)}`;
       }).join(" | ");
+      const puppyPreferences = Array.isArray(owner.puppy_preferences) ? owner.puppy_preferences.slice(0, 3) : [];
+      const preferenceValues = [0, 1, 2].flatMap((index) => {
+        const preference = puppyPreferences[index];
+        return preference ? [this._puppyPreferenceLabel(preference.puppy_id), preference.note] : ["", ""];
+      });
       const ownerValues = [
         owner.name,
         owner.email,
@@ -416,6 +530,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
         optionLabel(this, owner.placement_status, PLACEMENT_STATUS_LABELS, "interested"),
         owner.placement_date,
         owner.expected_pickup_date,
+        ...preferenceValues,
         optionLabel(this, owner.payment_status, PAYMENT_STATUS_LABELS, "none"),
         owner.payment_amount,
         owner.registration_fee_amount,
@@ -513,6 +628,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       ${this._detail(text(this, "postalCode"), owner.postal_code || "—")}
       ${this._detail(text(this, "city"), owner.city || "—")}
       ${this._detail(text(this, "linkedPuppies"), linked, "wide")}
+      ${this._puppyPreferenceDetails(owner)}
       ${this._detail(text(this, "statusHistory"), history, "wide preformatted")}
       ${this._detail(text(this, "notes"), owner.notes || "—", "wide notes preformatted")}
     </div>`;
@@ -548,6 +664,8 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       ${selectField(this, "placement_status", text(this, "placementStatus"), PLACEMENT_STATUS_LABELS, owner.placement_status || "interested")}
       <label><span>${escapeHtml(text(this, "placementDate"))}</span><input name="placement_date" type="date" value="${escapeHtml(owner.placement_date || "")}"></label>
       <label><span>${escapeHtml(text(this, "expectedPickupDate"))}</span><input name="expected_pickup_date" type="date" value="${escapeHtml(owner.expected_pickup_date || "")}"></label>
+      <h4 class="form-heading">${escapeHtml(text(this, "puppyPreferences"))}</h4>
+      ${this._puppyPreferenceFields(owner)}
       <h4 class="form-heading">${escapeHtml(text(this, "paymentDetails"))}</h4>
       ${selectField(this, "payment_status", text(this, "paymentStatus"), PAYMENT_STATUS_LABELS, owner.payment_status || "none")}
       <label><span>${escapeHtml(text(this, "paymentAmount"))}</span><input name="payment_amount" type="number" min="0" step="0.01" inputmode="decimal" value="${escapeHtml(owner.payment_amount ?? "")}"></label>
@@ -585,7 +703,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
 
     const headerActions = `<div class="head-actions"><button type="button" id="export-owners-csv" class="secondary" ${!this._owners.length || this._loading ? "disabled" : ""}><ha-icon icon="mdi:file-delimited-outline"></ha-icon>${escapeHtml(text(this, "exportCsv"))}</button>${this._showOwnerEditor ? "" : this._ownerForm()}</div>`;
     this.innerHTML = `<ha-card><div class="head"><div><div class="title">${escapeHtml(this._config.title || text(this, "title"))}</div><div class="sub">${escapeHtml(text(this, "subtitle"))}</div></div>${headerActions}</div>${this._showOwnerEditor ? this._ownerForm() : ""}<section class="list" aria-live="polite">${this._ownerList()}</section>${this._linkSection(litterPuppies, puppy, linked, litterOptions, puppyOptions)}<div id="owner-error" class="message error" role="alert">${escapeHtml(this._error)}</div><div id="owner-status" class="message" role="status" aria-live="polite">${escapeHtml(this._status)}</div></ha-card><style>
-      :host{display:block}ha-card{padding:16px}.head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.head-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}.title{font-size:1.25rem;font-weight:700}.sub{font-size:.85rem;color:var(--secondary-text-color);margin-top:3px}.primary,.secondary,.owner-actions button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:40px;border:1px solid var(--primary-color);border-radius:8px;padding:0 12px;background:var(--primary-color);color:var(--text-primary-color,#fff);font:inherit;font-weight:600;cursor:pointer}.secondary,.owner-actions button{background:var(--secondary-background-color);border-color:var(--divider-color);color:var(--primary-text-color)}button:disabled{opacity:.55;cursor:default}.owner-editor,.link{margin-top:16px;padding-top:14px;border-top:1px solid var(--divider-color)}h3{margin:0 0 10px;font-size:1rem;letter-spacing:0}.form,.link-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.form-heading{grid-column:1/-1;margin:8px 0 0;font-size:.86rem;letter-spacing:0}.form-heading:first-child{margin-top:0}.form label,.link-form label{display:grid;gap:4px;color:var(--secondary-text-color);font-size:.78rem}.form input,.form select,.form textarea,.form output,.link-form select{box-sizing:border-box;width:100%;min-height:42px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color);padding:9px;font:inherit}.form output{display:flex;align-items:center;background:var(--secondary-background-color)}.form textarea{min-height:112px;resize:vertical}.wide,.checks{grid-column:1/-1}.actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}.list{display:grid;gap:8px;margin-top:16px}.owner{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;border-top:1px solid var(--divider-color);padding-top:9px}.owner-toggle{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;border:0;background:transparent;color:var(--primary-text-color);padding:5px 2px;text-align:left;font:inherit;cursor:pointer}.owner-toggle span{min-width:0}.owner-toggle strong,.owner-toggle small{display:block;overflow-wrap:anywhere}.owner-toggle small{color:var(--secondary-text-color);margin-top:2px;font-size:.78rem}.owner-actions{display:flex;gap:5px}.owner-actions button{width:38px;padding:0}.owner-actions ha-icon{--mdc-icon-size:19px}.owner-detail{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:12px;background:var(--secondary-background-color);border-radius:8px;font-size:.85rem}.owner-detail>div{min-width:0;overflow-wrap:anywhere}.owner-detail span{display:block;color:var(--secondary-text-color);font-size:.72rem;margin-bottom:3px}.owner-detail .wide{grid-column:1/-1}.owner-detail .preformatted>div{white-space:pre-wrap;word-break:break-word}.owner-detail .notes>div{max-height:none;overflow:visible}.checks{min-width:0;margin:2px 0 0;padding:10px;border:1px solid var(--divider-color);border-radius:8px;display:grid;gap:7px}.checks legend{padding:0 4px;color:var(--secondary-text-color);font-size:.78rem}.checks label{display:flex;align-items:center;gap:7px;color:var(--primary-text-color)}.empty,.message{color:var(--secondary-text-color);padding:10px 2px}.message:empty{display:none}.error{color:var(--error-color)}@media(max-width:520px){.head{display:grid}.head-actions{display:grid;justify-content:stretch}.head-actions button{width:100%}.form,.link-form,.owner-detail{grid-template-columns:1fr}.wide,.checks,.owner-detail .wide{grid-column:auto}.owner{grid-template-columns:minmax(0,1fr) auto}.owner-actions{flex-direction:column}.actions{flex-wrap:wrap}.actions button{flex:1 1 auto}}
+      :host{display:block}ha-card{padding:16px}.head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.head-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}.title{font-size:1.25rem;font-weight:700}.sub{font-size:.85rem;color:var(--secondary-text-color);margin-top:3px}.primary,.secondary,.owner-actions button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:40px;border:1px solid var(--primary-color);border-radius:8px;padding:0 12px;background:var(--primary-color);color:var(--text-primary-color,#fff);font:inherit;font-weight:600;cursor:pointer}.secondary,.owner-actions button{background:var(--secondary-background-color);border-color:var(--divider-color);color:var(--primary-text-color)}button:disabled{opacity:.55;cursor:default}.owner-editor,.link{margin-top:16px;padding-top:14px;border-top:1px solid var(--divider-color)}h3{margin:0 0 10px;font-size:1rem;letter-spacing:0}.form,.link-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.form-heading{grid-column:1/-1;margin:8px 0 0;font-size:.86rem;letter-spacing:0}.form-heading:first-child{margin-top:0}.form label,.link-form label{display:grid;gap:4px;color:var(--secondary-text-color);font-size:.78rem}.form input,.form select,.form textarea,.form output,.link-form select{box-sizing:border-box;width:100%;min-height:42px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color);padding:9px;font:inherit}.form output{display:flex;align-items:center;background:var(--secondary-background-color)}.form textarea{min-height:112px;resize:vertical}.wide,.checks{grid-column:1/-1}.preferences{display:grid;gap:8px}.preference-row{min-width:0;margin:0;padding:8px 10px 10px;border:1px solid var(--divider-color);border-radius:8px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.preference-row legend{padding:0 5px;color:var(--primary-text-color);font-size:.8rem;font-weight:600}.actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}.list{display:grid;gap:8px;margin-top:16px}.owner{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;border-top:1px solid var(--divider-color);padding-top:9px}.owner-toggle{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;border:0;background:transparent;color:var(--primary-text-color);padding:5px 2px;text-align:left;font:inherit;cursor:pointer}.owner-toggle span{min-width:0}.owner-toggle strong,.owner-toggle small{display:block;overflow-wrap:anywhere}.owner-toggle small{color:var(--secondary-text-color);margin-top:2px;font-size:.78rem}.owner-actions{display:flex;gap:5px}.owner-actions button{width:38px;padding:0}.owner-actions ha-icon{--mdc-icon-size:19px}.owner-detail{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:12px;background:var(--secondary-background-color);border-radius:8px;font-size:.85rem}.owner-detail>div{min-width:0;overflow-wrap:anywhere}.owner-detail span{display:block;color:var(--secondary-text-color);font-size:.72rem;margin-bottom:3px}.owner-detail .wide{grid-column:1/-1}.owner-detail .preformatted>div{white-space:pre-wrap;word-break:break-word}.owner-detail .notes>div{max-height:none;overflow:visible}.checks{min-width:0;margin:2px 0 0;padding:10px;border:1px solid var(--divider-color);border-radius:8px;display:grid;gap:7px}.checks legend{padding:0 4px;color:var(--secondary-text-color);font-size:.78rem}.checks label{display:flex;align-items:center;gap:7px;color:var(--primary-text-color)}.empty,.message{color:var(--secondary-text-color);padding:10px 2px}.message:empty{display:none}.error{color:var(--error-color)}@media(max-width:520px){.head{display:grid}.head-actions{display:grid;justify-content:stretch}.head-actions button{width:100%}.form,.link-form,.owner-detail,.preference-row{grid-template-columns:1fr}.wide,.checks,.owner-detail .wide{grid-column:auto}.owner{grid-template-columns:minmax(0,1fr) auto}.owner-actions{flex-direction:column}.actions{flex-wrap:wrap}.actions button{flex:1 1 auto}}
     </style>`;
 
     this.querySelector("form")?.addEventListener("submit", (event) => { event.preventDefault(); this._save(event.currentTarget); });

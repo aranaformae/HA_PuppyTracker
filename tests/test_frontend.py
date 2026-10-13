@@ -167,6 +167,12 @@ def test_owner_card_is_declarative_localized_and_keeps_long_notes_visible() -> N
     assert 'depositAmount: "Bedrag aanbetaling"' in source
     assert 'finalPaymentAmount: "Slotbetaling (berekend)"' in source
     assert 'paymentBalance: "Werkelijk openstaand bedrag"' in source
+    assert 'puppyPreferences: "Top 3 pupvoorkeuren"' in source
+    assert 'puppyPreferences: "Top 3 puppy preferences"' in source
+    assert 'preference1Puppy: "Pup 1e voorkeur"' in source
+    assert 'preference1Puppy: "1st preference puppy"' in source
+    assert 'maxlength="240"' in source
+    assert 'data.puppy_preferences = puppyPreferences' in source
     assert 'owners: "Baasjes"' in source
     assert 'owners: "Owners"' in source
     assert 'exportCsv: "CSV exporteren"' in source

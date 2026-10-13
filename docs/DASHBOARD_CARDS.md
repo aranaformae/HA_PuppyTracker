@@ -207,14 +207,16 @@ csv_delimiter: comma
 ```
 
 Its create/edit form starts collapsed. Selecting an owner expands all stored
-contact, placement, payment and note information; puppy linking is a separate
-step. **Export CSV** downloads one Word/Excel-friendly row per owner-puppy link
+contact, placement, payment and note information, including an ordered top
+three puppy shortlist with one short note per preference. The shortlist is
+planning data; puppy linking remains a separate step. **Export CSV** downloads
+one Word/Excel-friendly row per owner-puppy link
 and retains unlinked owners with empty puppy columns. Set `csv_delimiter` to
 `comma` (default and suitable for Nextcloud) or `semicolon`; both choices are
 also available in the visual editor. Address entry is split into street/house
 number, postal code and city. Linked rows include the complete puppy and parent
 contract identity, including registered/call names, coat colour, breed/type and
-WALA values.
+WALA values. The six shortlist columns are included on every owner row.
 
 Report also remains separate:
 

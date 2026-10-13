@@ -559,7 +559,11 @@ contact details (street, postal code and city are stored separately) plus role,
 preferred contact method, placement status, actual
 placement date, expected pickup date, payment status, total amount, registration
 fee, deposit amount/date, actual outstanding amount, final-payment date/method,
-status history and notes. The scheduled final-payment amount is derived as
+an ordered `puppy_preferences` shortlist, status history and notes. The shortlist
+contains at most three unique `{puppy_id, note}` entries; list order is the rank
+and each optional note is limited to 240 characters. It is explicitly separate
+from a puppy's authoritative `owner_ids` placement links. The scheduled
+final-payment amount is derived as
 `total - registration fee - deposit` by the shared backend helper and is never
 persisted as a second source of truth. Monetary values are normalized as
 non-negative decimal strings; registration fee plus deposit cannot exceed a
@@ -588,8 +592,10 @@ values remain editable and authoritative.
 The Owners-card presentation CSV joins each reusable owner to its linked puppy
 and litter at export time. Puppy and parent contract identity comes from the
 authoritative main profiles, not `OwnerStore`. This keeps exported identity data
-current without duplicating it. The configured comma or semicolon delimiter
-changes serialization only, never stored data.
+current without duplicating it. Preference labels are resolved from those same
+profiles at export time and emitted with their notes; internal puppy IDs are
+never exposed. The configured comma or semicolon delimiter changes serialization
+only, never stored data.
 
 ## Notification architecture
 

@@ -54,6 +54,10 @@ def websocket_list_owners(hass: HomeAssistant, connection, msg: dict[str, Any]) 
     vol.Optional("payment_method"): str,
     vol.Optional("payment_balance"): vol.Any(str, None),
     vol.Optional("contact_preference"): str,
+    vol.Optional("puppy_preferences"): [{
+        vol.Required("puppy_id"): str,
+        vol.Optional("note"): vol.Any(str, None),
+    }],
 })
 @websocket_api.async_response
 async def websocket_save_owner(hass: HomeAssistant, connection, msg: dict[str, Any]) -> None:
