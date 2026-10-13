@@ -11,7 +11,7 @@ feature overview.
 | [Dashboard cards](DASHBOARD_CARDS.md) | Workspace presets, visual editor, recommended layout, migration and YAML options |
 | [Weighing and growth analysis](GROWTH_ANALYSIS.md) | Weighing workflow, metric meanings, monitoring, trends and milestones |
 | [Per-kilogram calculator](CALCULATOR.md) | Calculate an entered amount for every puppy from its latest weight |
-| [Puppy dossiers and owners](puppy-dossiers.md) | Ownership scopes, record editing, contacts, placement and payment data |
+| [Puppy dossiers and owners](puppy-dossiers.md) | Ownership scopes, record editing, contacts, puppy preferences, placement and payment data |
 | [Temperature](temperature-card.md) | Journal temperature view, entry and configuration |
 | [Behavior observations](BEHAVIOR.md) | Repeated puppy scoring, profile calculation and PDF output |
 | [Reports and exports](REPORTS_EXPORTS.md) | Per-puppy/litter PDF sections, profiles, filters, CSV and JSON behavior |

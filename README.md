@@ -131,6 +131,9 @@ breed/type and WALA number. Owner addresses use separate street, postal-code and
 city fields; these contract-ready values are available in owner CSV and PDF
 reports.
 
+The shortlist is planning information only: it does not reserve a puppy, change
+its placement status or create the final owner link.
+
 See [Puppy dossiers and owners](docs/puppy-dossiers.md).
 
 ## Reports And Backups

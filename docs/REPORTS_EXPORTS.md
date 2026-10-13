@@ -1,9 +1,9 @@
 # Reports and exports
 
 The Report card creates a readable PDF dossier, a weight CSV or an importable
-JSON backup. The separate Owners card exports contact and placement data as a
-mail-merge CSV. PDF and CSV are presentation exports; JSON deliberately keeps
-the complete stored history so it can be restored later.
+JSON backup. The separate Owners card exports contact, placement and puppy
+preference data as a mail-merge CSV. PDF and CSV are presentation exports; JSON
+deliberately keeps the complete stored history so it can be restored later.
 
 ```yaml
 type: custom:puppy-tracker-report-card
@@ -50,6 +50,11 @@ Every main section can be enabled or disabled independently.
 placement**. Turning the parent off also turns contact details off. Care results
 and behavior observations have their own sections and are excluded from
 ordinary dossier items, so records are not printed twice.
+
+The Owners-card top-three puppy shortlist is placement-planning data, not a
+linked-owner fact, and is therefore not included in the current PDF owner
+section. It remains available in Home Assistant, the Owners CSV and a complete
+JSON backup.
 
 Disabling **Identity** removes the identity tables and puppy profile line, but
 the document title and section headings still identify the report subject.
@@ -118,6 +123,8 @@ by an update.
   line breaks inside values are safely quoted. It includes contact and placement
   data, the top three puppy preferences with their short notes, the detailed
   payment schedule and actual outstanding amount, notes and status history.
+  The six preference columns are repeated for each linked-puppy row; an unlinked
+  owner still receives one row with those preference values.
   Linked puppy rows add registered and call names, birth date,
   sex, coat and collar colours, microchip number and breed/type. Both parents
   add registered and call names, birth date, breed/type and WALA number without

@@ -209,7 +209,9 @@ csv_delimiter: comma
 Its create/edit form starts collapsed. Selecting an owner expands all stored
 contact, placement, payment and note information, including an ordered top
 three puppy shortlist with one short note per preference. The shortlist is
-planning data; puppy linking remains a separate step. **Export CSV** downloads
+planning data; it does not alter placement status or create a puppy link. Its
+selectors include puppies from all available litters and label them with litter
+and call name. Puppy linking remains a separate step. **Export CSV** downloads
 one Word/Excel-friendly row per owner-puppy link
 and retains unlinked owners with empty puppy columns. Set `csv_delimiter` to
 `comma` (default and suitable for Nextcloud) or `semicolon`; both choices are

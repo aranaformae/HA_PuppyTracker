@@ -144,6 +144,9 @@ CareProgramTemplateStore
 
 OwnerStore
 └── reusable owner/contact profiles{}
+    ├── contact, placement and payment fields
+    ├── puppy_preferences[] -> {puppy_id, note}
+    └── status_history[]
 ```
 
 The recurring-reminder, age-based-care and care-template stores are intentionally separate from the main dossier storage. Owner/contact profiles are also reusable records outside the puppy profile. Dossier records describe facts that happened; scheduling definitions and templates describe future rules or reusable configuration. Derived reminder/care occurrences are projections and are not persisted as a second task database.
@@ -568,6 +571,15 @@ final-payment amount is derived as
 persisted as a second source of truth. Monetary values are normalized as
 non-negative decimal strings; registration fee plus deposit cannot exceed a
 known total.
+
+`puppy_tracker/owners/save` accepts the complete ordered list. Sending `[]`
+clears it, while omission preserves an existing list so an older cached card
+cannot accidentally erase newer data. Structural validation is authoritative,
+but a preference is allowed to outlive current puppy availability. This keeps a
+restore or later puppy removal lossless; the card renders such a reference as
+unavailable and never exposes its internal ID. Final placement still requires
+the separate `puppy_tracker/owners/link` command.
+
 Full v5 backups include the owner store; partial transfers omit it because
 references cannot be remapped safely without an explicit owner-transfer flow.
 The owner's microchip value is a separate puppy `chip_number` text field and is

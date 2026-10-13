@@ -126,36 +126,48 @@ Contact fields include:
   outstanding amount, final-payment date and method;
 - status history and free notes.
 
+### Puppy preferences and final placement
+
+Open **Add owner** or **Edit owner** and use **Top 3 puppy preferences** to
+record a first, second and third choice. Each selector shows puppies from every
+available litter as `Litter name · puppy call name`, so equal call names remain
+distinguishable. All three rows are optional. When used, fill them in order and
+select each puppy only once. Every selected puppy can have a separate note of up
+to 240 characters.
+
+This shortlist is planning information. It does not:
+
+- change the owner's placement status;
+- reserve or sell a puppy;
+- add the owner to that puppy's linked contacts.
+
+Use the separate **Link owner to puppy** section when placement is final. A
+puppy can have multiple linked contacts. Linking does not erase the shortlist,
+so the original matching considerations remain available until you edit or
+clear them. If a selected puppy is later unavailable or removed, the saved
+position is shown as unavailable instead of silently switching to another pup.
+
+### Payments
+
 The final-payment amount is shown as a calculated read-only value:
 `total amount - registration fee - deposit`. **Actual outstanding amount** is a
 separate editable value, so partial or additional payments after the deposit can
 be represented without changing the agreed payment schedule. The registration
 fee plus deposit cannot exceed the configured total amount.
 
-Linking contacts to a puppy is a separate section. One or more contacts can be
-linked later, and editing a contact updates the reusable information without
-duplicating it into each puppy.
-
-The preference list is planning information and does not link or reserve a
-puppy. Fill it from first to third choice; skipped ranks and duplicate puppies
-are rejected. Each note is limited to 240 characters. A removed or unavailable
-puppy remains visible as unavailable until that preference is changed, so a
-saved choice is never silently reassigned.
-
 Use **CSV exporteren** in the Owners card to download the complete visible
 contact list for Word, Nextcloud or another mail-merge tool. The UTF-8 file
 contains localized column headings and one row per owner-puppy link. Choose
 `csv_delimiter: comma` (the default, suitable for Nextcloud) or
 `csv_delimiter: semicolon` (often convenient for regional Excel settings) in
-YAML or the visual card editor. An
-owner linked to two puppies therefore has two rows; an owner without a puppy is
-kept once with empty litter and puppy columns. Contact, placement, payment,
-notes, the three puppy preferences with their notes and status history are
-included. Linked rows also contain the litter,
-puppy registered name and call name, birth date, sex, coat and collar colours,
-chip number and breed/type. Father and mother each have separate registered
-name, call name, birth date, breed/type and WALA columns. Internal Puppy Tracker
-IDs are not exported.
+YAML or the visual card editor. An owner linked to two puppies therefore has two
+rows; an owner without a puppy is kept once with empty litter and puppy columns.
+Contact, placement, payment, notes, the three puppy preferences with their notes
+and status history are included. Linked rows also contain the litter, puppy
+registered name and call name, birth date, sex, coat and collar colours, chip
+number and breed/type. Father and mother each have separate registered name,
+call name, birth date, breed/type and WALA columns. Internal Puppy Tracker IDs
+are not exported.
 
 Legacy contacts with one free-form address are migrated without data loss: the
 complete old address becomes the street field, while postal code and city stay
@@ -164,9 +176,12 @@ empty until you split them manually.
 ## Reports and backups
 
 PDF report sections can include linked owners and, when selected, their contact,
-placement schedule and detailed payment values. The Owners-card CSV is a
-presentation export and cannot be restored. The full JSON backup includes
-contacts and puppy links.
+placement schedule and detailed payment values. The preference shortlist is not
+currently printed in PDF reports; use the Owners-card CSV when that planning
+information is needed outside Home Assistant. This CSV is a presentation export
+and cannot be restored. The full JSON backup includes contacts, preferences and
+puppy links.
+
 Partial litter and puppy transfers intentionally omit reusable contacts because
 safely remapping those links requires an explicit transfer workflow.
 
