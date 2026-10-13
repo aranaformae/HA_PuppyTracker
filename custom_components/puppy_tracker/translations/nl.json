@@ -8,7 +8,8 @@
       }
     },
     "abort": {
-      "already_configured": "Puppy Tracker is al ingesteld."
+      "already_configured": "Puppy Tracker is al ingesteld.",
+      "single_instance_allowed": "Er kan maar één Puppy Tracker-integratie worden ingesteld."
     }
   },
   "options": {
@@ -408,7 +409,8 @@
       "invalid_puppy": "De geselecteerde puppy bestaat niet meer.",
       "no_measurements": "Voor deze puppy zijn nog geen metingen opgeslagen.",
       "invalid_measurement": "De geselecteerde meting bestaat niet meer.",
-      "historical_measurement": "Deze historische meting van {puppy} is vervangen door een correctie en is daarom alleen-lezen: {measurement}. Vervangende meet-ID: {replacement}."
+      "historical_measurement": "Deze historische meting van {puppy} is vervangen door een correctie en is daarom alleen-lezen: {measurement}. Vervangende meet-ID: {replacement}.",
+      "no_mothers": "Er zijn nog geen moederprofielen beschikbaar."
     }
   },
   "selector": {
@@ -461,6 +463,27 @@
       "options": {
         "new_litter": "Importeren in een nieuw nest",
         "existing_litter": "Toevoegen aan een bestaand nest"
+      }
+    },
+    "litter_breed_profile": {
+      "options": {
+        "unknown": "Niet opgegeven",
+        "labradoodle": "Labradoodle",
+        "australian_labradoodle": "Australian Labradoodle"
+      }
+    },
+    "litter_size_class": {
+      "options": {
+        "unknown": "Niet opgegeven",
+        "miniature": "Miniatuur",
+        "medium": "Medium",
+        "standard": "Standaard"
+      }
+    },
+    "mother_import_mode": {
+      "options": {
+        "merge_existing": "Samenvoegen met het bestaande moederprofiel",
+        "new_profile": "Nieuw moederprofiel aanmaken"
       }
     }
   }

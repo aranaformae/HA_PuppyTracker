@@ -8,7 +8,8 @@
       }
     },
     "abort": {
-      "already_configured": "Puppy Tracker is already configured."
+      "already_configured": "Puppy Tracker is already configured.",
+      "single_instance_allowed": "Only one Puppy Tracker integration can be configured."
     }
   },
   "options": {
@@ -408,7 +409,8 @@
       "invalid_puppy": "The selected puppy no longer exists.",
       "no_measurements": "There are no stored measurements for this puppy yet.",
       "invalid_measurement": "The selected measurement no longer exists.",
-      "historical_measurement": "This historical measurement for {puppy} was superseded by a correction and is read-only: {measurement}. Replacement measurement ID: {replacement}."
+      "historical_measurement": "This historical measurement for {puppy} was superseded by a correction and is read-only: {measurement}. Replacement measurement ID: {replacement}.",
+      "no_mothers": "There are no mother profiles available yet."
     }
   },
   "selector": {
@@ -461,6 +463,27 @@
       "options": {
         "new_litter": "Import into a new litter",
         "existing_litter": "Add to an existing litter"
+      }
+    },
+    "litter_breed_profile": {
+      "options": {
+        "unknown": "Not specified",
+        "labradoodle": "Labradoodle",
+        "australian_labradoodle": "Australian Labradoodle"
+      }
+    },
+    "litter_size_class": {
+      "options": {
+        "unknown": "Not specified",
+        "miniature": "Miniature",
+        "medium": "Medium",
+        "standard": "Standard"
+      }
+    },
+    "mother_import_mode": {
+      "options": {
+        "merge_existing": "Merge with the existing mother profile",
+        "new_profile": "Create a new mother profile"
       }
     }
   }

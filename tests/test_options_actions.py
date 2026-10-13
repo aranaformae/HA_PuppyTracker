@@ -1,5 +1,7 @@
 """Exercise management forms with real storage and clearable optional values."""
 
+import json
+from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
@@ -66,18 +68,32 @@ def _prefilled_input(form):
 ])
 async def test_management_forms_have_valid_prefills_and_do_not_save(options_flow, step):
     flow, storage = options_flow
-    flow._export_mother_id = storage.get_mother_for_litter(
+    flow._mother_export_id = storage.get_mother_for_litter(
         flow._selected_litter_id
     )["id"]
     before = storage.get_data()
     form = await getattr(flow, f"async_step_{step}")()
 
     assert form["type"] is FlowResultType.FORM
+    integration = Path(__file__).resolve().parents[1] / "custom_components" / "puppy_tracker"
+    languages = {
+        language: json.loads(
+            (integration / "translations" / f"{language}.json").read_text()
+        )
+        for language in ("nl", "en")
+    }
     for marker, validator in form["data_schema"].schema.items():
         if marker.default is not vol.UNDEFINED:
             validator(marker.default())
         if marker.description and "suggested_value" in marker.description:
             validator(marker.description["suggested_value"])
+        for language, translations in languages.items():
+            labels = translations["options"]["step"][form["step_id"]]["data"]
+            assert marker.schema in labels, (language, step, marker.schema)
+            config = getattr(validator, "config", {})
+            if translation_key := config.get("translation_key"):
+                options = translations["selector"][translation_key]["options"]
+                assert set(config["options"]) <= options.keys(), (language, translation_key)
     assert storage.get_data() == before
     storage.async_save.assert_not_awaited()
 

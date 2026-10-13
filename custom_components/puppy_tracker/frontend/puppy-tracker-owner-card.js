@@ -396,7 +396,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
   getGridOptions() { return { columns: 12, min_columns: 6 }; }
 
   async _load(force = false) {
-    if (!this._hass || this._loading || (this._loaded && !force)) return;
+    if (!this._hass || this._loading || (this._loaded && !force)) return false;
     this._loading = true;
     this._error = "";
     this._render();
@@ -431,8 +431,10 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       }
       this._loaded = true;
       if (this._expandedOwnerId && !this._owners.some((owner) => owner.id === this._expandedOwnerId)) this._expandedOwnerId = null;
+      return true;
     } catch (error) {
       this._error = error?.message || String(error);
+      return false;
     } finally {
       this._loading = false;
       this._render();
@@ -861,8 +863,9 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     return `\ufeff${rows.map((row) => row.map(csvCell).join(delimiter)).join("\r\n")}\r\n`;
   }
 
-  _downloadOwnersCsv() {
-    if (!this._owners.length) return;
+  async _downloadOwnersCsv() {
+    if (!this._owners.length || this._loading) return;
+    if (!await this._load(true) || !this._owners.length) return;
     downloadExportFile({
       content: this._ownerCsvContent(),
       filename: csvFilename(),

@@ -630,7 +630,9 @@ values remain editable and authoritative.
 The Owners-card presentation CSV joins each reusable owner to its linked puppy
 and litter at export time. Puppy and parent contract identity comes from the
 authoritative main profiles, not `OwnerStore`. This keeps exported identity data
-current without duplicating it. Preference labels are resolved from those same
+current without duplicating it. The download awaits a forced reload of owners,
+litters and litter payloads; a failed reload aborts the download instead of
+serializing cached identities. Preference labels are resolved from those same
 profiles at export time and emitted with their notes; internal puppy IDs are
 never exposed. The configured comma or semicolon delimiter changes serialization
 only, never stored data.

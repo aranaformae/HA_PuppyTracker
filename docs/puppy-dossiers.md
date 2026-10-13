@@ -200,6 +200,9 @@ registered name and call name, birth date, sex, coat and collar colours, chip
 number and breed/type. Father and mother each have separate registered name,
 call name, birth date, breed/type, WALA and chip-number columns. Internal Puppy
 Tracker IDs are not exported.
+The card refreshes saved contact and puppy/parent data before downloading, so
+recently entered parent chip numbers are included without reopening the card.
+If refreshing fails, no file is downloaded and the card shows the error.
 
 Legacy contacts with one free-form address are migrated without data loss: the
 complete old address becomes the street field, while postal code and city stay

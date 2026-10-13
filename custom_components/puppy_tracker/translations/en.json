@@ -8,7 +8,8 @@
       }
     },
     "abort": {
-      "already_configured": "Puppy Tracker is already configured."
+      "already_configured": "Puppy Tracker is already configured.",
+      "single_instance_allowed": "Only one Puppy Tracker integration can be configured."
     }
   },
   "options": {
@@ -20,10 +21,93 @@
           "add_puppy": "Add puppy",
           "manage_puppy": "Manage puppy",
           "manage_measurements": "Manage measurements",
+          "data_management": "Data management",
           "settings": "Monitoring settings",
           "notifications": "Notifications",
           "integrity": "Data integrity check"
         }
+      },
+      "data_management": {
+        "title": "Data management",
+        "menu_options": {
+          "export_data": "Export backup",
+          "import_data": "Import / restore backup"
+        }
+      },
+      "export_data": {
+        "title": "Export Puppy Tracker data",
+        "description": "Create an authoritative JSON backup. A full backup contains all Puppy Tracker storage; litter and puppy exports are portable partial backups.",
+        "data": {
+          "scope": "What to export"
+        }
+      },
+      "export_litter": {
+        "title": "Export litter",
+        "description": "Choose the litter to export with all puppies, measurements, dossier records and relevant audit history.",
+        "data": {
+          "litter_id": "Litter"
+        }
+      },
+      "export_puppy": {
+        "title": "Export puppy",
+        "description": "Choose one puppy to export with profile data, complete measurement/correction history, dossier records and relevant audit history.",
+        "data": {
+          "puppy": "Puppy"
+        }
+      },
+      "export_mother": {
+        "title": "Export mother dossier",
+        "description": "Choose the mother profile to export.",
+        "data": {
+          "mother_id": "Mother"
+        }
+      },
+      "export_mother_filter": {
+        "title": "Choose mother history",
+        "description": "Choose all linked litters or one litter context for the mother dossier export.",
+        "data": {
+          "context": "History scope"
+        }
+      },
+      "export_ready": {
+        "title": "Backup ready",
+        "description": "[Download JSON backup]({download_url})\n\nThis signed download link expires after 10 minutes and is not stored in `/www`."
+      },
+      "import_data": {
+        "title": "Import / restore Puppy Tracker data",
+        "description": "Upload a Puppy Tracker JSON backup. Nothing is changed until validation, preview and explicit confirmation are complete. Export a current full backup first when you plan to replace all data.",
+        "data": {
+          "backup_file": "JSON backup file"
+        }
+      },
+      "import_mode": {
+        "title": "Choose import mode",
+        "description": "Validated backup: **{source}** — {litters} litter(s), {puppies} puppy/puppies, {measurements} measurement versions, {records} dossier records and {audit_entries} audit entries. Format v{export_version}, storage schema v{schema_version}. Scheduler data: {scheduler_programs} care programs and {scheduler_reminders} recurring reminders.",
+        "data": {
+          "mode": "Import mode"
+        }
+      },
+      "import_target": {
+        "title": "Choose destination litter",
+        "description": "The imported puppy or litter contents will be added to this litter with newly generated identifiers. Existing history is not overwritten.",
+        "data": {
+          "litter_id": "Destination litter"
+        }
+      },
+      "import_preview": {
+        "title": "Review restore preview",
+        "description": "Dry-run validation succeeded for **{source}**: {litters} litter(s), {puppies} puppy/puppies, {measurements} measurement versions, {records} dossier records and {audit_entries} audit entries. Scheduler data: {scheduler_programs} care programs and {scheduler_reminders} recurring reminders. Target: **{target}**. IDs will be {id_policy}. Integrity warnings: {warnings}. No data has been changed yet. A full replacement only occurs if you explicitly selected that mode on the previous step.",
+        "data": {
+          "confirm": "I reviewed this preview and want to apply the import"
+        }
+      },
+      "import_complete": {
+        "title": "Import complete",
+        "description": "Import of **{source}** completed: {litters} litter(s), {puppies} puppy/puppies, {measurements} measurement versions, {records} dossier records and {audit_entries} audit entries were processed."
+      },
+      "import_mother_litters": {
+        "title": "Map mother litter contexts",
+        "description": "The source backup refers to litter contexts that are not found by ID here. Select the local litter for each source context before continuing."
       },
       "create_litter": {
         "title": "Create litter",
@@ -218,7 +302,7 @@
           "growth_monitoring_days": "Monitor minimum growth until age"
         },
         "data_description": {
-          "min_daily_growth_percent": "Flag normalized daily growth below this percentage.",
+          "min_daily_growth_percent": "Flag normalized daily growth below this percentage. General veterinary guidance describes approximately 5–10% daily weight gain as normal during the neonatal period.",
           "max_hours_between_weighings": "Flag a puppy when no new weight has been recorded within this number of hours.",
           "growth_monitoring_days": "After this age the minimum daily growth threshold is no longer applied. Weight loss can still be flagged."
         }
@@ -243,7 +327,7 @@
           "notify_entities": "Push notification targets"
         },
         "data_description": {
-          "notifications_enabled": "Create Home Assistant notifications when an active puppy enters an attention state.",
+          "notifications_enabled": "Create Home Assistant notifications when an active puppy changes into an attention state.",
           "recurring_reminder_notifications_enabled": "Automatically notify when a recurring reminder becomes due soon or overdue.",
           "notification_lead_minutes": "Fallback time in minutes before a scheduled reminder. Used when a care program or recurring reminder leaves its own value empty.",
           "notify_recovery": "Send a one-time recovery message when a puppy returns to normal.",
@@ -308,7 +392,15 @@
       "invalid_settings": "One or more monitoring settings are invalid.",
       "invalid_notification_settings": "One or more notification settings are invalid.",
       "notification_test_failed": "The test notification could not be sent. Check the configured notify entities and Home Assistant notification services.",
-      "invalid_measurement": "The selected measurement no longer exists or cannot be changed in its current state."
+      "invalid_measurement": "The selected measurement no longer exists or cannot be changed in its current state.",
+      "invalid_backup_json": "The uploaded file is not a valid UTF-8 JSON backup.",
+      "invalid_backup": "The backup is invalid or failed the Puppy Tracker integrity check.",
+      "unsupported_export_version": "This Puppy Tracker export version is not supported.",
+      "unsupported_schema_version": "This backup uses a storage schema that this version cannot restore safely.",
+      "invalid_import_mode": "This import mode is not valid for the uploaded backup.",
+      "invalid_import_target": "The selected destination litter no longer exists.",
+      "backup_too_large": "The backup is larger than the 20 MB import limit.",
+      "storage_changed": "Puppy Tracker data changed after the preview. Review the backup again before importing it."
     },
     "abort": {
       "no_litters": "There are no litters available yet.",
@@ -317,7 +409,8 @@
       "invalid_puppy": "The selected puppy no longer exists.",
       "no_measurements": "There are no stored measurements for this puppy yet.",
       "invalid_measurement": "The selected measurement no longer exists.",
-      "historical_measurement": "This historical measurement for {puppy} was superseded by a correction and is read-only: {measurement}. Replacement measurement ID: {replacement}."
+      "historical_measurement": "This historical measurement for {puppy} was superseded by a correction and is read-only: {measurement}. Replacement measurement ID: {replacement}.",
+      "no_mothers": "There are no mother profiles available yet."
     }
   },
   "selector": {
@@ -350,6 +443,47 @@
     "deleted_measurement_action": {
       "options": {
         "restore": "Restore deleted measurement"
+      }
+    },
+    "backup_scope": {
+      "options": {
+        "full": "Complete Puppy Tracker backup",
+        "litter": "One complete litter",
+        "puppy": "One individual puppy",
+        "mother": "One mother dossier"
+      }
+    },
+    "full_import_mode": {
+      "options": {
+        "merge_as_new": "Keep current data and import all backup litters as new",
+        "replace_all": "Replace all current Puppy Tracker data with this backup"
+      }
+    },
+    "partial_import_mode": {
+      "options": {
+        "new_litter": "Import into a new litter",
+        "existing_litter": "Add to an existing litter"
+      }
+    },
+    "litter_breed_profile": {
+      "options": {
+        "unknown": "Not specified",
+        "labradoodle": "Labradoodle",
+        "australian_labradoodle": "Australian Labradoodle"
+      }
+    },
+    "litter_size_class": {
+      "options": {
+        "unknown": "Not specified",
+        "miniature": "Miniature",
+        "medium": "Medium",
+        "standard": "Standard"
+      }
+    },
+    "mother_import_mode": {
+      "options": {
+        "merge_existing": "Merge with the existing mother profile",
+        "new_profile": "Create a new mother profile"
       }
     }
   }

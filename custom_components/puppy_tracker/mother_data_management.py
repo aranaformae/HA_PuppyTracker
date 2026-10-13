@@ -257,6 +257,7 @@ class MotherDataManagementMixin:
                     vol.Required("mode", default=options["default_mode"]): selector.SelectSelector(
                         selector.SelectSelectorConfig(
                             options=options["available_modes"],
+                            translation_key="mother_import_mode",
                             mode=selector.SelectSelectorMode.DROPDOWN,
                         )
                     )

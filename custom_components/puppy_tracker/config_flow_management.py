@@ -485,14 +485,16 @@ class PuppyTrackerManagementOptionsFlow(
             vol.Optional("breed_profile", default=growth.get("breed_profile", "unknown"))
         ] = selector.SelectSelector(
             selector.SelectSelectorConfig(
-                options=["unknown", "labradoodle", "australian_labradoodle"]
+                options=["unknown", "labradoodle", "australian_labradoodle"],
+                translation_key="litter_breed_profile",
             )
         )
         fields[
             vol.Optional("size_class", default=growth.get("size_class", "unknown"))
         ] = selector.SelectSelector(
             selector.SelectSelectorConfig(
-                options=["unknown", "miniature", "medium", "standard"]
+                options=["unknown", "miniature", "medium", "standard"],
+                translation_key="litter_size_class",
             )
         )
 

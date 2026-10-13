@@ -345,6 +345,51 @@ test("@mobile @tablet owner preference matrix becomes a pup-focused list in a na
   expect(widths.scroll).toBeLessThanOrEqual(widths.client + 1);
 });
 
+test("owner contract CSV refreshes parent chips before download and stops on refresh failure", async ({ page }) => {
+  await page.goto("/tests/e2e/cards.html?production=1");
+  await page.waitForFunction(() => window.__puppyTrackerReady);
+  await page.evaluate(() => {
+    window.contractChips = { mother: "", father: "", fail: false };
+    const card = document.createElement("puppy-tracker-owner-card");
+    card.setConfig({});
+    document.querySelector("#cards").append(card);
+    card.hass = {
+      language: "nl", locale: { language: "nl" },
+      callWS: async (message) => {
+        if (window.contractChips.fail) throw new Error("Contractgegevens niet beschikbaar");
+        if (message.type === "puppy_tracker/owners/list") return { owners: [{ id: "owner1", name: "Alex" }] };
+        if (message.type === "puppy_tracker/litters") return { litters: [{ id: "l1", name: "Nest" }] };
+        if (message.type === "puppy_tracker/data") return {
+          litter: {
+            id: "l1", name: "Nest", mother: "Luna", father: "Max",
+            mother_details: { chip_number: window.contractChips.mother },
+            father_details: { chip_number: window.contractChips.father },
+          },
+          puppies: [{ id: "p1", name: "Rood", owner_ids: ["owner1"] }],
+        };
+        throw new Error(message.type);
+      },
+    };
+  });
+  const card = page.locator("puppy-tracker-owner-card");
+  await expect(card.locator("#export-owners-csv")).toBeEnabled();
+  await page.evaluate(() => Object.assign(window.contractChips, {
+    father: "000987654321098", mother: "000123456789012",
+  }));
+  const downloadPromise = page.waitForEvent("download");
+  await card.locator("#export-owners-csv").click();
+  const content = await readFile(await (await downloadPromise).path(), "utf8");
+  const [header, row] = content.trim().split("\r\n").map((line) => line.split(","));
+  expect(row[header.indexOf('"Chipnummer vader"')]).toBe('"000987654321098"');
+  expect(row[header.indexOf('"Chipnummer moeder"')]).toBe('"000123456789012"');
+  await page.evaluate(() => { window.contractChips.fail = true; });
+  const downloads = [];
+  page.on("download", (download) => downloads.push(download));
+  await card.locator("#export-owners-csv").click();
+  await expect(card.locator("#owner-error")).toHaveText("Contractgegevens niet beschikbaar");
+  expect(downloads).toHaveLength(0);
+});
+
 test("owner CSV is comma-separated, keeps unlinked owners and exports one row per puppy link", async ({ page }) => {
   await page.goto("/tests/e2e/cards.html?production=1");
   await page.waitForFunction(() => window.__puppyTrackerReady);
