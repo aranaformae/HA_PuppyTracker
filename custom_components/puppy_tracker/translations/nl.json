@@ -119,11 +119,13 @@
           "mother_birth_date": "Geboortedatum moeder",
           "mother_breed": "Soort moeder",
           "mother_wala_number": "WALA moeder",
+          "mother_chip_number": "Chipnummer moeder",
           "father": "Roepnaam vader",
           "father_registered_name": "Naam vader",
           "father_birth_date": "Geboortedatum vader",
           "father_breed": "Soort vader",
-          "father_wala_number": "WALA vader"
+          "father_wala_number": "WALA vader",
+          "father_chip_number": "Chipnummer vader"
         },
         "data_description": {
           "name": "Bijvoorbeeld Luna 2026",
@@ -133,11 +135,13 @@
           "mother_birth_date": "Geboortedatum van de moederhond",
           "mother_breed": "Ras of soort van de moederhond",
           "mother_wala_number": "WALA-registratienummer van de moederhond",
+          "mother_chip_number": "Chipnummer van de moederhond; voorloopnullen blijven behouden.",
           "father": "Roepnaam van de vaderhond",
           "father_registered_name": "Officiële of geregistreerde naam van de vaderhond",
           "father_birth_date": "Geboortedatum van de vaderhond",
           "father_breed": "Ras of soort van de vaderhond",
-          "father_wala_number": "WALA-registratienummer van de vaderhond"
+          "father_wala_number": "WALA-registratienummer van de vaderhond",
+          "father_chip_number": "Chipnummer van de vaderhond; voorloopnullen blijven behouden."
         }
       },
       "manage_litter": {
@@ -158,11 +162,13 @@
           "mother_birth_date": "Geboortedatum moeder",
           "mother_breed": "Soort moeder",
           "mother_wala_number": "WALA moeder",
+          "mother_chip_number": "Chipnummer moeder",
           "father": "Roepnaam vader",
           "father_registered_name": "Naam vader",
           "father_birth_date": "Geboortedatum vader",
           "father_breed": "Soort vader",
           "father_wala_number": "WALA vader",
+          "father_chip_number": "Chipnummer vader",
           "breed_profile": "Rasprofiel",
           "size_class": "Maatklasse",
           "min_daily_growth_percent": "Override minimale dagelijkse groei (%)",
@@ -184,11 +190,13 @@
           "mother_birth_date": "Geboortedatum van de moederhond",
           "mother_breed": "Ras of soort van de moederhond",
           "mother_wala_number": "WALA-registratienummer van de moederhond",
+          "mother_chip_number": "Chipnummer van de moederhond; voorloopnullen blijven behouden.",
           "father": "Roepnaam van de vaderhond",
           "father_registered_name": "Officiële of geregistreerde naam van de vaderhond",
           "father_birth_date": "Geboortedatum van de vaderhond",
           "father_breed": "Ras of soort van de vaderhond",
           "father_wala_number": "WALA-registratienummer van de vaderhond",
+          "father_chip_number": "Chipnummer van de vaderhond; voorloopnullen blijven behouden.",
           "breed_profile": "Beschrijvend rasprofiel voor toekomstige groeianalyse. Er wordt geen rasspecifieke diagnose of curve toegepast.",
           "size_class": "Optionele maatklasse voor toekomstige groeianalyse.",
           "min_daily_growth_percent": "Laat leeg om de algemene integratie-instelling te gebruiken.",

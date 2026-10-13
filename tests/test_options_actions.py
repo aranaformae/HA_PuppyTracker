@@ -9,6 +9,7 @@ from homeassistant.helpers import device_registry as dr
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.puppy_tracker.config_flow import PuppyTrackerOptionsFlow
+from custom_components.puppy_tracker import CREATE_LITTER_SCHEMA
 from custom_components.puppy_tracker.const import DOMAIN
 from custom_components.puppy_tracker.devices import async_sync_devices
 from custom_components.puppy_tracker.mother_storage import MotherScopeStorage
@@ -121,6 +122,49 @@ async def test_litter_edit_clears_parent_dates_without_repopulating(options_flow
     assert litter["birth_date"] is None
     assert litter["father_details"]["birth_date"] is None
     assert storage.get_mother_for_litter(flow._selected_litter_id)["birth_date"] is None
+
+
+@pytest.mark.parametrize("clear", [False, True])
+async def test_parent_chip_numbers_can_be_saved_and_cleared(options_flow, clear):
+    flow, storage = options_flow
+    form = await flow.async_step_edit_litter()
+    data = _prefilled_input(form)
+    data.update(mother_chip_number="000123456789012", father_chip_number="000987654321098")
+    data["action"] = "save"
+    result = await flow.async_step_edit_litter(form["data_schema"](data))
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    form = await flow.async_step_edit_litter()
+    data = _prefilled_input(form)
+    assert data["mother_chip_number"] == "000123456789012"
+    assert data["father_chip_number"] == "000987654321098"
+    if clear:
+        data.pop("mother_chip_number")
+        data.pop("father_chip_number")
+    data["action"] = "save"
+    result = await flow.async_step_edit_litter(form["data_schema"](data))
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert storage.get_mother_for_litter(flow._selected_litter_id)["chip_number"] == (
+        None if clear else "000123456789012"
+    )
+    assert storage.get_litter(flow._selected_litter_id)["father_details"]["chip_number"] == (
+        None if clear else "000987654321098"
+    )
+
+
+async def test_create_litter_form_and_action_accept_parent_chip_numbers(options_flow):
+    flow, storage = options_flow
+    data = {
+        "name": "Chip litter", "mother": "Nova", "father": "Cooper",
+        "mother_chip_number": "000123456789012",
+        "father_chip_number": "000987654321098",
+    }
+    assert CREATE_LITTER_SCHEMA(data) == data
+    form = await flow.async_step_create_litter()
+    result = await flow.async_step_create_litter(form["data_schema"](data))
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    litter = next(item for item in storage.get_litters().values() if item["name"] == "Chip litter")
+    assert litter["father_details"]["chip_number"] == data["father_chip_number"]
+    assert storage.get_mother_for_litter(litter["id"])["chip_number"] == data["mother_chip_number"]
 
 
 async def test_notification_recipients_can_be_cleared_without_changing_thresholds(

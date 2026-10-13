@@ -96,8 +96,11 @@ in dashboard data and included in a per-puppy PDF report.
 Puppy identity also keeps the **nestnaam** (official/registered name),
 **roepnaam**, birth date, sex, coat colour, collar colour and breed/type as
 separate values. Mother and father profiles distinguish their registered name
-from their call name and can store birth date, breed/type and WALA number. The
-default breed/type for new dogs is `Multi-generation Australian Labradoodle`
+from their call name and can store birth date, breed/type, WALA number and a
+separate microchip number. Parent chip numbers are optional text fields, preserve
+leading zeroes and are included in PDF identity output, both CSV exports and
+JSON backups. The default breed/type for new dogs is
+`Multi-generation Australian Labradoodle`
 and remains editable. Manage these fields under **Settings -> Devices &
 services -> Puppy Tracker -> Configure**, or through the corresponding Home
 Assistant actions.
@@ -195,8 +198,8 @@ Contact, placement, payment, notes, the three puppy preferences with their notes
 and status history are included. Linked rows also contain the litter, puppy
 registered name and call name, birth date, sex, coat and collar colours, chip
 number and breed/type. Father and mother each have separate registered name,
-call name, birth date, breed/type and WALA columns. Internal Puppy Tracker IDs
-are not exported.
+call name, birth date, breed/type, WALA and chip-number columns. Internal Puppy
+Tracker IDs are not exported.
 
 Legacy contacts with one free-form address are migrated without data loss: the
 complete old address becomes the street field, while postal code and city stay

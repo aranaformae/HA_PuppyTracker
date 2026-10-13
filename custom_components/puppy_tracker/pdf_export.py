@@ -856,12 +856,12 @@ def build_pdf_export(
         )
         report.heading(t("parent_details"), level=2)
         report.table(
-            [t("parent"), t("registered_name"), t("call_name"), t("birth_date"), t("breed"), t("wala")],
+            [t("parent"), t("registered_name"), t("call_name"), t("birth_date"), t("breed"), t("wala"), t("chip")],
             [
-                [t("father"), father_details.get("registered_name") or "—", father_details.get("call_name") or "—", _format_date(father_details.get("birth_date"), language), father_details.get("breed") or "—", father_details.get("wala_number") or "—"],
-                [t("mother"), mother_details.get("registered_name") or "—", mother_details.get("call_name") or "—", _format_date(mother_details.get("birth_date"), language), mother_details.get("breed") or "—", mother_details.get("wala_number") or "—"],
+                [t("father"), father_details.get("registered_name") or "—", father_details.get("call_name") or "—", _format_date(father_details.get("birth_date"), language), father_details.get("breed") or "—", father_details.get("wala_number") or "—", father_details.get("chip_number") or "—"],
+                [t("mother"), mother_details.get("registered_name") or "—", mother_details.get("call_name") or "—", _format_date(mother_details.get("birth_date"), language), mother_details.get("breed") or "—", mother_details.get("wala_number") or "—", mother_details.get("chip_number") or "—"],
             ],
-            [43, 88, 63, 67, 151, 69],
+            [40, 78, 55, 65, 88, 70, 85],
             font_size=7.1,
         )
 

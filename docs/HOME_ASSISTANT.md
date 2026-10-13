@@ -79,11 +79,13 @@ data:
   mother_birth_date: "2022-05-06"
   mother_breed: Multi-generation Australian Labradoodle
   mother_wala_number: WALA-MOTHER
+  mother_chip_number: "000123456789012"
   father: Cooper
   father_registered_name: Doodle Cooper Star
   father_birth_date: "2021-02-03"
   father_breed: Multi-generation Australian Labradoodle
   father_wala_number: WALA-FATHER
+  father_chip_number: "000987654321098"
 ```
 
 `name` is required. Birth date and parent identity fields are optional. The

@@ -92,6 +92,7 @@ def _install_consistent_source(storage, install_litter, make_measurement):
                 "birth_date": "2021-02-03",
                 "breed": "Multi-generation Australian Labradoodle",
                 "wala_number": "WALA-FATHER",
+                "chip_number": "000987654321098",
             },
         },
     )
@@ -103,6 +104,7 @@ def _install_consistent_source(storage, install_litter, make_measurement):
             "birth_date": "2022-05-06",
             "breed": "Multi-generation Australian Labradoodle",
             "wala_number": "WALA-MOTHER",
+            "chip_number": "000123456789012",
             "profile_note": None,
             "records": [],
         }
@@ -283,9 +285,11 @@ async def test_puppy_import_can_create_new_litter_from_source_metadata(
     assert new_litter["mother"] == "Luna"
     assert new_litter["father"] == "Dutch"
     assert new_litter["father_details"]["wala_number"] == "WALA-FATHER"
+    assert new_litter["father_details"]["chip_number"] == "000987654321098"
     imported_mother = storage.get_data()["mothers"][new_litter["mother_id"]]
     assert imported_mother["registered_name"] == "Milky Way Moonlight"
     assert imported_mother["wala_number"] == "WALA-MOTHER"
+    assert imported_mother["chip_number"] == "000123456789012"
     assert len(new_litter["puppies"]) == 1
 
 

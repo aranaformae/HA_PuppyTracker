@@ -223,7 +223,8 @@ and retains unlinked owners with empty puppy columns. Set `csv_delimiter` to
 also available in the visual editor. Address entry is split into street/house
 number, postal code and city. Linked rows include the complete puppy and parent
 contract identity, including registered/call names, coat colour, breed/type and
-WALA values. The six shortlist columns are included on every owner row.
+WALA values and both parent chip numbers. The six shortlist columns are included
+on every owner row.
 
 The **Preference matrix** is calculated from the same shortlist and puppy-link
 data; it does not store a second matching state. Select one litter to place

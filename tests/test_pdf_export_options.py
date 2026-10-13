@@ -312,9 +312,16 @@ def test_pdf_identity_section_contains_contract_fields(
                 "birth_date": "2021-02-03",
                 "breed": "Multi-generation Australian Labradoodle",
                 "wala_number": "WALA-FATHER",
+                "chip_number": "000987654321098",
             },
+            "mother_id": "mother-luna",
         },
     )
+    storage._data["mothers"] = {
+        "mother-luna": {
+            "name": "Luna", "chip_number": "000123456789012"
+        }
+    }
 
     document = _pdf_bytes(
         storage,
@@ -331,8 +338,15 @@ def test_pdf_identity_section_contains_contract_fields(
         b"000123",
         b"Doodle Cooper Star",
         b"WALA-FATHER",
+        b"000987654321098",
+        b"000123456789012",
     ):
         assert marker in document
+    without_identity = _pdf_bytes(
+        storage, litter_id, puppy_id=puppy_id, sections=_sections("summary")
+    )
+    assert b"000987654321098" not in without_identity
+    assert b"000123456789012" not in without_identity
 
 
 def test_pdf_owner_contact_uses_split_address_fields(

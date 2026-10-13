@@ -53,6 +53,13 @@ create_litter:
       selector:
         text:
 
+    mother_chip_number:
+      name: Chipnummer moeder
+      description: Chipnummer van de moederhond; voorloopnullen blijven behouden.
+      required: false
+      selector:
+        text:
+
     father:
       name: Roepnaam vader
       description: Roepnaam van de vaderhond.
@@ -85,6 +92,13 @@ create_litter:
     father_wala_number:
       name: WALA vader
       description: WALA-registratienummer van de vaderhond.
+      required: false
+      selector:
+        text:
+
+    father_chip_number:
+      name: Chipnummer vader
+      description: Chipnummer van de vaderhond; voorloopnullen blijven behouden.
       required: false
       selector:
         text:

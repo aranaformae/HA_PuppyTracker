@@ -7,7 +7,9 @@ from typing import Any
 
 
 DEFAULT_DOG_BREED = "Multi-generation Australian Labradoodle"
-PARENT_IDENTITY_FIELDS = ("registered_name", "birth_date", "breed", "wala_number")
+PARENT_IDENTITY_FIELDS = (
+    "registered_name", "birth_date", "breed", "wala_number", "chip_number"
+)
 
 _MISSING = object()
 
@@ -47,6 +49,7 @@ def normalize_parent_details(
         "birth_date": optional_date(source.get("birth_date")),
         "breed": optional_text(source.get("breed")) or DEFAULT_DOG_BREED,
         "wala_number": optional_text(source.get("wala_number")),
+        "chip_number": optional_text(source.get("chip_number")),
     }
 
 

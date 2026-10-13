@@ -21,6 +21,7 @@ def _data() -> dict:
                 "birth_date": "2022-05-06",
                 "breed": "Multi-generation Australian Labradoodle",
                 "wala_number": "WALA-MOTHER",
+                "chip_number": "000123456789012",
                 "profile_note": None,
                 "records": [
                     {
@@ -59,6 +60,7 @@ def _data() -> dict:
                     "birth_date": "2021-02-03",
                     "breed": "Multi-generation Australian Labradoodle",
                     "wala_number": "WALA-FATHER",
+                    "chip_number": "000987654321098",
                 },
             },
             "litter-2": {
@@ -98,10 +100,12 @@ def test_full_mother_export_contains_history_from_all_litters() -> None:
     assert len(document["audit_log"]) == 2
     assert document["mother"]["registered_name"] == "Milky Way Moonlight"
     assert document["mother"]["wala_number"] == "WALA-MOTHER"
+    assert document["mother"]["chip_number"] == "000123456789012"
     litter_2025 = next(
         item for item in document["linked_litters"] if item["id"] == "litter-1"
     )
     assert litter_2025["father_details"]["wala_number"] == "WALA-FATHER"
+    assert litter_2025["father_details"]["chip_number"] == "000987654321098"
 
 
 def test_litter_filtered_mother_export_only_contains_that_context() -> None:

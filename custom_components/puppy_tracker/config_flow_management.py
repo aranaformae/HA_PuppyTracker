@@ -114,12 +114,14 @@ class PuppyTrackerManagementOptionsFlow(
                         "birth_date": user_input.get("mother_birth_date"),
                         "breed": user_input.get("mother_breed"),
                         "wala_number": user_input.get("mother_wala_number"),
+                        "chip_number": user_input.get("mother_chip_number"),
                     },
                     father_details={
                         "registered_name": user_input.get("father_registered_name"),
                         "birth_date": user_input.get("father_birth_date"),
                         "breed": user_input.get("father_breed"),
                         "wala_number": user_input.get("father_wala_number"),
+                        "chip_number": user_input.get("father_chip_number"),
                     },
                 )
 
@@ -184,6 +186,7 @@ class PuppyTrackerManagementOptionsFlow(
                     vol.Optional(
                         "mother_wala_number"
                     ): selector.TextSelector(),
+                    vol.Optional("mother_chip_number"): selector.TextSelector(),
 
                     vol.Optional(
                         "father"
@@ -205,6 +208,7 @@ class PuppyTrackerManagementOptionsFlow(
                     vol.Optional(
                         "father_wala_number"
                     ): selector.TextSelector(),
+                    vol.Optional("father_chip_number"): selector.TextSelector(),
                 }
             ),
             errors=errors,
@@ -306,12 +310,14 @@ class PuppyTrackerManagementOptionsFlow(
                             "birth_date": user_input.get("mother_birth_date"),
                             "breed": user_input.get("mother_breed"),
                             "wala_number": user_input.get("mother_wala_number"),
+                            "chip_number": user_input.get("mother_chip_number"),
                         },
                         father_details={
                             "registered_name": user_input.get("father_registered_name"),
                             "birth_date": user_input.get("father_birth_date"),
                             "breed": user_input.get("father_breed"),
                             "wala_number": user_input.get("father_wala_number"),
+                            "chip_number": user_input.get("father_chip_number"),
                         },
                         growth_analysis={
                             "breed_profile": user_input.get("breed_profile") or "unknown",
@@ -438,6 +444,9 @@ class PuppyTrackerManagementOptionsFlow(
                 mother_identity.get("wala_number"),
             )
         ] = selector.TextSelector()
+        fields[
+            _optional_suggested_value("mother_chip_number", mother_identity.get("chip_number"))
+        ] = selector.TextSelector()
 
         fields[
             _optional_suggested_value("father", litter.get("father"))
@@ -466,6 +475,9 @@ class PuppyTrackerManagementOptionsFlow(
                 "father_wala_number",
                 father_identity.get("wala_number"),
             )
+        ] = selector.TextSelector()
+        fields[
+            _optional_suggested_value("father_chip_number", father_identity.get("chip_number"))
         ] = selector.TextSelector()
 
         growth = litter.get("growth_analysis") or {}

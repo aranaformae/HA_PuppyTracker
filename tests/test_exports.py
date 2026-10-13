@@ -54,6 +54,8 @@ def test_csv_exports_only_effective_measurements(
     assert mime == "text/csv;charset=utf-8"
     assert [row["measurement_id"] for row in rows] == ["corrected"]
     assert rows[0]["weight_g"] == "420.0"
+    assert rows[0]["father_chip_number"] == ""
+    assert rows[0]["mother_chip_number"] == ""
 
 
 def test_csv_includes_contract_identity_fields(
@@ -77,9 +79,14 @@ def test_csv_includes_contract_identity_fields(
                 "birth_date": "2021-02-03",
                 "breed": "Multi-generation Australian Labradoodle",
                 "wala_number": "WALA-FATHER",
+                "chip_number": "000987654321098",
             },
+            "mother_id": "mother-luna",
         },
     )
+    storage._data["mothers"] = {
+        "mother-luna": {"name": "Luna", "chip_number": "000123456789012"}
+    }
 
     _filename, _mime, content = api._csv_export(storage, litter_id)
     row = next(csv.DictReader(io.StringIO(content), delimiter=";"))
@@ -89,6 +96,8 @@ def test_csv_includes_contract_identity_fields(
     assert row["puppy_breed"] == "Multi-generation Australian Labradoodle"
     assert row["father_registered_name"] == "Doodle Cooper Star"
     assert row["father_wala_number"] == "WALA-FATHER"
+    assert row["father_chip_number"] == "000987654321098"
+    assert row["mother_chip_number"] == "000123456789012"
 
 
 def test_csv_can_filter_to_one_puppy(

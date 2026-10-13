@@ -20,6 +20,7 @@ def test_parent_identity_is_trimmed_and_defaults_the_requested_breed() -> None:
             "registered_name": "  Milky Way Luna  ",
             "birth_date": "2023-04-12",
             "wala_number": " WALA00012345 ",
+            "chip_number": " 000123456789012 ",
         },
         call_name=" Luna ",
     )
@@ -30,6 +31,7 @@ def test_parent_identity_is_trimmed_and_defaults_the_requested_breed() -> None:
         "birth_date": "2023-04-12",
         "breed": DEFAULT_DOG_BREED,
         "wala_number": "WALA00012345",
+        "chip_number": "000123456789012",
     }
 
 
@@ -52,12 +54,14 @@ async def test_storage_persists_contract_identity_for_litter_and_puppy(hass) -> 
             "registered_name": "Milky Way Moonlight",
             "birth_date": "2022-05-06",
             "wala_number": "WALA-MOTHER",
+            "chip_number": "000123456789012",
         },
         father="Cooper",
         father_details={
             "registered_name": "Doodle Cooper Star",
             "birth_date": "2021-02-03",
             "wala_number": "WALA-FATHER",
+            "chip_number": "000987654321098",
         },
     )
     puppy_id = await storage.async_add_puppy(
@@ -76,9 +80,11 @@ async def test_storage_persists_contract_identity_for_litter_and_puppy(hass) -> 
     assert litter["father"] == "Cooper"
     assert litter["father_details"]["registered_name"] == "Doodle Cooper Star"
     assert litter["father_details"]["breed"] == DEFAULT_DOG_BREED
+    assert litter["father_details"]["chip_number"] == "000987654321098"
     assert mother is not None
     assert mother["registered_name"] == "Milky Way Moonlight"
     assert mother["wala_number"] == "WALA-MOTHER"
+    assert mother["chip_number"] == "000123456789012"
     assert puppy is not None
     assert puppy["registered_name"] == "Milky Way Aurora"
     assert puppy["coat_color"] == "Caramel"
@@ -99,6 +105,7 @@ async def test_new_litter_does_not_erase_existing_mother_identity(hass) -> None:
             "registered_name": "Milky Way Moonlight",
             "birth_date": "2022-05-06",
             "wala_number": "WALA-MOTHER",
+            "chip_number": "000123456789012",
         },
     )
     await storage.async_create_litter(
@@ -116,6 +123,7 @@ async def test_new_litter_does_not_erase_existing_mother_identity(hass) -> None:
     assert mother["registered_name"] == "Milky Way Moonlight"
     assert mother["birth_date"] == "2022-05-06"
     assert mother["wala_number"] == "WALA-MOTHER"
+    assert mother["chip_number"] == "000123456789012"
 
 
 @pytest.mark.asyncio

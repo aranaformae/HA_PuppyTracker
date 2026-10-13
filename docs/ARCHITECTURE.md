@@ -618,7 +618,10 @@ text is deliberately avoided.
 Puppies store `registered_name`, call-name `name`, `birth_time`, `sex`,
 `coat_color`, `collar_color`, `chip_number` and `breed` as distinct fields.
 Persistent mother profiles and litter-owned `father_details` store
-`registered_name`, call name, `birth_date`, `breed` and `wala_number`. The
+`registered_name`, call name, `birth_date`, `breed`, `wala_number` and
+`chip_number`. Parent chip numbers use the same optional text normalization as
+puppy chip numbers, preserving leading zeroes. Normal load migration backfills
+missing fields without changing the schema or backup envelope. The
 display `litter.mother` and `litter.father` values remain the canonical call
 names, while mother identity remains reusable across litters. Missing breed
 values normalize to `Multi-generation Australian Labradoodle`; user-entered

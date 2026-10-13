@@ -35,7 +35,7 @@ Every main section can be enabled or disabled independently.
 
 | Section | Content |
 | --- | --- |
-| Identity | Litter date, full puppy contract identity and registered/call names, birth dates, breed/type and WALA details for both parents |
+| Identity | Litter date, full puppy contract identity and registered/call names, birth dates, breed/type, WALA and chip numbers for both parents |
 | Summary | Current weight and growth summary for the selected puppy or puppies |
 | Chart | Weight chart for the selected period, using each puppy's collar colour |
 | Measurements | Effective weight measurements, difference, kind and note |
@@ -127,7 +127,7 @@ by an update.
   owner still receives one row with those preference values.
   Linked puppy rows add registered and call names, birth date,
   sex, coat and collar colours, microchip number and breed/type. Both parents
-  add registered and call names, birth date, breed/type and WALA number without
+  add registered and call names, birth date, breed/type, WALA and chip number without
   exposing internal IDs.
 - **Litter JSON backup** always contains the complete importable litter data,
   including history required for safe restore. PDF section/category/period

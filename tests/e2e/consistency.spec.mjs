@@ -394,7 +394,7 @@ test("owner CSV is comma-separated, keeps unlinked owners and exports one row pe
       callWS: async (message) => {
         if (message.type === "puppy_tracker/owners/list") return { owners };
         if (message.type === "puppy_tracker/litters") return { litters: [
-          { id: "l1", name: "First", birth_date: "2026-06-01", mother: "Luna", mother_details: { registered_name: "Mother Registered", birth_date: "2022-01-02", breed: "Multi-generation Australian Labradoodle", wala_number: "WALA-M" }, father: "Max", father_details: { registered_name: "Father Registered", birth_date: "2021-01-02", breed: "Multi-generation Australian Labradoodle", wala_number: "WALA-F" } },
+          { id: "l1", name: "First", birth_date: "2026-06-01", mother: "Luna", mother_details: { registered_name: "Mother Registered", birth_date: "2022-01-02", breed: "Multi-generation Australian Labradoodle", wala_number: "WALA-M", chip_number: "000123456789012" }, father: "Max", father_details: { registered_name: "Father Registered", birth_date: "2021-01-02", breed: "Multi-generation Australian Labradoodle", wala_number: "WALA-F", chip_number: "000987654321098" } },
           { id: "l2", name: "Second", birth_date: "2026-07-02", mother: "Nova", mother_details: { registered_name: "Second Mother", breed: "Multi-generation Australian Labradoodle" }, father: "Cooper", father_details: { registered_name: "Second Father", breed: "Multi-generation Australian Labradoodle" } },
         ] };
         if (message.type === "puppy_tracker/data" && message.litter_id === "l1") {
@@ -423,14 +423,14 @@ test("owner CSV is comma-separated, keeps unlinked owners and exports one row pe
   expect(header).toContain('"1st preference puppy","1st preference note","2nd preference puppy","2nd preference note","3rd preference puppy","3rd preference note"');
   expect(header).toContain('"Final payment (calculated)","Actual outstanding amount"');
   expect(header).toContain('"Puppy registered name","Puppy call name","Puppy birth date","Puppy sex","Puppy coat color","Puppy collar color"');
-  expect(header).toContain('"Father registered name","Father call name","Father birth date","Father breed / type","Father WALA"');
-  expect(header).toContain('"Mother registered name","Mother call name","Mother birth date","Mother breed / type","Mother WALA"');
+  expect(header).toContain('"Father registered name","Father call name","Father birth date","Father breed / type","Father WALA","Father chip number"');
+  expect(header).toContain('"Mother registered name","Mother call name","Mother birth date","Mother breed / type","Mother WALA","Mother chip number"');
   expect(header).not.toContain('";"');
   expect(content).toContain('"Main street 1","1234 AB","Amsterdam"');
   expect(content).toContain('"Second · Blue","Preferred coat and temperament"');
   expect(content).toContain('"Contract ""signed""; ready, paid"');
   expect(content).toContain('"First","Milky Way Red","Red","2026-06-01","Male","Caramel","red","0001","Multi-generation Australian Labradoodle","Father Registered","Max"');
-  expect(content).toContain('"WALA-F","Mother Registered","Luna","2022-01-02","Multi-generation Australian Labradoodle","WALA-M"');
+  expect(content).toContain('"WALA-F","000987654321098","Mother Registered","Luna","2022-01-02","Multi-generation Australian Labradoodle","WALA-M","000123456789012"');
   expect(content).toContain('"Second","Milky Way Blue","Blue","2026-07-02"');
   expect(content).toContain('"2500","250","500","2026-09-02","1750","1400"');
   expect(content.match(/"Alex",/g)).toHaveLength(2);

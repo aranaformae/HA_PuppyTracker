@@ -130,9 +130,9 @@ an optional top three puppy shortlist with a short note per preference. Contacts
 can be created before puppy placement and linked later. A puppy's chip
 number, registered/nest name, call name, coat colour and breed/type are separate
 profile fields. Parent profiles can store registered/call names, birth date,
-breed/type and WALA number. Owner addresses use separate street, postal-code and
-city fields; these contract-ready values are available in owner CSV and PDF
-reports.
+breed/type, WALA number and microchip number. Owner addresses use separate street,
+postal-code and city fields; these contract-ready values are available in owner
+CSV and PDF reports.
 
 The shortlist is planning information only: it does not reserve a puppy, change
 its placement status or create the final owner link. Switch the Owners card to

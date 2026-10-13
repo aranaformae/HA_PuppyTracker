@@ -129,11 +129,13 @@ const COPY = {
     fatherBirthDate: "Geboortedatum vader",
     fatherBreed: "Soort vader",
     fatherWala: "WALA vader",
+    fatherChipNumber: "Chipnummer vader",
     motherRegisteredName: "Naam moeder",
     motherCallName: "Roepnaam moeder",
     motherBirthDate: "Geboortedatum moeder",
     motherBreed: "Soort moeder",
     motherWala: "WALA moeder",
+    motherChipNumber: "Chipnummer moeder",
     chipNumber: "Chipnummer pup",
     saved: "Baasje opgeslagen.",
     linked: "Koppeling opgeslagen.",
@@ -246,11 +248,13 @@ const COPY = {
     fatherBirthDate: "Father birth date",
     fatherBreed: "Father breed / type",
     fatherWala: "Father WALA",
+    fatherChipNumber: "Father chip number",
     motherRegisteredName: "Mother registered name",
     motherCallName: "Mother call name",
     motherBirthDate: "Mother birth date",
     motherBreed: "Mother breed / type",
     motherWala: "Mother WALA",
+    motherChipNumber: "Mother chip number",
     chipNumber: "Puppy microchip number",
     saved: "Owner saved.",
     linked: "Link saved.",
@@ -784,8 +788,8 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       "notes", "statusHistory", "litter", "puppyRegisteredName", "puppyCallName",
       "puppyBirthDate", "puppySex", "puppyCoatColor", "puppyCollarColor",
       "chipNumber", "puppyBreed", "fatherRegisteredName", "fatherCallName",
-      "fatherBirthDate", "fatherBreed", "fatherWala", "motherRegisteredName",
-      "motherCallName", "motherBirthDate", "motherBreed", "motherWala",
+      "fatherBirthDate", "fatherBreed", "fatherWala", "fatherChipNumber", "motherRegisteredName",
+      "motherCallName", "motherBirthDate", "motherBreed", "motherWala", "motherChipNumber",
     ].map((key) => text(this, key));
     const rows = [headers];
     for (const owner of this._owners) {
@@ -843,11 +847,13 @@ class PuppyTrackerOwnerCard extends HTMLElement {
           puppy?.father_details?.birth_date,
           puppy?.father_details?.breed,
           puppy?.father_details?.wala_number,
+          puppy?.father_details?.chip_number,
           puppy?.mother_details?.registered_name,
           puppy?.mother,
           puppy?.mother_details?.birth_date,
           puppy?.mother_details?.breed,
           puppy?.mother_details?.wala_number,
+          puppy?.mother_details?.chip_number,
         ]);
       }
     }

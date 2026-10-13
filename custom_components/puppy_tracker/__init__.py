@@ -87,11 +87,13 @@ CREATE_LITTER_SCHEMA = vol.Schema(
         vol.Optional("mother_birth_date"): cv.string,
         vol.Optional("mother_breed"): cv.string,
         vol.Optional("mother_wala_number"): cv.string,
+        vol.Optional("mother_chip_number"): cv.string,
         vol.Optional("father"): cv.string,
         vol.Optional("father_registered_name"): cv.string,
         vol.Optional("father_birth_date"): cv.string,
         vol.Optional("father_breed"): cv.string,
         vol.Optional("father_wala_number"): cv.string,
+        vol.Optional("father_chip_number"): cv.string,
     }
 )
 
@@ -216,12 +218,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 "birth_date": call.data.get("mother_birth_date"),
                 "breed": call.data.get("mother_breed") or DEFAULT_DOG_BREED,
                 "wala_number": call.data.get("mother_wala_number"),
+                "chip_number": call.data.get("mother_chip_number"),
             },
             father_details={
                 "registered_name": call.data.get("father_registered_name"),
                 "birth_date": call.data.get("father_birth_date"),
                 "breed": call.data.get("father_breed") or DEFAULT_DOG_BREED,
                 "wala_number": call.data.get("father_wala_number"),
+                "chip_number": call.data.get("father_chip_number"),
             },
         )
         async_sync_devices(hass, entry, storage.get_data())

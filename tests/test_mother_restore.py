@@ -17,6 +17,7 @@ def _document() -> dict:
             "birth_date": "2022-05-06",
             "breed": "Multi-generation Australian Labradoodle",
             "wala_number": "WALA-MOTHER",
+            "chip_number": "000123456789012",
             "profile_note": "Bronprofiel",
             "records": [
                 {
@@ -175,6 +176,7 @@ def test_merge_import_keeps_existing_records_and_remaps_imported_ids() -> None:
         "Milky Way Moonlight"
     )
     assert result["data"]["mothers"]["mother-1"]["wala_number"] == "WALA-MOTHER"
+    assert result["data"]["mothers"]["mother-1"]["chip_number"] == "000123456789012"
     imported_audit = result["data"]["audit_log"][:2]
     assert len(imported_audit) == 2
     assert {item["litter_id"] for item in imported_audit} == {"litter-1", "litter-2"}

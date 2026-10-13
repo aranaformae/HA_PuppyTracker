@@ -82,6 +82,7 @@ def _mother_records_payload(
             "birth_date": mother.get("birth_date"),
             "breed": mother.get("breed"),
             "wala_number": mother.get("wala_number"),
+            "chip_number": mother.get("chip_number"),
             "profile_note": mother.get("profile_note"),
         },
         "linked_litters": context["linked_litters"],
