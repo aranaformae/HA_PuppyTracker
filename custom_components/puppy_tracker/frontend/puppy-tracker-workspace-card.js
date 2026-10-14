@@ -88,6 +88,7 @@ const EDITOR_FIELDS = {
     { name: "calculator_stale_after_hours", surface: "calculator", key: "stale_after_hours", default: 24, selector: { number: { min: 1, max: 168, step: 1, mode: "box" } } },
     { name: "calculator_max_height", surface: "calculator", key: "max_height", default: 520, selector: { number: { min: 240, max: 900, step: 20, mode: "box" } } },
     { name: "calculator_default_unit", surface: "calculator", key: "default_unit", default: "ml", selector: { text: {} } },
+    { name: "calculator_default_mode", surface: "calculator", key: "default_mode", default: "per_kg", selector: { select: { mode: "dropdown", options: ["per_kg", "feeding"] } } },
     { name: "programs_show_disabled", surface: "programs", key: "show_disabled", default: true, selector: { boolean: {} } },
     { name: "programs_max_items", surface: "programs", key: "max_items", default: 50, selector: { number: { min: 5, max: 200, step: 5, mode: "box" } } },
     { name: "programs_compact", surface: "programs", key: "compact", default: false, selector: { boolean: {} } },
@@ -105,6 +106,7 @@ const EDITOR_FIELDS = {
     { name: "calculator_stale_after_hours", surface: "calculator", key: "stale_after_hours", default: 24, selector: { number: { min: 1, max: 168, step: 1, mode: "box" } } },
     { name: "calculator_max_height", surface: "calculator", key: "max_height", default: 440, selector: { number: { min: 240, max: 900, step: 20, mode: "box" } } },
     { name: "calculator_default_unit", surface: "calculator", key: "default_unit", default: "ml", selector: { text: {} } },
+    { name: "calculator_default_mode", surface: "calculator", key: "default_mode", default: "per_kg", selector: { select: { mode: "dropdown", options: ["per_kg", "feeding"] } } },
     { name: "behavior_show_profile", surface: "behavior", key: "show_profile", default: true, selector: { boolean: {} } },
     { name: "behavior_show_history", surface: "behavior", key: "show_history", default: false, selector: { boolean: {} } },
     { name: "behavior_max_items", surface: "behavior", key: "max_items", default: 10, selector: { number: { min: 5, max: 100, step: 5, mode: "box" } } },
@@ -185,6 +187,7 @@ const EDITOR_LABELS = {
     care_show_day_selector: "Dagselector tonen", care_days_ahead: "Aantal dagen vooruit", care_max_items: "Uitvoeren: maximaal aantal items",
     calculator_active_only: "Rekentool: alleen actieve pups", calculator_stale_after_hours: "Gewicht als oud markeren na (uur)",
     calculator_max_height: "Rekentool: maximale lijsthoogte", calculator_default_unit: "Rekentool: standaard eenheid",
+    calculator_default_mode: "Rekentool: standaard variant",
     programs_show_disabled: "Uitgeschakelde programma's tonen", programs_max_items: "Programma's: maximaal aantal items",
     programs_compact: "Programma's compact tonen", programs_sort_order: "Programma's sorteren op",
   },
@@ -210,6 +213,7 @@ const EDITOR_LABELS = {
     care_show_day_selector: "Show day selector", care_days_ahead: "Days ahead", care_max_items: "Execution: maximum items",
     calculator_active_only: "Calculator: active puppies only", calculator_stale_after_hours: "Mark weight as old after (hours)",
     calculator_max_height: "Calculator: maximum list height", calculator_default_unit: "Calculator: default unit",
+    calculator_default_mode: "Calculator: default mode",
     programs_show_disabled: "Show disabled programs", programs_max_items: "Programs: maximum items",
     programs_compact: "Show programs compactly", programs_sort_order: "Sort programs by",
   },
@@ -506,6 +510,7 @@ function editorLanguage(hass) {
 function editorOptionLabel(hass, fieldName, value) {
   const language = editorLanguage(hass);
   const common = {
+    per_kg: { nl: "Per kg", en: "Per kg" }, feeding: { nl: "Voeding", en: "Feeding" },
     all: { nl: "Alles", en: "All" }, litter: { nl: "Hele nest", en: "Whole litter" },
     mother: { nl: "Moederhond", en: "Mother" }, puppy: { nl: "Pup", en: "Puppy" },
     newest: { nl: "Nieuwste eerst", en: "Newest first" }, oldest: { nl: "Oudste eerst", en: "Oldest first" },

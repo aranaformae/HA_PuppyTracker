@@ -64,8 +64,8 @@ Companion App when a dashboard still shows an older card.
 3. Add a Workspace card to a dashboard and choose the Home, Growth, Journal,
    Care or Mobile preset in its visual editor.
 4. Use the **Weigh** tab for weights and **Quick Log** or **Dossier** for daily
-   observations. Use **Calculator** in Care or Mobile for a per-kilogram
-   calculation, and **Behavior** for repeated scored puppy observations.
+   observations. Use **Calculator** in Care or Mobile for per-kilogram amounts
+   or daily feeding portions, and **Behavior** for scored puppy observations.
 5. Add recurring reminders or care programs when scheduled actions are needed.
 6. Create a full JSON backup after the initial setup.
 
@@ -168,7 +168,7 @@ The most useful starting points are:
 
 - [Dashboard cards](docs/DASHBOARD_CARDS.md)
 - [Weighing and growth analysis](docs/GROWTH_ANALYSIS.md)
-- [Per-kilogram calculator](docs/CALCULATOR.md)
+- [Calculator and feeding portions](docs/CALCULATOR.md)
 - [Puppy dossiers and owners](docs/puppy-dossiers.md)
 - [Temperature card](docs/temperature-card.md)
 - [Behavior observations](docs/BEHAVIOR.md)

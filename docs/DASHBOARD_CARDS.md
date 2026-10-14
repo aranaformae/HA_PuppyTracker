@@ -181,7 +181,7 @@ Useful surface-specific options include:
 - `timeline`: `max_items`, `show_history_toggle`, `show_timeline_items`;
 - `temperature`: range, chart, thresholds, history and editor options documented in [Temperature](temperature-card.md);
 - `care`: `show_day_selector`, `days_ahead`, `max_items`;
-- `calculator`: `active_only`, `stale_after_hours`, `max_height`, `default_unit`;
+- `calculator`: `active_only`, `stale_after_hours`, `max_height`, `default_unit`, `default_mode` (`per_kg` or `feeding`);
 - `programs`: `show_disabled`, `max_items`, `compact`, `sort_order`.
 
 The Mobile preset hides the care day selector by default and loads today plus
@@ -192,6 +192,11 @@ and latest puppy weights as the Care preset. Mobile Quick Log exposes the
 complete shared dossier category list, so temperature, deworming and
 medication do not require switching to the Journal Workspace.
 Changing the litter in any visible Workspace surface updates the other tabs.
+The Calculator's Feeding variant combines Ydolo Puppy kibble and Kivo puppy
+meat, with a meat-share slider, a 40-50 g/kg/day Kivo slider and equal portions
+per day. Results show both foods and their total per puppy and for the litter.
+The visual editor can select the initial calculator variant. Formula sources,
+weight boundaries and an example are in [Calculator](CALCULATOR.md).
 The active weighing surface is retained during that change so a draft weight
 and input focus are not discarded.
 Within the Weigh tab, changing the selected puppy also retains the entered

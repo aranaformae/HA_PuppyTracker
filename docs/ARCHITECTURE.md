@@ -948,8 +948,22 @@ For each selected-litter puppy it reads the canonical
 `summary.current_weight`, multiplies kilograms by the user-entered amount per
 kilogram and derives a litter total. It does not persist a dose, feeding amount
 or dossier event. Missing weights are excluded, stale weights are marked, and
-the card defers subscription-driven refreshes while an amount or unit field has
-focus so live updates cannot interrupt entry.
+the card defers subscription-driven refreshes while an input, slider or selector
+has focus so live updates cannot interrupt entry. Result updates change text
+nodes only and retain slider controls and list scroll position. Explicit mode
+switches blur the previous control and focus the selected mode without scrolling.
+
+The same Calculator surface offers `default_mode: feeding`. A pure module,
+`puppy-tracker-feeding-calculator.js`, holds the Ydolo table and straight-line
+approximation from the supplied PDF and the verified Kivo 40-50 g/kg/day range.
+Each food's full daily ration is multiplied by its selected share before sums
+and equal portions are calculated. Neither food is added at full quantity when
+the other food is also selected. This is proportional ration planning, not
+energy or nutrient matching. Kibble is calculated only inside 1-20 kg; meat-only
+results bypass that table boundary. Validation returns explicit missing-weight,
+invalid-settings or out-of-range states, which are excluded from litter totals.
+No feeding data is persisted or sent through write APIs; values remain in the
+current card instance and survive switching between calculator modes.
 
 The recurring-reminder card must resolve the linked mother through the mother scope rather than requiring `litter.mother_id` in the ordinary litter payload.
 
