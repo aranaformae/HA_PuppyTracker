@@ -2,6 +2,7 @@
 
 from typing import Any
 from urllib.parse import urlsplit
+from .managed_files import validate_file_id
 
 
 def normalize_breeder(value: Any = None) -> dict[str, str]:
@@ -25,4 +26,6 @@ def normalize_breeder(value: Any = None) -> dict[str, str]:
             or any(ord(char) < 32 for char in logo)
         ):
             raise ValueError("Logo must use a local Home Assistant path")
+    if value.get("logo_file_id"):
+        result["logo_file_id"] = validate_file_id(value["logo_file_id"])
     return result

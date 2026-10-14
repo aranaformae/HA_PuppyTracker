@@ -27,6 +27,7 @@ from .session import get_session, remaining_puppy_ids
 from .storage import PuppyTrackerStorage
 from .time_utils import timestamp_sort_key
 from .updates import dispatch_dossier_update, dispatch_measurement_update
+from .managed_files_http import signed_file_path
 from .upcoming import DAYS_AHEAD_DEFAULT, upcoming_actions, upcoming_summary
 
 DATA_API_REGISTERED = f"{DOMAIN}_websocket_api_registered"
@@ -628,7 +629,12 @@ def websocket_report_logo(
     """Return the configured logo path without exposing contact information."""
     storage = _storage_or_error(hass, connection, msg)
     if storage is not None:
-        connection.send_result(msg["id"], {"logo_url": storage.get_breeder()["logo_url"]})
+        breeder = storage.get_breeder()
+        path = signed_file_path(hass, breeder["logo_file_id"]) if breeder.get("logo_file_id") else breeder["logo_url"]
+        result = {"logo_url": path}
+        if breeder.get("logo_file_id"):
+            result["fallback_url"] = breeder["logo_url"]
+        connection.send_result(msg["id"], result)
 
 
 @websocket_api.websocket_command(

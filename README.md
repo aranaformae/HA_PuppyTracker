@@ -169,6 +169,7 @@ The most useful starting points are:
 - [Dashboard cards](docs/DASHBOARD_CARDS.md)
 - [Weighing and growth analysis](docs/GROWTH_ANALYSIS.md)
 - [Calculator and feeding portions](docs/CALCULATOR.md)
+- [Logo uploads and managed files](docs/MANAGED_FILES.md)
 - [Puppy dossiers and owners](docs/puppy-dossiers.md)
 - [Temperature card](docs/temperature-card.md)
 - [Behavior observations](docs/BEHAVIOR.md)

@@ -296,16 +296,20 @@
       },
       "breeder": {
         "title": "Breeder information",
-        "description": "These details apply to all PDF reports. Choose which details to include on the Report card.",
+        "description": "These details apply to all PDF reports. Choose which details to include on the Report card.\n\n{logo_preview}",
         "data": {
           "name": "Breeder / kennel name",
           "contact": "Contact details",
-          "logo_url": "Logo path"
+          "logo_url": "Logo path",
+          "logo_upload": "Upload logo",
+          "remove_logo": "Remove uploaded logo"
         },
         "data_description": {
           "name": "Up to 200 characters.",
           "contact": "For example email, telephone and address, up to 2000 characters. Contact details default to hidden in reports.",
-          "logo_url": "For example /local/logo.png for /config/www/logo.png. PNG/JPEG on this Home Assistant server. Leave empty to use the bundled logo."
+          "logo_url": "Optional fallback, for example /local/logo.png. An uploaded logo takes precedence; with neither, the bundled logo is used.",
+          "logo_upload": "PNG/JPEG, at most 2 MB and 16 million pixels. Stored privately and included in full backups.",
+          "remove_logo": "Removes the uploaded logo only. The configured logo path remains as a fallback. Do not combine with uploading."
         }
       },
       "settings": {
@@ -431,7 +435,9 @@
       "invalid_import_mode": "This import mode is not valid for the uploaded backup.",
       "invalid_import_target": "The selected destination litter no longer exists.",
       "backup_too_large": "The backup is larger than the 20 MB import limit.",
-      "storage_changed": "Puppy Tracker data changed after the preview. Review the backup again before importing it."
+      "storage_changed": "Puppy Tracker data changed after the preview. Review the backup again before importing it.",
+      "invalid_logo": "Choose a valid PNG/JPEG of at most 2 MB and 16 million pixels. Choose upload or remove, and select the file again.",
+      "logo_save_failed": "The logo could not be saved. Previous settings were retained; select the file again and retry."
     },
     "abort": {
       "no_litters": "There are no litters available yet.",

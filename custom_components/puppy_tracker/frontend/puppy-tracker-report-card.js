@@ -386,7 +386,7 @@ class PuppyTrackerReportCard extends HTMLElement {
         options.branding = {};
         if (sections.brand_logo) {
           const configured = await fetchReportLogo(this._hass);
-          const logo = await reportLogo(configured.logo_url);
+          const logo = await reportLogo(configured.logo_url) || await reportLogo(configured.fallback_url);
           if (logo) options.branding.logo_base64 = logo;
         }
       }

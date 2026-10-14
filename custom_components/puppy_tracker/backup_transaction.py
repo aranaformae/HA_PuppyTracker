@@ -97,6 +97,24 @@ async def async_apply_import_transaction(
     care_templates: CareProgramTemplateStore | None = None,
     owners: OwnerStore | None = None,
 ) -> dict[str, Any]:
+    """Pin binary rollback dependencies for the complete multi-store operation."""
+    async with storage.async_pin_managed_files():
+        return await _async_apply_import_transaction(
+            storage, plan, care_reminders=care_reminders, care_programs=care_programs,
+            recurring_reminders=recurring_reminders, care_templates=care_templates, owners=owners,
+        )
+
+
+async def _async_apply_import_transaction(
+    storage: PuppyTrackerStorage,
+    plan: dict[str, Any],
+    *,
+    care_reminders: CareReminderStore | None = None,
+    care_programs: AgeBasedCareProgramStore | None = None,
+    recurring_reminders: RecurringReminderStore | None = None,
+    care_templates: CareProgramTemplateStore | None = None,
+    owners: OwnerStore | None = None,
+) -> dict[str, Any]:
     """Apply one import and coordinate rollback across external stores.
 
     Partial imports only touch the main storage. Full ``replace_all`` restores

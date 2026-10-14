@@ -53,4 +53,4 @@ When adding schema 10 or later:
 6. Preserve the ability to migrate every historical schema still declared supported directly to the current schema.
 7. Run the full backend, frontend E2E, Hassfest, HACS and metadata CI gates before release.
 
-Backup format versions are a separate contract from internal storage schema versions. See [`backup-restore.md`](backup-restore.md) for backup v4/v5 compatibility and restore behavior.
+Backup format versions are a separate contract from internal storage schema versions. See [`backup-restore.md`](backup-restore.md) for backup v4/v5/v6 compatibility and restore behavior. Format v6 adds embedded managed logo files without changing the main storage schema.

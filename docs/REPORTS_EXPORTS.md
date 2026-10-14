@@ -81,7 +81,13 @@ the full profile. Disabling Identity also disables Puppy profile note.
 
 Open **Settings -> Devices & services -> Puppy Tracker -> Configure -> Breeder
 information**. Set the kennel/breeder name, contact text and local logo path
-once for all reports. For example, use `/local/kennel-logo.png` for an image
+once for all reports. **Upload logo** accepts a PNG/JPEG directly from your
+computer or phone. Reopen the form to preview the saved logo; uploading another
+image replaces it. **Remove uploaded logo** deletes that managed image after
+the settings are saved. Do not select upload and remove at the same time.
+
+An uploaded logo takes precedence. The optional **Logo path** remains a fallback:
+for example, use `/local/kennel-logo.png` for an image
 stored as `/config/www/kennel-logo.png`. On the Report card, choose only which
 details to include using Logo, Breeder name and Breeder contact details.
 
@@ -98,11 +104,17 @@ ratio within a 96 x 64 point box. Transparent areas become white.
 An unavailable, external, oversized or invalid image falls back to the bundled
 logo. Turning Logo off excludes both logos and skips image loading.
 
-Breeder information is stored in the integration and included in complete JSON
-and full backup-to-file exports. Full replace restores it; merge-as-new and
+Uploaded logos are normalized to a bounded, white-backed JPEG without original
+image metadata and stored privately under `/config/puppy_tracker/files/`.
+Preview and report downloads use authenticated routes with short-lived signed
+URLs. The integration's metadata database contains references, not image bytes.
+
+Breeder information and the uploaded image are included in complete JSON
+and full backup-to-file exports (backup format v6). Full replace restores both
+metadata and the image, even on another installation; merge-as-new and
 partial pup/litter imports keep the existing central identity. Older full
 backups without breeder fields restore empty identity fields and the default
-logo. The logo path is backed up, but the image file in `www` must be backed up
+logo. The optional legacy logo path is backed up, but its file in `www` must be backed up
 separately by Home Assistant. The PDF contact and profile-note switches are independent from owner
 contact details; review all three before sharing a report. Profile notes are
 printed for the selected puppy, or each puppy in a whole-litter report, and

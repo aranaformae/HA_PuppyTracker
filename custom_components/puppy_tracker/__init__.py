@@ -17,6 +17,7 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .api import async_setup_api
+from .managed_files_http import async_setup_managed_files_http
 from .backup import SCHEDULER_BACKUP_VERSION, serialize_export
 from .attention_acknowledgement_api import async_setup_attention_acknowledgement_api
 from .attention_acknowledgements import AttentionAcknowledgementStore
@@ -188,6 +189,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     entry.runtime_data = runtime
 
     async_setup_api(hass)
+    async_setup_managed_files_http(hass)
     async_setup_mother_api(hass)
     async_setup_recurring_reminder_api(hass)
     async_setup_care_program_api(hass)
@@ -330,6 +332,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             care_reminder_settings=care_reminder_settings,
             scheduler_data=scheduler_data,
             owner_data=runtime.owners.get_backup_data() if scope == "full" and runtime.owners else None,
+            file_data=await storage.async_export_managed_files() if scope == "full" else None,
         )
         target.parent.mkdir(parents=True, exist_ok=True)
 

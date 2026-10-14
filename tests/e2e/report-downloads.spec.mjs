@@ -23,8 +23,9 @@ test("branding and profile note are independently selected without sending hidde
   await expect(card.locator('[data-pdf-section="profile_note"]')).not.toBeChecked();
 });
 
-test("local logo is converted to a bounded JPEG and not loaded when excluded @cross-browser @mobile @tablet", async ({ page }) => {
-  const card = await mountReport(page, { logo_url: "/local/obsolete-card-logo.png" }, null, "/local/test-logo.png");
+for (const logoUrl of ["/local/test-logo.png", "/api/puppy_tracker/files/managed-logo?authSig=test"]) {
+test(`local or signed managed logo ${logoUrl} is converted and skipped when excluded @cross-browser @mobile @tablet`, async ({ page }) => {
+  const card = await mountReport(page, { logo_url: "/local/obsolete-card-logo.png" }, null, logoUrl);
   const png = await page.evaluate(() => {
     const canvas = document.createElement("canvas");
     canvas.width = 160;
@@ -35,7 +36,7 @@ test("local logo is converted to a bounded JPEG and not loaded when excluded @cr
     return canvas.toDataURL("image/png").split(",")[1];
   });
   let requests = 0;
-  await page.route("**/local/test-logo.png", async (route) => {
+  await page.route((url) => url.pathname + url.search === logoUrl, async (route) => {
     requests += 1;
     await route.fulfill({ contentType: "image/png", body: Buffer.from(png, "base64") });
   });
@@ -52,6 +53,7 @@ test("local logo is converted to a bounded JPEG and not loaded when excluded @cr
   await download;
   expect(requests).toBe(1);
 });
+}
 
 async function openFixture(page) {
   await page.goto("/tests/e2e/cards.html");

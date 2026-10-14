@@ -49,6 +49,10 @@ from .records import (
 from .time_utils import normalize_timestamp
 from .breeder import normalize_breeder
 from .feeding import normalize_feeding_settings
+from .managed_files import ManagedFiles, normalize_logo, validate_manifest
+from hashlib import sha256
+from contextlib import asynccontextmanager
+from collections import Counter
 
 
 def _now_iso() -> str:
@@ -163,6 +167,8 @@ class PuppyTrackerStorage:
     def __init__(self, hass: HomeAssistant) -> None:
         """Initialize storage."""
         self.hass = hass
+        self.files = ManagedFiles(hass)
+        self._file_restore_pins: Counter[str] = Counter()
 
         self._store: Store[dict[str, Any]] = Store(
             hass,
@@ -958,11 +964,55 @@ class PuppyTrackerStorage:
         """Return validated central breeder settings, including legacy defaults."""
         return normalize_breeder(self.get_settings().get("breeder"))
 
-    async def async_update_breeder(self, breeder: dict[str, Any]) -> None:
+    def get_managed_files(self) -> dict[str, dict[str, Any]]:
+        return validate_manifest(self.get_settings().get("files", {}))
+
+    async def async_export_managed_files(self) -> dict[str, str]:
+        async with self._lock:
+            return await self.files.async_export(self.get_managed_files())
+
+    async def async_cleanup_managed_files(self) -> None:
+        async with self._lock:
+            await self.files.async_cleanup(set(self.get_managed_files()) | set(self._file_restore_pins))
+
+    @asynccontextmanager
+    async def async_pin_managed_files(self):
+        """Keep pre-restore files available until all external stores commit."""
+        async with self._lock:
+            pinned = set(self.get_managed_files())
+            self._file_restore_pins.update(pinned)
+        try:
+            yield
+        finally:
+            async with self._lock:
+                self._file_restore_pins.subtract(pinned)
+                self._file_restore_pins += Counter()
+                try:
+                    await self.files.async_cleanup(set(self.get_managed_files()) | set(self._file_restore_pins))
+                except (OSError, ValueError):
+                    pass
+
+    async def async_update_breeder(self, breeder: dict[str, Any], *, logo_content: bytes | None = None) -> None:
         """Save breeder settings without changing monitoring or losing failed writes."""
         normalized = normalize_breeder(breeder)
+        if logo_content is not None:
+            logo_content = await self.hass.async_add_executor_job(normalize_logo, logo_content)
         async with self._lock:
             before = deepcopy(self._data)
+            manifest = self.get_managed_files()
+            if logo_content is not None:
+                file_id = sha256(logo_content).hexdigest()
+                await self.files.async_write(file_id, logo_content)
+                manifest[file_id] = {"name": "breeder-logo.jpg", "content_type": "image/jpeg", "size": len(logo_content)}
+                normalized["logo_file_id"] = file_id
+            file_id = normalized.get("logo_file_id")
+            if file_id and file_id not in manifest:
+                raise ValueError("Unknown managed logo")
+            old_id = self.get_breeder().get("logo_file_id")
+            if old_id and old_id != file_id:
+                manifest.pop(old_id, None)
+            if manifest or self.get_settings().get("files"):
+                self._data.setdefault("settings", {})["files"] = validate_manifest(manifest)
             self._data.setdefault("settings", _default_settings())["breeder"] = normalized
             self._add_audit_entry(
                 action="update_breeder",
@@ -975,7 +1025,16 @@ class PuppyTrackerStorage:
                 await self.async_save()
             except Exception:
                 self._data = before
+                try:
+                    await self.files.async_cleanup(set(before.get("settings", {}).get("files", {})) | set(self._file_restore_pins))
+                except (OSError, ValueError):
+                    pass
                 raise
+            # A durable new reference comes first; cleanup can be retried independently.
+            try:
+                await self.files.async_cleanup(set(manifest) | set(self._file_restore_pins))
+            except (OSError, ValueError):
+                pass
 
     def get_feeding_settings(self, litter_id: str) -> dict[str, Any]:
         litter = self._data.get("litters", {}).get(litter_id)

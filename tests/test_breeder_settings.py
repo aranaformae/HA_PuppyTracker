@@ -40,7 +40,7 @@ async def test_form_saves_and_clears_central_breeder(hass, storage):
     assert storage.get_breeder() == BREEDER
     assert {key: value for key, value in storage.get_settings().items() if key != "breeder"} == {key: value for key, value in before.items() if key != "breeder"}
     form = await flow.async_step_breeder()
-    assert {marker.schema: marker.description["suggested_value"] for marker in form["data_schema"].schema} == BREEDER
+    assert {marker.schema: marker.description["suggested_value"] for marker in form["data_schema"].schema if marker.schema in BREEDER} == BREEDER
     result = await flow.async_step_breeder({})
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert storage.get_breeder() == normalize_breeder()

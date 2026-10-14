@@ -19,7 +19,7 @@ DATA_BACKUP_HTTP_REGISTERED = f"{DOMAIN}_backup_http_registered"
 DOWNLOAD_TTL = timedelta(minutes=10)
 
 
-def _download_response(
+async def _download_response(
     runtime: PuppyTrackerRuntimeData,
     *,
     scope: str,
@@ -58,6 +58,7 @@ def _download_response(
             if scope == "full" and getattr(runtime, "owners", None)
             else None
         ),
+        file_data=await runtime.storage.async_export_managed_files() if scope == "full" else None,
     )
     return web.Response(
         text=content,
@@ -83,7 +84,7 @@ class PuppyTrackerFullBackupView(HomeAssistantView):
 
     async def get(self, request: web.Request) -> web.Response:
         del request
-        return _download_response(require_runtime_data(self._hass), scope="full")
+        return await _download_response(require_runtime_data(self._hass), scope="full")
 
 
 class PuppyTrackerLitterBackupView(HomeAssistantView):
@@ -99,7 +100,7 @@ class PuppyTrackerLitterBackupView(HomeAssistantView):
     async def get(self, request: web.Request, litter_id: str) -> web.Response:
         del request
         try:
-            return _download_response(
+            return await _download_response(
                 require_runtime_data(self._hass),
                 scope="litter",
                 litter_id=litter_id,
@@ -126,7 +127,7 @@ class PuppyTrackerPuppyBackupView(HomeAssistantView):
     ) -> web.Response:
         del request
         try:
-            return _download_response(
+            return await _download_response(
                 require_runtime_data(self._hass),
                 scope="puppy",
                 litter_id=litter_id,

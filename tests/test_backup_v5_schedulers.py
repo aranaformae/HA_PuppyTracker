@@ -106,6 +106,7 @@ def test_v5_full_backup_round_trips_scheduler_snapshots(storage, install_litter)
         care_reminder_settings=CARE_SETTINGS,
         scheduler_data=schedulers,
     )
+    document["export_version"] = 5
     parsed = parse_export_json(json.dumps(document))
 
     assert parsed["export_version"] == 5

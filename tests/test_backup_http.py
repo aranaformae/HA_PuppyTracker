@@ -42,7 +42,7 @@ def test_signed_export_url_is_absolute(monkeypatch) -> None:
     assert len(registered_views) == 3
 
 
-def test_full_download_includes_external_scheduler_store_snapshots(storage) -> None:
+async def test_full_download_includes_external_scheduler_store_snapshots(storage) -> None:
     runtime = SimpleNamespace(
         storage=storage,
         care_reminders=SimpleNamespace(
@@ -78,10 +78,10 @@ def test_full_download_includes_external_scheduler_store_snapshots(storage) -> N
         ),
     )
 
-    response = backup_http._download_response(runtime, scope="full")
+    response = await backup_http._download_response(runtime, scope="full")
     payload = json.loads(response.text)
 
-    assert payload["export_version"] == 5
+    assert payload["export_version"] == 6
     assert payload["schedulers"] == {
         "version": 1,
         "care_programs": {"programs": {}},

@@ -142,7 +142,7 @@ async def test_full_export_and_replace_restore_preserves_identifiers(
     document = parse_export_json(content)
 
     assert mime == "application/json;charset=utf-8"
-    assert document["export_version"] == 5
+    assert document["export_version"] == 6
     assert document["care_reminders"] == CARE_SETTINGS
     assert document["schedulers"] == EMPTY_SCHEDULERS
     assert "states" not in document["care_reminders"]

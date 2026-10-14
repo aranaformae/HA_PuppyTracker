@@ -47,6 +47,40 @@ A central rule is that persistent scheduling definitions and historical facts ar
 
 ## Frontend presentation contracts
 
+Managed binary assets use `managed_files.py` and
+`managed_files_http.py`. The main store contains a bounded
+`settings.files` manifest (content-addressed SHA-256 ID, display name, MIME and
+size), plus `breeder.logo_file_id`. Binary bytes live in the dedicated
+`config/puppy_tracker/files` directory, with restrictive directory/file
+permissions. Files never use uploaded filenames as paths. Traversal IDs and
+symlinks are rejected; content checksums are verified on reads.
+
+The native Home Assistant FileSelector in breeder options consumes temporary
+uploads in an executor. Pillow (a Home Assistant core dependency) decodes only
+PNG/JPEG within byte/pixel limits, strips metadata and normalizes to bounded
+RGB JPEG. Filesystem reads, writes, decoding and cleanup run in the executor.
+Metadata saves happen after the new blob is durable; failed writes restore the
+previous references. Replacement/removal cleans unreferenced blobs only after
+commit. Temporary failures may leave a private orphan, retried by later cleanup.
+
+The authenticated file view serves only the currently linked branding asset;
+other registered/future attachments are not exposed by it. Preview/report URLs
+are signed for ten minutes. They are bearer links for that duration and must
+not be logged or published. Upload/removal uses the administrator-only native
+integration options flow. The existing local-path and bundled-logo fallback
+remain available without introducing general upload HTTP/WebSocket endpoints.
+
+Full backup format v6 carries the manifest and a separate `file_data` mapping
+of IDs to base64 bytes; v4/v5 remain readable. Missing/extra blobs, unsafe
+metadata and checksum mismatches are refused before restore. Deep image decoding
+and immutable-file staging precede the authoritative metadata save. Multi-store
+restore pins the original files until commit/rollback is complete, including
+cleanup invoked by concurrent breeder edits. Rollback restores the original
+metadata and drops newly unreferenced staged files. This is coordinated rollback,
+not crash-atomic filesystem/database transactions. Partial imports preserve
+destination branding; general attachment links and public serving policies for
+puppy/record documents are still future work (issue #19).
+
 `rolling_growth.py` derives 48/72-hour percentage series and a 48-hour
 time-weighted mean from effective measurement history. Duplicate instants are
 collapsed deterministically; cumulative trapezoidal areas and binary-search

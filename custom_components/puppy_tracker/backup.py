@@ -23,9 +23,10 @@ from .recurring_reminders import normalize_recurring_reminder_backup_data
 from .owners import normalize_owner_backup_data
 from .breeder import normalize_breeder
 from .feeding import normalize_feeding_settings
+from .managed_files import validate_manifest, validate_file_backup
 from .storage import PuppyTrackerStorage
 
-EXPORT_VERSION = 5
+EXPORT_VERSION = 6
 LEGACY_EXPORT_VERSION = 4
 SCHEDULER_BACKUP_VERSION = 1
 LEGACY_SCHEMA_VERSION = 7
@@ -33,7 +34,7 @@ CURRENT_SCHEMA_VERSION = MOTHER_SCHEMA_VERSION
 SUPPORTED_SCHEMA_VERSIONS = frozenset(
     {LEGACY_SCHEMA_VERSION, 8, CURRENT_SCHEMA_VERSION}
 )
-SUPPORTED_EXPORT_VERSIONS = frozenset({LEGACY_EXPORT_VERSION, EXPORT_VERSION})
+SUPPORTED_EXPORT_VERSIONS = frozenset({LEGACY_EXPORT_VERSION, 5, EXPORT_VERSION})
 VALID_SCOPES = frozenset({"full", "litter", "puppy"})
 VALID_IMPORT_MODES = {
     "full": frozenset({"replace_all", "merge_as_new"}),
@@ -268,6 +269,7 @@ def build_export_document(
     care_reminder_settings: dict[str, Any] | None = None,
     scheduler_data: dict[str, Any] | None = None,
     owner_data: dict[str, Any] | None = None,
+    file_data: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Build an authoritative JSON backup document."""
     if scope not in VALID_SCOPES:
@@ -295,6 +297,10 @@ def build_export_document(
         if scheduler_data is None:
             raise ValueError("scheduler_data is required for a full backup")
         document["data"] = data
+        manifest = data.get("settings", {}).get("files", {})
+        validate_file_backup(manifest, file_data or {})
+        if manifest:
+            document["file_data"] = deepcopy(file_data)
         document["care_reminders"] = _validate_care_reminder_settings(
             care_reminder_settings
         )
@@ -355,6 +361,7 @@ def serialize_export(
     care_reminder_settings: dict[str, Any] | None = None,
     scheduler_data: dict[str, Any] | None = None,
     owner_data: dict[str, Any] | None = None,
+    file_data: dict[str, str] | None = None,
 ) -> tuple[str, str, str]:
     """Return filename, MIME type, and JSON text for one backup."""
     document = build_export_document(
@@ -365,6 +372,7 @@ def serialize_export(
         care_reminder_settings=care_reminder_settings,
         scheduler_data=scheduler_data,
         owner_data=owner_data,
+        file_data=file_data,
     )
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
 
@@ -433,11 +441,17 @@ def parse_export_json(content: str) -> dict[str, Any]:
     scope = document.get("scope")
     if scope not in VALID_SCOPES:
         raise BackupValidationError("invalid_backup", f"Unsupported backup scope: {scope}")
+    if "file_data" in document and (export_version < 6 or scope != "full"):
+        raise BackupValidationError("invalid_backup", "Managed file content requires a full version 6 backup")
 
     if scope == "full":
         data = document.get("data")
         if not isinstance(data, dict) or not isinstance(data.get("litters"), dict):
             raise BackupValidationError("invalid_backup", "Full backup data is incomplete")
+        if not isinstance(data.get("settings", {}), dict):
+            raise BackupValidationError("invalid_backup", "Full backup settings must be an object")
+        if export_version < 6 and data.get("settings", {}).get("files"):
+            raise BackupValidationError("invalid_backup", "Managed files require backup format 6")
         if not isinstance(data.get("audit_log"), list):
             raise BackupValidationError("invalid_backup", "Full backup audit log is invalid")
         try:
@@ -455,6 +469,10 @@ def parse_export_json(content: str) -> dict[str, Any]:
         document["care_reminders"] = _validate_care_reminder_settings(
             document.get("care_reminders")
         )
+        try:
+            validate_file_backup(data.get("settings", {}).get("files", {}), document.get("file_data", {}))
+        except ValueError as err:
+            raise BackupValidationError("invalid_backup", str(err)) from err
         if export_version == LEGACY_EXPORT_VERSION:
             if "schedulers" in document:
                 raise BackupValidationError(
@@ -693,6 +711,9 @@ def _normalize_candidate_schema(candidate: dict[str, Any]) -> None:
         if not isinstance(settings, dict):
             raise ValueError("Settings must be an object")
         settings["breeder"] = normalize_breeder(settings.get("breeder"))
+        files = validate_manifest(settings.get("files", {}))
+        if settings["breeder"].get("logo_file_id") and settings["breeder"]["logo_file_id"] not in files:
+            raise ValueError("Managed logo is missing from the file manifest")
         for litter in candidate.get("litters", {}).values():
             if isinstance(litter, dict) and "feeding_settings" in litter:
                 litter["feeding_settings"] = normalize_feeding_settings(litter["feeding_settings"])
@@ -831,6 +852,14 @@ def prepare_import(
 
     if scope == "full":
         source_data = deepcopy(document["data"])
+        if not isinstance(source_data.get("settings", {}), dict):
+            raise BackupValidationError("invalid_backup", "Full backup settings must be an object")
+        if source_export_version < 6 and ("file_data" in document or source_data.get("settings", {}).get("files")):
+            raise BackupValidationError("invalid_backup", "Managed files require backup format 6")
+        try:
+            validate_file_backup(source_data.get("settings", {}).get("files", {}), document.get("file_data", {}))
+        except ValueError as err:
+            raise BackupValidationError("invalid_backup", str(err)) from err
         if mode == "replace_all":
             candidate = source_data
             result["replaces_all"] = True
@@ -988,6 +1017,7 @@ def prepare_import(
         "candidate": candidate,
         "base_updated_at": base_updated_at,
         "summary": result,
+        "file_data": deepcopy(document.get("file_data", {})) if result.get("replaces_all") else {},
     }
 
 
@@ -1009,8 +1039,15 @@ async def async_apply_import(
             )
 
         before = deepcopy(storage._data)
-        storage._data = candidate
         try:
+            if plan.get("summary", {}).get("replaces_all"):
+                try:
+                    blobs = validate_file_backup(candidate.get("settings", {}).get("files", {}), plan.get("file_data", {}))
+                except ValueError as err:
+                    raise BackupValidationError("invalid_import_plan", str(err)) from err
+                for file_id, content in blobs.items():
+                    await storage.files.async_write(file_id, content)
+            storage._data = candidate
             await storage.async_save()
         except Exception:
             storage._data = before
@@ -1019,6 +1056,10 @@ async def async_apply_import(
             except Exception:
                 # The original in-memory state is restored even when disk recovery
                 # itself also fails. Preserve the first exception for diagnostics.
+                pass
+            try:
+                await storage.files.async_cleanup(set(before.get("settings", {}).get("files", {})) | set(storage._file_restore_pins))
+            except (OSError, ValueError):
                 pass
             raise
 

@@ -2,7 +2,7 @@
 
 Puppy Tracker provides authoritative JSON backup and restore from the integration configuration in Home Assistant.
 
-> **Pre-1.0 backup contract:** new exports use backup format **v5**. The restore workflow also accepts production backup format **v4** for backward compatibility. Earlier experimental v2/v3 backups are intentionally rejected because backup/restore was not yet considered production-stable when those formats existed.
+> **Pre-1.0 backup contract:** new exports use backup format **v6**. The restore workflow also accepts production backup formats **v4/v5** for backward compatibility. Earlier experimental v2/v3 backups are intentionally rejected because backup/restore was not yet considered production-stable when those formats existed.
 
 ## Open Data management
 
@@ -15,8 +15,9 @@ Puppy Tracker provides authoritative JSON backup and restore from the integratio
 
 ### Complete Puppy Tracker backup
 
-Use this for disaster recovery. A current full v5 backup contains the authoritative Puppy Tracker data and the portable configuration needed to reconstruct scheduled care:
+Use this for disaster recovery. A current full v6 backup contains the authoritative Puppy Tracker data and the portable configuration needed to reconstruct scheduled care:
 
+- uploaded breeder logo bytes and their managed-file metadata (v6); legacy local-path images remain external files;
 - complete main storage, including mother/father contract identity, puppy
   registered/call names, coat colour, breed/type, litters, measurement versions,
   dossier records, settings and audit history;
@@ -29,15 +30,15 @@ Use this for disaster recovery. A current full v5 backup contains the authoritat
 - recurring-reminder definitions, including optional per-reminder notification lead-time overrides;
 - quarantined scheduler definitions preserved byte-for-byte as opaque compatibility data where possible.
 
-Scheduler and template definitions remain in their existing dedicated stores; the v5 backup envelope carries snapshots of those stores, together with owner data and the main database, so disaster recovery can restore them as one coordinated operation. Built-in care templates are code-defined and are not replaced by a restore.
+Scheduler and template definitions remain in their existing dedicated stores; the v6 backup envelope carries snapshots of those stores, together with owner data and the main database, so disaster recovery can restore them as one coordinated operation. Built-in care templates are code-defined and are not replaced by a restore.
 
 Operational delivery/deduplication state is deliberately **not** included. That state describes what the current Home Assistant runtime already delivered and must be rebuilt after a restore instead of being transferred as user configuration.
 
-Before a v5 full backup is emitted, Puppy Tracker validates active scheduler references against the authoritative main data. A care program must reference an existing litter. A recurring reminder must reference the exact existing litter, puppy or mother it claims to own. Quarantined definitions are not interpreted by this check because they may belong to a future schema this runtime cannot understand.
+Before a v5/v6 full backup is emitted, Puppy Tracker validates active scheduler references against the authoritative main data. A care program must reference an existing litter. A recurring reminder must reference the exact existing litter, puppy or mother it claims to own. Quarantined definitions are not interpreted by this check because they may belong to a future schema this runtime cannot understand.
 
 ### One complete litter
 
-Exports one litter with all puppies, full measurement/correction history, dossier records and the audit history belonging to that litter. This is an importable v5 partial backup. Global settings and scheduler stores are not included. The report card's JSON-nestback-up button produces this same format; it is not a full installation backup.
+Exports one litter with all puppies, full measurement/correction history, dossier records and the audit history belonging to that litter. This is an importable v6 partial backup. Global settings and scheduler stores are not included. The report card's JSON-nestback-up button produces this same format; it is not a full installation backup.
 
 ### One individual puppy
 
@@ -101,7 +102,7 @@ Every import follows the same sequence:
 4. Puppy Tracker builds the complete candidate database in memory.
 5. Supported legacy schema-7 data is normalized to the current mother-aware schema before it can be committed.
 6. The candidate is checked for normal storage integrity and mother-scope integrity.
-7. For a v5 full replacement, active care-program and recurring-reminder references are checked against that normalized candidate.
+7. For a v5/v6 full replacement, active care-program and recurring-reminder references are checked against that normalized candidate.
 8. Review the dry-run summary.
 9. Explicitly confirm the import.
 10. The candidate is written atomically.
@@ -114,7 +115,7 @@ Mother dossier exports follow the same explicit mapping rule for linked litter c
 
 ## Coordinated full restore
 
-A v5 **Replace all** restore is a coordinated multi-store transaction. The main Puppy Tracker storage, owner/contact store, portable care-reminder settings, age-based care-program store, user-owned care-template store and recurring-reminder store are treated as one restore operation.
+A v5/v6 **Replace all** restore is a coordinated multi-store transaction. The main Puppy Tracker storage, owner/contact store, portable care-reminder settings, age-based care-program store, user-owned care-template store and recurring-reminder store are treated as one restore operation.
 
 If saving one of those stores fails, Puppy Tracker restores the snapshots of every store already touched by the transaction. This prevents a failed disaster recovery from leaving the main database, owner data, templates and scheduler definitions at different points in time.
 
@@ -125,7 +126,7 @@ A v4 full backup predates portable owner, template and scheduler-store snapshots
 For a complete restore:
 
 1. Export a **Complete Puppy Tracker backup** regularly and store it outside Home Assistant.
-2. In the replacement or recovered Home Assistant installation, install a Puppy Tracker version that supports backup format v5/v4 and storage schema 7/8/9 restore.
+2. In the replacement or recovered Home Assistant installation, install a Puppy Tracker version that supports backup format v6/v5/v4 and storage schema 7/8/9 restore.
 3. Open **Data management → Import / restore backup**.
 4. Upload the full JSON backup.
 5. Choose **Replace all current Puppy Tracker data with this backup**.
@@ -134,7 +135,7 @@ For a complete restore:
 
 A full replacement preserves the identifiers from the backup. This is intentional for disaster recovery so restored litter, mother and puppy identities remain stable.
 
-For v5, the scheduler definitions are restored with those same identities. Cross-store validation therefore refuses orphaned or mismatched scheduler ownership before the transaction is allowed to commit.
+For v5/v6, the scheduler definitions are restored with those same identities. Cross-store validation therefore refuses orphaned or mismatched scheduler ownership before the transaction is allowed to commit.
 
 Portable care-reminder preferences are restored. Delivery state is rebuilt instead of copied so a restored installation does not inherit stale “already sent” state from another runtime.
 
@@ -160,15 +161,15 @@ Owner/contact records and scheduler/template definitions are intentionally not p
 
 A complete backup can also be imported while keeping current Puppy Tracker data. In **merge as new** mode, each litter from the backup receives new identifiers and is added alongside existing data.
 
-Because merge-as-new changes litter and puppy identities, a v5 full backup containing scheduler definitions or scheduler quarantine data is currently refused in this mode. Scheduler identifier remapping must be explicit before such a merge can be considered safe.
+Because merge-as-new changes litter and puppy identities, a v5/v6 full backup containing scheduler definitions or scheduler quarantine data is currently refused in this mode. Scheduler identifier remapping must be explicit before such a merge can be considered safe.
 
-A v5 full backup with an empty scheduler envelope can still be merged as new. A legacy v4 merge keeps the destination installation's existing scheduler stores and global care-reminder preferences.
+A v5/v6 full backup with an empty scheduler envelope can still be merged as new. A legacy v4 merge keeps the destination installation's existing scheduler stores and global care-reminder preferences.
 
-Use full replacement only for intentional disaster recovery. Use merge-as-new when both the current and backup datasets need to remain available and the backup contains no scheduler identity data that would require remapping. For a quick litter transfer, use the importable litter v5 export from the report card or Data management.
+Use full replacement only for intentional disaster recovery. Use merge-as-new when both the current and backup datasets need to remain available and the backup contains no scheduler identity data that would require remapping. For a quick litter transfer, use the importable litter v6 export from the report card or Data management.
 
 ## Compatibility
 
-The restore workflow accepts backup formats **v4 and v5**.
+The restore workflow accepts backup formats **v4, v5 and v6**.
 
 Supported main-storage schemas are **7, 8 and 9**. Schemas 7 and 8 are treated
 as supported legacy inputs and are normalized to current schema 9 in the
@@ -177,7 +178,7 @@ unknown storage schemas are rejected rather than guessed. Legacy owner records
 with a single free-form address retain that complete value as the street field;
 postal code and city are not guessed.
 
-Backup v5 is the current format and adds portable scheduler-store snapshots plus coordinated restore semantics. Backup v4 remains readable so existing production backups do not become unusable merely because scheduler backup support was added.
+Backup v6 is the current format and embeds managed logo files with validated IDs and checksums. Backup v5 introduced portable scheduler-store snapshots plus coordinated restore semantics. Backup v4 remains readable so existing production backups do not become unusable merely because scheduler backup support was added.
 
 Earlier experimental backup formats v2/v3 remain intentionally unsupported.
 
@@ -185,8 +186,22 @@ Earlier experimental backup formats v2/v3 remain intentionally unsupported.
 
 Puppy Tracker resynchronizes devices and refreshes dashboard data after a successful import.
 
-After a v5 full replacement, restored care-program and recurring-reminder definitions again derive their due state from the restored authoritative data. Notification/delivery deduplication state is not transferred and is rebuilt by the running integration.
+After a v5/v6 full replacement, restored care-program and recurring-reminder definitions again derive their due state from the restored authoritative data. Notification/delivery deduplication state is not transferred and is rebuilt by the running integration.
 
 After a v4 full replacement, the scheduler stores already present on the destination are left untouched because v4 had no portable scheduler snapshot to restore.
 
 Keep the original JSON file until the restored data has been checked in the Puppy Tracker cards and integration configuration.
+## Managed logo files
+
+Full v6 backups embed registered managed logo files in `file_data`. Restores
+validate IDs, types, sizes and SHA-256 checksums, stage immutable blobs and save
+their metadata with the database. A later scheduler/owner failure restores the
+previous database and logo; original files stay pinned until the complete
+transaction finishes. This is best-effort rollback across files/stores, not
+crash-atomic filesystem storage. Missing managed files cause full export to
+fail rather than silently producing an incomplete recovery backup.
+
+Partial transfers and full merge-as-new keep the destination logo unchanged.
+Removing/replacing a logo does not modify already downloaded backups. Legacy
+`/local/...` images are not embedded; back up their `www` files separately.
+See [Managed Files](MANAGED_FILES.md) for uploads, previews and limits.

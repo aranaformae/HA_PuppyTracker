@@ -296,16 +296,20 @@
       },
       "breeder": {
         "title": "Fokkersgegevens",
-        "description": "Deze gegevens gelden voor alle PDF-rapporten. Kies op de rapportkaart welke onderdelen zichtbaar zijn.",
+        "description": "Deze gegevens gelden voor alle PDF-rapporten. Kies op de rapportkaart welke onderdelen zichtbaar zijn.\n\n{logo_preview}",
         "data": {
           "name": "Fokkersnaam / kennelnaam",
           "contact": "Contactgegevens",
-          "logo_url": "Pad naar logo"
+          "logo_url": "Pad naar logo",
+          "logo_upload": "Logo uploaden",
+          "remove_logo": "Geüpload logo verwijderen"
         },
         "data_description": {
           "name": "Maximaal 200 tekens.",
           "contact": "Bijvoorbeeld e-mail, telefoon en adres, maximaal 2000 tekens. Contactgegevens blijven standaard uit in het rapport.",
-          "logo_url": "Bijvoorbeeld /local/logo.png voor /config/www/logo.png. PNG/JPEG op deze Home Assistant-server. Leeg gebruikt het meegeleverde logo."
+          "logo_url": "Optionele fallback, bijvoorbeeld /local/logo.png. Een geüpload logo krijgt voorrang; zonder beide wordt het ingebouwde logo gebruikt.",
+          "logo_upload": "PNG/JPEG, maximaal 2 MB en 16 miljoen pixels. Wordt veilig opgeslagen en meegenomen in volledige backups.",
+          "remove_logo": "Verwijdert alleen het geüploade logo. Het ingestelde logopad blijft als fallback beschikbaar. Niet combineren met uploaden."
         }
       },
       "settings": {
@@ -431,7 +435,9 @@
       "invalid_import_mode": "Deze importmodus is niet geldig voor de geüploade back-up.",
       "invalid_import_target": "Het geselecteerde doelnest bestaat niet meer.",
       "backup_too_large": "De back-up is groter dan de importlimiet van 20 MB.",
-      "storage_changed": "Puppy Tracker-data is na de voorvertoning gewijzigd. Controleer de back-up opnieuw voordat je importeert."
+      "storage_changed": "Puppy Tracker-data is na de voorvertoning gewijzigd. Controleer de back-up opnieuw voordat je importeert.",
+      "invalid_logo": "Kies een geldige PNG/JPEG van maximaal 2 MB en 16 miljoen pixels. Kies uploaden óf verwijderen en selecteer het bestand opnieuw.",
+      "logo_save_failed": "Logo kon niet worden opgeslagen. De vorige instellingen blijven behouden; selecteer het bestand opnieuw en probeer nogmaals."
     },
     "abort": {
       "no_litters": "Er zijn nog geen nesten beschikbaar.",

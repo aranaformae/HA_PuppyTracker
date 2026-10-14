@@ -191,7 +191,7 @@ def test_json_preserves_full_measurement_history_and_litter_audit(
 
     measurements = document["litter"]["puppies"][puppy_id]["measurements"]
     assert mime == "application/json;charset=utf-8"
-    assert document["export_version"] == 5
+    assert document["export_version"] == 6
     assert document["scope"] == "litter"
     assert {item["id"] for item in measurements} == {"old", "new"}
     assert document["audit_log"] == [
