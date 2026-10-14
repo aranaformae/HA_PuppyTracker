@@ -11,7 +11,16 @@ export function feedingSettingsFromStored(value = {}) {
   else if (value?.kibble_formula) foods.kibble.method = value.kibble_formula;
   if (value?.meat) foods.meat = structuredClone(value.meat);
   else if (value?.kivo_grams_per_kg != null) foods.meat.grams_per_kg = value.kivo_grams_per_kg;
-  return { meatPercent: value?.meat_percent ?? 50, portions: value?.portions_per_day ?? 4, ...foods };
+  const share = value?.meat_percent ?? 50;
+  let kibblePortions = 1, meatPortions = 2;
+  if (value?.portions_per_day != null) {
+    const total = Math.max(2, Number(value.portions_per_day));
+    kibblePortions = Number(share) === 100 ? 0 : Number(share) === 0 ? Number(value.portions_per_day)
+      : Math.max(1, Math.min(total - 1, Math.floor(total * (1 - Number(share) / 100) + 0.5)));
+    meatPortions = Number(share) === 0 ? 0 : Number(share) === 100 ? Number(value.portions_per_day) : total - kibblePortions;
+  }
+  return { meatPercent: share, kibblePortions: value?.kibble_portions_per_day ?? kibblePortions,
+    meatPortions: value?.meat_portions_per_day ?? meatPortions, ...foods };
 }
 
 function validFood(food) {
@@ -33,13 +42,28 @@ function validFood(food) {
 }
 
 export function feedingSettingsForStorage(value) {
-  const share = Number(value.meatPercent), portions = Number(value.portions);
-  if (value.meatPercent == null || String(value.meatPercent).trim() === "" || typeof value.meatPercent === "boolean" || typeof value.portions === "boolean"
-      || !Number.isFinite(share) || share < 0 || share > 100 || !Number.isInteger(portions) || portions < 1 || portions > 12
+  const share = Number(value.meatPercent);
+  const validPortions = (count, active) => count != null && typeof count !== "boolean" && String(count).trim() !== ""
+    && Number.isInteger(Number(count)) && Number(count) >= (active ? 1 : 0) && Number(count) <= 12;
+  if (value.meatPercent == null || String(value.meatPercent).trim() === "" || typeof value.meatPercent === "boolean"
+      || !Number.isFinite(share) || share < 0 || share > 100
+      || !validPortions(value.kibblePortions, share < 100) || !validPortions(value.meatPortions, share > 0)
       || !validFood(value.kibble) || !validFood(value.meat)) return null;
   const food = (profile) => Object.fromEntries(Object.entries(profile).map(([key, value]) =>
     [key, key === "method" ? value : key === "table" ? value.map((row) => row.map(Number)) : Number(value)]));
-  return { meat_percent: share, portions_per_day: portions, kibble: food(value.kibble), meat: food(value.meat) };
+  return { meat_percent: share, kibble_portions_per_day: Number(value.kibblePortions),
+    meat_portions_per_day: Number(value.meatPortions), kibble: food(value.kibble), meat: food(value.meat) };
+}
+
+function scheduleForProfile(profile) {
+  const kibble = profile.meat_percent < 100 ? profile.kibble_portions_per_day : 0;
+  const meat = profile.meat_percent > 0 ? profile.meat_portions_per_day : 0;
+  return { kibble, meat, total: kibble + meat };
+}
+
+export function feedingSchedule(settings) {
+  const profile = feedingSettingsForStorage(settings);
+  return profile ? scheduleForProfile(profile) : null;
 }
 
 export function foodDailyAmount(weightKg, food) {
@@ -69,8 +93,9 @@ export function calculateFeedingForWeight(weightGrams, settings = feedingSetting
   if (kibbleBase === null || meatBase === null) return { status: "outside_food_range", food: kibbleBase === null ? "kibble" : "meat" };
   const meatDaily = meatBase * share, kibbleDaily = kibbleBase * (1 - share), totalDaily = meatDaily + kibbleDaily;
   if (!Number.isFinite(totalDaily)) return { status: "invalid_settings" };
+  const schedule = scheduleForProfile(profile);
   return { status: "ok", meatDaily, kibbleDaily, totalDaily,
-    meatPerPortion: meatDaily / profile.portions_per_day,
-    kibblePerPortion: kibbleDaily / profile.portions_per_day,
-    totalPerPortion: totalDaily / profile.portions_per_day };
+    meatPerPortion: schedule.meat ? meatDaily / schedule.meat : null,
+    kibblePerPortion: schedule.kibble ? kibbleDaily / schedule.kibble : null,
+    feedingMoments: schedule.total };
 }

@@ -13,7 +13,7 @@ import {
   subscribeUpdates,
 } from "./puppy-tracker-card-common.js";
 import { collarColor } from "./puppy-tracker-collar-chart-colors.js";
-import { calculateFeedingForWeight, feedingSettingsFromStored, feedingSettingsForStorage } from "./puppy-tracker-feeding-calculator.js";
+import { calculateFeedingForWeight, feedingSchedule, feedingSettingsFromStored, feedingSettingsForStorage } from "./puppy-tracker-feeding-calculator.js";
 
 const TEXT = {
   nl: {
@@ -44,11 +44,13 @@ const TEXT = {
     tableWeight: "Gewicht (kg)", tableGrams: "Volledig dagrantsoen (g)", addRow: "Rij toevoegen", removeRow: "Rij verwijderen", foodSettings: "{food}: instellingen", fixedRate: "Gram per kg per dag",
     meatShare: "Aandeel vlees", ratio: "{meat}% vlees / {kibble}% brokken",
 
-    portions: "Porties per dag", perDay: "Per dag", perPortion: "Per portie",
+    kibblePortions: "Porties brokken per dag", meatPortions: "Porties vlees per dag",
+    feedingMoments: "{count} voedingsmomenten per dag", feedingMoment: "1 voedingsmoment per dag",
+    feedingBreakdown: "{kibble} × brokken · {meat} × vlees", perDay: "Per dag", perPortion: "Per portie",
     kibble: "Brokken", meat: "Vlees", combined: "Totaal",
-    feedingInvalid: "Controleer porties (1–12), verhouding, positieve hoeveelheden, gewichtsbereik en oplopende tabelgewichten.",
+    feedingInvalid: "Controleer porties (1–12 per gebruikte voeding), verhouding, positieve hoeveelheden, gewichtsbereik en oplopende tabelgewichten.",
     outsideRange: "{food}: buiten het ingestelde gewichtsbereik. Deze pup is niet meegerekend.",
-    feedingTotal: "Nesttotaal per dag", feedingPortionTotal: "Nesttotaal per portie",
+    feedingTotal: "Nesttotaal per dag",
     feedingBasis: "Verhouding van volledige dagrantsoenen",
     feedingSaving: "Voedingsinstellingen opslaan…", feedingSaved: "Voedingsinstellingen opgeslagen",
     feedingUnsaved: "Voedingsinstellingen nog niet opgeslagen", feedingSaveFailed: "Opslaan mislukt; wijziging is nog niet opgeslagen.",
@@ -82,11 +84,13 @@ const TEXT = {
     tableWeight: "Weight (kg)", tableGrams: "Full daily ration (g)", addRow: "Add row", removeRow: "Remove row", foodSettings: "{food}: settings", fixedRate: "Grams per kg per day",
     meatShare: "Meat share", ratio: "{meat}% meat / {kibble}% kibble",
 
-    portions: "Portions per day", perDay: "Per day", perPortion: "Per portion",
+    kibblePortions: "Kibble portions per day", meatPortions: "Meat portions per day",
+    feedingMoments: "{count} feeding moments per day", feedingMoment: "1 feeding moment per day",
+    feedingBreakdown: "{kibble} × kibble · {meat} × meat", perDay: "Per day", perPortion: "Per portion",
     kibble: "Kibble", meat: "Meat", combined: "Total",
-    feedingInvalid: "Check portions (1–12), ratio, positive amounts, weight range and increasing table weights.",
+    feedingInvalid: "Check portions (1–12 per included food), ratio, positive amounts, weight range and increasing table weights.",
     outsideRange: "{food}: outside the configured weight range. This puppy is not included.",
-    feedingTotal: "Litter total per day", feedingPortionTotal: "Litter total per portion",
+    feedingTotal: "Litter total per day",
     feedingBasis: "Share of complete daily rations",
     feedingSaving: "Saving feeding settings…", feedingSaved: "Feeding settings saved",
     feedingUnsaved: "Feeding settings not saved yet", feedingSaveFailed: "Save failed; this change has not been saved.",
@@ -391,7 +395,8 @@ class PuppyTrackerCalculatorCard extends HTMLElement {
     const field = (kind, key, label) => `<label>${escapeHtml(text(this, label))}<input id="feeding-${kind}-${key}" type="number" min="0" step="any" inputmode="decimal" data-food="${kind}" data-key="${key}" value="${escapeHtml(settings[kind][key])}"></label>`;
     return `<div class="inputs feeding-inputs">
       <label>${escapeHtml(text(this, "meatShare"))}<output id="feeding-ratio" for="feeding-meat"></output><input id="feeding-meat" type="range" min="0" max="100" step="1" value="${settings.meatPercent}" aria-label="${escapeHtml(text(this, "meatShare"))}"></label>
-      <label>${escapeHtml(text(this, "portions"))}<input id="feeding-portions" type="number" min="1" max="12" step="1" inputmode="numeric" value="${escapeHtml(settings.portions)}"></label>
+      <div class="feeding-meals">${["kibble", "meat"].map((kind) => `<label>${escapeHtml(text(this, kind + "Portions"))}<input id="feeding-${kind}-portions" type="number" min="1" max="12" step="1" inputmode="numeric" value="${escapeHtml(settings[kind + "Portions"])}"></label>`).join("")}
+        <div class="feeding-meal-count" role="status" aria-live="polite"><strong id="feeding-moments"></strong><small id="feeding-breakdown"></small></div></div>
       ${["kibble", "meat"].map((kind) => `<section class="food-settings"><label>${escapeHtml(text(this, kind))} · ${escapeHtml(text(this, "method"))}<select id="feeding-${kind}-method" data-food="${kind}" data-key="method">
         ${[["linear", "linearFormula"], ["table", "tableFormula"], ["per_kg", "fixedFormula"]].map(([method, label]) => `<option value="${method}" ${settings[kind].method === method ? "selected" : ""}>${escapeHtml(text(this, label))}</option>`).join("")}</select></label>
         <details><summary>${escapeHtml(text(this, "foodSettings", { food: text(this, kind) }))}</summary>
@@ -426,13 +431,13 @@ class PuppyTrackerCalculatorCard extends HTMLElement {
 
   _feedingResult() {
     return `<div class="feeding-result"><span></span><span>${escapeHtml(text(this, "perDay"))}</span><span>${escapeHtml(text(this, "perPortion"))}</span>
-      ${["kibble", "meat", "total"].map((kind) => `<span>${escapeHtml(text(this, kind === "total" ? "combined" : kind))}</span><strong data-feeding-${kind}-daily>—</strong><strong data-feeding-${kind}-portion>—</strong>`).join("")}
+      ${["kibble", "meat", "total"].map((kind) => `<span>${escapeHtml(text(this, kind === "total" ? "combined" : kind))}</span><strong data-feeding-${kind}-daily>—</strong>${kind === "total" ? '<span></span>' : `<strong data-feeding-${kind}-portion>—</strong>`}`).join("")}
       <small class="feeding-row-note" data-feeding-note></small></div>`;
   }
 
   _feedingTotals() {
     return `<div class="feeding-summary"><span>${escapeHtml(text(this, "feedingBasis"))}</span><span id="feeding-basis"></span></div>
-      <div class="feeding-totals"><h3>${escapeHtml(text(this, "total"))}</h3><div class="feeding-result"><span></span><span>${escapeHtml(text(this, "perDay"))}</span><span>${escapeHtml(text(this, "perPortion"))}</span>${["kibble", "meat", "total"].map((kind) => `<span>${escapeHtml(text(this, kind === "total" ? "combined" : kind))}</span><strong data-feeding-sum-${kind}-daily>—</strong><strong data-feeding-sum-${kind}-portion>—</strong>`).join("")}</div></div>`;
+      <div class="feeding-totals"><h3>${escapeHtml(text(this, "total"))}</h3><div class="feeding-result"><span></span><span>${escapeHtml(text(this, "perDay"))}</span><span>${escapeHtml(text(this, "perPortion"))}</span>${["kibble", "meat", "total"].map((kind) => `<span>${escapeHtml(text(this, kind === "total" ? "combined" : kind))}</span><strong data-feeding-sum-${kind}-daily>—</strong>${kind === "total" ? '<span></span>' : `<strong data-feeding-sum-${kind}-portion>—</strong>`}`).join("")}</div></div>`;
   }
 
   _render() {
@@ -464,7 +469,7 @@ class PuppyTrackerCalculatorCard extends HTMLElement {
     const shellKey = JSON.stringify([this._config, this._mode, languageForHass(this._hass), this._litters, this._selectedLitterId, this._loading, this._error, this._data?.can_manage_records]);
     // Weight refreshes leave the controls mounted, including a pending Safari click.
     if (shellKey === this._shellKey) {
-      for (const [id, key] of [["feeding-meat", "meatPercent"], ["feeding-portions", "portions"]]) {
+      for (const [id, key] of [["feeding-meat", "meatPercent"], ["feeding-kibble-portions", "kibblePortions"], ["feeding-meat-portions", "meatPortions"]]) {
         const input = this.shadowRoot.getElementById(id);
         if (input) input.value = String(this._feeding[key]);
       }
@@ -488,6 +493,7 @@ class PuppyTrackerCalculatorCard extends HTMLElement {
       @container calculator-card (max-width:390px){ha-card{padding:13px}.inputs{grid-template-columns:1fr}.result-head{align-items:start}.total strong{font-size:17px}.puppy-row{padding:10px}.amount strong{font-size:17px}}
       .modes{display:flex;margin-top:12px;border-bottom:1px solid var(--divider-color);gap:8px}.modes button{flex:1;min-height:44px;border:0;border-bottom:3px solid transparent;background:transparent;color:var(--secondary-text-color);font:inherit;cursor:pointer}.modes button[aria-selected="true"]{border-color:var(--primary-color);color:var(--primary-color);font-weight:650}.feeding-inputs{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.feeding-inputs output{font-size:13px;color:var(--primary-text-color)}input[type="range"]{padding:0;border:0;accent-color:var(--primary-color);background:transparent;min-height:44px;touch-action:pan-y}.feeding-row{grid-template-columns:minmax(130px,1fr) minmax(100px,.8fr) minmax(215px,1.3fr)}.feeding-result{display:grid;grid-template-columns:minmax(50px,.8fr) minmax(60px,1fr) minmax(60px,1fr);gap:5px 8px;align-items:center;font-size:13px}.feeding-result>span{font-size:11px;color:var(--secondary-text-color)}.feeding-result>strong{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}.feeding-result>span:nth-child(2),.feeding-result>span:nth-child(3){text-align:right}.feeding-row-note{grid-column:1/-1;color:var(--warning-color,var(--secondary-text-color));font-size:11px}.feeding-totals{margin:8px 0 12px;padding-bottom:10px;border-bottom:1px solid var(--divider-color)}.feeding-summary{margin:8px 0;font-size:12px;color:var(--secondary-text-color);line-height:1.5}.feeding-summary span{display:block}.feeding-count{font-size:11px;color:var(--secondary-text-color);margin-top:5px}.mode-result-head .total strong{font-size:18px}.mode-result-head{grid-template-columns:1fr}
       @container calculator-card (max-width:620px){.feeding-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"identity weight" "feeding feeding"}.feeding-row .weight{border-top:0;padding-top:0;text-align:right}.feeding-result{grid-area:feeding;border-top:1px solid var(--divider-color);padding-top:9px}.feeding-inputs{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+      .feeding-meals{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;min-width:0}.feeding-meal-count{grid-column:1/-1;min-height:36px;font-size:12px;overflow-wrap:anywhere}.feeding-meal-count strong,.feeding-meal-count small{display:block}.feeding-meal-count small{margin-top:3px;color:var(--secondary-text-color)}.feeding-meals label{min-width:0;overflow-wrap:anywhere}
       [hidden]{display:none!important}
       .food-settings{min-width:0}.food-settings label{min-width:0;overflow-wrap:anywhere}.food-settings input{min-width:0}
       .food-settings details{margin-top:8px}.food-settings details>div{margin-top:8px}
@@ -536,7 +542,7 @@ class PuppyTrackerCalculatorCard extends HTMLElement {
       this._render();
       this.shadowRoot.querySelector(`[data-calculator-mode="${this._mode}"]`)?.focus({ preventScroll: true });
     }));
-    for (const [id, key] of [["feeding-meat", "meatPercent"], ["feeding-portions", "portions"]]) {
+    for (const [id, key] of [["feeding-meat", "meatPercent"], ["feeding-kibble-portions", "kibblePortions"], ["feeding-meat-portions", "meatPortions"]]) {
       this.shadowRoot.getElementById(id)?.addEventListener("input", (event) => {
         this._feeding[key] = event.target.value;
         const state = this._feedingByLitter.get(this._selectedLitterId);
@@ -643,10 +649,24 @@ class PuppyTrackerCalculatorCard extends HTMLElement {
   _updateFeeding() {
     const settings = this._feeding;
     const put = (selector, value, root = this.shadowRoot) => { const element = root.querySelector(selector); if (element) element.textContent = value; };
-    const grams = (value) => `${formatNumber(value, this._hass, 1)} g`;
+    const grams = (value) => value == null ? "—" : `${formatNumber(value, this._hass, 1)} g`;
     put("#feeding-ratio", text(this, "ratio", { meat: settings.meatPercent, kibble: 100 - Number(settings.meatPercent) }));
     put("#feeding-basis", `${this._foodSummary("kibble")} · ${this._foodSummary("meat")}`);
-    const totals = { kibbleDaily: 0, meatDaily: 0, totalDaily: 0, kibblePerPortion: 0, meatPerPortion: 0, totalPerPortion: 0 };
+    const schedule = feedingSchedule(settings);
+    put("#feeding-moments", schedule ? text(this, schedule.total === 1 ? "feedingMoment" : "feedingMoments", { count: schedule.total }) : "—");
+    put("#feeding-breakdown", schedule ? text(this, "feedingBreakdown", schedule) : "");
+    for (const kind of ["kibble", "meat"]) {
+      const input = this.shadowRoot.getElementById(`feeding-${kind}-portions`);
+      const inactive = kind === "kibble" ? Number(settings.meatPercent) === 100 : Number(settings.meatPercent) === 0;
+      if (input) {
+        if (inactive) input.value = "0";
+        else if (input.dataset.inactive === "true") input.value = String(settings[kind + "Portions"]);
+        input.dataset.inactive = String(inactive);
+        input.min = inactive ? "0" : "1";
+        input.disabled = inactive || this._data?.can_manage_records === false || this._data?.litter?.id !== this._selectedLitterId;
+      }
+    }
+    const totals = { kibbleDaily: 0, meatDaily: 0, totalDaily: 0, kibblePerPortion: 0, meatPerPortion: 0 };
     let count = 0;
     let invalid = false;
     this.shadowRoot.querySelectorAll("[data-puppy-id]").forEach((row) => {
@@ -668,7 +688,7 @@ class PuppyTrackerCalculatorCard extends HTMLElement {
     this.shadowRoot.getElementById("calculator-hint")?.classList.toggle("invalid", invalid);
     for (const kind of ["kibble", "meat", "total"]) {
       put(`[data-feeding-sum-${kind}-daily]`, count ? grams(totals[`${kind}Daily`]) : "—");
-      put(`[data-feeding-sum-${kind}-portion]`, count ? grams(totals[`${kind}PerPortion`]) : "—");
+      put(`[data-feeding-sum-${kind}-portion]`, count && schedule?.[kind] ? grams(totals[`${kind}PerPortion`]) : "—");
     }
     put("#calculator-count", count === 1 ? text(this, "calculatedPuppy") : text(this, "calculatedPuppies", { count }));
     this._updateFeedingStatus();

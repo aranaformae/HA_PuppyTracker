@@ -193,7 +193,10 @@ complete shared dossier category list, so temperature, deworming and
 medication do not require switching to the Journal Workspace.
 Changing the litter in any visible Workspace surface updates the other tabs.
 The Calculator's Feeding variant combines kibble and meat, with a meat-share
-slider and equal portions per day. Each food independently supports an editable
+slider and independent kibble/meat portion counts per day. The card shows the
+total feeding moments with their food breakdown; per-portion quantities are
+calculated separately, without a combined per-portion total.
+Each food independently supports an editable
 formula, weight table or fixed g/kg rate. Expand its settings to inspect or
 change the calculation. Results show both foods and their total per puppy and
 for the litter.

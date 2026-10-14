@@ -1009,25 +1009,36 @@ The same Calculator surface offers `default_mode: feeding`. A pure module,
 Each food independently supports `linear` (coefficient x kg + offset),
 `table` (piecewise interpolation) or `per_kg` (kg x fixed daily rate).
 Each food's full daily ration is multiplied by its selected share before sums
-and equal portions are calculated. Neither food is added at full quantity when
+and portions of each food are calculated using their independent counts.
+Neither food is added at full quantity when
 the other food is also selected. This is proportional ration planning, not
 energy or nutrient matching. Formulas respect their configured weight range;
 tables respect the first/last row without extrapolation. Zero-share foods do
 not impose a range restriction. Validation returns explicit missing-weight,
 invalid-settings or out-of-range states, which are excluded from litter totals.
 Feeding preferences are persisted per litter as `feeding_settings` with
-`meat_percent`, `portions_per_day` and nested `kibble`/`meat` profiles.
+`meat_percent`, `kibble_portions_per_day`, `meat_portions_per_day` and nested
+`kibble`/`meat` profiles. Counts are whole numbers up to 12, positive for an
+included food; zero is allowed for an excluded food. Feeding moments are derived
+from included-food counts, never multiplied by the number of puppies.
 Each profile contains `method`, `grams_per_kg`, `coefficient`, `offset`,
 `min_kg`, `max_kg` and a `table` of [kg, daily grams] rows. Unselected
 method values are retained when switching. `feeding.py` validates finite
 non-negative formula values, positive rates, ordered weight ranges, whole
 portions and 2–100 strictly increasing positive table weights/positive rations.
 The original flat `kivo_grams_per_kg`/`kibble_formula` preferences normalize
-to these profiles, preserving previously calculated amounts;
+to these profiles. An old shared `portions_per_day` count splits by ration
+share, rounding half upward and retaining at least one moment per included
+food. If both foods were given in one mixed portion, two separate moments are
+needed. Daily rations are unchanged; per-food portions follow the new counts.
+The frontend uses the same conversion, and no combined per-portion total is
+returned or displayed. Zero-share foods impose neither weight-range nor meal
+count contributions. Converted profiles are validated in backups as well;
 the admin-only `puppy_tracker/feeding_settings/update` websocket endpoint saves
 atomically, audits changes and dispatches a dashboard update. Calculated amounts
 and feeding events are not persisted by the calculator. Older litters use the
-50% meat/four portions, the original kibble table and a 45 g/kg meat rate.
+50% meat/one kibble portion/two meat portions, the original kibble table and a
+45 g/kg meat rate.
 Full and litter backups carry
 and validate the preferences; puppy-only imports preserve the destination plan.
 

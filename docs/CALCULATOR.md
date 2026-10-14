@@ -34,8 +34,11 @@ advice.
 
 The Feeding variant shows **Kibble**, **Meat** and their combined mass for every
 puppy, per day and per portion. A litter total shows the same breakdown for
-the puppies successfully calculated. Choose 0 to 100% meat and 1 to 12 equal
-portions per day. Defaults are 50% meat and four portions.
+the puppies successfully calculated. Choose 0 to 100% meat and independently
+set **Kibble portions per day** and **Meat portions per day** (1–12 for each
+included food). Defaults are 50% meat, one kibble portion and two meat portions.
+The card shows **3 feeding moments per day: 1 kibble and 2 meat** in this case.
+Meals are separate food moments; this does not schedule their clock times.
 
 Each food has its own calculation method. Open **Kibble: settings** or
 **Meat: settings** to inspect and change its values:
@@ -78,14 +81,22 @@ percentage of combined grams:
 meat/day = full meat daily ration x meat share
 kibble/day = full kibble daily ration x (1 - meat share)
 total/day = meat/day + kibble/day
-each amount/portion = amount/day / portions per day
+kibble/portion = kibble/day / kibble portions per day
+meat/portion = meat/day / meat portions per day
+feeding moments = kibble portions + meat portions (included foods only)
 ```
 
 For example, with a kibble table value of 96 g/day at 2 kg, a meat rate of
 40 g/kg/day and a 50% meat share, the result is 48 g kibble and 40 g meat per
-day. Four portions contain 12 g kibble and 10 g meat each. It does not add two
+day. With one kibble portion and two meat portions, give 48 g kibble at the
+kibble moment and 20 g meat at each of the two meat moments. There are three
+moments, not three mixed portions. No combined "total per portion" is shown,
+because portions of different foods are separate meals. It does not add two
 complete rations, balance calories or nutrients, or assess diet suitability.
-It assumes every portion has the same mix. Use product instructions or
+Portions of the same food are equal; portions of different foods need not have
+the same mass. A 0% food has no feeding moments, its portion input shows zero and is disabled
+and its per-portion result is shown as a dash. Its configured count is retained
+for when that food is included again. Use product instructions or
 veterinary advice for suitable amounts.
 
 Missing weights and weights outside an active food's table/formula range are
@@ -94,7 +105,7 @@ which food is out of range. A food with a 0% share does not impose its weight
 range. Older weights remain calculated and marked. Results are rounded to one
 decimal gram for display; totals use unrounded values.
 
-All food profiles, the meat share and number of portions save automatically
+All food profiles, the meat share and both portion counts save automatically
 **per litter** when you finish a change. They return after reloading and are
 shared with other devices. Only administrators can change these preferences.
 Calculation updates do not rebuild the controls or move input focus.
@@ -103,7 +114,12 @@ and **Retry save** lets you try again. Invalid values are not saved.
 
 Full and litter backups include these settings. Importing a single puppy into
 an existing litter does not change that litter's plan. Previously saved
-calculator preferences are converted without changing their calculations.
+calculator preferences retain their daily rations. An old shared portion count
+is split between kibble and meat according to the selected ratio, with at least
+one moment per included food. Four shared portions at 50% become two kibble
+and two meat moments. A single shared mixed portion becomes two separate
+moments if both foods are included. Review these converted counts before use;
+per-portion quantities now follow the separate meals instead of the old mix.
 The calculator does not write feeding records or automatically dose anything.
 
 ## Configuration

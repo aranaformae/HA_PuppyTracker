@@ -63,14 +63,14 @@ async function mountCalculator(page, config = {}) {
 
 test("late feeding refresh cannot overwrite a newer saved preference @cross-browser @tablet", async ({ page }) => {
   const card = await mountCalculator(page, { default_mode: "feeding" });
-  await expect(card.locator("#feeding-portions")).toHaveValue("4");
+  await expect(card.locator("#feeding-meat-portions")).toHaveValue("2");
   await page.evaluate(() => {
     window.__feedingReadGate = new Promise((resolve) => { window.__releaseFeedingRead = resolve; });
     document.querySelector("#calculator")._queueRefresh();
   });
   await page.waitForFunction(() => window.__feedingReadStarted);
-  await card.locator("#feeding-portions").fill("6");
-  await card.locator("#feeding-portions").dispatchEvent("change");
+  await card.locator("#feeding-meat-portions").fill("6");
+  await card.locator("#feeding-meat-portions").dispatchEvent("change");
   await expect(card.locator("#feeding-save-status")).toHaveText("Voedingsinstellingen opgeslagen");
   await page.evaluate(() => {
     window.__feedingReadGate = null;
@@ -78,7 +78,7 @@ test("late feeding refresh cannot overwrite a newer saved preference @cross-brow
     document.querySelector("#calculator").shadowRoot.activeElement?.blur();
   });
   await page.waitForFunction(() => !document.querySelector("#calculator")._refreshing);
-  await expect(card.locator("#feeding-portions")).toHaveValue("6");
+  await expect(card.locator("#feeding-meat-portions")).toHaveValue("6");
 });
 
 test("per-kg calculator updates every puppy without rebuilding the inputs", { tag: ["@cross-browser", "@tablet"] }, async ({ page }) => {
@@ -120,7 +120,10 @@ test("feeding shows both daily rations and portions with stable sliders @cross-b
   const first = card.locator('[data-puppy-id="p1"]');
   await expect(first.locator("[data-feeding-kibble-daily]")).toHaveText("28,5 g");
   await expect(first.locator("[data-feeding-meat-daily]")).toHaveText("22,5 g");
-  await expect(first.locator("[data-feeding-total-portion]")).toHaveText("12,8 g");
+  await expect(first.locator("[data-feeding-total-portion]")).toHaveCount(0);
+  await expect(first.locator("[data-feeding-kibble-portion]")).toHaveText("28,5 g");
+  await expect(first.locator("[data-feeding-meat-portion]")).toHaveText("11,3 g");
+  await expect(card.locator("#feeding-moments")).toHaveText("3 voedingsmomenten per dag");
   await expect(card.locator("[data-feeding-sum-total-daily]")).toHaveText("123 g");
   const dimensions = await card.evaluate((element) => {
     const container = element.shadowRoot.querySelector("ha-card");
@@ -142,12 +145,12 @@ test("feeding shows both daily rations and portions with stable sliders @cross-b
   await card.locator("#feeding-meat-grams_per_kg").fill("50");
   await card.locator("#feeding-meat-grams_per_kg").blur();
   await expect(card.locator("[data-feeding-sum-meat-daily]")).toHaveText("125 g");
-  await card.locator("#feeding-portions").fill("2");
-  await expect(first.locator("[data-feeding-total-portion]")).toHaveText("25 g");
-  await card.locator("#feeding-portions").fill("2.5");
-  await expect(card.locator("#calculator-hint")).toContainText("porties (1–12)");
+  await card.locator("#feeding-meat-portions").fill("2");
+  await expect(first.locator("[data-feeding-meat-portion]")).toHaveText("25 g");
+  await card.locator("#feeding-meat-portions").fill("2.5");
+  await expect(card.locator("#calculator-hint")).toContainText("porties (1–12");
   await expect(card.locator("[data-feeding-sum-total-daily]")).toHaveText("—");
-  await card.locator("#feeding-portions").fill("4");
+  await card.locator("#feeding-meat-portions").fill("4");
   await slider.focus();
   await slider.press("Home");
   await expect(first.locator("[data-feeding-meat-daily]")).toHaveText("0 g");
@@ -163,6 +166,43 @@ test("feeding shows both daily rations and portions with stable sliders @cross-b
   await expect(card.locator("#calculator-amount")).toHaveValue("2,5");
 });
 
+test("separate food portions show actual feeding moments and survive reload @cross-browser @tablet", async ({ page }) => {
+  let card = await mountCalculator(page, { default_mode: "feeding" });
+  await expect(card.locator("#feeding-kibble-portions")).toHaveValue("1");
+  await expect(card.locator("#feeding-meat-portions")).toHaveValue("2");
+  await expect(card.locator("#feeding-moments")).toHaveText("3 voedingsmomenten per dag");
+  await expect(card.locator("#feeding-breakdown")).toHaveText("1 × brokken · 2 × vlees");
+  const puppy = card.locator('[data-puppy-id="p2"]');
+  await expect(puppy.locator("[data-feeding-kibble-daily]")).toHaveText("38,3 g");
+  await expect(puppy.locator("[data-feeding-kibble-portion]")).toHaveText("38,3 g");
+  await expect(puppy.locator("[data-feeding-meat-daily]")).toHaveText("33,8 g");
+  await expect(puppy.locator("[data-feeding-meat-portion]")).toHaveText("16,9 g");
+  await expect(card.locator("[data-feeding-total-portion]")).toHaveCount(0);
+  await expect(card.locator("[data-feeding-sum-total-portion]")).toHaveCount(0);
+  await card.locator("#feeding-kibble-portions").fill("2");
+  await card.locator("#feeding-kibble-portions").blur();
+  await card.locator("#feeding-meat-portions").fill("3");
+  await card.locator("#feeding-meat-portions").blur();
+  await expect(card.locator("#feeding-moments")).toHaveText("5 voedingsmomenten per dag");
+  await expect(card.locator("#feeding-save-status")).toHaveText("Voedingsinstellingen opgeslagen");
+  card = await mountCalculator(page, { default_mode: "feeding" });
+  await expect(card.locator("#feeding-kibble-portions")).toHaveValue("2");
+  await expect(card.locator("#feeding-meat-portions")).toHaveValue("3");
+  await expect(card.locator("#feeding-breakdown")).toHaveText("2 × brokken · 3 × vlees");
+  await card.locator("#feeding-meat").focus();
+  await card.locator("#feeding-meat").press("Home");
+  await expect(card.locator("#feeding-meat-portions")).toBeDisabled();
+  await expect(card.locator("#feeding-meat-portions")).toHaveValue("0");
+  await expect(card.locator("#feeding-moments")).toHaveText("2 voedingsmomenten per dag");
+  await expect(card.locator("#feeding-breakdown")).toHaveText("2 × brokken · 0 × vlees");
+  await expect(card.locator('[data-puppy-id="p2"] [data-feeding-meat-portion]')).toHaveText("—");
+  await card.screenshot({ path: test.info().outputPath("separate-portions.png") });
+  await card.locator("#feeding-meat").press("ArrowRight");
+  await expect(card.locator("#feeding-meat-portions")).toBeEnabled();
+  await expect(card.locator("#feeding-meat-portions")).toHaveValue("3");
+  await expect(card.locator("#feeding-moments")).toHaveText("5 voedingsmomenten per dag");
+});
+
 test("feeding table boundaries and ration shares do not extrapolate or double count", async ({ page }) => {
   await mountCalculator(page);
   const results = await page.evaluate(async () => {
@@ -175,11 +215,11 @@ test("feeding table boundaries and ration shares do not extrapolate or double co
     return {
       points: [1, 2, 5, 10, 15, 20].map((kg) => daily(kg)),
       halfway: daily(3.5),
-      mix: calculate(2000, { meatPercent: 50, rate: 40, portions: 4 }),
-      kibble: calculate(2000, { meatPercent: 0, rate: 50, portions: 2 }),
-      meat: calculate(500, { meatPercent: 100, rate: 50, portions: 2 }),
+      mix: calculate(2000, { meatPercent: 50, rate: 40, kibblePortions: 1, meatPortions: 2 }),
+      kibble: calculate(2000, { meatPercent: 0, rate: 50, kibblePortions: 2, meatPortions: 2 }),
+      meat: calculate(500, { meatPercent: 100, rate: 50, kibblePortions: 2, meatPortions: 2 }),
       outside: [500, 21000].map((weight) => calculate(weight).status),
-      invalid: [0, 2.5, 13].map((portions) => calculate(1000, { portions }).status),
+      invalid: [0, 2.5, 13].map((portions) => calculate(1000, { meatPortions: portions }).status),
       invalidRate: calculate(1000, { rate: -1 }).status,
       invalidRatio: calculate(1000, { meatPercent: 101 }).status,
       noWeight: calculate(null).status,
@@ -187,9 +227,9 @@ test("feeding table boundaries and ration shares do not extrapolate or double co
   });
   expect(results.points).toEqual([57, 96, 191, 267, 327, 360]);
   expect(results.halfway).toBe(143.5);
-  expect(results.mix).toMatchObject({ status: "ok", kibbleDaily: 48, meatDaily: 40, totalDaily: 88, totalPerPortion: 22 });
-  expect(results.kibble).toMatchObject({ status: "ok", kibbleDaily: 96, meatDaily: 0, totalPerPortion: 48 });
-  expect(results.meat).toMatchObject({ status: "ok", kibbleDaily: 0, meatDaily: 25, totalPerPortion: 12.5 });
+  expect(results.mix).toMatchObject({ status: "ok", kibbleDaily: 48, meatDaily: 40, totalDaily: 88, kibblePerPortion: 48, meatPerPortion: 20, feedingMoments: 3 });
+  expect(results.kibble).toMatchObject({ status: "ok", kibbleDaily: 96, meatDaily: 0, kibblePerPortion: 48, feedingMoments: 2 });
+  expect(results.meat).toMatchObject({ status: "ok", kibbleDaily: 0, meatDaily: 25, meatPerPortion: 12.5, feedingMoments: 2 });
   expect(results.outside).toEqual(["outside_food_range", "outside_food_range"]);
   expect(results.invalid).toEqual(["invalid_settings", "invalid_settings", "invalid_settings"]);
   expect(results.invalidRate).toBe("invalid_settings");
@@ -223,11 +263,35 @@ test("both foods support configurable formulas, interpolated tables and fixed ra
   const kibble = [20, 35, 50], meat = [35, 60, 80];
   result.results.forEach((value, index) => {
     expect(value).toMatchObject({ status: "ok", kibbleDaily: kibble[Math.floor(index / 3)], meatDaily: meat[index % 3] });
-    expect(value.totalPerPortion).toBe((value.kibbleDaily + value.meatDaily) / 4);
+    expect(value.kibblePerPortion).toBe(value.kibbleDaily);
+    expect(value.meatPerPortion).toBe(value.meatDaily / 2);
+    expect(value.feedingMoments).toBe(3);
   });
   expect(result.outside.status).toBe("outside_food_range");
   expect(result.unusedOutOfRange).toMatchObject({ status: "ok", kibbleDaily: 25, meatDaily: 0 });
   expect(result.duplicate).toBeNull();
+});
+
+test("old shared meal counts migrate consistently and ignore excluded food moments", async ({ page }) => {
+  await mountCalculator(page);
+  const result = await page.evaluate(async () => {
+    const { feedingSettingsFromStored, feedingSchedule, calculateFeedingForWeight } = await import("/custom_components/puppy_tracker/frontend/puppy-tracker-feeding-calculator.js");
+    return [[50, 4], [75, 3], [0, 4], [100, 4], [50, 1], [1, 12]].map(([share, count]) => {
+      const settings = feedingSettingsFromStored({ meat_percent: share, portions_per_day: count });
+      return { schedule: feedingSchedule(settings), calculation: calculateFeedingForWeight(2000, settings) };
+    });
+  });
+  expect(result.map((row) => row.schedule)).toEqual([
+    { kibble: 2, meat: 2, total: 4 }, { kibble: 1, meat: 2, total: 3 },
+    { kibble: 4, meat: 0, total: 4 }, { kibble: 0, meat: 4, total: 4 },
+    { kibble: 1, meat: 1, total: 2 }, { kibble: 11, meat: 1, total: 12 },
+  ]);
+  result.forEach((row) => {
+    expect(row.calculation.status).toBe("ok");
+    expect(row.calculation).not.toHaveProperty("totalPerPortion");
+  });
+  expect(result[2].calculation.meatPerPortion).toBeNull();
+  expect(result[3].calculation.kibblePerPortion).toBeNull();
 });
 
 test("food editors expose configurable values without brands and retain focus @cross-browser @tablet", async ({ page }) => {
@@ -297,8 +361,8 @@ test("calculator arithmetic rejects missing values and accepts decimal commas", 
 test("feeding preferences survive reload and remain separate per litter @cross-browser @tablet", async ({ page }) => {
   let card = await mountCalculator(page);
   await card.locator('[data-calculator-mode="feeding"]').click();
-  await card.locator("#feeding-portions").fill("3");
-  await card.locator("#feeding-portions").blur();
+  await card.locator("#feeding-meat-portions").fill("3");
+  await card.locator("#feeding-meat-portions").blur();
   await expect(card.locator("#feeding-save-status")).toHaveText("Voedingsinstellingen opgeslagen");
   await card.locator("#feeding-meat").focus();
   await card.locator("#feeding-meat").press("End");
@@ -308,40 +372,40 @@ test("feeding preferences survive reload and remain separate per litter @cross-b
   await card.locator("#feeding-kibble-method").selectOption("linear");
   await expect(card.locator("#feeding-save-status")).toHaveText("Voedingsinstellingen opgeslagen");
   card = await mountCalculator(page);
-  await expect(card.locator("#feeding-portions")).toHaveValue("3");
+  await expect(card.locator("#feeding-meat-portions")).toHaveValue("3");
   await expect(card.locator("#feeding-meat")).toHaveValue("100");
   await expect(card.locator("#feeding-meat-grams_per_kg")).toHaveValue("50");
   await expect(card.locator("#feeding-kibble-method")).toHaveValue("linear");
   await card.locator("#calculator-litter").selectOption("l2");
-  await expect(card.locator("#feeding-portions")).toHaveValue("4");
+  await expect(card.locator("#feeding-meat-portions")).toHaveValue("2");
   await expect(card.locator("#feeding-meat")).toHaveValue("50");
   await expect(card.locator("#feeding-meat-grams_per_kg")).toHaveValue("45");
   await expect(card.locator("#feeding-kibble-method")).toHaveValue("table");
-  await card.locator("#feeding-portions").fill("5");
-  await card.locator("#feeding-portions").blur();
+  await card.locator("#feeding-meat-portions").fill("5");
+  await card.locator("#feeding-meat-portions").blur();
   await expect(card.locator("#feeding-save-status")).toHaveText("Voedingsinstellingen opgeslagen");
   await card.locator("#calculator-litter").selectOption("l1");
-  await expect(card.locator("#feeding-portions")).toHaveValue("3");
+  await expect(card.locator("#feeding-meat-portions")).toHaveValue("3");
   await expect(card.locator("#feeding-meat")).toHaveValue("100");
 });
 
 test("failed feeding save keeps the draft through refresh and can be retried @cross-browser @tablet", async ({ page }) => {
   const card = await mountCalculator(page, { default_mode: "feeding" });
   await page.evaluate(() => { window.__feedingSaveError = true; });
-  await card.locator("#feeding-portions").fill("6");
-  await card.locator("#feeding-portions").blur();
+  await card.locator("#feeding-meat-portions").fill("6");
+  await card.locator("#feeding-meat-portions").blur();
   await expect(card.locator("#feeding-save-status")).toContainText("Opslaan mislukt");
   await page.evaluate(() => window.__calculatorUpdate?.({ type: "updated" }));
-  await expect(card.locator("#feeding-portions")).toHaveValue("6");
+  await expect(card.locator("#feeding-meat-portions")).toHaveValue("6");
   await page.evaluate(() => { window.__feedingSaveError = false; });
   await card.locator("#feeding-retry").click();
   await expect(card.locator("#feeding-save-status")).toHaveText("Voedingsinstellingen opgeslagen");
-  await card.locator("#feeding-portions").fill("2.5");
-  await card.locator("#feeding-portions").blur();
-  await expect(card.locator("#calculator-hint")).toContainText("porties (1–12)");
+  await card.locator("#feeding-meat-portions").fill("2.5");
+  await card.locator("#feeding-meat-portions").blur();
+  await expect(card.locator("#calculator-hint")).toContainText("porties (1–12");
   const calls = await page.evaluate(() => window.__feedingCalls);
   expect(calls).toHaveLength(2);
-  expect(calls.every((call) => call.settings.portions_per_day === 6)).toBe(true);
+  expect(calls.every((call) => call.settings.meat_portions_per_day === 6)).toBe(true);
 });
 
 test("in-flight feeding saves use the latest settings and keep their original litter @cross-browser @tablet", async ({ page }) => {
@@ -350,18 +414,18 @@ test("in-flight feeding saves use the latest settings and keep their original li
   await card.locator("#feeding-meat").focus();
   await card.locator("#feeding-meat").press("End");
   await expect(card.locator("#feeding-save-status")).toHaveText("Voedingsinstellingen opslaan…");
-  await card.locator("#feeding-portions").fill("2");
-  await card.locator("#feeding-portions").blur();
+  await card.locator("#feeding-meat-portions").fill("3");
+  await card.locator("#feeding-meat-portions").blur();
   await card.locator("#calculator-litter").selectOption("l2");
-  await expect(card.locator("#feeding-portions")).toHaveValue("4");
+  await expect(card.locator("#feeding-meat-portions")).toHaveValue("2");
   await page.evaluate(() => { window.__feedingSaveGate = null; window.__releaseFeedingSave(); });
-  await expect.poll(() => page.evaluate(() => JSON.parse(sessionStorage.getItem("fixture-feeding-profiles") || "{}").l1?.portions_per_day)).toBe(2);
-  await expect(card.locator("#feeding-portions")).toHaveValue("4");
+  await expect.poll(() => page.evaluate(() => JSON.parse(sessionStorage.getItem("fixture-feeding-profiles") || "{}").l1?.meat_portions_per_day)).toBe(3);
+  await expect(card.locator("#feeding-meat-portions")).toHaveValue("2");
   await expect(card.locator("#feeding-meat")).toHaveValue("50");
   const calls = await page.evaluate(() => window.__feedingCalls);
   expect(calls).toHaveLength(2);
   expect(calls.every((call) => call.litter_id === "l1")).toBe(true);
   await card.locator("#calculator-litter").selectOption("l1");
-  await expect(card.locator("#feeding-portions")).toHaveValue("2");
+  await expect(card.locator("#feeding-meat-portions")).toHaveValue("3");
   await expect(card.locator("#feeding-meat")).toHaveValue("100");
 });

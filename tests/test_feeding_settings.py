@@ -17,7 +17,7 @@ from custom_components.puppy_tracker.storage import PuppyTrackerStorage
 
 PROFILE = deepcopy(DEFAULT_FEEDING_SETTINGS)
 PROFILE["meat_percent"] = 75
-PROFILE["portions_per_day"] = 3
+PROFILE["meat_portions_per_day"] = 3
 PROFILE["meat"]["grams_per_kg"] = 47.5
 PROFILE["kibble"]["method"] = "linear"
 
@@ -27,7 +27,7 @@ async def test_feeding_profile_is_litter_scoped_and_survives_loading(hass, stora
     second, _ = install_litter(litter_id="second", puppy_id="other")
     assert storage.get_feeding_settings(first) == DEFAULT_FEEDING_SETTINGS
     result = await storage.async_update_feeding_settings(first, PROFILE)
-    result["portions_per_day"] = 8
+    result["meat_portions_per_day"] = 8
     assert storage.get_feeding_settings(first) == PROFILE
     assert storage.get_feeding_settings(second) == DEFAULT_FEEDING_SETTINGS
     reloaded = PuppyTrackerStorage(hass)
@@ -42,7 +42,7 @@ async def test_feeding_profile_is_litter_scoped_and_survives_loading(hass, stora
 
 @pytest.mark.parametrize("change", [
     {"meat_percent": -1}, {"meat_percent": 101}, {"meat": {**PROFILE["meat"], "grams_per_kg": -1}},
-    {"portions_per_day": 2.5}, {"portions_per_day": 0}, {"kibble": {**PROFILE["kibble"], "method": "unknown"}},
+    {"meat_portions_per_day": 2.5}, {"meat_portions_per_day": 0}, {"kibble": {**PROFILE["kibble"], "method": "unknown"}},
     {"meat": {**PROFILE["meat"], "grams_per_kg": float("nan")}}, {"meat_percent": True},
     {"kibble": {**PROFILE["kibble"], "table": [[1, 40], [1, 80]]}},
     {"meat": {**PROFILE["meat"], "table": [[2, 90], [1, 45]]}},
@@ -83,7 +83,7 @@ async def test_profile_backup_full_and_litter_import(storage, install_litter):
     await async_apply_import(storage, prepare_import(storage, full, mode="replace_all"))
     assert storage.get_feeding_settings(litter_id) == PROFILE
     invalid = deepcopy(full)
-    invalid["data"]["litters"][litter_id]["feeding_settings"]["portions_per_day"] = 0
+    invalid["data"]["litters"][litter_id]["feeding_settings"]["meat_portions_per_day"] = 0
     with pytest.raises(BackupValidationError):
         prepare_import(storage, invalid, mode="replace_all")
 
@@ -109,7 +109,7 @@ async def test_feeding_update_api_requires_admin(hass, storage, install_litter):
 def test_legacy_preferences_keep_the_original_rations():
     converted = normalize_feeding_settings({"meat_percent": 75, "portions_per_day": 3,
                                            "kivo_grams_per_kg": 47.5, "kibble_formula": "linear"})
-    assert converted == PROFILE
+    assert converted == {**PROFILE, "meat_portions_per_day": 2}
     assert "kivo_grams_per_kg" not in converted
 
 
@@ -122,3 +122,30 @@ async def test_custom_food_profiles_persist_for_both_foods(storage, install_litt
                              min_kg=0.5, max_kg=30, table=[[0.5, 50], [10, 500], [30, 1100]])
     await storage.async_update_feeding_settings(litter_id, profile)
     assert storage.get_feeding_settings(litter_id) == profile
+
+
+@pytest.mark.parametrize("share,kibble,meat,legacy", [
+    (50, 2, 2, 4), (75, 1, 2, 3), (0, 4, 0, 4),
+    (100, 0, 4, 4), (50, 1, 1, 1), (1, 11, 1, 12),
+])
+def test_old_shared_portions_become_separate_feeding_moments(share, kibble, meat, legacy):
+    result = normalize_feeding_settings({"meat_percent": share, "portions_per_day": legacy})
+    assert result["kibble_portions_per_day"] == kibble
+    assert result["meat_portions_per_day"] == meat
+    assert "portions_per_day" not in result
+
+
+@pytest.mark.parametrize("share,kibble,meat,valid", [
+    (50, 1, 2, True), (50, 0, 2, False), (50, 1, 0, False),
+    (0, 3, 0, True), (100, 0, 3, True), (50, 1.5, 2, False),
+    (50, 1, 13, False), (50, True, 2, False),
+])
+def test_separate_portion_validation(share, kibble, meat, valid):
+    values = {"meat_percent": share, "kibble_portions_per_day": kibble, "meat_portions_per_day": meat}
+    if valid:
+        result = normalize_feeding_settings(values)
+        assert result["kibble_portions_per_day"] == kibble
+        assert result["meat_portions_per_day"] == meat
+    else:
+        with pytest.raises(ValueError):
+            normalize_feeding_settings(values)

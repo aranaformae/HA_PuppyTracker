@@ -7,7 +7,8 @@ from typing import Any
 
 DEFAULT_FEEDING_SETTINGS = {
     "meat_percent": 50,
-    "portions_per_day": 4,
+    "kibble_portions_per_day": 1,
+    "meat_portions_per_day": 2,
     "kibble": {"method": "table", "grams_per_kg": 45, "coefficient": 13.32,
                "offset": 94.46, "min_kg": 1, "max_kg": 20,
                "table": [[1, 57], [2, 96], [5, 191], [10, 267], [15, 327], [20, 360]]},
@@ -38,6 +39,7 @@ def normalize_feeding_settings(value: Any = None) -> dict[str, Any]:
     value = deepcopy(value)
     legacy_rate = value.pop("kivo_grams_per_kg", None)
     legacy_method = value.pop("kibble_formula", None)
+    legacy_portions = value.pop("portions_per_day", None)
     result = deepcopy(DEFAULT_FEEDING_SETTINGS)
     if set(value) - set(result):
         raise ValueError("Unknown feeding setting")
@@ -47,10 +49,28 @@ def normalize_feeding_settings(value: Any = None) -> dict[str, Any]:
     if legacy_method is not None and "kibble" not in value:
         result["kibble"]["method"] = legacy_method
     result["meat_percent"] = _number(result["meat_percent"], maximum=100)
-    portions = _number(result["portions_per_day"], minimum=1, maximum=12)
-    if int(portions) != portions:
-        raise ValueError("Portions must be whole numbers")
-    result["portions_per_day"] = int(portions)
+    if legacy_portions is not None:
+        portions = _number(legacy_portions, minimum=1, maximum=12)
+        if int(portions) != portions:
+            raise ValueError("Portions must be whole numbers")
+        share = result["meat_percent"]
+        if share == 0:
+            kibble, meat = int(portions), 0
+        elif share == 100:
+            kibble, meat = 0, int(portions)
+        else:
+            total = max(2, int(portions))
+            kibble = max(1, min(total - 1, math.floor(total * (1 - share / 100) + 0.5)))
+            meat = total - kibble
+        for key, count in (("kibble_portions_per_day", kibble), ("meat_portions_per_day", meat)):
+            if key not in value:
+                result[key] = count
+    for key, active in (("kibble_portions_per_day", result["meat_percent"] < 100),
+                        ("meat_portions_per_day", result["meat_percent"] > 0)):
+        count = _number(result[key], minimum=1 if active else 0, maximum=12)
+        if int(count) != count:
+            raise ValueError("Portions must be whole numbers")
+        result[key] = int(count)
     for kind in ("kibble", "meat"):
         food = result[kind]
         if not isinstance(food, dict) or set(food) != set(DEFAULT_FEEDING_SETTINGS[kind]):
