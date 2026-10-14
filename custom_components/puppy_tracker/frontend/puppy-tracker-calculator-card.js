@@ -440,7 +440,7 @@ class PuppyTrackerCalculatorCard extends HTMLElement {
       <label>${escapeHtml(text(this, "meatShare"))}<output id="feeding-ratio" for="feeding-meat"></output><input id="feeding-meat" type="range" min="0" max="100" step="1" value="${settings.meatPercent}" aria-label="${escapeHtml(text(this, "meatShare"))}"></label>
       <div class="feeding-meals">${["kibble", "meat"].map((kind) => `<label>${escapeHtml(text(this, kind + "Portions"))}<input id="feeding-${kind}-portions" type="number" min="1" max="12" step="1" inputmode="numeric" value="${escapeHtml(settings[kind + "Portions"])}"></label>`).join("")}
         <div class="feeding-meal-count" role="status" aria-live="polite"><strong id="feeding-moments"></strong><small id="feeding-breakdown"></small></div></div>
-      ${["kibble", "meat"].map((kind) => `<section class="food-settings"><div data-energy-control>${field(kind, "kcal_per_100g", "energyDensity")}</div><div data-ration-control><label>${escapeHtml(text(this, kind))} · ${escapeHtml(text(this, "method"))}<select id="feeding-${kind}-method" data-food="${kind}" data-key="method">
+      <div class="feeding-foods">${["kibble", "meat"].map((kind) => `<section class="food-settings"><div data-energy-control>${field(kind, "kcal_per_100g", "energyDensity")}</div><div data-ration-control><label>${escapeHtml(text(this, kind))} · ${escapeHtml(text(this, "method"))}<select id="feeding-${kind}-method" data-food="${kind}" data-key="method">
         ${[["linear", "linearFormula"], ["table", "tableFormula"], ["per_kg", "fixedFormula"], ["age_table", "ageFormula"]].map(([method, label]) => `<option value="${method}" ${settings[kind].method === method ? "selected" : ""}>${escapeHtml(text(this, label))}</option>`).join("")}</select></label>
         <details><summary>${escapeHtml(text(this, "foodSettings", { food: text(this, kind) }))}</summary>
           <div data-food-section="${kind}-per_kg">${field(kind, "grams_per_kg", "fixedRate")}</div>
@@ -448,7 +448,7 @@ class PuppyTrackerCalculatorCard extends HTMLElement {
           <div data-food-section="${kind}-table" data-food-table="${kind}">${this._foodTable(kind)}</div>
           <div data-food-section="${kind}-age_table" data-age-tables="${kind}">${this._ageTables(kind)}</div>
         </details></div>
-      </section>`).join("")}
+      </section>`).join("")}</div>
     </div>`;
   }
 
@@ -555,7 +555,7 @@ class PuppyTrackerCalculatorCard extends HTMLElement {
       @container calculator-card (max-width:620px){.feeding-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"identity weight" "feeding feeding"}.feeding-row .weight{border-top:0;padding-top:0;text-align:right}.feeding-result{grid-area:feeding;border-top:1px solid var(--divider-color);padding-top:9px}.feeding-inputs{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
       .feeding-meals{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;min-width:0}.feeding-meal-count{grid-column:1/-1;min-height:36px;font-size:12px;overflow-wrap:anywhere}.feeding-meal-count strong,.feeding-meal-count small{display:block}.feeding-meal-count small{margin-top:3px;color:var(--secondary-text-color)}.feeding-meals label{min-width:0;overflow-wrap:anywhere}
       [hidden]{display:none!important}
-      .food-settings{min-width:0}.food-settings label{min-width:0;overflow-wrap:anywhere}.food-settings input{min-width:0}
+      .feeding-foods{display:grid;grid-column:1/-1;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;align-items:start}.food-settings{min-width:0}.food-settings label{min-width:0;overflow-wrap:anywhere}.food-settings input{min-width:0}
       .food-settings details{margin-top:8px}.food-settings details>div{margin-top:8px}
       .food-settings summary{font-size:13px;min-height:44px;cursor:pointer;color:var(--primary-color);overflow-wrap:anywhere}
       .food-formula{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
@@ -565,7 +565,7 @@ class PuppyTrackerCalculatorCard extends HTMLElement {
       .food-settings button:disabled{opacity:.4}.feeding-summary{overflow-wrap:anywhere}
       .age-stage{display:grid;grid-template-columns:minmax(0,1fr) 44px;gap:8px;border-top:1px solid var(--divider-color);padding-top:10px;margin-top:10px}.age-stage-table{grid-column:1/-1}
       @container calculator-card (max-width:620px){.food-formula{grid-template-columns:1fr}}
-      @container calculator-card (max-width:420px){.feeding-inputs{grid-template-columns:1fr}.food-formula{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+      @container calculator-card (max-width:420px){.feeding-inputs,.feeding-foods{grid-template-columns:1fr}.food-formula{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
     </style><div class="top"><div><div class="title">${escapeHtml(this._config.title || text(this, feeding ? "feedingTitle" : "title"))}</div><div class="subtitle">${escapeHtml(text(this, feeding ? "feedingSubtitle" : "subtitle"))}</div></div>${selector}</div>
       <div class="modes" role="tablist" aria-label="${escapeHtml(text(this, "title"))}">${[["per_kg", "perKg"], ["feeding", "feeding"]].map(([mode, key]) => `<button type="button" role="tab" data-calculator-mode="${mode}" aria-selected="${this._mode === mode}">${escapeHtml(text(this, key))}</button>`).join("")}</div>
       ${feeding ? this._feedingControls() : `<div class="inputs"><label>${escapeHtml(text(this, "amountPerKg"))}<input id="calculator-amount" type="text" inputmode="decimal" autocomplete="off" value="${escapeHtml(this._amountPerKg)}" placeholder="0,0"></label><label>${escapeHtml(text(this, "unit"))}<input id="calculator-unit" type="text" maxlength="24" autocomplete="off" value="${escapeHtml(this._unit)}" placeholder="${escapeHtml(text(this, "unitPlaceholder"))}" list="calculator-units"><datalist id="calculator-units"><option value="ml"></option><option value="mg"></option><option value="g"></option><option value="tablet"></option><option value="dosis"></option></datalist></label></div>`}

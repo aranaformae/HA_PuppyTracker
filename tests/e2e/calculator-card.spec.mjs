@@ -1,5 +1,33 @@
 import { expect, test } from "@playwright/test";
 
+test("food methods stay aligned in a shared row and stack on narrow cards @cross-browser @tablet", async ({ page }) => {
+  const card = await mountCalculator(page, { default_mode: "feeding" });
+  await expect(card.locator("#feeding-kibble-method")).toBeVisible();
+  const assertLayout = async () => {
+    const container = await card.locator("ha-card").boundingBox();
+    const kibble = await card.locator("#feeding-kibble-method").boundingBox();
+    const meat = await card.locator("#feeding-meat-method").boundingBox();
+    if (container.width - 32 > 420) {
+      expect(Math.abs(kibble.y - meat.y)).toBeLessThan(1);
+      expect(meat.x).toBeGreaterThan(kibble.x);
+    } else {
+      expect(meat.y).toBeGreaterThan(kibble.y);
+      expect(Math.abs(kibble.x - meat.x)).toBeLessThan(1);
+    }
+  };
+  await assertLayout();
+  await card.getByText("Brokken: instellingen", { exact: true }).click();
+  await assertLayout();
+  await card.screenshot({ path: test.info().outputPath("aligned-food-methods.png") });
+  await card.locator("#feeding-allocation").selectOption("energy");
+  const kibble = await card.locator("#feeding-kibble-kcal_per_100g").boundingBox();
+  const meat = await card.locator("#feeding-meat-kcal_per_100g").boundingBox();
+  const container = await card.locator("ha-card").boundingBox();
+  if (container.width - 32 > 420) expect(Math.abs(kibble.y - meat.y)).toBeLessThan(1);
+  else expect(meat.y).toBeGreaterThan(kibble.y);
+  expect(await card.locator("ha-card").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+});
+
 test("age tables select inclusive stages and interpolate only within weight bounds", async ({ page }) => {
   await mountCalculator(page);
   const results = await page.evaluate(async () => {
