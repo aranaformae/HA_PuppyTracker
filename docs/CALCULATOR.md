@@ -48,8 +48,9 @@ Each food has its own calculation method. Open **Kibble: settings** or
 | Formula | Factor (g/kg), fixed amount (g/day), minimum and maximum weight | Factor x weight in kg + fixed amount |
 | Table | Weight in kg and daily grams per row | Linear interpolation between adjacent rows |
 | Fixed g/kg rate | Grams per kg per day | Weight in kg x rate |
+| Table by age and weight | Start age in days and a weight table per stage | Interpolation in the table for the current age stage |
 
-Both foods support all three methods, independently. Formula factors and fixed
+Both foods support all four methods, independently. Formula factors and fixed
 amounts must be non-negative and cannot both be zero. A formula is only used
 inside its configured positive weight range. A table has 2 to 100 rows with
 positive rations and strictly increasing positive weights. Use the plus/minus
@@ -105,7 +106,58 @@ which food is out of range. A food with a 0% share does not impose its weight
 range. Older weights remain calculated and marked. Results are rounded to one
 decimal gram for display; totals use unrounded values.
 
-All food profiles, the meat share and both portion counts save automatically
+### Tables by age and weight
+
+Select **Table by age and weight** for either food. The first stage copies that
+food's existing weight table, starting at day 0; review its values against your
+food instructions. Add stages with the plus button and enter **From age (days)**.
+Each new stage copies the preceding table for editing, initially starting seven
+days later. These are editor starting values, not feeding recommendations.
+
+Stages have strictly increasing whole start days (0–3650), at most 24 stages,
+and each stage has a normal 2–100-row weight table. The newest stage whose start
+day has been reached applies, including that start day. It remains active until
+the next stage; the last stage has no automatic end date. There is no interpolation
+between ages, only between weights within the selected stage. Weight boundaries
+still apply. Delete stages or table rows with the corresponding minus/delete
+buttons; retain at least one stage and two rows per table.
+
+Age uses completed 24-hour periods since the puppy's birth time, falling back to
+the litter birth date when no puppy birth time is available. Missing or future
+birth dates, ages before the first stage and weights outside that stage's table
+produce a visible warning and exclude that puppy from totals. The age used is
+shown with successful age-table results. A food at 0% needs no age calculation.
+
+### Kcal allocation
+
+Choose **Daily kcal** under **Calculate allocation using** to use energy instead
+of proportional full rations. Enter a daily target in **kcal/kg body weight** and
+the actual **kcal/100 g** of each included food. No energy target or density is
+provided as a feeding recommendation: these fields start at zero and must be
+filled before calculation and saving. Use product information and professional
+advice for appropriate values and diet suitability.
+
+In this mode the meat slider specifies the share of daily **kcal**, not grams:
+
+```text
+daily kcal = weight in kg x configured kcal/kg/day
+meat/day (g) = daily kcal x meat share x 100 / meat kcal per 100 g
+kibble/day (g) = daily kcal x (1 - meat share) x 100 / kibble kcal per 100 g
+```
+
+For a calculation example only: at 2 kg, a target of 100 kcal/kg/day is 200
+kcal/day. At 50% meat, with 200 kcal/100 g meat and 400 kcal/100 g kibble, this
+gives 50 g meat and 25 g kibble per day. Independent portion counts then divide
+those quantities just as in ration mode. The daily kcal used is shown per puppy.
+This matches the configured energy target; it does not balance nutrients or
+determine an appropriate target automatically.
+
+Ration-method controls are hidden in kcal mode but their settings remain stored.
+Switching back restores the selected formulas/tables and their values. An excluded
+food does not need an energy density. Included densities and the daily target must
+be finite and positive. Energy mode does not apply ration weight or age boundaries.
+
+All food profiles, age tables, allocation mode, kcal values, the meat share and both portion counts save automatically
 **per litter** when you finish a change. They return after reloading and are
 shared with other devices. Only administrators can change these preferences.
 Calculation updates do not rebuild the controls or move input focus.

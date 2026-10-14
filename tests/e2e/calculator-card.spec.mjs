@@ -1,5 +1,143 @@
 import { expect, test } from "@playwright/test";
 
+test("age tables select inclusive stages and interpolate only within weight bounds", async ({ page }) => {
+  await mountCalculator(page);
+  const results = await page.evaluate(async () => {
+    const { feedingSettingsFromStored, calculateFeedingForWeight, feedingSettingsForStorage } = await import("/custom_components/puppy_tracker/frontend/puppy-tracker-feeding-calculator.js");
+    const settings = feedingSettingsFromStored({ meat_percent: 0 });
+    settings.kibble.method = "age_table";
+    settings.kibble.age_tables = [{ from_day: 21, table: [[1, 40], [3, 120]] }, { from_day: 35, table: [[1, 80], [3, 200]] }];
+    const ages = [null, -1, 20, 21, 34, 35, 200].map((age) => calculateFeedingForWeight(2000, settings, age));
+    const bounds = [500, 1000, 3000, 3500].map((weight) => calculateFeedingForWeight(weight, settings, 35));
+    settings.meatPercent = 100;
+    const unused = calculateFeedingForWeight(2000, settings);
+    settings.kibble.age_tables[1].from_day = 21;
+    const invalid = feedingSettingsForStorage(settings);
+    const { calculatorAgeForPuppy } = await import("/custom_components/puppy_tracker/frontend/puppy-tracker-calculator-card.js");
+    const now = Date.parse("2026-10-14T12:00:00Z");
+    return { ages, bounds, unused, invalid, birth: [
+      calculatorAgeForPuppy({ birth_time: "2026-10-01T12:00:00Z" }, {}, now),
+      calculatorAgeForPuppy({}, { birth_date: "2026-10-01" }, now),
+      calculatorAgeForPuppy({}, {}, now),
+      calculatorAgeForPuppy({ birth_time: "2026-10-15T00:00:00Z" }, {}, now),
+    ] };
+  });
+  expect(results.ages.map((row) => row.status)).toEqual(["missing_age", "missing_age", "before_age_stage", "ok", "ok", "ok", "ok"]);
+  expect(results.ages.slice(3).map((row) => row.kibbleDaily)).toEqual([80, 80, 140, 140]);
+  expect(results.bounds.map((row) => row.status)).toEqual(["outside_food_range", "ok", "ok", "outside_food_range"]);
+  expect(results.bounds[1].kibbleDaily).toBe(80);
+  expect(results.bounds[2].kibbleDaily).toBe(200);
+  expect(results.unused.status).toBe("ok");
+  expect(results.invalid).toBeNull();
+  expect(results.birth).toEqual([13, 13, null, null]);
+});
+
+test("energy allocation conserves kcal and uses independent food portions", async ({ page }) => {
+  await mountCalculator(page);
+  const results = await page.evaluate(async () => {
+    const { feedingSettingsFromStored, calculateFeedingForWeight, feedingSettingsForStorage } = await import("/custom_components/puppy_tracker/frontend/puppy-tracker-feeding-calculator.js");
+    const settings = feedingSettingsFromStored({ allocation_mode: "energy", kcal_per_kg: 100 });
+    settings.kibble.kcal_per_100g = 400;
+    settings.meat.kcal_per_100g = 200;
+    settings.kibble.method = "age_table";
+    const shares = [0, 50, 100].map((share) => {
+      settings.meatPercent = share;
+      return calculateFeedingForWeight(2000, settings);
+    });
+    settings.meatPercent = 100;
+    settings.kibble.kcal_per_100g = 0;
+    const excluded = calculateFeedingForWeight(2000, settings);
+    settings.meatPercent = 50;
+    const missing = calculateFeedingForWeight(2000, settings);
+    settings.kibble.kcal_per_100g = 400;
+    const invalid = [0, -1, true, Infinity, ""].map((target) => feedingSettingsForStorage({ ...settings, kcalPerKg: target }));
+    return { shares, excluded, missing, invalid };
+  });
+  expect(results.shares.map((row) => [row.kibbleDaily, row.meatDaily])).toEqual([[50, 0], [25, 50], [0, 100]]);
+  results.shares.forEach((row) => {
+    expect(row.kcalDaily).toBe(200);
+    expect(row.kibbleDaily * 4 + row.meatDaily * 2).toBe(200);
+  });
+  expect(results.shares[1]).toMatchObject({ kibblePerPortion: 25, meatPerPortion: 25, feedingMoments: 3 });
+  expect(results.excluded.status).toBe("ok");
+  expect(results.missing.status).toBe("invalid_settings");
+  expect(results.invalid).toEqual([null, null, null, null, null]);
+});
+
+test("age and energy editors persist across modes and devices without moving focus @cross-browser @tablet", async ({ page }) => {
+  const card = await mountCalculator(page, { default_mode: "feeding" });
+  await card.locator("#feeding-kibble-method").selectOption("age_table");
+  await expect(card.locator('[data-food="kibble"][data-stage="0"][data-key="from_day"]')).toHaveValue("0");
+  await card.locator('[data-food="kibble"][data-stage="0"][data-key="from_day"]').fill("21");
+  await card.locator('[data-add-stage="kibble"]').click();
+  await card.locator('[data-food="kibble"][data-stage="1"][data-key="from_day"]').fill("35");
+  const ration = card.locator('[data-food="kibble"][data-stage="1"][data-row="0"][data-column="1"]');
+  await ration.fill("100");
+  await page.evaluate(() => window.__calculatorUpdate?.({ type: "updated" }));
+  await expect(ration).toBeFocused();
+  await ration.blur();
+  await expect(card.locator('[data-puppy-id="p1"] [data-feeding-kibble-daily]')).toHaveText("28,5 g");
+  await expect(card.locator('[data-puppy-id="p2"] [data-feeding-kibble-daily]')).toHaveText("49 g");
+  await card.locator("#feeding-allocation").selectOption("energy");
+  await expect(card.locator("#feeding-kibble-method")).toBeHidden();
+  await card.locator("#feeding-kcal").fill("100");
+  await card.locator("#feeding-kibble-kcal_per_100g").fill("400");
+  await card.locator("#feeding-meat-kcal_per_100g").fill("200");
+  await card.locator("#feeding-meat-kcal_per_100g").blur();
+  await expect(card.locator("#feeding-save-status")).toHaveText("Voedingsinstellingen opgeslagen");
+  await expect(card.locator('[data-puppy-id="p1"] [data-feeding-kibble-daily]')).toHaveText("12,5 g");
+  await expect(card.locator('[data-puppy-id="p1"] [data-feeding-meat-daily]')).toHaveText("25 g");
+  await expect(card.locator('[data-puppy-id="p1"] [data-feeding-note]')).toContainText("100 kcal");
+  await card.screenshot({ path: test.info().outputPath("energy-editor.png") });
+  const dimensions = await card.evaluate((element) => {
+    const container = element.shadowRoot.querySelector("ha-card");
+    return { width: container.clientWidth, scrollWidth: container.scrollWidth };
+  });
+  expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.width);
+  const restored = await mountCalculator(page, { default_mode: "feeding" });
+  await expect(restored.locator("#feeding-allocation")).toHaveValue("energy");
+  await expect(restored.locator("#feeding-kcal")).toHaveValue("100");
+  await restored.locator("#feeding-allocation").selectOption("ration");
+  await expect(restored.locator("#feeding-kcal")).toBeHidden();
+  await expect(restored.locator("#feeding-kibble-method")).toHaveValue("age_table");
+  await restored.getByText("Brokken: instellingen", { exact: true }).click();
+  await expect(restored.locator('[data-food="kibble"][data-stage="1"][data-row="0"][data-column="1"]')).toHaveValue("100");
+  await restored.locator('[data-add-food="kibble"][data-stage="1"]').click();
+  await expect(restored.locator('[data-food="kibble"][data-stage="1"][data-row="6"][data-column="0"]')).toHaveValue("21");
+  await restored.locator('[data-remove-food="kibble"][data-stage="1"][data-index="6"]').click();
+  await restored.locator('[data-remove-stage="kibble"][data-stage="1"]').click();
+  await expect(restored.locator('[data-food="kibble"][data-stage="1"]')).toHaveCount(0);
+  await restored.screenshot({ path: test.info().outputPath("age-editor.png") });
+});
+
+test("new feeding options translate and missing birth dates never become day zero", async ({ page }) => {
+  const card = await mountCalculator(page, { default_mode: "feeding" });
+  await card.evaluate((element) => {
+    element._data.puppies[0].birth_time = null;
+    element.hass = { ...element._hass, language: "en", locale: { language: "en" } };
+  });
+  await card.locator("#feeding-kibble-method").selectOption("age_table");
+  await expect(card.locator('[data-puppy-id="p1"] [data-feeding-note]')).toHaveText("Birth date missing or in the future; this puppy is not included.");
+  await expect(card.locator('[data-puppy-id="p1"] [data-feeding-kibble-daily]')).toHaveText("—");
+  await expect(card.locator("#calculator-count")).toHaveText("1 puppy calculated");
+  await card.locator('[data-food="kibble"][data-stage="0"][data-key="from_day"]').fill("3650");
+  await expect(card.locator('[data-add-stage="kibble"]')).toBeDisabled();
+  await card.locator('[data-food="kibble"][data-stage="0"][data-key="from_day"]').fill("0");
+  await card.locator("#feeding-allocation").selectOption("energy");
+  await expect(card.getByText("Daily target (kcal/kg body weight)", { exact: true })).toBeVisible();
+  await expect(card.getByText("Kibble · Energy content (kcal/100 g)", { exact: true })).toBeVisible();
+  await card.locator("#feeding-kcal").fill("100");
+  await card.locator("#feeding-kibble-kcal_per_100g").fill("400");
+  await card.locator("#feeding-meat-kcal_per_100g").fill("200");
+  await card.locator("#feeding-meat-kcal_per_100g").blur();
+  await expect(card.locator('[data-puppy-id="p1"] [data-feeding-note]')).toHaveText("100 kcal/day");
+  await expect(card.locator("#calculator-count")).toHaveText("2 puppies calculated");
+  const readonly = await mountCalculator(page, { default_mode: "feeding", readonly: true });
+  await expect(readonly.locator("#feeding-allocation")).toBeDisabled();
+  await expect(readonly.locator("#feeding-kcal")).toBeDisabled();
+  await expect(readonly.locator("#feeding-kibble-kcal_per_100g")).toBeDisabled();
+});
+
 async function mountCalculator(page, config = {}) {
   await page.goto("/tests/e2e/cards.html");
   await page.waitForFunction(() => window.__puppyTrackerReady === true);
@@ -9,11 +147,11 @@ async function mountCalculator(page, config = {}) {
     const now = Date.now();
     const puppies = [
       {
-        id: "p1", name: "Alice", collar_color: "Roze", active: true,
+        id: "p1", name: "Alice", collar_color: "Roze", active: true, birth_time: new Date(now - 28 * 86400000).toISOString(),
         summary: { current_weight: 1000, last_weighed: new Date(now - 3600000).toISOString(), hours_since_weighing: 1 },
       },
       {
-        id: "p2", name: "Bob", collar_color: "Blauw", active: true,
+        id: "p2", name: "Bob", collar_color: "Blauw", active: true, birth_time: new Date(now - 35 * 86400000).toISOString(),
         summary: { current_weight: 1500, last_weighed: new Date(now - 30 * 3600000).toISOString(), hours_since_weighing: 30 },
       },
       { id: "p3", name: "Charlie", collar_color: "Groen", active: true, summary: { current_weight: null } },

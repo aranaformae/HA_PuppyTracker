@@ -65,7 +65,8 @@ Companion App when a dashboard still shows an older card.
    Care or Mobile preset in its visual editor.
 4. Use the **Weigh** tab for weights and **Quick Log** or **Dossier** for daily
    observations. Use **Calculator** in Care or Mobile for per-kilogram amounts
-   or daily feeding portions, and **Behavior** for scored puppy observations.
+   or daily feeding portions, including age-specific tables and optional kcal
+   allocation, and **Behavior** for scored puppy observations.
 5. Add recurring reminders or care programs when scheduled actions are needed.
 6. Create a full JSON backup after the initial setup.
 

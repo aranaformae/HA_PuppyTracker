@@ -71,17 +71,24 @@ async def test_failed_feeding_save_restores_profile_audit_and_timestamps(storage
         await storage.async_update_feeding_settings("missing", PROFILE)
 
 
-async def test_profile_backup_full_and_litter_import(storage, install_litter):
+@pytest.mark.parametrize("mode", ["ration", "energy"])
+async def test_profile_backup_full_and_litter_import(storage, install_litter, mode):
     litter_id, _ = install_litter()
-    await storage.async_update_feeding_settings(litter_id, PROFILE)
+    profile = deepcopy(PROFILE)
+    profile.update(allocation_mode=mode, kcal_per_kg=100)
+    for food in ("kibble", "meat"):
+        profile[food].update(method="age_table", kcal_per_100g=200,
+                            age_tables=[{"from_day": 21, "table": [[1, 80], [3, 160]]},
+                                        {"from_day": 35, "table": [[1, 100], [3, 180]]}])
+    await storage.async_update_feeding_settings(litter_id, profile)
     litter_backup = build_export_document(storage, scope="litter", litter_id=litter_id)
     await async_apply_import(storage, prepare_import(storage, litter_backup, mode="new_litter"))
     imported = next(key for key in storage.get_litters() if key != litter_id)
-    assert storage.get_feeding_settings(imported) == PROFILE
+    assert storage.get_feeding_settings(imported) == profile
     full = build_export_document(storage, scope="full", care_reminder_settings={"lead_days": 5, "categories": {"vaccination": True, "deworming": True}}, scheduler_data={"version": 1, "care_programs": {"programs": {}}, "recurring_reminders": {"reminders": {}}})
     await storage.async_update_feeding_settings(litter_id, {**PROFILE, "meat_percent": 0})
     await async_apply_import(storage, prepare_import(storage, full, mode="replace_all"))
-    assert storage.get_feeding_settings(litter_id) == PROFILE
+    assert storage.get_feeding_settings(litter_id) == profile
     invalid = deepcopy(full)
     invalid["data"]["litters"][litter_id]["feeding_settings"]["meat_portions_per_day"] = 0
     with pytest.raises(BackupValidationError):
@@ -149,3 +156,66 @@ def test_separate_portion_validation(share, kibble, meat, valid):
     else:
         with pytest.raises(ValueError):
             normalize_feeding_settings(values)
+
+
+def test_existing_profiles_gain_only_inactive_new_fields():
+    old = deepcopy(PROFILE)
+    old.pop("allocation_mode")
+    old.pop("kcal_per_kg")
+    for kind in ("kibble", "meat"):
+        old[kind].pop("age_tables")
+        old[kind].pop("kcal_per_100g")
+    assert normalize_feeding_settings(old) == PROFILE
+
+
+@pytest.mark.parametrize("stages", [
+    [], [{"from_day": 0.5, "table": [[1, 40], [2, 80]]}],
+    [{"from_day": True, "table": [[1, 40], [2, 80]]}],
+    [{"from_day": -1, "table": [[1, 40], [2, 80]]}],
+    [{"from_day": 3651, "table": [[1, 40], [2, 80]]}],
+    [{"from_day": 0, "table": [[1, 40], [1, 80]]}],
+    [{"from_day": 0, "table": [[1, 40]]}],
+    [{"from_day": 0, "table": [[1, 40], [2, 80]], "unknown": 1}],
+    [{"from_day": day, "table": [[1, 40], [2, 80]]} for day in (7, 7)],
+    [{"from_day": day, "table": [[1, 40], [2, 80]]} for day in (7, 0)],
+    [{"from_day": day, "table": [[1, 40], [2, 80]]} for day in range(25)],
+])
+async def test_invalid_age_profiles_are_atomic(storage, install_litter, stages):
+    litter_id, _ = install_litter()
+    profile = deepcopy(PROFILE)
+    profile["kibble"].update(method="age_table", age_tables=stages)
+    before = storage.get_data()
+    with pytest.raises(ValueError):
+        await storage.async_update_feeding_settings(litter_id, profile)
+    assert storage.get_data() == before
+    storage.async_save.assert_not_awaited()
+
+
+@pytest.mark.parametrize("target,density,valid", [
+    (100, 200, True), (0, 200, False), (-1, 200, False),
+    (True, 200, False), (float("inf"), 200, False),
+    (100, 0, False), (100, -1, False), (100, True, False),
+    (100, float("nan"), False),
+])
+def test_energy_profile_validation(target, density, valid):
+    profile = deepcopy(PROFILE)
+    profile.update(allocation_mode="energy", kcal_per_kg=target)
+    profile["kibble"]["kcal_per_100g"] = density
+    profile["meat"]["kcal_per_100g"] = 150
+    if valid:
+        assert normalize_feeding_settings(profile) == profile
+    else:
+        with pytest.raises(ValueError):
+            normalize_feeding_settings(profile)
+
+
+def test_energy_mode_ignores_unused_density_and_ration_method():
+    profile = deepcopy(PROFILE)
+    profile.update(allocation_mode="energy", kcal_per_kg=100, meat_percent=100,
+                   kibble_portions_per_day=0)
+    profile["kibble"].update(method="age_table", age_tables=[])
+    profile["meat"]["kcal_per_100g"] = 150
+    assert normalize_feeding_settings(profile) == profile
+    profile["allocation_mode"] = "other"
+    with pytest.raises(ValueError):
+        normalize_feeding_settings(profile)

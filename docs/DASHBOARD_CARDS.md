@@ -197,9 +197,15 @@ slider and independent kibble/meat portion counts per day. The card shows the
 total feeding moments with their food breakdown; per-portion quantities are
 calculated separately, without a combined per-portion total.
 Each food independently supports an editable
-formula, weight table or fixed g/kg rate. Expand its settings to inspect or
+formula, weight table, fixed g/kg rate or age-specific weight tables. Expand its settings to inspect or
 change the calculation. Results show both foods and their total per puppy and
 for the litter.
+The allocation selector switches between proportional full daily rations and
+daily kcal. Kcal mode uses an explicitly configured kcal/kg/day target and each
+included food's kcal/100 g, retaining the inactive ration settings. Age tables
+select the current stage from the puppy birth time (or litter birth date), with
+warnings for missing ages or an age/weight outside the configured stages/table.
+Both methods keep the independent food portions and total feeding moments.
 Feeding preferences save automatically per litter and return after reloading,
 including on other devices. The chosen variant is remembered in this browser;
 the visual editor selects the initial variant when no choice is remembered. Formula sources,

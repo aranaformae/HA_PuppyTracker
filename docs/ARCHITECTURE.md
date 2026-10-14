@@ -1007,25 +1007,42 @@ switches blur the previous control and focus the selected mode without scrolling
 The same Calculator surface offers `default_mode: feeding`. A pure module,
 `puppy-tracker-feeding-calculator.js`, calculates brand-neutral food profiles.
 Each food independently supports `linear` (coefficient x kg + offset),
-`table` (piecewise interpolation) or `per_kg` (kg x fixed daily rate).
+`table` (piecewise interpolation), `per_kg` (kg x fixed daily rate), or
+`age_table` (the applicable age stage's weight table).
 Each food's full daily ration is multiplied by its selected share before sums
 and portions of each food are calculated using their independent counts.
 Neither food is added at full quantity when
 the other food is also selected. This is proportional ration planning, not
-energy or nutrient matching. Formulas respect their configured weight range;
+energy or nutrient matching in the default `allocation_mode: ration`.
+`allocation_mode: energy` instead derives daily kcal from weight x `kcal_per_kg`
+and converts each food's kcal share to grams using its `kcal_per_100g` density.
+No target or density is assumed: both default to zero, and energy mode requires
+a positive target and densities for included foods. Ration methods and their
+weight/age boundaries are not used in energy mode. It does not balance nutrients.
+Formulas respect their configured weight range;
 tables respect the first/last row without extrapolation. Zero-share foods do
 not impose a range restriction. Validation returns explicit missing-weight,
-invalid-settings or out-of-range states, which are excluded from litter totals.
+invalid-settings, missing-age, before-first-stage or out-of-range states, which
+are excluded from litter totals.
 Feeding preferences are persisted per litter as `feeding_settings` with
-`meat_percent`, `kibble_portions_per_day`, `meat_portions_per_day` and nested
+`allocation_mode`, `kcal_per_kg`, `meat_percent`, `kibble_portions_per_day`, `meat_portions_per_day` and nested
 `kibble`/`meat` profiles. Counts are whole numbers up to 12, positive for an
 included food; zero is allowed for an excluded food. Feeding moments are derived
 from included-food counts, never multiplied by the number of puppies.
 Each profile contains `method`, `grams_per_kg`, `coefficient`, `offset`,
-`min_kg`, `max_kg` and a `table` of [kg, daily grams] rows. Unselected
+`min_kg`, `max_kg`, `kcal_per_100g`, a `table` of [kg, daily grams] rows and
+`age_tables` of `{from_day, table}` stages. At most 24 stages use strictly
+increasing whole start days (0–3650), each with a normal validated weight table.
+Age uses completed 24-hour periods from puppy `birth_time`, falling back to
+litter `birth_date`; missing/future dates do not silently become zero. Stage
+selection is inclusive of its start day; the last applicable stage persists,
+without interpolation between ages or extrapolation beyond table weights.
+Unselected
 method values are retained when switching. `feeding.py` validates finite
 non-negative formula values, positive rates, ordered weight ranges, whole
 portions and 2–100 strictly increasing positive table weights/positive rations.
+Old nested profiles gain zero density and empty stages without altering their
+existing calculations. Invalid drafts are neither saved nor automatically replaced.
 The original flat `kivo_grams_per_kg`/`kibble_formula` preferences normalize
 to these profiles. An old shared `portions_per_day` count splits by ration
 share, rounding half upward and retaining at least one moment per included
