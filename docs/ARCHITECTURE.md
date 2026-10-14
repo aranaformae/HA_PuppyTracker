@@ -1006,6 +1006,9 @@ switches blur the previous control and focus the selected mode without scrolling
 
 The same Calculator surface offers `default_mode: feeding`. A pure module,
 `puppy-tracker-feeding-calculator.js`, calculates brand-neutral food profiles.
+It is dependency-free and can also run outside Home Assistant; the input model,
+equations and acceptance examples for an owner-facing website are documented in
+[FEEDING_CALCULATOR_STANDALONE.md](FEEDING_CALCULATOR_STANDALONE.md).
 Each food independently supports `linear` (coefficient x kg + offset),
 `table` (piecewise interpolation), `per_kg` (kg x fixed daily rate), or
 `age_table` (the applicable age stage's weight table).

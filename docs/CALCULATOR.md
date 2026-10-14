@@ -205,5 +205,7 @@ The entered amount and unit are working values for the current card session.
 They are intentionally not stored as medication or feeding instructions.
 The selected calculator variant is remembered in this browser; feeding
 preferences are stored with the litter, not just with the card.
+For rebuilding the feeding variant as an owner-facing website, see the
+[Standalone Feeding Calculator Specification](FEEDING_CALCULATOR_STANDALONE.md).
 Live Puppy Tracker updates are applied after the active input, slider or selector loses
 focus, so a background weight refresh cannot interrupt typing on mobile.
