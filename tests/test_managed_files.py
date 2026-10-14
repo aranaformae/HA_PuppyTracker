@@ -60,7 +60,11 @@ def test_logo_normalization_strips_transparency_and_bounds_dimensions():
         assert image.getpixel((0, 0)) == (255, 255, 255)
 
 
-@pytest.mark.parametrize("content", [b"", b"%PDF-1.7", b"<svg></svg>", b"a" * (MAX_UPLOAD_BYTES + 1)])
+@pytest.mark.parametrize(
+    "content",
+    [b"", b"%PDF-1.7", b"<svg></svg>", b"a" * (MAX_UPLOAD_BYTES + 1)],
+    ids=["empty", "pdf", "svg", "over-upload-limit"],
+)
 def test_logo_rejects_unsupported_or_oversized_content(content):
     with pytest.raises(ValueError):
         normalize_logo(content)

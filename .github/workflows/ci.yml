@@ -20,6 +20,9 @@ jobs:
   backend-tests:
     name: Backend tests
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONUNBUFFERED: "1"
 
     steps:
       - name: Checkout repository
@@ -41,7 +44,22 @@ jobs:
         run: python -m compileall -q custom_components/puppy_tracker tests
 
       - name: Run pytest
-        run: python -m pytest -v
+        timeout-minutes: 3
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -c 'import sys; from importlib.metadata import version; print(sys.version); print("Home Assistant:", version("homeassistant")); print("Test harness:", version("pytest-homeassistant-custom-component"))'
+          python -m pytest -v --junitxml=pytest-results.xml 2>&1 | tee pytest-output.log
+
+      - name: Upload backend test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-diagnostics
+          path: |
+            pytest-output.log
+            pytest-results.xml
+          if-no-files-found: ignore
 
   metadata:
     name: Metadata validation
