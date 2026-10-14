@@ -783,6 +783,16 @@ async def websocket_correct_measurement(
         connection.send_error(msg["id"], "invalid_measurement", str(err))
         return
 
+    runtime = get_runtime_data(hass)
+    if runtime is not None:
+        session = runtime.weighing_session
+        if (
+            session.get("last_litter_id") == msg["litter_id"]
+            and session.get("last_puppy_id") == msg["puppy_id"]
+            and session.get("last_measurement_id") == msg["measurement_id"]
+        ):
+            session["last_measurement_id"] = replacement_id
+            session["last_weight"] = float(msg["weight"])
     storage.refresh_integrity_report()
     dispatch_measurement_update(hass, msg["puppy_id"])
     connection.send_result(

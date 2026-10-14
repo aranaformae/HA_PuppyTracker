@@ -6,6 +6,12 @@ const WEIGHING_TEXT = {
   nl: {
     actionFailed: "De actie kon niet worden uitgevoerd.",
     completed: "Voltooid",
+    weighed: "Gewogen",
+    editMeasurement: "Meting aanpassen",
+    saveCorrection: "Correctie opslaan",
+    correctionSaved: "Meting gecorrigeerd.",
+    correctionUnavailable: "Deze meting kan niet meer aangepast worden.",
+    cancelCorrection: "Annuleren",
     differencePrevious: "Verschil met vorige meting",
     elapsedSinceLast: "Tijd sinds laatste meting",
     enterValidWeight: "Voer eerst een geldig gewicht in.",
@@ -61,6 +67,12 @@ const WEIGHING_TEXT = {
   en: {
     actionFailed: "The action could not be completed.",
     completed: "Completed",
+    weighed: "Weighed",
+    editMeasurement: "Edit measurement",
+    saveCorrection: "Save correction",
+    correctionSaved: "Measurement corrected.",
+    correctionUnavailable: "This measurement can no longer be edited.",
+    cancelCorrection: "Cancel",
     differencePrevious: "Difference from previous measurement",
     elapsedSinceLast: "Time since last measurement",
     enterValidWeight: "Enter a valid weight first.",
@@ -158,6 +170,8 @@ class PuppyTrackerCard extends HTMLElement {
     this._entities = [];
     this._devices = [];
     this._draftWeight = null;
+    this._correction = null;
+    this._correctionBusy = false;
     this._localMessage = "";
     this._localMessageType = "info";
     this._editingWeight = false;
@@ -743,6 +757,10 @@ class PuppyTrackerCard extends HTMLElement {
         const visibleAttributes = {
           options: Array.isArray(attributes.options) ? attributes.options : undefined,
           percentage: attributes.percentage,
+          litter_id: attributes.litter_id,
+          weighed_puppy_ids: attributes.weighed_puppy_ids,
+          measurement_id: attributes.measurement_id,
+          weight: attributes.weight,
           status_code: attributes.status_code,
         };
         return `${entityId}:${state?.state || ""}:${JSON.stringify(visibleAttributes)}`;
@@ -983,6 +1001,49 @@ class PuppyTrackerCard extends HTMLElement {
     this._scheduleRender();
   }
 
+  async _openLastMeasurement(station) {
+    if (this._correctionBusy) return;
+    const lastState = this._state(station.ids.last);
+    const label = lastState?.state || this._t("puppy");
+    const last = lastState?.attributes || {};
+    if (!last.litter_id || !last.puppy_id || !last.measurement_id) return;
+    this._correctionBusy = true;
+    try {
+      const result = await this._hass.callWS({ type: "puppy_tracker/measurements", litter_id: last.litter_id, puppy_id: last.puppy_id });
+      const measurement = result.measurements?.find((item) => item.id === last.measurement_id);
+      if (!measurement || measurement.status !== "active") throw new Error(this._t("correctionUnavailable"));
+      this._correction = { litter_id: last.litter_id, puppy_id: last.puppy_id, measurement_id: measurement.id };
+      const editor = this.shadowRoot.querySelector("#measurement-editor");
+      editor.hidden = false;
+      editor.innerHTML = `<form><label><span>${this._escape(label)} · ${this._escape(this._t("weight"))}</span><input name="weight" type="number" min="1" max="10000" step="1" inputmode="numeric" required value="${this._escape(measurement.weight)}"></label><div class="session-actions"><button type="submit" class="primary">${this._escape(this._t("saveCorrection"))}</button><button type="button" class="secondary" id="cancel-correction">${this._escape(this._t("cancelCorrection"))}</button></div><div class="message error" role="alert" id="correction-error"></div></form>`;
+      editor.querySelector("form").addEventListener("submit", (event) => { event.preventDefault(); this._saveCorrection(event.currentTarget); });
+      editor.querySelector("#cancel-correction").addEventListener("click", () => { this._correction = null; editor.hidden = true; editor.innerHTML = ""; });
+    } catch (err) { this._setError(err); this._updateView(station); }
+    finally { this._correctionBusy = false; }
+  }
+
+  async _saveCorrection(form) {
+    if (!this._correction || this._correctionBusy) return;
+    const weight = Number(new FormData(form).get("weight"));
+    if (!Number.isFinite(weight) || weight < 1 || weight > 10000) return;
+    this._correctionBusy = true;
+    form.querySelectorAll("button").forEach((button) => { button.disabled = true; });
+    try {
+      await this._hass.callWS({ type: "puppy_tracker/measurement/correct", ...this._correction, weight });
+      this._correction = null;
+      const editor = this.shadowRoot.querySelector("#measurement-editor");
+      editor.hidden = true;
+      editor.innerHTML = "";
+      this._localMessage = this._t("correctionSaved");
+      this._localMessageType = "success";
+      this._scheduleRender();
+    } catch (err) { form.querySelector("#correction-error").textContent = err?.message || this._t("actionFailed"); }
+    finally {
+      this._correctionBusy = false;
+      form.querySelectorAll("button").forEach((button) => { button.disabled = false; });
+    }
+  }
+
   _escape(value) {
     return String(value ?? "")
       .replaceAll("&", "&amp;")
@@ -1012,7 +1073,17 @@ class PuppyTrackerCard extends HTMLElement {
     if (element) element.hidden = Boolean(hidden);
   }
 
-  _setOptions(select, options, selected) {
+  _weighedOptions(station) {
+    const session = this._sessionPresentation(this._state(station.ids.session)?.state);
+    if (!["active", "complete"].includes(session.code)) return new Set();
+    const progress = this._state(station.ids.progress)?.attributes || {};
+    const litterId = this._deviceIdentifier(this._selectedLitterDevice(station), "litter_")?.slice("litter_".length);
+    if (!litterId || progress.litter_id !== litterId) return new Set();
+    const weighed = new Set(Array.isArray(progress.weighed_puppy_ids) ? progress.weighed_puppy_ids : []);
+    return new Set(this._puppyRows(station).filter((row) => weighed.has(row.puppyId)).map((row) => row.option));
+  }
+
+  _setOptions(select, options, selected, weighed = new Set()) {
     if (!select) return;
     const values = [...select.options].map((option) => option.value);
     const nextValues = options.map(String);
@@ -1023,6 +1094,12 @@ class PuppyTrackerCard extends HTMLElement {
         option.textContent = value;
         return option;
       }));
+    }
+    for (const option of select.options) {
+      const done = weighed.has(option.value);
+      const label = done ? `${option.value} · ✓ ${this._t("weighed")}` : option.value;
+      if (option.textContent !== label) option.textContent = label;
+      option.classList.toggle("weighed-option", done);
     }
     if (this.shadowRoot?.activeElement !== select && selected && nextValues.includes(String(selected))) {
       select.value = String(selected);
@@ -1057,7 +1134,6 @@ class PuppyTrackerCard extends HTMLElement {
         element.addEventListener("pointercancel", () => this._endInteraction());
         element.addEventListener("click", () => {
           const option = element.dataset.puppyOption;
-          this._draftWeight = null;
           this._optimisticPuppyOption = option;
           this._interactionActive = false;
           this._renderPending = false;
@@ -1155,7 +1231,7 @@ class PuppyTrackerCard extends HTMLElement {
     const litterSelect = this.shadowRoot?.querySelector("#litter-select");
     const puppySelect = this.shadowRoot?.querySelector("#puppy-select");
     this._setOptions(litterSelect, litterOptions, this._optimisticLitterOption || litterState?.state);
-    this._setOptions(puppySelect, puppyOptions, this._optimisticPuppyOption || puppyState?.state);
+    this._setOptions(puppySelect, puppyOptions, this._optimisticPuppyOption || puppyState?.state, this._weighedOptions(station));
     if (litterSelect) litterSelect.disabled = isActive;
     const weightInput = this.shadowRoot?.querySelector("#weight-input");
     if (weightInput && this.shadowRoot?.activeElement !== weightInput && !this._editingWeight) {
@@ -1207,10 +1283,14 @@ class PuppyTrackerCard extends HTMLElement {
     }
     const save = this.shadowRoot?.querySelector("#save-weight");
     if (save) save.disabled = !station.ids.save;
-    const start = this.shadowRoot?.querySelector("#start-session");
-    if (start) start.disabled = isActive || !station.ids.start;
-    const reset = this.shadowRoot?.querySelector("#reset-session");
-    if (reset) reset.disabled = !station.ids.reset;
+    const toggle = this.shadowRoot?.querySelector("#toggle-session");
+    if (toggle) {
+      toggle.disabled = !(isActive || isComplete ? station.ids.reset : station.ids.start);
+      toggle.textContent = this._t(isActive || isComplete ? "resetSession" : "startSession");
+      toggle.classList.toggle("danger-outline", isActive || isComplete);
+    }
+    const edit = this.shadowRoot?.querySelector("#edit-last-measurement");
+    if (edit) edit.disabled = !lastState?.attributes?.measurement_id || this._hass?.user?.is_admin === false;
     this._updatePuppyRows(rows, station);
   }
 
@@ -1341,14 +1421,15 @@ class PuppyTrackerCard extends HTMLElement {
       </select>
     `;
 
+    const weighedOptions = this._weighedOptions(station);
     const puppySelect = `
       <select id="puppy-select">
         ${puppyOptions
           .map(
             (option) =>
-              `<option value="${this._escape(option)}" ${
+              `<option class="${weighedOptions.has(option) ? "weighed-option" : ""}" value="${this._escape(option)}" ${
                 option === (this._optimisticPuppyOption || puppyState?.state) ? "selected" : ""
-              }>${this._escape(option)}</option>`
+              }>${this._escape(weighedOptions.has(option) ? `${option} · ✓ ${this._t("weighed")}` : option)}</option>`
           )
           .join("")}
       </select>
@@ -1470,9 +1551,10 @@ class PuppyTrackerCard extends HTMLElement {
       </div>
 
       <div class="session-actions">
-        <button class="secondary" id="start-session" ${isActive || !station.ids.start ? "disabled" : ""}>▶ ${this._escape(this._t("startSession"))}</button>
-        <button class="secondary danger-outline" id="reset-session" ${!station.ids.reset ? "disabled" : ""}>↻ ${this._escape(this._t("resetSession"))}</button>
+        <button class="secondary${isActive || isComplete ? " danger-outline" : ""}" id="toggle-session" ${!(isActive || isComplete ? station.ids.reset : station.ids.start) ? "disabled" : ""}>${this._escape(this._t(isActive || isComplete ? "resetSession" : "startSession"))}</button>
+        <button class="secondary" id="edit-last-measurement" ${!lastState?.attributes?.measurement_id || this._hass?.user?.is_admin === false ? "disabled" : ""}>${this._escape(this._t("editMeasurement"))}</button>
       </div>
+      <section id="measurement-editor" hidden></section>
 
       ${details}
 
@@ -1511,8 +1593,7 @@ class PuppyTrackerCard extends HTMLElement {
     const puppySelect = this.shadowRoot?.querySelector("#puppy-select");
     const weightInput = this.shadowRoot?.querySelector("#weight-input");
     const save = this.shadowRoot?.querySelector("#save-weight");
-    const start = this.shadowRoot?.querySelector("#start-session");
-    const reset = this.shadowRoot?.querySelector("#reset-session");
+    const toggle = this.shadowRoot?.querySelector("#toggle-session");
 
     // Guard every interactive control, not just the weight field. Without this,
     // an incoming HA state update can recreate the DOM after pointerdown but
@@ -1555,7 +1636,6 @@ class PuppyTrackerCard extends HTMLElement {
 
     puppySelect?.addEventListener("change", (event) => {
       const option = event.target.value;
-      this._draftWeight = null;
       this._optimisticPuppyOption = option;
 
       event.target.blur();
@@ -1615,24 +1695,19 @@ class PuppyTrackerCard extends HTMLElement {
       this._saveWeight(station).finally(() => this._endInteraction(350));
     });
 
-    start?.addEventListener("click", () => {
+    toggle?.addEventListener("click", () => {
       this._beginInteraction();
-      this._press(station.ids.start, this._t("startSessionAction")).finally(() =>
+      const session = this._sessionPresentation(this._state(station.ids.session)?.state);
+      const reset = ["active", "complete"].includes(session.code);
+      this._press(reset ? station.ids.reset : station.ids.start, this._t(reset ? "resetSessionAction" : "startSessionAction")).finally(() =>
         this._endInteraction(350)
       );
     });
-
-    reset?.addEventListener("click", () => {
-      this._beginInteraction();
-      this._press(station.ids.reset, this._t("resetSessionAction")).finally(() =>
-        this._endInteraction(350)
-      );
-    });
+    this.shadowRoot?.querySelector("#edit-last-measurement")?.addEventListener("click", () => this._openLastMeasurement(station));
 
     this.shadowRoot?.querySelectorAll("[data-puppy-option]").forEach((row) => {
       row.addEventListener("click", () => {
         const option = row.dataset.puppyOption;
-        this._draftWeight = null;
         this._optimisticPuppyOption = option;
         this._interactionActive = false;
         this._renderPending = false;
@@ -1650,6 +1725,7 @@ class PuppyTrackerCard extends HTMLElement {
       <style>
         :host {
           display: block;
+          --weighed-option-color:var(--secondary-text-color,#757575);
           color: var(--primary-text-color);
           font-family: var(--paper-font-body1_-_font-family, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
         }
@@ -1878,6 +1954,7 @@ class PuppyTrackerCard extends HTMLElement {
           align-items: end;
         }
 
+        option.weighed-option { color:var(--weighed-option-color); }
         .weight-input-wrap {
           position: relative;
         }
@@ -1939,10 +2016,14 @@ class PuppyTrackerCard extends HTMLElement {
 
         .session-actions {
           display: grid;
-          grid-template-columns: 1fr 1fr;
+          grid-template-columns: minmax(0,1fr) minmax(0,1fr);
           gap: 10px;
           margin-top: 12px;
         }
+        .session-actions button{min-width:0;white-space:normal;overflow-wrap:anywhere;padding:10px 6px;border-radius:8px;font-size:14px}
+        #measurement-editor{margin-top:12px;padding-top:12px;border-top:1px solid var(--divider-color)}
+        #measurement-editor[hidden]{display:none}
+        #measurement-editor label{display:grid;gap:6px}
 
         .session-grid {
           display: grid;
@@ -2178,9 +2259,6 @@ class PuppyTrackerCard extends HTMLElement {
         }
 
         @media (max-width: 400px) {
-          .session-actions {
-            grid-template-columns: 1fr;
-          }
 
           .puppy-row {
             grid-template-columns: 9px 1fr 64px;

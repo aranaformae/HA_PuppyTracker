@@ -21,6 +21,7 @@ import {
   updateMotherDossierRecord,
   updateProfileNote,
 } from "./puppy-tracker-card-common.js";
+import { matchesDossierSearch, searchMarkup, searchText, bindSearch, SEARCH_STYLE } from "./puppy-tracker-dossier-search.js";
 import {
   fieldLabel,
   fieldPlaceholder,
@@ -203,6 +204,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
     this._refreshAgain = false;
     this._refreshDeferred = false;
     this._editor = null;
+    this._searchQuery = "";
     this._profileEditing = false;
     this._timelineItemsVisible = null;
     this._manageMode = false;
@@ -1194,8 +1196,33 @@ class PuppyTrackerDossierCard extends HTMLElement {
     return dossierText(this._hass, "Hele nest", "Whole litter");
   }
 
+  _searchResultsMarkup(records, visibleRecords, ownerName) {
+    if (this._loading) return `<div class="empty">${escapeHtml(localize(this._hass, "loading"))}</div>`;
+    if (visibleRecords.length) return `<div class="timeline">${visibleRecords.map((record) => this._renderRecord(record)).join("")}</div>`;
+    if (!records.length) return `<div class="empty">${escapeHtml(localize(this._hass, "noDossierItems", { owner: ownerName }))}${this._canAddRecord ? escapeHtml(localize(this._hass, "noDossierItemsCanAdd")) : ""}</div>`;
+    if (this._searchQuery?.trim()) return `<div class="empty">${escapeHtml(searchText(this._hass, "none"))}</div>`;
+    return `<div class="empty"><div>${escapeHtml(localize(this._hass, "noDossierItemsInCategories"))}</div><button type="button" class="text-button" id="clear-category-filters">${escapeHtml(localize(this._hass, "clearFilters"))}</button></div>`;
+  }
+
+  _updateSearchResults() {
+    const records = this._recordData?.records || [];
+    const types = [...new Set(records.map((record) => record?.type || "other"))];
+    const selected = this._selectedCategoryFilters(types);
+    const visible = records.filter((record) => selected.has(record?.type || "other") && matchesDossierSearch(record, this._searchQuery));
+    const list = this.shadowRoot.querySelector(".dossier-timeline-scroll");
+    const scrollTop = list.scrollTop;
+    list.innerHTML = this._searchResultsMarkup(records, visible, this._searchOwnerName);
+    list.scrollTop = scrollTop;
+    this.shadowRoot.getElementById("record-search-count").textContent = searchText(this._hass, "count", visible.length);
+    if (!this._timelineItemsVisible) this.shadowRoot.querySelector("#toggle-timeline-items span").textContent = dossierText(this._hass, `Toon tijdlijnitems (${visible.length})`, `Show timeline items (${visible.length})`);
+  }
+
   _render() {
     if (!this.shadowRoot) return;
+    if (this.shadowRoot.activeElement?.id === "record-search") {
+      this._updateSearchResults();
+      return;
+    }
     const litter = this._litterData?.litter;
     const puppies = this._litterData?.puppies || [];
     const records = this._recordData?.records || [];
@@ -1204,7 +1231,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
       labelForRecordType(this._hass, a).localeCompare(labelForRecordType(this._hass, b))
     );
     const selectedCategoryTypes = this._selectedCategoryFilters(availableCategoryTypes);
-    const visibleRecords = records.filter((record) => selectedCategoryTypes.has(record?.type || "other"));
+    const visibleRecords = records.filter((record) => selectedCategoryTypes.has(record?.type || "other") && matchesDossierSearch(record, this._searchQuery));
     const ownerName = this.__allSelected
       ? dossierText(this._hass, "Alles", "All")
       : this.__motherSelected
@@ -1213,6 +1240,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
     const activeRecordLabel = activeRecordCount === 1
       ? localize(this._hass, "activeEntry")
       : localize(this._hass, "activeEntries");
+    this._searchOwnerName = ownerName;
     const litterSelector = this._config.show_litter_selector !== false && this._litters.length > 1
       ? `<select id="litter-select" aria-label="${escapeHtml(localize(this._hass, "chooseLitter"))}">${this._litters.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === this._selectedLitterId ? "selected" : ""}>${escapeHtml(item.name || localize(this._hass, "litter"))}</option>`).join("")}</select>`
       : "";
@@ -1232,6 +1260,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <ha-card>
         <style>
+          ${SEARCH_STYLE}
           :host{display:block}ha-card{padding:16px;overflow:hidden;container-type:inline-size;container-name:dossier-card}
           *{box-sizing:border-box}.top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}.title{font-size:18px;font-weight:650}.subtitle{font-size:12px;color:var(--secondary-text-color);margin-top:3px}
           .selectors{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}select,input,textarea{width:100%;border:1px solid var(--divider-color);border-radius:10px;background:var(--card-background-color);color:var(--primary-text-color);font:inherit}select,input{min-height:40px;padding:0 10px}textarea{padding:10px 12px;resize:vertical;line-height:1.45}.selectors select{width:auto;max-width:220px}
@@ -1268,8 +1297,9 @@ class PuppyTrackerDossierCard extends HTMLElement {
           ${this._canManage ? `<label class="toggle"><input id="show-deleted" type="checkbox" ${this._showDeleted ? "checked" : ""}> ${escapeHtml(localize(this._hass, "showDeleted"))}</label>` : ""}
         </div>
         <div class="timeline-items-content" ${this._timelineItemsVisible ? "" : "hidden"}>
+          ${searchMarkup(this._hass, this._searchQuery, visibleRecords.length)}
           ${this._renderCategoryFilters(availableCategoryTypes, selectedCategoryTypes)}
-          <div class="dossier-timeline-scroll">${this._loading ? `<div class="empty">${escapeHtml(localize(this._hass, "loading"))}</div>` : records.length ? (visibleRecords.length ? `<div class="timeline">${visibleRecords.map((record) => this._renderRecord(record)).join("")}</div>` : `<div class="empty"><div>${escapeHtml(localize(this._hass, "noDossierItemsInCategories"))}</div><button type="button" class="text-button" id="clear-category-filters">${escapeHtml(localize(this._hass, "clearFilters"))}</button></div>`) : `<div class="empty">${escapeHtml(localize(this._hass, "noDossierItems", { owner: ownerName }))}${this._canAddRecord ? escapeHtml(localize(this._hass, "noDossierItemsCanAdd")) : ""}</div>`}</div>
+          <div class="dossier-timeline-scroll">${this._searchResultsMarkup(records, visibleRecords, ownerName)}</div>
         </div>
         <div class="dossier-timeline-toggle-footer"><button id="toggle-timeline-items" type="button" class="${this._timelineItemsVisible ? "secondary" : ""}" aria-expanded="${this._timelineItemsVisible ? "true" : "false"}"><ha-icon icon="mdi:chevron-${this._timelineItemsVisible ? "up" : "down"}"></ha-icon><span>${escapeHtml(this._timelineItemsVisible ? dossierText(this._hass, "Verberg tijdlijnitems", "Hide timeline items") : dossierText(this._hass, `Toon tijdlijnitems (${visibleRecords.length})`, `Show timeline items (${visibleRecords.length})`))}</span></button></div>
       </ha-card>`;
@@ -1293,7 +1323,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
         this._render();
       }
     });
-    this.shadowRoot.getElementById("clear-category-filters")?.addEventListener("click", () => this._clearCategoryFilters());
+    bindSearch(this.shadowRoot, (query) => { this._searchQuery = query; this._updateSearchResults(); });
     this.shadowRoot.getElementById("add-record")?.addEventListener("click", () => this._startAdd());
     this.shadowRoot.getElementById("toggle-dossier-manage")?.addEventListener("click", () => {
       this._manageMode = !this._manageMode;
@@ -1357,30 +1387,17 @@ class PuppyTrackerDossierCard extends HTMLElement {
       button.addEventListener("click", () => this._toggleCategoryFilter(button.dataset.dossierCategory, availableCategoryTypes));
     });
 
-    for (const button of this.shadowRoot.querySelectorAll(".edit-record")) {
-      button.addEventListener("click", () => {
-        const record = visibleRecords.find((item) => (item.__aggregate_record_key || item.id) === (button.dataset.recordKey || button.dataset.id));
-        if (record) this._startEdit(record);
-      });
-    }
-    for (const button of this.shadowRoot.querySelectorAll(".delete-record")) {
-      button.addEventListener("click", () => {
-        const record = visibleRecords.find((item) => (item.__aggregate_record_key || item.id) === (button.dataset.recordKey || button.dataset.id));
-        if (record) this._deleteRecord(record);
-      });
-    }
-    for (const button of this.shadowRoot.querySelectorAll(".move-record")) {
-      button.addEventListener("click", () => {
-        const record = visibleRecords.find((item) => (item.__aggregate_record_key || item.id) === (button.dataset.recordKey || button.dataset.id));
-        if (record) this._changeOwner(record);
-      });
-    }
-    for (const button of this.shadowRoot.querySelectorAll(".restore-record")) {
-      button.addEventListener("click", () => {
-        const record = visibleRecords.find((item) => (item.__aggregate_record_key || item.id) === (button.dataset.recordKey || button.dataset.id));
-        if (record) this._restoreRecord(record);
-      });
-    }
+    this.shadowRoot.querySelector(".dossier-timeline-scroll").addEventListener("click", (event) => {
+      const button = event.target.closest("button");
+      if (!button) return;
+      if (button.id === "clear-category-filters") { this._clearCategoryFilters(); return; }
+      const record = (this._recordData?.records || []).find((item) => (item.__aggregate_record_key || item.id) === (button.dataset.recordKey || button.dataset.id));
+      if (!record) return;
+      if (button.classList.contains("edit-record")) this._startEdit(record);
+      else if (button.classList.contains("delete-record")) this._deleteRecord(record);
+      else if (button.classList.contains("move-record")) this._changeOwner(record);
+      else if (button.classList.contains("restore-record")) this._restoreRecord(record);
+    });
   }
 }
 

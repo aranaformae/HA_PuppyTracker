@@ -193,6 +193,7 @@ async function mountWeighingStation(page) {
 
     const constructor = customElements.get("puppy-tracker-card");
     const card = document.createElement("puppy-tracker-card");
+    window.__weighingCard = card;
     card.setConfig(constructor.getStubConfig());
     document.querySelector("#cards").appendChild(card);
     card.hass = hass;
@@ -215,9 +216,114 @@ async function notifyHassUpdate(page, mutate = null) {
       }
       hass.states[mutation.entityId].last_updated = new Date().toISOString();
     }
-    document.querySelector("puppy-tracker-card").hass = hass;
+    window.__weighingCard.hass = hass;
   }, mutate);
 }
+
+for (const mobile of [false, true]) {
+  test(`weighing preserves entered weight and marks session puppies ${mobile ? "@mobile @tablet" : "@cross-browser"}`, async ({ page }) => {
+    await mountWeighingStation(page);
+    if (mobile) {
+      await page.evaluate(() => {
+        window.__weighingCard.remove();
+        const workspace = document.createElement("puppy-tracker-workspace-card");
+        workspace.setConfig({ preset: "mobile" });
+        document.querySelector("#cards").append(workspace);
+        workspace.hass = window.__mockHass;
+      });
+      await expect(page.locator("puppy-tracker-workspace-card #weight-input")).toBeVisible();
+      await page.evaluate(() => {
+        window.__weighingCard = document.querySelector("puppy-tracker-workspace-card").shadowRoot.querySelector("puppy-tracker-card");
+      });
+    }
+    const card = page.locator(mobile ? "puppy-tracker-workspace-card puppy-tracker-card" : "puppy-tracker-card");
+    const input = card.locator("#weight-input");
+    const select = card.locator("#puppy-select");
+    await input.fill("425");
+    await select.selectOption("Bob (Blue)");
+    await notifyHassUpdate(page);
+    await expect(input).toHaveValue("425");
+    await expect(card.locator("#current-puppy-name")).toHaveText("Bob");
+    await card.locator('#puppy-list [data-puppy-id="p1"]').click();
+    await notifyHassUpdate(page);
+    await expect(input).toHaveValue("425");
+    await input.fill("");
+    await select.selectOption("Bob (Blue)");
+    await notifyHassUpdate(page);
+    await expect(input).toHaveValue("");
+    await input.fill("430");
+    await card.locator("#save-weight").click();
+    await expect.poll(() => page.evaluate(() => window.__serviceCalls.some((call) => call.domain === "number" && call.data.value === 430))).toBe(true);
+    await notifyHassUpdate(page, { entityId: "sensor.pt_progress", attributes: { litter_id: "l1", weighed_puppy_ids: ["p2"] } });
+    await notifyHassUpdate(page, { entityId: "sensor.pt_session", state: "Bezig" });
+    await expect(select.locator('option[value="Bob (Blue)"]')).toHaveText("Bob (Blue) · ✓ Weighed");
+    await expect(select.locator('option[value="Bob (Blue)"]')).toBeEnabled();
+    await expect(select.locator('option[value="Alice (Red)"]')).toHaveText("Alice (Red)");
+    await select.selectOption("Alice (Red)");
+    await notifyHassUpdate(page);
+    await select.selectOption("Bob (Blue)");
+    await notifyHassUpdate(page);
+    await expect(select).toHaveValue("Bob (Blue)");
+    await expect(input).toBeFocused();
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await input.blur();
+    await notifyHassUpdate(page, { entityId: "sensor.pt_session", state: "Voltooid" });
+    await expect(card.locator("#session-badge")).toHaveText("Completed");
+    await expect(select.locator(".weighed-option")).toHaveCount(1);
+    await notifyHassUpdate(page, { entityId: "sensor.pt_progress", attributes: { weighed_puppy_ids: ["p1", "p2"] } });
+    await expect(select.locator('option[value="Alice (Red)"]')).toHaveText("Alice (Red) · ✓ Weighed");
+    await expect(select.locator(".weighed-option")).toHaveCount(2);
+    await notifyHassUpdate(page, { entityId: "sensor.pt_progress", attributes: { litter_id: "l2" } });
+    await expect(select.locator(".weighed-option")).toHaveCount(0);
+    await notifyHassUpdate(page, { entityId: "sensor.pt_progress", attributes: { litter_id: "l1" } });
+    await notifyHassUpdate(page, { entityId: "sensor.pt_session", state: "Niet gestart" });
+    await expect(select.locator(".weighed-option")).toHaveCount(0);
+  });
+}
+
+test("last measurement correction targets the saved puppy and keeps compact session controls @cross-browser @tablet", async ({ page }) => {
+  await mountWeighingStation(page);
+  const card = page.locator("puppy-tracker-card");
+  await expect(card.locator("#edit-last-measurement")).toBeDisabled();
+  await page.evaluate(() => {
+    const original = window.__mockHass.callWS;
+    window.__correctionCalls = [];
+    window.__correctionFails = true;
+    window.__mockHass.callWS = async (message) => {
+      if (message.type === "puppy_tracker/measurements") {
+        window.__correctionCalls.push(message);
+        return { measurements: [{ id: "m1", status: "active", weight: 428 }] };
+      }
+      if (message.type === "puppy_tracker/measurement/correct") {
+        window.__correctionCalls.push(message);
+        if (window.__correctionFails) throw new Error("Please retry");
+        return { measurement_id: "m2", ok: true };
+      }
+      return original(message);
+    };
+  });
+  await notifyHassUpdate(page, { entityId: "sensor.pt_last", state: "Alice (Red)", attributes: { litter_id: "l1", puppy_id: "p1", measurement_id: "m1", weight: 428 } });
+  await expect(card.locator("#edit-last-measurement")).toBeEnabled();
+  const left = await card.locator("#toggle-session").boundingBox();
+  const right = await card.locator("#edit-last-measurement").boundingBox();
+  expect(Math.abs(left.y - right.y)).toBeLessThan(1);
+  expect(Math.abs(left.width - right.width)).toBeLessThan(1);
+  await card.locator("#puppy-select").selectOption("Bob (Blue)");
+  await notifyHassUpdate(page);
+  await expect(card.locator("#weight-input")).toBeFocused();
+  await card.locator("#weight-input").blur();
+  await card.locator("#edit-last-measurement").click();
+  const editor = card.locator("#measurement-editor");
+  await expect(editor).toContainText("Alice (Red)");
+  await editor.locator("input").fill("420");
+  await editor.locator('[type="submit"]').click();
+  await expect(editor.locator("#correction-error")).toHaveText("Please retry");
+  await expect(editor.locator("input")).toHaveValue("420");
+  await page.evaluate(() => { window.__correctionFails = false; });
+  await editor.locator('[type="submit"]').click();
+  await expect(editor).toBeHidden();
+  expect(await page.evaluate(() => window.__correctionCalls.at(-1))).toEqual({ type: "puppy_tracker/measurement/correct", litter_id: "l1", puppy_id: "p1", measurement_id: "m1", weight: 420 });
+});
 
 test("shows the selected puppy collar color prominently", async ({ page }) => {
   await mountWeighingStation(page);
@@ -314,14 +420,15 @@ test("litter and puppy selectors keep the chosen values", async ({ page }) => {
 test("weight entry and session actions call the expected HA services", async ({ page }) => {
   await mountWeighingStation(page);
 
-  await page.locator("puppy-tracker-card #start-session").click();
+  await page.locator("puppy-tracker-card #toggle-session").click();
   await notifyHassUpdate(page);
 
   const weight = page.locator("puppy-tracker-card #weight-input");
   await weight.fill("428");
   await page.locator("puppy-tracker-card #save-weight").click();
 
-  await page.locator("puppy-tracker-card #reset-session").click();
+  await expect(page.locator("puppy-tracker-card #toggle-session")).toHaveText("Reset session");
+  await page.locator("puppy-tracker-card #toggle-session").click();
   await notifyHassUpdate(page);
 
   const calls = await page.evaluate(() => window.__serviceCalls);

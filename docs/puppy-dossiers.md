@@ -70,6 +70,19 @@ are not shown as user-facing fields.
 
 The dossier list scrolls after 520 px. `show_timeline_items` controls whether it
 starts expanded; the visible toggle and matching item count remain available.
+Both Dossier and Timeline have a search field for titles, notes and results,
+including care-program results. Search ignores capitalization and accents;
+multiple words must all occur somewhere in those fields. It is combined with
+the selected owner, categories and (in Timeline) dates/history settings.
+Clearing the search leaves those other filters unchanged. Timeline searches
+the complete loaded scope before applying its display limit.
+
+Search also remains active in **Edit items**, including the combined **All**
+scope. A matching item is edited under its original owner; entering another
+search while an editor is open leaves its unsaved fields intact. Search only
+updates the results and counts, not the search field or editor. Search terms
+are temporary card state, not saved data or part of backups. Internal care
+program/occurrence IDs are not searched.
 
 ## Changing a record owner
 

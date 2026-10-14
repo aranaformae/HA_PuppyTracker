@@ -26,6 +26,16 @@ A central rule is that persistent scheduling definitions and historical facts ar
 
 ## Frontend presentation contracts
 
+Dossier and Timeline share `puppy-tracker-dossier-search.js` for accent- and
+case-insensitive title/note/result matching and localized search controls.
+The query is transient presentation state. Filtering runs over the full loaded
+scope, before Timeline display limits. Input changes replace only the result
+list and counts, retaining search/editor DOM nodes. Dossier record actions use
+one delegated list listener and authoritative aggregate record keys, so newly
+filtered results keep the existing owner-safe edit/delete/move/restore routes.
+Background refreshes retain a focused search field; editor refresh deferral
+continues to protect unsaved edits. No backend API or storage migration is added.
+
 The frontend cards are projections of the same authoritative entities and
 WebSocket data; they must not maintain a second measurement or care-result
 store. The Weighing surface calculates the pre-save comparison from the
@@ -33,6 +43,21 @@ selected puppy's current and previous weight entities and shows the last
 weighing timestamp plus elapsed time. The Growth and Mobile presets compose
 that same surface with the detail block enabled, so mobile and desktop expose
 the same save-context information.
+The session progress sensor exposes `litter_id` and a copied
+`weighed_puppy_ids` list. The shared Weighing surface uses these IDs to decorate
+native select labels without changing option values, order or availability.
+Markers are restricted to active/completed sessions for the selected litter.
+Puppy selection retains the local weight draft; saving and explicit litter
+selection keep their existing draft-reset behavior. Incremental option updates
+retain DOM nodes and refresh only labels/classes when completion changes.
+The last-puppy sensor carries the exact saved litter, puppy and measurement IDs
+from `mark_weight_recorded`. The compact correction editor fetches that specific
+active measurement and submits to the existing admin-only correction API,
+omitting timestamp so the original instant is retained. Correcting the tracked
+measurement advances its runtime reference to the replacement ID and updates
+the last weight without changing weighing progress. Reset/start clears that
+reference. Session start/reset is one status-derived command, not a second
+frontend session state.
 
 The Litter and Tracker Overview cards share the practical puppy summary fields:
 current weight, change from the previous measurement, 24-hour growth, growth

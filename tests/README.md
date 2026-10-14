@@ -34,6 +34,7 @@ The current suite covers the main backend, frontend contract and browser flows.
 | `test_age_based_care_notifications.py` / `test_notification_settings_storage.py` | Notification settings, default lead-time fallback, care-program overrides, grouping and delivery contracts |
 | `test_notification_lifecycle.py` | Coalesced notification checks, transition-only mobile cleanup, inactive-owner cleanup and global notification shutdown |
 | `tests/e2e/*.spec.mjs` | Lovelace behavior in Chromium plus targeted WebKit mobile, tablet and cross-browser checks |
+| Dossier and Timeline Playwright specs | Search across full loaded scope, shared matching rules, focus retention during updates, and owner-safe editing of searched results |
 
 The Python tests protect backend behavior and frontend architecture contracts. Playwright owns observable Lovelace-card behavior. Browser-independent flows run once in desktop Chromium; tagged registration/render smoke tests also run in iPhone WebKit, mobile workflows run in iPhone WebKit, and scroll-stability checks run on iPhone plus both iPad orientations. HACS installation and Home Assistant Companion App push behavior still require manual release testing.
 

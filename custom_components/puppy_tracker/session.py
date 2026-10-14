@@ -26,6 +26,8 @@ def new_session_state() -> dict[str, Any]:
         "started_at": None,
         "completed_at": None,
         "last_puppy_id": None,
+        "last_litter_id": None,
+        "last_measurement_id": None,
         "last_weight": None,
         "last_saved_at": None,
         "message": "Nog geen weegsessie gestart",
@@ -70,6 +72,8 @@ def start_weighing_session(
         "started_at": now,
         "completed_at": None,
         "last_puppy_id": None,
+        "last_litter_id": None,
+        "last_measurement_id": None,
         "last_weight": None,
         "last_saved_at": None,
         "message": (
@@ -132,6 +136,7 @@ def mark_weight_recorded(
     puppy_id: str,
     puppy_name: str,
     weight: float,
+    measurement_id: str | None = None,
 ) -> bool:
     """Update runtime session after a stored weight.
 
@@ -143,6 +148,8 @@ def mark_weight_recorded(
     )
 
     now = dt_util.now().isoformat()
+    session["last_litter_id"] = litter_id
+    session["last_measurement_id"] = measurement_id
 
     session[
         "last_puppy_id"

@@ -276,6 +276,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             puppy_id=puppy_id,
             puppy_name=puppy.get("name", "Puppy"),
             weight=weight,
+            measurement_id=measurement_id,
         )
         if session_completed:
             await storage.async_record_completed_weighing_session(litter_id, get_session(runtime))

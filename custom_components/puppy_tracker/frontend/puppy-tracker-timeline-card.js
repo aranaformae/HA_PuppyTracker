@@ -13,6 +13,7 @@ import {
   subscribeUpdates,
 } from "./puppy-tracker-card-common.js";
 import { recordTypeIcon, recordTypeLabel } from "./puppy-tracker-dossier-schema.js";
+import { matchesDossierSearch, searchMarkup, searchText, bindSearch, SEARCH_STYLE } from "./puppy-tracker-dossier-search.js";
 
 const ALL_VALUE = "__all__";
 const LITTER_VALUE = "__litter__";
@@ -55,6 +56,8 @@ const TEXT = {
     to: "To",
     history: "Show deleted / corrected history",
     noItems: "No timeline items match these filters.",
+    noAvailableItems: "No timeline items are available for this selection yet.",
+    clearFilters: "Reset filters",
     loading: "Loading timeline...",
     loadFailed: "Timeline could not be loaded.",
     items: "items",
@@ -82,6 +85,8 @@ const TEXT = {
     to: "Tot en met",
     history: "Verwijderde / gecorrigeerde historie tonen",
     noItems: "Geen tijdlijnitems binnen deze filters.",
+    noAvailableItems: "Er zijn nog geen tijdlijnitems beschikbaar voor deze selectie.",
+    clearFilters: "Filters herstellen",
     loading: "Tijdlijn laden...",
     loadFailed: "Tijdlijn kon niet worden geladen.",
     items: "items",
@@ -269,6 +274,7 @@ export function filterTimelineEvents(events, options = {}) {
 
   return (events || []).filter((event) => {
     if (!selectedTypes.has(event.type)) return false;
+    if (!matchesDossierSearch(event, options.query)) return false;
     const value = timestampValue(event.occurred_at);
     if (fromValue !== null && value < fromValue) return false;
     if (toValue !== null && value > toValue) return false;
@@ -327,6 +333,7 @@ class PuppyTrackerTimelineCard extends HTMLElement {
     this._unsubscribe = null;
     this._subscriptionPending = false;
     this._refreshing = false;
+    this._searchQuery = "";
     this._refreshAgain = false;
     this._timelineItemsVisible = null;
     this._stateNamespace = "";
@@ -636,6 +643,7 @@ class PuppyTrackerTimelineCard extends HTMLElement {
   }
 
   _clearFilters() {
+    this._searchQuery = "";
     this._selectedTypes = new Set(TIMELINE_TYPES);
     this._from = "";
     this._to = "";
@@ -671,6 +679,7 @@ class PuppyTrackerTimelineCard extends HTMLElement {
       types: [...this._selectedTypes],
       from: this._from,
       to: this._to,
+      query: this._searchQuery,
     });
   }
 
@@ -716,6 +725,7 @@ class PuppyTrackerTimelineCard extends HTMLElement {
   }
 
   _bindEvents() {
+    bindSearch(this.shadowRoot, (query) => { this._searchQuery = query; this._updateSearchResults(); });
     this.shadowRoot?.getElementById("litter-select")?.addEventListener("change", (event) => {
       if (requestLitterChange(this, event.target.value)) this._selectLitter(event.target.value);
     });
@@ -741,14 +751,44 @@ class PuppyTrackerTimelineCard extends HTMLElement {
       this._persistState();
       this._render();
     });
-    this.shadowRoot?.getElementById("clear-filters")?.addEventListener("click", () => this._clearFilters());
+    this.shadowRoot?.querySelector(".timeline-scroll")?.addEventListener("click", (event) => {
+      if (event.target.closest("#clear-filters")) this._clearFilters();
+    });
     this.shadowRoot?.querySelectorAll("[data-filter-type]").forEach((button) => {
       button.addEventListener("click", () => this._toggleType(button.dataset.filterType));
     });
   }
 
+  _searchResultsMarkup(visible) {
+    if (this._loading && !this._litterData) return `<div class="state">${escapeHtml(text(this._hass, "loading"))}</div>`;
+    if (this._error) return `<div class="state error">${escapeHtml(this._error)}</div>`;
+    if (visible.length) return visible.map((event) => this._renderEvent(event)).join("");
+    if (!this._timelineEvents().length) return `<div class="state">${escapeHtml(text(this._hass, "noAvailableItems"))}</div>`;
+    const message = this._searchQuery?.trim() ? searchText(this._hass, "none") : text(this._hass, "noItems");
+    return `<div class="state"><div>${escapeHtml(message)}</div><button class="text-button" id="clear-filters">${escapeHtml(text(this._hass, "clearFilters"))}</button></div>`;
+  }
+
+  _updateSearchResults() {
+    const events = this._filteredEvents();
+    const maxItems = Math.max(25, Math.min(500, Number(this._config.max_items) || 250));
+    const visible = events.slice(0, maxItems);
+    const list = this.shadowRoot.querySelector(".timeline-scroll");
+    const scrollTop = list.scrollTop;
+    list.innerHTML = this._searchResultsMarkup(visible);
+    list.scrollTop = scrollTop;
+    this.shadowRoot.getElementById("record-search-count").textContent = searchText(this._hass, "count", events.length);
+    this.shadowRoot.querySelector(".count").textContent = events.length > visible.length
+      ? text(this._hass, "showing", { shown: visible.length, total: events.length })
+      : `${events.length} ${text(this._hass, "items")}`;
+    if (!this._timelineItemsVisible) this.shadowRoot.querySelector("#toggle-timeline-items span").textContent = text(this._hass, "showTimelineItems", { count: visible.length });
+  }
+
   _render() {
     if (!this.shadowRoot) return;
+    if (this.shadowRoot.activeElement?.id === "record-search") {
+      this._updateSearchResults();
+      return;
+    }
     const title = this._config.title || text(this._hass, "title");
     const scopeValue = this._scope === "all"
       ? ALL_VALUE
@@ -784,16 +824,7 @@ class PuppyTrackerTimelineCard extends HTMLElement {
       ...TIMELINE_TYPES.map((type) => `<button type="button" class="chip ${this._selectedTypes.has(type) ? "active" : ""}" data-filter-type="${type}"><ha-icon icon="${escapeHtml(recordTypeIcon(type))}"></ha-icon>${escapeHtml(recordTypeLabel(this._hass, type))}</button>`),
     ].join("");
 
-    let content = "";
-    if (this._loading && !this._litterData) {
-      content = `<div class="state">${escapeHtml(text(this._hass, "loading"))}</div>`;
-    } else if (this._error) {
-      content = `<div class="state error">${escapeHtml(this._error)}</div>`;
-    } else if (!visible.length) {
-      content = `<div class="state"><div>${escapeHtml(text(this._hass, "noItems"))}</div><button class="text-button" id="clear-filters">${escapeHtml(text(this._hass, "clearFilters"))}</button></div>`;
-    } else {
-      content = visible.map((event) => this._renderEvent(event)).join("");
-    }
+    const content = this._searchResultsMarkup(visible);
 
     const countText = events.length > visible.length
       ? text(this._hass, "showing", { shown: visible.length, total: events.length })
@@ -807,6 +838,7 @@ class PuppyTrackerTimelineCard extends HTMLElement {
         </div>
         <div class="controls">
           <div class="selectors">${litterSelector}${scopeSelector}</div>
+          ${searchMarkup(this._hass, this._searchQuery, events.length)}
           <div class="filter-row">${filters}</div>
           <div class="dates">
             <label class="field"><span>${escapeHtml(text(this._hass, "from"))}</span><input id="from-date" type="date" value="${escapeHtml(this._from)}"></label>
@@ -820,6 +852,7 @@ class PuppyTrackerTimelineCard extends HTMLElement {
         <div class="timeline-toggle-footer"><button id="toggle-timeline-items" type="button" class="${this._timelineItemsVisible ? "secondary" : ""}" aria-expanded="${this._timelineItemsVisible ? "true" : "false"}"><ha-icon icon="mdi:chevron-${this._timelineItemsVisible ? "up" : "down"}"></ha-icon><span>${escapeHtml(this._timelineItemsVisible ? text(this._hass, "hideTimelineItems") : text(this._hass, "showTimelineItems", { count: visible.length }))}</span></button></div>
       </ha-card>
       <style>
+        ${SEARCH_STYLE}
         :host { display: block; }
         ha-card { overflow: hidden; }
         .card-header { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; padding:20px 20px 12px; }

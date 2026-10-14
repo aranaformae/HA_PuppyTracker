@@ -420,6 +420,42 @@ async function mountTimeline(page, config = {}) {
   return card;
 }
 
+test("timeline searches the full scope before the display limit without replacing the search field @cross-browser @tablet", async ({ page }) => {
+  const card = await mountTimeline(page, { max_items: 25 });
+  await card.evaluate((element) => {
+    const records = Array.from({ length: 30 }, (_, index) => ({ id: `search-${index}`, type: "test", scope: "litter", title: `Test ${index}`, note: index === 29 ? "Één unieke notitie" : "Controle", data: { result: index === 29 ? "Negatief" : "Goed" }, occurred_at: `2026-08-01T00:${String(59 - index).padStart(2, "0")}:00Z` }));
+    element._litterData.litter.records = records;
+    window.__timelineFixtureData.litter.litter.records = records;
+    element._render();
+  });
+  await expect(card.locator(".timeline-item")).toHaveCount(25);
+  const search = card.locator("#record-search");
+  await search.fill("NEGATIEF");
+  await expect(search).toBeFocused();
+  await card.evaluate(async (element) => { await element._queueRefresh(); });
+  await expect(search).toBeFocused();
+  await expect(card.locator(".timeline-item")).toHaveCount(1);
+  await expect(card.locator(".timeline-item")).toContainText("Test 29");
+  await search.fill("een unieke");
+  await expect(card.locator(".timeline-item")).toHaveCount(1);
+  await card.locator("#scope-select").selectOption("puppy-1");
+  await expect(search).toHaveValue("een unieke");
+  await expect(card.locator(".timeline-item")).toHaveCount(0);
+  await card.locator("#clear-record-search").click();
+  await expect(card.locator("#scope-select")).toHaveValue("puppy-1");
+  await expect(card.locator(".timeline-item").first()).toBeVisible();
+});
+
+test("shared dossier search matches user-facing results without indexing internal care metadata", async ({ page }) => {
+  await mountTimeline(page);
+  const matches = await page.evaluate(async () => {
+    const { matchesDossierSearch } = await import("/custom_components/puppy_tracker/frontend/puppy-tracker-dossier-search.js");
+    const record = { title: "Café", note: "Rustig", data: { result: 0, test_result: "Negatief", care_program_id: "hidden-id" } };
+    return ["cafe rustig", "negatief", "0", "hidden-id", "   "].map((query) => matchesDossierSearch(record, query));
+  });
+  expect(matches).toEqual([true, true, true, false, true]);
+});
+
 test("combines litter, puppy and weight history in newest-first order", async ({ page }) => {
   const card = await mountTimeline(page);
   const titles = await card.locator(".event-title").allTextContents();

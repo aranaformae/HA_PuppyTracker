@@ -478,6 +478,7 @@ class PuppySaveWeightButton(
             puppy_id=puppy_id,
             puppy_name=puppy_name,
             weight=weight,
+            measurement_id=measurement_id,
         )
 
         if session_completed:

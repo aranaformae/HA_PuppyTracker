@@ -318,6 +318,58 @@ test("dossier create, edit, delete and restore flow", async ({ page }) => {
   );
 });
 
+test("dossier search remains usable while editing results in the combined scope @cross-browser @tablet", async ({ page }) => {
+  const card = await mountDossier(page, { production: true });
+  await page.evaluate(() => {
+    const now = new Date().toISOString();
+    window.__dossierRecords.push(
+      { id: "search-care", type: "test", scope: "puppy", litter_id: "l1", puppy_id: "p2", title: "ENS", note: "Één rustige sessie", occurred_at: now, deleted: false, data: { care_result: "Gevoelig", care_program_id: "ens", care_occurrence_id: "ens:p2:3" } },
+      { id: "search-note", type: "note", scope: "litter", litter_id: "l1", puppy_id: null, title: "Nestcontrole", note: "Alles rustig", occurred_at: now, deleted: false, data: {} },
+    );
+  });
+  await card.locator("#owner-select").selectOption("__all__");
+  await card.locator("#toggle-dossier-manage").click();
+  const search = card.locator("#record-search");
+  await search.fill("GEVOELIG");
+  await expect(card.locator(".record")).toHaveCount(1);
+  await expect(search).toBeFocused();
+  await page.evaluate(async () => { await document.querySelector("puppy-tracker-dossier-card")._queueRefresh(); });
+  await expect(search).toBeFocused();
+  await expect(search).toHaveValue("GEVOELIG");
+  await card.locator("#toggle-dossier-manage").click();
+  await expect(search).toHaveValue("GEVOELIG");
+  await card.locator(".edit-record").click();
+  await expect(card.locator("#record-care-result")).toHaveValue("Gevoelig");
+  await card.locator("#record-note").fill("Niet opgeslagen concept");
+  await search.fill("een rustige");
+  await expect(card.locator(".record")).toHaveCount(1);
+  await expect(card.locator("#record-note")).toHaveValue("Niet opgeslagen concept");
+  await expect(search).toBeFocused();
+  await search.fill("GEVOELIG");
+  await card.locator("#record-care-result").fill("Rustig");
+  await card.locator("#record-save").click();
+  await expect(search).toHaveValue("GEVOELIG");
+  await expect(card.locator(".record")).toHaveCount(0);
+  const update = await page.evaluate(() => window.__dossierCalls.find((call) => call.type === "puppy_tracker/record/update"));
+  expect(update).toMatchObject({ record_id: "search-care", puppy_id: "p2", data: { care_result: "Rustig" } });
+  await card.locator("#clear-record-search").click();
+  await expect(search).toHaveValue("");
+  await expect(card.locator("#owner-select")).toHaveValue("__all__");
+  await expect(card.locator(".record")).toHaveCount(3);
+  await search.fill("Mother context");
+  await expect(card.locator(".record")).toHaveCount(1);
+  await card.locator('[data-dossier-category="note"]').click();
+  await expect(search).toHaveValue("Mother context");
+  await expect(card.locator(".record")).toHaveCount(0);
+  await card.locator('[data-dossier-category="note"]').click();
+  await expect(card.locator(".record")).toHaveCount(1);
+  await card.locator(".edit-record").click();
+  await card.locator("#record-title").fill("Mother note updated via search");
+  await card.locator("#record-save").click();
+  await expect(card.locator(".record")).toContainText("Mother note updated via search");
+  expect(await page.evaluate(() => window.__dossierCalls.some((call) => call.type === "puppy_tracker/mother/record/update" && call.record_id === "m1"))).toBe(true);
+});
+
 test("dossier edits each source owner from the combined scope", async ({ page }) => {
   page.on("dialog", (dialog) => dialog.accept());
   const card = await mountDossier(page, { production: true });

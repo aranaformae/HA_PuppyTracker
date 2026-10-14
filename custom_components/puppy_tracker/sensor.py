@@ -578,6 +578,8 @@ class WeighingSessionProgressSensor(
             "weighed": weighed,
             "total": total,
             "percentage": percent,
+            "litter_id": self.session.get("litter_id"),
+            "weighed_puppy_ids": list(self.session.get("weighed_puppy_ids", [])),
         }
 
 
@@ -704,6 +706,9 @@ class WeighingSessionLastPuppySensor(
         """Return last weight."""
 
         return {
+            "litter_id": self.session.get("last_litter_id"),
+            "puppy_id": self.session.get("last_puppy_id"),
+            "measurement_id": self.session.get("last_measurement_id"),
             "weight": self.session.get(
                 "last_weight"
             ),

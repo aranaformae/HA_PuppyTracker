@@ -97,6 +97,10 @@ Aggregate scope `all` is supported by Dossier and Timeline. Quick Log and
 Temperature require one exact owner and therefore fall back to `litter` when
 the workspace default is `all`. Existing dossier items remain editable in the
 aggregate view; select a specific owner before adding a new item.
+Both Dossier and Timeline provide title/note/result search within the current
+scope and filters. Search also applies in Dossier item-management mode and is
+retained after editing. Clearing the query leaves owner and category filters
+unchanged. Search terms are not persisted or exported.
 
 Quick Log, Dossier and the Journal **Multiple puppies** action share one
 category schema: Note, Feeding, Temperature, Vaccination, Test/result,
@@ -190,6 +194,19 @@ medication do not require switching to the Journal Workspace.
 Changing the litter in any visible Workspace surface updates the other tabs.
 The active weighing surface is retained during that change so a draft weight
 and input focus are not discarded.
+Within the Weigh tab, changing the selected puppy also retains the entered
+weight (including an intentionally empty field), so you can enter a weight
+before choosing its puppy. The dropdown marks puppies already weighed in the
+current session with **Weighed** and lighter text where the browser supports
+option styling. These puppies remain selectable for corrections; the marker
+is cleared when the session is reset and never comes from older measurements.
+The session action toggles between **Start session** and **Reset session**;
+it shares one row with **Edit measurement**, including on phones. Edit opens
+the exact last saved measurement with its puppy name and weight, even if a
+different puppy is now selected. Saving creates a historical correction,
+preserves the original measurement time, and does not add a new session count.
+This action requires administrator access and is unavailable until a weight
+has been saved in the current runtime. A failed correction keeps the form open.
 
 Options inside `tab_config` override the inherited Workspace values for that
 one surface. This is useful for specialist layouts, but a single top-level
