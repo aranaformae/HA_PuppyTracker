@@ -6,12 +6,14 @@ import {
   formatHoursSince,
   formatWeight,
   languageForHass,
+  loadCardState,
   requestLitterChange,
   selectDefaultLitter,
+  saveCardState,
   subscribeUpdates,
 } from "./puppy-tracker-card-common.js";
 import { collarColor } from "./puppy-tracker-collar-chart-colors.js";
-import { calculateFeedingForWeight, KIVO_PUPPY_RANGE } from "./puppy-tracker-feeding-calculator.js";
+import { calculateFeedingForWeight, feedingSettingsFromStored, feedingSettingsForStorage } from "./puppy-tracker-feeding-calculator.js";
 
 const TEXT = {
   nl: {
@@ -36,16 +38,21 @@ const TEXT = {
     calculatedPuppy: "1 pup berekend",
     calculatedPuppies: "{count} pups berekend",
     perKg: "Per kg", feeding: "Voeding", feedingTitle: "Voeding per pup",
-    feedingSubtitle: "Ydolo Puppy en Kivo puppyvlees", kibbleFormula: "Ydolo-berekening",
-    tableFormula: "Voedingstabel (1–20 kg)", linearFormula: "PDF-formule (1–20 kg)",
+    feedingSubtitle: "Brokken en vlees", method: "Rekenmethode",
+    tableFormula: "Tabel", linearFormula: "Berekening", fixedFormula: "Vaste g/kg-waarde",
+    coefficient: "Gram per kg (factor)", offset: "Vaste hoeveelheid (g/dag)", minWeight: "Minimumgewicht (kg)", maxWeight: "Maximumgewicht (kg)",
+    tableWeight: "Gewicht (kg)", tableGrams: "Volledig dagrantsoen (g)", addRow: "Rij toevoegen", removeRow: "Rij verwijderen", foodSettings: "{food}: instellingen", fixedRate: "Gram per kg per dag",
     meatShare: "Aandeel vlees", ratio: "{meat}% vlees / {kibble}% brokken",
-    kivoAmount: "Kivo puppyvlees", kivoRate: "{amount} g/kg per dag",
+
     portions: "Porties per dag", perDay: "Per dag", perPortion: "Per portie",
     kibble: "Brokken", meat: "Vlees", combined: "Totaal",
-    feedingInvalid: "Kies 1–12 hele porties, 0–100% vlees en 40–50 g/kg Kivo.",
-    outsideRange: "Ydolo-bereik: 1–20 kg. Deze pup is niet meegerekend.",
+    feedingInvalid: "Controleer porties (1–12), verhouding, positieve hoeveelheden, gewichtsbereik en oplopende tabelgewichten.",
+    outsideRange: "{food}: buiten het ingestelde gewichtsbereik. Deze pup is niet meegerekend.",
     feedingTotal: "Nesttotaal per dag", feedingPortionTotal: "Nesttotaal per portie",
-    feedingBasis: "Verhouding van volledige dagrantsoenen", tableBasis: "Ydolo-tabel", linearBasis: "Ydolo: 13,32 × kg + 94,46",
+    feedingBasis: "Verhouding van volledige dagrantsoenen",
+    feedingSaving: "Voedingsinstellingen opslaan…", feedingSaved: "Voedingsinstellingen opgeslagen",
+    feedingUnsaved: "Voedingsinstellingen nog niet opgeslagen", feedingSaveFailed: "Opslaan mislukt; wijziging is nog niet opgeslagen.",
+    retrySave: "Opnieuw opslaan", feedingReadonly: "Voedingsinstellingen: alleen lezen",
   },
   en: {
     title: "Per-kg calculator",
@@ -69,16 +76,21 @@ const TEXT = {
     calculatedPuppy: "1 puppy calculated",
     calculatedPuppies: "{count} puppies calculated",
     perKg: "Per kg", feeding: "Feeding", feedingTitle: "Feeding per puppy",
-    feedingSubtitle: "Ydolo Puppy and Kivo puppy meat", kibbleFormula: "Ydolo calculation",
-    tableFormula: "Feeding table (1–20 kg)", linearFormula: "PDF formula (1–20 kg)",
+    feedingSubtitle: "Kibble and meat", method: "Calculation method",
+    tableFormula: "Table", linearFormula: "Formula", fixedFormula: "Fixed g/kg rate",
+    coefficient: "Grams per kg (factor)", offset: "Fixed amount (g/day)", minWeight: "Minimum weight (kg)", maxWeight: "Maximum weight (kg)",
+    tableWeight: "Weight (kg)", tableGrams: "Full daily ration (g)", addRow: "Add row", removeRow: "Remove row", foodSettings: "{food}: settings", fixedRate: "Grams per kg per day",
     meatShare: "Meat share", ratio: "{meat}% meat / {kibble}% kibble",
-    kivoAmount: "Kivo puppy meat", kivoRate: "{amount} g/kg per day",
+
     portions: "Portions per day", perDay: "Per day", perPortion: "Per portion",
     kibble: "Kibble", meat: "Meat", combined: "Total",
-    feedingInvalid: "Choose 1–12 whole portions, 0–100% meat and 40–50 g/kg Kivo.",
-    outsideRange: "Ydolo range: 1–20 kg. This puppy is not included.",
+    feedingInvalid: "Check portions (1–12), ratio, positive amounts, weight range and increasing table weights.",
+    outsideRange: "{food}: outside the configured weight range. This puppy is not included.",
     feedingTotal: "Litter total per day", feedingPortionTotal: "Litter total per portion",
-    feedingBasis: "Share of complete daily rations", tableBasis: "Ydolo table", linearBasis: "Ydolo: 13.32 × kg + 94.46",
+    feedingBasis: "Share of complete daily rations",
+    feedingSaving: "Saving feeding settings…", feedingSaved: "Feeding settings saved",
+    feedingUnsaved: "Feeding settings not saved yet", feedingSaveFailed: "Save failed; this change has not been saved.",
+    retrySave: "Retry save", feedingReadonly: "Feeding settings: read only",
   },
 };
 
@@ -144,7 +156,8 @@ class PuppyTrackerCalculatorCard extends HTMLElement {
     this._amountPerKg = "";
     this._unit = "ml";
     this._mode = "per_kg";
-    this._feeding = { meatPercent: 50, kivoPerKg: KIVO_PUPPY_RANGE.default, portions: 4, kibbleFormula: "table" };
+    this._feeding = feedingSettingsFromStored();
+    this._feedingByLitter = new Map();
     this._configuredOnce = false;
     this._loading = false;
     this._error = "";
@@ -171,7 +184,8 @@ class PuppyTrackerCalculatorCard extends HTMLElement {
     this._selectedLitterId = config.litter_id || this._selectedLitterId;
     if (!this._configuredOnce) {
       this._unit = String(this._config.default_unit || "ml");
-      this._mode = this._config.default_mode === "feeding" ? "feeding" : "per_kg";
+      const remembered = loadCardState(this, { mode: this._config.default_mode });
+      this._mode = remembered.mode === "feeding" ? "feeding" : "per_kg";
       this._configuredOnce = true;
     }
     this._render();
@@ -266,12 +280,70 @@ class PuppyTrackerCalculatorCard extends HTMLElement {
   }
 
   async _loadData(render = true) {
+    const litterId = this._selectedLitterId;
+    const previous = this._feedingByLitter.get(litterId);
+    const revision = previous?.revision;
     if (!this._selectedLitterId) {
       this._data = null;
     } else {
-      this._data = await fetchLitterData(this._hass, this._selectedLitterId);
+      const response = await fetchLitterData(this._hass, litterId);
+      if (litterId !== this._selectedLitterId) return;
+      this._data = response;
+      const saved = feedingSettingsFromStored(response.litter?.feeding_settings);
+      let state = this._feedingByLitter.get(litterId);
+      if (!state) {
+        state = { value: saved, persisted: JSON.stringify(feedingSettingsForStorage(saved)), saving: false, queued: null, error: false, revision: 0 };
+        this._feedingByLitter.set(litterId, state);
+      } else if (state.revision === revision && !state.saving && JSON.stringify(feedingSettingsForStorage(state.value)) === state.persisted) {
+        state.value = saved;
+        state.persisted = JSON.stringify(feedingSettingsForStorage(saved));
+      }
+      this._feeding = state.value;
     }
     if (render) this._render();
+  }
+
+  async _saveFeeding() {
+    const litterId = this._selectedLitterId;
+    const state = this._feedingByLitter.get(litterId);
+    const settings = feedingSettingsForStorage(this._feeding);
+    if (!state || !settings || this._data?.litter?.id !== litterId || this._data?.can_manage_records === false) return;
+    if (!state.saving && JSON.stringify(settings) === state.persisted) return;
+    state.queued = settings;
+    state.error = false;
+    if (state.saving) return;
+    state.saving = true;
+    this._updateFeedingStatus();
+    try {
+      while (state.queued) {
+        const snapshot = state.queued;
+        state.queued = null;
+        if (JSON.stringify(snapshot) === state.persisted) continue;
+        await this._hass.callWS({ type: "puppy_tracker/feeding_settings/update", litter_id: litterId, settings: snapshot });
+        state.persisted = JSON.stringify(snapshot);
+        state.revision += 1;
+      }
+    } catch (_error) {
+      state.error = true;
+      state.queued = null;
+    } finally {
+      state.saving = false;
+      if (litterId === this._selectedLitterId) this._updateFeedingStatus();
+    }
+  }
+
+  _updateFeedingStatus() {
+    const state = this._feedingByLitter.get(this._selectedLitterId);
+    const status = this.shadowRoot.getElementById("feeding-save-status");
+    if (!status) return;
+    if (!state) { status.textContent = ""; return; }
+    const key = this._data?.can_manage_records === false ? "feedingReadonly"
+      : state?.saving ? "feedingSaving" : state?.error ? "feedingSaveFailed"
+        : state && JSON.stringify(feedingSettingsForStorage(state.value)) !== state.persisted ? "feedingUnsaved" : "feedingSaved";
+    status.textContent = text(this, key);
+    status.style.color = state.error ? "var(--error-color)" : "var(--secondary-text-color)";
+    const retry = this.shadowRoot.getElementById("feeding-retry");
+    if (retry) retry.hidden = !state?.error || state.saving;
   }
 
   _rows() {
@@ -297,14 +369,59 @@ class PuppyTrackerCalculatorCard extends HTMLElement {
     };
   }
 
+  _foodSummary(kind) {
+    const food = this._feeding[kind];
+    const n = (value) => String(value).trim() !== "" && Number.isFinite(Number(value)) ? formatNumber(Number(value), this._hass, 3) : "—";
+    const basis = food.method === "per_kg" ? `${n(food.grams_per_kg)} g/kg`
+      : food.method === "linear" ? `${n(food.coefficient)} × kg + ${n(food.offset)} g · ${n(food.min_kg)}–${n(food.max_kg)} kg`
+        : `${text(this, "tableFormula")} · ${n(food.table[0]?.[0])}–${n(food.table.at(-1)?.[0])} kg`;
+    return `${text(this, kind)}: ${basis}`;
+  }
+
+  _foodTable(kind) {
+    const rows = this._feeding[kind].table;
+    return `<div class="food-table-head"><span>${escapeHtml(text(this, "tableWeight"))}</span><span>${escapeHtml(text(this, "tableGrams"))}</span><span></span></div>
+      ${rows.map((row, index) => `<div class="food-table-row">${row.map((value, column) => `<input type="number" min="0.001" step="any" inputmode="decimal" data-food="${kind}" data-row="${index}" data-column="${column}" value="${escapeHtml(value)}" aria-label="${escapeHtml(text(this, column ? "tableGrams" : "tableWeight"))} ${index + 1}">`).join("")}
+      <button type="button" data-remove-food="${kind}" data-index="${index}" title="${escapeHtml(text(this, "removeRow"))}" aria-label="${escapeHtml(text(this, "removeRow"))}" ${rows.length <= 2 ? "disabled" : ""}><ha-icon icon="mdi:minus"></ha-icon></button></div>`).join("")}
+      <button type="button" data-add-food="${kind}" ${rows.length >= 100 ? "disabled" : ""}><ha-icon icon="mdi:plus"></ha-icon>${escapeHtml(text(this, "addRow"))}</button>`;
+  }
+
   _feedingControls() {
     const settings = this._feeding;
+    const field = (kind, key, label) => `<label>${escapeHtml(text(this, label))}<input id="feeding-${kind}-${key}" type="number" min="0" step="any" inputmode="decimal" data-food="${kind}" data-key="${key}" value="${escapeHtml(settings[kind][key])}"></label>`;
     return `<div class="inputs feeding-inputs">
-      <label>${escapeHtml(text(this, "kibbleFormula"))}<select id="feeding-formula"><option value="table" ${settings.kibbleFormula === "table" ? "selected" : ""}>${escapeHtml(text(this, "tableFormula"))}</option><option value="linear" ${settings.kibbleFormula === "linear" ? "selected" : ""}>${escapeHtml(text(this, "linearFormula"))}</option></select></label>
-      <label>${escapeHtml(text(this, "portions"))}<input id="feeding-portions" type="number" min="1" max="12" step="1" inputmode="numeric" value="${escapeHtml(settings.portions)}"></label>
       <label>${escapeHtml(text(this, "meatShare"))}<output id="feeding-ratio" for="feeding-meat"></output><input id="feeding-meat" type="range" min="0" max="100" step="1" value="${settings.meatPercent}" aria-label="${escapeHtml(text(this, "meatShare"))}"></label>
-      <label>${escapeHtml(text(this, "kivoAmount"))}<output id="feeding-rate" for="feeding-kivo"></output><input id="feeding-kivo" type="range" min="40" max="50" step="0.5" value="${settings.kivoPerKg}" aria-label="${escapeHtml(text(this, "kivoAmount"))}"></label>
+      <label>${escapeHtml(text(this, "portions"))}<input id="feeding-portions" type="number" min="1" max="12" step="1" inputmode="numeric" value="${escapeHtml(settings.portions)}"></label>
+      ${["kibble", "meat"].map((kind) => `<section class="food-settings"><label>${escapeHtml(text(this, kind))} · ${escapeHtml(text(this, "method"))}<select id="feeding-${kind}-method" data-food="${kind}" data-key="method">
+        ${[["linear", "linearFormula"], ["table", "tableFormula"], ["per_kg", "fixedFormula"]].map(([method, label]) => `<option value="${method}" ${settings[kind].method === method ? "selected" : ""}>${escapeHtml(text(this, label))}</option>`).join("")}</select></label>
+        <details><summary>${escapeHtml(text(this, "foodSettings", { food: text(this, kind) }))}</summary>
+          <div data-food-section="${kind}-per_kg">${field(kind, "grams_per_kg", "fixedRate")}</div>
+          <div class="food-formula" data-food-section="${kind}-linear">${[["coefficient", "coefficient"], ["offset", "offset"], ["min_kg", "minWeight"], ["max_kg", "maxWeight"]].map(([key, label]) => field(kind, key, label)).join("")}</div>
+          <div data-food-section="${kind}-table" data-food-table="${kind}">${this._foodTable(kind)}</div>
+        </details>
+      </section>`).join("")}
     </div>`;
+  }
+
+  _syncFoodControls() {
+    for (const kind of ["kibble", "meat"]) {
+      const food = this._feeding[kind];
+      for (const method of ["linear", "table", "per_kg"]) {
+        const section = this.shadowRoot.querySelector(`[data-food-section="${kind}-${method}"]`);
+        if (section) section.hidden = food.method !== method;
+      }
+      const table = this.shadowRoot.querySelector(`[data-food-table="${kind}"]`);
+      if (table && table.querySelectorAll(".food-table-row").length !== food.table.length) table.innerHTML = this._foodTable(kind);
+    }
+    this.shadowRoot.querySelectorAll("[data-food]:is(input,select)").forEach((input) => {
+      const food = this._feeding[input.dataset.food];
+      input.value = input.dataset.key ? food[input.dataset.key] : food.table[Number(input.dataset.row)][Number(input.dataset.column)];
+    });
+    const readonly = this._data?.can_manage_records === false || this._data?.litter?.id !== this._selectedLitterId;
+    this.shadowRoot.querySelectorAll(".feeding-inputs input,.feeding-inputs select,.feeding-inputs button").forEach((input) => {
+      input.disabled = readonly || Boolean(input.dataset.removeFood && this._feeding[input.dataset.removeFood].table.length <= 2)
+        || Boolean(input.dataset.addFood && this._feeding[input.dataset.addFood].table.length >= 100);
+    });
   }
 
   _feedingResult() {
@@ -344,9 +461,14 @@ class PuppyTrackerCalculatorCard extends HTMLElement {
       </article>`;
     }).join("");
 
-    const shellKey = JSON.stringify([this._config, this._mode, languageForHass(this._hass), this._litters, this._selectedLitterId, this._loading, this._error]);
+    const shellKey = JSON.stringify([this._config, this._mode, languageForHass(this._hass), this._litters, this._selectedLitterId, this._loading, this._error, this._data?.can_manage_records]);
     // Weight refreshes leave the controls mounted, including a pending Safari click.
     if (shellKey === this._shellKey) {
+      for (const [id, key] of [["feeding-meat", "meatPercent"], ["feeding-portions", "portions"]]) {
+        const input = this.shadowRoot.getElementById(id);
+        if (input) input.value = String(this._feeding[key]);
+      }
+      this._syncFoodControls();
       const list = this.shadowRoot.querySelector(".puppy-list");
       if (list && this._rowsMarkup !== rowHtml) {
         list.innerHTML = rows.length ? rowHtml : `<div class="empty">${escapeHtml(text(this, "noPuppies"))}</div>`;
@@ -366,18 +488,35 @@ class PuppyTrackerCalculatorCard extends HTMLElement {
       @container calculator-card (max-width:390px){ha-card{padding:13px}.inputs{grid-template-columns:1fr}.result-head{align-items:start}.total strong{font-size:17px}.puppy-row{padding:10px}.amount strong{font-size:17px}}
       .modes{display:flex;margin-top:12px;border-bottom:1px solid var(--divider-color);gap:8px}.modes button{flex:1;min-height:44px;border:0;border-bottom:3px solid transparent;background:transparent;color:var(--secondary-text-color);font:inherit;cursor:pointer}.modes button[aria-selected="true"]{border-color:var(--primary-color);color:var(--primary-color);font-weight:650}.feeding-inputs{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.feeding-inputs output{font-size:13px;color:var(--primary-text-color)}input[type="range"]{padding:0;border:0;accent-color:var(--primary-color);background:transparent;min-height:44px;touch-action:pan-y}.feeding-row{grid-template-columns:minmax(130px,1fr) minmax(100px,.8fr) minmax(215px,1.3fr)}.feeding-result{display:grid;grid-template-columns:minmax(50px,.8fr) minmax(60px,1fr) minmax(60px,1fr);gap:5px 8px;align-items:center;font-size:13px}.feeding-result>span{font-size:11px;color:var(--secondary-text-color)}.feeding-result>strong{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}.feeding-result>span:nth-child(2),.feeding-result>span:nth-child(3){text-align:right}.feeding-row-note{grid-column:1/-1;color:var(--warning-color,var(--secondary-text-color));font-size:11px}.feeding-totals{margin:8px 0 12px;padding-bottom:10px;border-bottom:1px solid var(--divider-color)}.feeding-summary{margin:8px 0;font-size:12px;color:var(--secondary-text-color);line-height:1.5}.feeding-summary span{display:block}.feeding-count{font-size:11px;color:var(--secondary-text-color);margin-top:5px}.mode-result-head .total strong{font-size:18px}.mode-result-head{grid-template-columns:1fr}
       @container calculator-card (max-width:620px){.feeding-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"identity weight" "feeding feeding"}.feeding-row .weight{border-top:0;padding-top:0;text-align:right}.feeding-result{grid-area:feeding;border-top:1px solid var(--divider-color);padding-top:9px}.feeding-inputs{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+      [hidden]{display:none!important}
+      .food-settings{min-width:0}.food-settings label{min-width:0;overflow-wrap:anywhere}.food-settings input{min-width:0}
+      .food-settings details{margin-top:8px}.food-settings details>div{margin-top:8px}
+      .food-settings summary{font-size:13px;min-height:44px;cursor:pointer;color:var(--primary-color);overflow-wrap:anywhere}
+      .food-formula{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+      .food-table-head,.food-table-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 44px;gap:6px;align-items:center;margin-bottom:6px}
+      .food-table-head{font-size:11px;color:var(--secondary-text-color)}
+      .food-settings button{min-height:44px;border:0;background:transparent;color:var(--primary-color);display:inline-flex;align-items:center;gap:4px;cursor:pointer}
+      .food-settings button:disabled{opacity:.4}.feeding-summary{overflow-wrap:anywhere}
+      @container calculator-card (max-width:620px){.food-formula{grid-template-columns:1fr}}
+      @container calculator-card (max-width:420px){.feeding-inputs{grid-template-columns:1fr}.food-formula{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
     </style><div class="top"><div><div class="title">${escapeHtml(this._config.title || text(this, feeding ? "feedingTitle" : "title"))}</div><div class="subtitle">${escapeHtml(text(this, feeding ? "feedingSubtitle" : "subtitle"))}</div></div>${selector}</div>
       <div class="modes" role="tablist" aria-label="${escapeHtml(text(this, "title"))}">${[["per_kg", "perKg"], ["feeding", "feeding"]].map(([mode, key]) => `<button type="button" role="tab" data-calculator-mode="${mode}" aria-selected="${this._mode === mode}">${escapeHtml(text(this, key))}</button>`).join("")}</div>
       ${feeding ? this._feedingControls() : `<div class="inputs"><label>${escapeHtml(text(this, "amountPerKg"))}<input id="calculator-amount" type="text" inputmode="decimal" autocomplete="off" value="${escapeHtml(this._amountPerKg)}" placeholder="0,0"></label><label>${escapeHtml(text(this, "unit"))}<input id="calculator-unit" type="text" maxlength="24" autocomplete="off" value="${escapeHtml(this._unit)}" placeholder="${escapeHtml(text(this, "unitPlaceholder"))}" list="calculator-units"><datalist id="calculator-units"><option value="ml"></option><option value="mg"></option><option value="g"></option><option value="tablet"></option><option value="dosis"></option></datalist></label></div>`}
       ${feeding ? this._feedingTotals() : ""}
+      ${feeding ? `<div class="feeding-save-feedback" style="min-height:32px;display:flex;align-items:center;gap:8px"><span id="feeding-save-status" role="status" aria-live="polite" style="font-size:12px"></span><button type="button" id="feeding-retry" hidden title="${escapeHtml(text(this, "retrySave"))}"><ha-icon icon="mdi:content-save-outline"></ha-icon>${escapeHtml(text(this, "retrySave"))}</button></div>` : ""}
       <div class="hint" id="calculator-hint">${escapeHtml(text(this, "enterAmount"))}</div>
       ${this._error ? `<div class="error">${escapeHtml(this._error)}</div>` : `<div class="result-head ${feeding ? "mode-result-head" : ""}"><h3>${escapeHtml(text(this, "puppies"))}</h3><div class="total"><span id="calculator-count">${escapeHtml(text(this, "calculatedPuppies", { count: 0 }))}</span>${feeding ? "" : `<strong id="calculator-total">—</strong>`}</div></div><div class="puppy-list">${this._loading ? `<div class="empty">${escapeHtml(text(this, "loading"))}</div>` : rows.length ? rowHtml : `<div class="empty">${escapeHtml(text(this, "noPuppies"))}</div>`}</div>`}
     </ha-card>`;
 
     this.shadowRoot.getElementById("calculator-litter")?.addEventListener("change", async (event) => {
+      event.target.blur();
       if (!requestLitterChange(this, event.target.value)) return;
       this._selectedLitterId = event.target.value;
-      await this._loadData();
+      this.shadowRoot.querySelectorAll(".feeding-inputs input,.feeding-inputs select,.feeding-inputs button").forEach((input) => { input.disabled = true; });
+      try { await this._loadData(); } catch (error) {
+        this._error = error?.message || text(this, "loadFailed");
+        this._render();
+      }
     });
     const amountInput = this.shadowRoot.getElementById("calculator-amount");
     const unitInput = this.shadowRoot.getElementById("calculator-unit");
@@ -393,14 +532,66 @@ class PuppyTrackerCalculatorCard extends HTMLElement {
       if (button.dataset.calculatorMode === this._mode) return;
       this.shadowRoot.activeElement?.blur();
       this._mode = button.dataset.calculatorMode;
+      saveCardState(this, { mode: this._mode });
       this._render();
       this.shadowRoot.querySelector(`[data-calculator-mode="${this._mode}"]`)?.focus({ preventScroll: true });
     }));
-    for (const [id, key] of [["feeding-meat", "meatPercent"], ["feeding-kivo", "kivoPerKg"], ["feeding-portions", "portions"], ["feeding-formula", "kibbleFormula"]]) {
-      this.shadowRoot.getElementById(id)?.addEventListener(id === "feeding-formula" ? "change" : "input", (event) => {
+    for (const [id, key] of [["feeding-meat", "meatPercent"], ["feeding-portions", "portions"]]) {
+      this.shadowRoot.getElementById(id)?.addEventListener("input", (event) => {
         this._feeding[key] = event.target.value;
+        const state = this._feedingByLitter.get(this._selectedLitterId);
+        if (state) { state.error = false; state.revision += 1; }
         this._updateCalculations();
       });
+      this.shadowRoot.getElementById(id)?.addEventListener("change", () => this._saveFeeding());
+    }
+    const controls = this.shadowRoot.querySelector(".feeding-inputs");
+    const editFood = (event) => {
+      const input = event.target.closest("[data-food]");
+      if (!input) return;
+      const food = this._feeding[input.dataset.food];
+      if (input.dataset.key) food[input.dataset.key] = input.value;
+      else food.table[Number(input.dataset.row)][Number(input.dataset.column)] = input.value;
+      const state = this._feedingByLitter.get(this._selectedLitterId);
+      if (state) { state.error = false; state.revision += 1; }
+      if (input.dataset.key === "method") {
+        for (const method of ["linear", "table", "per_kg"]) {
+          this.shadowRoot.querySelector(`[data-food-section="${input.dataset.food}-${method}"]`).hidden = food.method !== method;
+        }
+        input.closest(".food-settings").querySelector("details").open = true;
+      }
+      this._updateCalculations();
+    };
+    controls?.addEventListener("input", editFood);
+    controls?.addEventListener("change", (event) => {
+      if (!event.target.closest("[data-food]")) return;
+      editFood(event);
+      this._saveFeeding();
+    });
+    controls?.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-add-food],[data-remove-food]");
+      if (!button || button.disabled) return;
+      const kind = button.dataset.addFood || button.dataset.removeFood;
+      const rows = this._feeding[kind].table;
+      if (button.dataset.addFood) {
+        const last = rows.at(-1);
+        rows.push([Number(last[0]) + 1, Number(last[1])]);
+      } else rows.splice(Number(button.dataset.index), 1);
+      const state = this._feedingByLitter.get(this._selectedLitterId);
+      if (state) { state.error = false; state.revision += 1; }
+      this.shadowRoot.querySelector(`[data-food-table="${kind}"]`).innerHTML = this._foodTable(kind);
+      this._syncFoodControls();
+      this._updateCalculations();
+      const target = button.dataset.addFood
+        ? this.shadowRoot.querySelector(`[data-food="${kind}"][data-row="${rows.length - 1}"][data-column="0"]`)
+        : this.shadowRoot.querySelector(`[data-add-food="${kind}"]`);
+      target?.focus({ preventScroll: true });
+      this._saveFeeding();
+    });
+    this._syncFoodControls();
+    this.shadowRoot.getElementById("feeding-retry")?.addEventListener("click", () => this._saveFeeding());
+    if (this._data?.can_manage_records === false || this._data?.litter?.id !== this._selectedLitterId) {
+      this.shadowRoot.querySelectorAll('[id^="feeding-"]:is(input,select)').forEach((input) => { input.disabled = true; });
     }
     for (const input of this.shadowRoot.querySelectorAll("input, select")) {
       input?.addEventListener("focusout", () => window.setTimeout(() => {
@@ -454,8 +645,7 @@ class PuppyTrackerCalculatorCard extends HTMLElement {
     const put = (selector, value, root = this.shadowRoot) => { const element = root.querySelector(selector); if (element) element.textContent = value; };
     const grams = (value) => `${formatNumber(value, this._hass, 1)} g`;
     put("#feeding-ratio", text(this, "ratio", { meat: settings.meatPercent, kibble: 100 - Number(settings.meatPercent) }));
-    put("#feeding-rate", text(this, "kivoRate", { amount: formatNumber(Number(settings.kivoPerKg), this._hass, 1) }));
-    put("#feeding-basis", `${text(this, settings.kibbleFormula === "linear" ? "linearBasis" : "tableBasis")} · Kivo ${text(this, "kivoRate", { amount: formatNumber(Number(settings.kivoPerKg), this._hass, 1) })}`);
+    put("#feeding-basis", `${this._foodSummary("kibble")} · ${this._foodSummary("meat")}`);
     const totals = { kibbleDaily: 0, meatDaily: 0, totalDaily: 0, kibblePerPortion: 0, meatPerPortion: 0, totalPerPortion: 0 };
     let count = 0;
     let invalid = false;
@@ -466,7 +656,7 @@ class PuppyTrackerCalculatorCard extends HTMLElement {
         put(`[data-feeding-${kind}-daily]`, result.status === "ok" ? grams(result[`${key}Daily`]) : "—", row);
         put(`[data-feeding-${kind}-portion]`, result.status === "ok" ? grams(result[`${key}PerPortion`]) : "—", row);
       }
-      put("[data-feeding-note]", result.status === "outside_kibble_range" ? text(this, "outsideRange") : "", row);
+      put("[data-feeding-note]", result.status === "outside_food_range" ? text(this, "outsideRange", { food: text(this, result.food) }) : "", row);
       if (result.status === "ok") {
         count += 1;
         for (const key of Object.keys(totals)) totals[key] += result[key];
@@ -481,6 +671,7 @@ class PuppyTrackerCalculatorCard extends HTMLElement {
       put(`[data-feeding-sum-${kind}-portion]`, count ? grams(totals[`${kind}PerPortion`]) : "—");
     }
     put("#calculator-count", count === 1 ? text(this, "calculatedPuppy") : text(this, "calculatedPuppies", { count }));
+    this._updateFeedingStatus();
   }
 }
 

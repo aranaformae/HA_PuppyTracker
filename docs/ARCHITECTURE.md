@@ -714,6 +714,15 @@ only, never stored data.
 
 Notification delivery is a projection over authoritative monitoring/reminder/care state. Delivery state must never become scheduling truth.
 
+Dossier notification preferences are exposed by the central notification
+options flow and the original number/switch entities, backed by the same
+`CareReminderStore`. Its atomic `async_update_preferences` operation supports
+both a complete form save and partial entity updates, preserves delivery state
+and rolls runtime data back on a failed save. Entity listeners use
+`SIGNAL_DASHBOARD_UPDATE` and unregister on removal, keeping form and entity
+controls synchronized. These category/day-window preferences are distinct from
+care-program and recurring-reminder minute-window settings.
+
 The shared recurring notification coordinator:
 
 - reconciles generic reminder completion before evaluating status;
@@ -950,7 +959,8 @@ the same criterion grouping and neutral 1-5 visibility semantics; scores do not
 encode good/bad behavior. `show_profile`, `show_history` and `max_items` are
 presentation options. Mobile hides the longer history by default.
 
-The Calculator surface is a read-only projection available in Care and Mobile.
+The Calculator surface is available in Care and Mobile. Its per-kg variant is
+a read-only projection.
 For each selected-litter puppy it reads the canonical
 `summary.current_weight`, multiplies kilograms by the user-entered amount per
 kilogram and derives a litter total. It does not persist a dose, feeding amount
@@ -961,16 +971,38 @@ nodes only and retain slider controls and list scroll position. Explicit mode
 switches blur the previous control and focus the selected mode without scrolling.
 
 The same Calculator surface offers `default_mode: feeding`. A pure module,
-`puppy-tracker-feeding-calculator.js`, holds the Ydolo table and straight-line
-approximation from the supplied PDF and the verified Kivo 40-50 g/kg/day range.
+`puppy-tracker-feeding-calculator.js`, calculates brand-neutral food profiles.
+Each food independently supports `linear` (coefficient x kg + offset),
+`table` (piecewise interpolation) or `per_kg` (kg x fixed daily rate).
 Each food's full daily ration is multiplied by its selected share before sums
 and equal portions are calculated. Neither food is added at full quantity when
 the other food is also selected. This is proportional ration planning, not
-energy or nutrient matching. Kibble is calculated only inside 1-20 kg; meat-only
-results bypass that table boundary. Validation returns explicit missing-weight,
+energy or nutrient matching. Formulas respect their configured weight range;
+tables respect the first/last row without extrapolation. Zero-share foods do
+not impose a range restriction. Validation returns explicit missing-weight,
 invalid-settings or out-of-range states, which are excluded from litter totals.
-No feeding data is persisted or sent through write APIs; values remain in the
-current card instance and survive switching between calculator modes.
+Feeding preferences are persisted per litter as `feeding_settings` with
+`meat_percent`, `portions_per_day` and nested `kibble`/`meat` profiles.
+Each profile contains `method`, `grams_per_kg`, `coefficient`, `offset`,
+`min_kg`, `max_kg` and a `table` of [kg, daily grams] rows. Unselected
+method values are retained when switching. `feeding.py` validates finite
+non-negative formula values, positive rates, ordered weight ranges, whole
+portions and 2–100 strictly increasing positive table weights/positive rations.
+The original flat `kivo_grams_per_kg`/`kibble_formula` preferences normalize
+to these profiles, preserving previously calculated amounts;
+the admin-only `puppy_tracker/feeding_settings/update` websocket endpoint saves
+atomically, audits changes and dispatches a dashboard update. Calculated amounts
+and feeding events are not persisted by the calculator. Older litters use the
+50% meat/four portions, the original kibble table and a 45 g/kg meat rate.
+Full and litter backups carry
+and validate the preferences; puppy-only imports preserve the destination plan.
+
+Input events calculate immediately; completed changes queue serial saves per
+litter, retaining the newest draft. Failed writes retain the draft with retry
+feedback. Revision guards prevent stale reads from overwriting edits or saved
+values, and replies for another litter cannot replace current controls. Save
+feedback changes text without rebuilding the form. The selected variant uses
+browser-local card state; per-kg amount and unit remain session-only.
 
 The recurring-reminder card must resolve the linked mother through the mother scope rather than requiring `litter.mother_id` in the ordinary litter payload.
 

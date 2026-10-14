@@ -192,10 +192,14 @@ and latest puppy weights as the Care preset. Mobile Quick Log exposes the
 complete shared dossier category list, so temperature, deworming and
 medication do not require switching to the Journal Workspace.
 Changing the litter in any visible Workspace surface updates the other tabs.
-The Calculator's Feeding variant combines Ydolo Puppy kibble and Kivo puppy
-meat, with a meat-share slider, a 40-50 g/kg/day Kivo slider and equal portions
-per day. Results show both foods and their total per puppy and for the litter.
-The visual editor can select the initial calculator variant. Formula sources,
+The Calculator's Feeding variant combines kibble and meat, with a meat-share
+slider and equal portions per day. Each food independently supports an editable
+formula, weight table or fixed g/kg rate. Expand its settings to inspect or
+change the calculation. Results show both foods and their total per puppy and
+for the litter.
+Feeding preferences save automatically per litter and return after reloading,
+including on other devices. The chosen variant is remembered in this browser;
+the visual editor selects the initial variant when no choice is remembered. Formula sources,
 weight boundaries and an example are in [Calculator](CALCULATOR.md).
 The active weighing surface is retained during that change so a draft weight
 and input focus are not discarded.

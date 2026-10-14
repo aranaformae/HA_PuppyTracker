@@ -26,6 +26,8 @@ from .const import (
     SIGNAL_UPDATE,
 )
 from .notification_delivery import async_send_notify_entities, normalize_notify_entities
+from .care_reminders import MAX_CARE_REMINDER_LEAD_DAYS
+from .runtime import get_runtime_data
 
 
 class NotificationSettingsMixin:
@@ -173,6 +175,7 @@ class NotificationSettingsMixin:
             step_id="notifications",
             menu_options=[
                 "notification_preferences",
+                "dossier_notification_preferences",
                 "test_notification",
             ],
         )
@@ -283,6 +286,47 @@ class NotificationSettingsMixin:
                     ),
                 }
             ),
+            errors=errors,
+        )
+
+    async def async_step_dossier_notification_preferences(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> ConfigFlowResult:
+        """Edit the same dossier reminder settings exposed by configuration entities."""
+        runtime = get_runtime_data(self.hass)
+        if runtime is None or runtime.care_reminders is None:
+            raise RuntimeError("Puppy Tracker care reminder store is unavailable")
+        store = runtime.care_reminders
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            try:
+                await store.async_update_preferences(
+                    lead_days=user_input["lead_days"],
+                    categories={category: user_input[category] for category in ("vaccination", "deworming")},
+                )
+            except ValueError:
+                errors["base"] = "invalid_notification_settings"
+            except Exception:
+                errors["base"] = "unknown"
+            else:
+                async_dispatcher_send(self.hass, SIGNAL_DASHBOARD_UPDATE)
+                return self.async_create_entry(title="", data={})
+        values = user_input if user_input is not None else {
+            "lead_days": store.get_lead_days(), **store.get_categories(),
+        }
+        return self.async_show_form(
+            step_id="dossier_notification_preferences",
+            data_schema=vol.Schema({
+                vol.Required("lead_days", default=values["lead_days"]): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=0, max=MAX_CARE_REMINDER_LEAD_DAYS, step=1,
+                        unit_of_measurement=UnitOfTime.DAYS, mode=selector.NumberSelectorMode.BOX,
+                    )
+                ),
+                vol.Required("vaccination", default=values["vaccination"]): selector.BooleanSelector(),
+                vol.Required("deworming", default=values["deworming"]): selector.BooleanSelector(),
+            }),
             errors=errors,
         )
 

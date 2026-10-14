@@ -21,6 +21,21 @@ The default lead time is used when a recurring reminder or care program leaves
 its own **Notify before** value empty. Per-item values accept 0 through 10080
 minutes. A value of 0 waits until the due time.
 
+Open **Notifications -> Dossier reminders** to configure vaccination and
+deworming notifications for dossier entries with a next due date. Set the
+lead time in whole days (0-30) and enable or disable each category separately.
+This days-based window is separate from the minutes-based care-program and
+recurring-reminder lead time above.
+
+These preferences use the same store as **Care reminder lead time**,
+**Vaccination reminders** and **Deworming reminders** entities. The entities
+remain available for automations and are classified as configuration entities.
+Changes made through the form immediately refresh entity state; changes through
+an entity are reflected when the form is reopened. Saving preferences preserves
+delivery deduplication state and uses one atomic save, so it does not reset
+already tracked notifications. Existing full backups already include these
+preferences; no migration or re-entry is needed.
+
 ## What becomes actionable
 
 - Weight monitoring follows the configured monitoring and weighing thresholds;

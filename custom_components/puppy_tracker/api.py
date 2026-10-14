@@ -13,7 +13,7 @@ import voluptuous as vol
 
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.helpers.dispatcher import async_dispatcher_connect, async_dispatcher_send
 from homeassistant.util import dt as dt_util
 
 from .const import API_VERSION, DOMAIN, SIGNAL_DASHBOARD_UPDATE
@@ -353,6 +353,7 @@ def _litter_payload(
             "updated_at": litter.get("updated_at"),
             "last_completed_session": deepcopy(litter.get("last_completed_session")),
             "growth_analysis": deepcopy(litter.get("growth_analysis", {})),
+            "feeding_settings": storage.get_feeding_settings(litter_id),
             "records": storage.get_records(litter_id, newest_first=True),
             "summary": litter_summary,
         },
@@ -750,6 +751,29 @@ def websocket_preview_weight(hass, connection, msg) -> None:
         connection.send_error(msg["id"], "not_found", str(err))
         return
     connection.send_result(msg["id"], result)
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/feeding_settings/update",
+    vol.Required("litter_id"): str,
+    vol.Required("settings"): dict,
+})
+@websocket_api.async_response
+async def websocket_update_feeding_settings(hass, connection, msg) -> None:
+    storage = _storage_or_error(hass, connection, msg)
+    if storage is None:
+        return
+    try:
+        settings = await storage.async_update_feeding_settings(msg["litter_id"], msg["settings"])
+    except ValueError as err:
+        connection.send_error(msg["id"], "invalid_feeding_settings", str(err))
+        return
+    except Exception:
+        connection.send_error(msg["id"], "save_failed", "Feeding settings could not be saved")
+        return
+    async_dispatcher_send(hass, SIGNAL_DASHBOARD_UPDATE)
+    connection.send_result(msg["id"], {"settings": settings})
 
 
 @websocket_api.require_admin
@@ -1431,5 +1455,6 @@ def async_setup_api(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, websocket_integrity_check)
     websocket_api.async_register_command(hass, websocket_export_data)
     websocket_api.async_register_command(hass, websocket_report_logo)
+    websocket_api.async_register_command(hass, websocket_update_feeding_settings)
     websocket_api.async_register_command(hass, websocket_subscribe_updates)
     hass.data[DATA_API_REGISTERED] = True

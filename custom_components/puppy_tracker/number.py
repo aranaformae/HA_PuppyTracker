@@ -12,6 +12,7 @@ from homeassistant.helpers.dispatcher import (
     async_dispatcher_send,
 )
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.helpers.entity import EntityCategory
 
 from .care_reminders import CareReminderStore, MAX_CARE_REMINDER_LEAD_DAYS
 from .const import DOMAIN, SIGNAL_DASHBOARD_UPDATE
@@ -118,6 +119,7 @@ class CareReminderLeadDays(NumberEntity):
     """Configure when the first care reminder is emitted."""
 
     _attr_has_entity_name = True
+    _attr_entity_category = EntityCategory.CONFIG
     _attr_name = "Zorgherinnering vooraf"
     _attr_icon = "mdi:calendar-clock"
     _attr_unique_id = "puppy_tracker_care_reminder_lead_days"
@@ -152,6 +154,12 @@ class CareReminderLeadDays(NumberEntity):
         await self.store.async_set_lead_days(int(round(value)))
         self.async_write_ha_state()
         async_dispatcher_send(self.hass, SIGNAL_DASHBOARD_UPDATE)
+
+    async def async_added_to_hass(self) -> None:
+        """Reflect preferences saved through the central notification form."""
+        self.async_on_remove(async_dispatcher_connect(
+            self.hass, SIGNAL_DASHBOARD_UPDATE, self.async_write_ha_state,
+        ))
 
     @property
     def device_info(self) -> DeviceInfo:

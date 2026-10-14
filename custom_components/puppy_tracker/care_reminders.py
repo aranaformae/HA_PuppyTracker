@@ -220,17 +220,7 @@ class CareReminderStore:
 
     async def async_set_lead_days(self, lead_days: int) -> None:
         """Set the first reminder lead time."""
-        value = int(lead_days)
-        if not 0 <= value <= MAX_CARE_REMINDER_LEAD_DAYS:
-            raise ValueError(
-                f"Care reminder lead days must be between 0 and {MAX_CARE_REMINDER_LEAD_DAYS}"
-            )
-
-        async with self._lock:
-            if self._data.get("lead_days") == value:
-                return
-            self._data["lead_days"] = value
-            await self._store.async_save(self._data)
+        await self.async_update_preferences(lead_days=lead_days)
 
     async def async_set_category_enabled(
         self,
@@ -238,16 +228,40 @@ class CareReminderStore:
         enabled: bool,
     ) -> None:
         """Enable or disable reminders for one care category."""
-        if category not in CARE_REMINDER_CATEGORIES:
-            raise ValueError(f"Unsupported care reminder category: {category}")
+        await self.async_update_preferences(categories={category: bool(enabled)})
 
+    async def async_update_preferences(
+        self,
+        *,
+        lead_days: int | float | None = None,
+        categories: dict[str, bool] | None = None,
+    ) -> None:
+        """Update form or entity preferences atomically without resetting delivery state."""
+        if lead_days is not None:
+            value = float(lead_days)
+            if not value.is_integer() or not 0 <= value <= MAX_CARE_REMINDER_LEAD_DAYS:
+                raise ValueError(f"Care reminder lead days must be whole days between 0 and {MAX_CARE_REMINDER_LEAD_DAYS}")
+            lead_days = int(value)
+        if categories is not None and (
+            not isinstance(categories, dict)
+            or any(key not in CARE_REMINDER_CATEGORIES or not isinstance(value, bool) for key, value in categories.items())
+        ):
+            raise ValueError("Invalid care reminder categories")
         async with self._lock:
-            categories = self._data.setdefault("categories", {})
-            value = bool(enabled)
-            if categories.get(category) == value:
+            before = deepcopy(self._data)
+            candidate = deepcopy(before)
+            if lead_days is not None:
+                candidate["lead_days"] = lead_days
+            if categories is not None:
+                candidate.setdefault("categories", {}).update(categories)
+            if candidate == before:
                 return
-            categories[category] = value
-            await self._store.async_save(self._data)
+            self._data = candidate
+            try:
+                await self._store.async_save(self._data)
+            except Exception:
+                self._data = before
+                raise
 
     async def async_replace_states(
         self,

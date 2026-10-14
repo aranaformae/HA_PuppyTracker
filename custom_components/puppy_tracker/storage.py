@@ -48,6 +48,7 @@ from .records import (
 )
 from .time_utils import normalize_timestamp
 from .breeder import normalize_breeder
+from .feeding import normalize_feeding_settings
 
 
 def _now_iso() -> str:
@@ -975,6 +976,38 @@ class PuppyTrackerStorage:
             except Exception:
                 self._data = before
                 raise
+
+    def get_feeding_settings(self, litter_id: str) -> dict[str, Any]:
+        litter = self._data.get("litters", {}).get(litter_id)
+        if litter is None:
+            raise ValueError("Unknown litter")
+        return normalize_feeding_settings(litter.get("feeding_settings"))
+
+    async def async_update_feeding_settings(self, litter_id: str, values: dict[str, Any]) -> dict[str, Any]:
+        """Persist one litter's feeding preferences with complete rollback on failure."""
+        settings = normalize_feeding_settings(values)
+        async with self._lock:
+            litter = self._data.get("litters", {}).get(litter_id)
+            if litter is None:
+                raise ValueError("Unknown litter")
+            if litter.get("feeding_settings") == settings:
+                return deepcopy(settings)
+            before = deepcopy(self._data)
+            before_report = deepcopy(self._last_integrity_report)
+            old_settings = normalize_feeding_settings(litter.get("feeding_settings"))
+            litter["feeding_settings"] = settings
+            litter["updated_at"] = _now_iso()
+            self._add_audit_entry(
+                action="update_feeding_settings", litter_id=litter_id,
+                details={"before": old_settings, "after": deepcopy(settings)},
+            )
+            try:
+                await self.async_save()
+            except Exception:
+                self._data = before
+                self._last_integrity_report = before_report
+                raise
+        return deepcopy(settings)
 
     async def async_create_litter(
         self,

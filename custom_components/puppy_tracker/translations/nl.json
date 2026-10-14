@@ -327,6 +327,7 @@
         "description": "Beheer alle Puppy Tracker-meldingsinstellingen vanuit één centraal punt.",
         "menu_options": {
           "notification_preferences": "Meldingsvoorkeuren",
+          "dossier_notification_preferences": "Dossierherinneringen",
           "test_notification": "Testmelding versturen"
         }
       },
@@ -348,6 +349,20 @@
           "notify_recovery": "Stuur één herstelmelding wanneer een puppy weer een normale status heeft.",
           "notify_session_complete": "Stuur één melding wanneer een volledige weegsessie is afgerond.",
           "notify_entities": "Optionele notify-entiteiten, bijvoorbeeld je telefoon. Waar van toepassing blijven ook blijvende Home Assistant-meldingen beschikbaar."
+        }
+      },
+      "dossier_notification_preferences": {
+        "title": "Dossierherinneringen",
+        "description": "Herinneringen voor de volgende datum bij vaccinatie- en ontwormingsitems in het dossier. Dit zijn dezelfde instellingen als de bestaande herinneringsentiteiten.",
+        "data": {
+          "lead_days": "Dossierherinnering vooraf (dagen)",
+          "vaccination": "Vaccinatieherinneringen",
+          "deworming": "Ontwormingsherinneringen"
+        },
+        "data_description": {
+          "lead_days": "0 tot 30 hele dagen voor de volgende datum. Dit staat los van de herinneringstijd in minuten voor zorgprogramma’s en terugkerende herinneringen.",
+          "vaccination": "Sta meldingen toe voor vaccinatie-items met een volgende datum.",
+          "deworming": "Sta meldingen toe voor ontwormingsitems met een volgende datum."
         }
       },
       "test_notification": {

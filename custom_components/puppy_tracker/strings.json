@@ -327,6 +327,7 @@
         "description": "Manage all Puppy Tracker notification delivery settings in one place.",
         "menu_options": {
           "notification_preferences": "Notification preferences",
+          "dossier_notification_preferences": "Dossier reminders",
           "test_notification": "Send test notification"
         }
       },
@@ -348,6 +349,20 @@
           "notify_recovery": "Send a one-time recovery message when a puppy returns to normal.",
           "notify_session_complete": "Send one notification after a weighing session is fully completed.",
           "notify_entities": "Optional notify entities, for example your phone. Persistent Home Assistant notifications are still used where supported."
+        }
+      },
+      "dossier_notification_preferences": {
+        "title": "Dossier reminders",
+        "description": "Reminders for the next due date on vaccination and deworming dossier entries. These use the same settings as the existing reminder entities.",
+        "data": {
+          "lead_days": "Dossier reminder lead time (days)",
+          "vaccination": "Vaccination reminders",
+          "deworming": "Deworming reminders"
+        },
+        "data_description": {
+          "lead_days": "0 to 30 whole days before the next due date. This is separate from the lead time in minutes for care programs and recurring reminders.",
+          "vaccination": "Allow notifications for vaccination entries with a next due date.",
+          "deworming": "Allow notifications for deworming entries with a next due date."
         }
       },
       "test_notification": {

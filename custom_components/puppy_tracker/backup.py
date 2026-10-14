@@ -22,6 +22,7 @@ from .mother_storage import MOTHER_SCHEMA_VERSION
 from .recurring_reminders import normalize_recurring_reminder_backup_data
 from .owners import normalize_owner_backup_data
 from .breeder import normalize_breeder
+from .feeding import normalize_feeding_settings
 from .storage import PuppyTrackerStorage
 
 EXPORT_VERSION = 5
@@ -692,6 +693,9 @@ def _normalize_candidate_schema(candidate: dict[str, Any]) -> None:
         if not isinstance(settings, dict):
             raise ValueError("Settings must be an object")
         settings["breeder"] = normalize_breeder(settings.get("breeder"))
+        for litter in candidate.get("litters", {}).values():
+            if isinstance(litter, dict) and "feeding_settings" in litter:
+                litter["feeding_settings"] = normalize_feeding_settings(litter["feeding_settings"])
     except ValueError as err:
         raise BackupValidationError("invalid_backup", str(err)) from err
     migrate_mother_scope_data(candidate)

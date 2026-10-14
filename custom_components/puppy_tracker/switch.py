@@ -6,7 +6,8 @@ from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
-from homeassistant.helpers.dispatcher import async_dispatcher_send
+from homeassistant.helpers.dispatcher import async_dispatcher_connect, async_dispatcher_send
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .care_reminders import CareReminderStore
@@ -42,6 +43,7 @@ class CareReminderCategorySwitch(SwitchEntity):
     """Enable or disable reminders for one care category."""
 
     _attr_has_entity_name = True
+    _attr_entity_category = EntityCategory.CONFIG
 
     def __init__(
         self,
@@ -84,6 +86,12 @@ class CareReminderCategorySwitch(SwitchEntity):
         await self.store.async_set_category_enabled(self._category, False)
         self.async_write_ha_state()
         async_dispatcher_send(self.hass, SIGNAL_DASHBOARD_UPDATE)
+
+    async def async_added_to_hass(self) -> None:
+        """Reflect preferences saved through the central notification form."""
+        self.async_on_remove(async_dispatcher_connect(
+            self.hass, SIGNAL_DASHBOARD_UPDATE, self.async_write_ha_state,
+        ))
 
     @property
     def device_info(self) -> DeviceInfo:
