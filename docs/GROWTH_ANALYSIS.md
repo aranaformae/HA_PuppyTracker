@@ -131,13 +131,61 @@ tab_config:
 ```
 
 The Analysis period accepts `24h`, `3d`, `7d`, `14d`, `30d` or `all`.
-Available initial metrics are `weight`, `growth24` and `growthBirth`.
+Available initial metrics are `weight`, `growth24`, `growth48`, `growth72`,
+`weightAverage48` and `growthBirth`.
 Every puppy series and every subgraph use the configured collar colour. The
 milestone annotations appear only on weight charts.
 
 Keep `show_advanced_analysis: false` for a concise operational view. Enable it
 when cadence, variability, litter comparisons and projection confidence are
 useful during a review.
+
+## Rolling windows and input checks
+
+`growth48` and `growth72` plot percentage change over the full preceding 48 or
+72 hours, ending at each effective measurement. They are not normalized daily
+percentages and do not replace the existing `growth24` monitoring calculation.
+If no measurement exists at the window start, the backend linearly interpolates
+between surrounding measurements. A complete time window is required: shorter
+histories produce no point, and no extrapolation is performed. Large gaps still
+limit the evidence; interpolation is an estimate, not an observed measurement.
+
+`weightAverage48` is an optional chart mode showing the time-weighted mean
+weight over the preceding 48 hours. It integrates the linear curve between
+measurements, so adding samples on the same curve does not change the result.
+Neither rolling growth nor the average changes attention thresholds, diagnoses
+or saved measurement values. All modes retain puppy collar colours.
+
+Before saving through the shared Weighing surface, a read-only backend preflight
+uses the same sudden-change rule as stored growth analysis: a change of at least
+25% from the preceding weight, with at least two prior effective measurements.
+Normal weights save immediately; a flagged value requires pressing Save weight
+again. Changing the value or puppy clears confirmation; a changed baseline
+measurement also requires a fresh confirmation. Failed preflight writes nothing
+and retains the entered value. Selection and save controls are locked during
+preflight/save. This is an input-review prompt, not a medical conclusion.
+Direct Home Assistant record-weight actions retain their existing behavior.
+
+## Estimated weight at eight weeks
+
+The selected puppy details can show an indicative weight at birth time plus
+56 days. Set `tab_config.analysis.show_eight_week_weight: false` to hide it;
+the Growth Workspace visual editor exposes the same option.
+
+The backend fits the elapsed-time-weighted linear trend of the latest 14 days,
+not only the last few readings. At least four distinct measured instants and
+seven days of coverage are required. If needed, the window-start weight is
+interpolated from surrounding measurements. Extra samples on an unchanged
+piecewise-linear curve do not distort the trend. The projection continues this
+absolute grams/day slope from the latest effective weight to eight weeks.
+
+The displayed range reflects variation in the measured growth rates; it is
+not a statistical prediction interval or a breed-specific healthy-weight
+range. Longer forecast horizons are especially uncertain, and future growth
+can change. Missing birth time, insufficient coverage or a nonpositive fitted
+trend produces **Insufficient data**. After eight weeks the forecast is hidden,
+rather than presenting an old prediction as a measured weight. This is an
+Analysis-card estimate, not an attention rule or an adult-weight prediction.
 
 ## Data quality tips
 

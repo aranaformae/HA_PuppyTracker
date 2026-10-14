@@ -148,6 +148,7 @@ async function mountWeighingStation(page) {
       language: "en",
       states,
       callWS: async (message) => {
+        if (message.type === "puppy_tracker/weight/preview") return { anomaly: null, baseline_id: "previous" };
         if (message.type === "config/entity_registry/list") return entities;
         if (message.type === "config/device_registry/list") return devices;
         throw new Error(`Unexpected WS call: ${message.type}`);
@@ -323,6 +324,30 @@ test("last measurement correction targets the saved puppy and keeps compact sess
   await editor.locator('[type="submit"]').click();
   await expect(editor).toBeHidden();
   expect(await page.evaluate(() => window.__correctionCalls.at(-1))).toEqual({ type: "puppy_tracker/measurement/correct", litter_id: "l1", puppy_id: "p1", measurement_id: "m1", weight: 420 });
+});
+
+test("unusual weight requires confirmation for the exact draft and current baseline @cross-browser @tablet", async ({ page }) => {
+  await mountWeighingStation(page);
+  await page.evaluate(() => {
+    const original = window.__mockHass.callWS;
+    window.__previewBaseline = "m1";
+    window.__mockHass.callWS = async (message) => message.type === "puppy_tracker/weight/preview"
+      ? { anomaly: { change_percent: 46.34 }, baseline_id: window.__previewBaseline }
+      : original(message);
+  });
+  const card = page.locator("puppy-tracker-card");
+  const input = card.locator("#weight-input");
+  await input.fill("600");
+  await card.locator("#save-weight").click();
+  await expect(card.locator("#local-message")).toContainText("Press Save weight again");
+  await expect(input).toHaveValue("600");
+  expect(await page.evaluate(() => window.__serviceCalls.filter((call) => call.entityId === "button.pt_save"))).toHaveLength(0);
+  await page.evaluate(() => { window.__previewBaseline = "m2"; });
+  await card.locator("#save-weight").click();
+  await expect.poll(() => card.evaluate((element) => element._pendingWeightConfirmation)).toContain("m2");
+  expect(await page.evaluate(() => window.__serviceCalls.filter((call) => call.entityId === "button.pt_save"))).toHaveLength(0);
+  await card.locator("#save-weight").click();
+  await expect.poll(() => page.evaluate(() => window.__serviceCalls.filter((call) => call.entityId === "button.pt_save").length)).toBe(1);
 });
 
 test("shows the selected puppy collar color prominently", async ({ page }) => {

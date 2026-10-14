@@ -56,7 +56,9 @@ export function chartMetricPoints(row) {
       const series = this._measurementSeries(row);
       let points = [];
 
-      if (this._metric === "growth24") {
+      if (["growth48", "growth72", "weightAverage48"].includes(this._metric)) {
+        points = (puppy?.summary?.growth_analysis?.rolling_growth?.[this._metric] || []).map((point) => ({ time: Date.parse(point.timestamp), value: point.value }));
+      } else if (this._metric === "growth24") {
         points = this._growth24Points(series);
       } else if (this._metric === "growthBirth") {
         let birthWeight = Number(puppy?.birth_weight);

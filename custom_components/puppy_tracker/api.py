@@ -20,7 +20,7 @@ from .const import API_VERSION, DOMAIN, SIGNAL_DASHBOARD_UPDATE
 from .backup import build_export_document
 from .dog_identity import parent_details_for_litter
 from .measurements import measurement_status, puppy_measurements
-from .metrics import calculate_puppy_metrics
+from .metrics import calculate_puppy_metrics, preview_weight
 from .pdf_export import build_pdf_export
 from .runtime import get_runtime_data, get_runtime_storage
 from .session import get_session, remaining_puppy_ids
@@ -719,6 +719,26 @@ def websocket_get_data(
     connection.send_result(msg["id"], result)
 
 
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/weight/preview",
+    vol.Required("litter_id"): str,
+    vol.Required("puppy_id"): str,
+    vol.Required("weight"): vol.All(vol.Coerce(float), vol.Range(min=1, max=10000)),
+})
+@callback
+def websocket_preview_weight(hass, connection, msg) -> None:
+    """Read-only preflight with no measurement or session mutation."""
+    storage = _storage_or_error(hass, connection, msg)
+    if storage is None:
+        return
+    try:
+        result = preview_weight(storage, msg["litter_id"], msg["puppy_id"], msg["weight"])
+    except ValueError as err:
+        connection.send_error(msg["id"], "not_found", str(err))
+        return
+    connection.send_result(msg["id"], result)
+
+
 @websocket_api.require_admin
 @websocket_api.websocket_command(
     {
@@ -1374,6 +1394,7 @@ def async_setup_api(hass: HomeAssistant) -> None:
 
     websocket_api.async_register_command(hass, websocket_get_litters)
     websocket_api.async_register_command(hass, websocket_get_data)
+    websocket_api.async_register_command(hass, websocket_preview_weight)
     websocket_api.async_register_command(hass, websocket_get_measurements)
     websocket_api.async_register_command(hass, websocket_correct_measurement)
     websocket_api.async_register_command(hass, websocket_delete_measurement)

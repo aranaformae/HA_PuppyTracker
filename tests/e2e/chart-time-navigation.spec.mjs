@@ -5,6 +5,54 @@ async function openFixture(page) {
   await page.waitForFunction(() => window.__puppyTrackerReady === true);
 }
 
+test("eight-week forecast is optional and localized @cross-browser @tablet", async ({ page }) => {
+  await openFixture(page);
+  const result = await page.evaluate(async () => {
+    const { localizeOverviewRoot } = await import("/custom_components/puppy_tracker/frontend/puppy-tracker-overview-localization.js");
+    const element = document.createElement("puppy-tracker-overview-card");
+    element._hass = { language: "en", locale: { language: "en" } };
+    element._config = { show_eight_week_weight: true };
+    const row = { analysis: { eight_week_weight: { status: "estimated", weight_grams: 6000, range_min_grams: 5000, range_max_grams: 7000, sample_span_days: 14 } } };
+    element.shadowRoot.innerHTML = element._eightWeekWeightHtml(row);
+    localizeOverviewRoot(element.shadowRoot, element._hass);
+    const visible = element.shadowRoot.textContent;
+    element._config.show_eight_week_weight = false;
+    const hidden = element._eightWeekWeightHtml(row);
+    element._config.show_eight_week_weight = true;
+    const past = element._eightWeekWeightHtml({ analysis: { eight_week_weight: { status: "past_target" } } });
+    return { visible, hidden, past };
+  });
+  expect(result.visible).toContain("Estimated weight at 8 weeks");
+  expect(result.visible).toContain("Indicative at the current growth rate");
+  expect(result.visible).toContain("14 days of measurements");
+  expect(result.visible).toContain("6000 g");
+  expect(result.hidden).toBe("");
+  expect(result.past).toBe("");
+});
+
+test("rolling growth chart modes use backend points and retain collar colors", async ({ page }) => {
+  await openFixture(page);
+  const result = await page.evaluate(() => {
+    const element = document.createElement("puppy-tracker-overview-card");
+    element._historyLoading = false;
+    element._historyError = "";
+    element._rangeHours = 0;
+    const timestamp = new Date(Date.now() - 3600000).toISOString();
+    element._history = { puppies: [{ id: "p1", measurements: [], summary: { growth_analysis: { rolling_growth: {
+      growth48: [{ timestamp, value: 20 }], growth72: [{ timestamp, value: 30 }], weightAverage48: [{ timestamp, value: 450 }],
+    } } } }] };
+    const row = { puppyId: "p1", name: "Pink", collar: "Roze", entityIds: {} };
+    return ["growth48", "growth72", "weightAverage48"].map((metric) => {
+      element._metric = metric;
+      element.shadowRoot.innerHTML = element._chartSvg([row]);
+      return { metric, value: element._metricPoints(row)[0].value, unit: element._metricConfig(row).unit, style: element.shadowRoot.querySelector(".chart-point").getAttribute("style") };
+    });
+  });
+  expect(result.map((item) => item.value)).toEqual([20, 30, 450]);
+  expect(result.map((item) => item.unit)).toEqual(["%", "%", "g"]);
+  for (const item of result) expect(item.style).toContain("--series-color:#ec407a");
+});
+
 test("chart ranges behave as zoom levels without dropping older points", async ({ page }) => {
   await openFixture(page);
 

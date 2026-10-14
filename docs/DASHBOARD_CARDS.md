@@ -207,6 +207,15 @@ different puppy is now selected. Saving creates a historical correction,
 preserves the original measurement time, and does not add a new session count.
 This action requires administrator access and is unavailable until a weight
 has been saved in the current runtime. A failed correction keeps the form open.
+Unusual weight jumps receive a backend pre-save check and require a second
+press of Save weight for the unchanged pup/value/baseline. Ordinary weights
+need no extra confirmation. Analysis adds `growth48`, `growth72` and the
+optional `weightAverage48` chart mode to `default_metric`; see
+[Growth analysis](GROWTH_ANALYSIS.md) for window and missing-data semantics.
+The selected puppy can also show an indicative eight-week weight from a broad
+14-day trend. `tab_config.analysis.show_eight_week_weight` controls visibility
+and is available in the Growth visual editor. It requires at least four
+different measurement times spanning seven days; it is not a breed norm.
 
 Options inside `tab_config` override the inherited Workspace values for that
 one surface. This is useful for specialist layouts, but a single top-level

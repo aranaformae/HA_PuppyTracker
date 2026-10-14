@@ -23,6 +23,8 @@ from .const import (
     SUSTAINED_LOW_GROWTH_SAMPLES,
 )
 from .measurements import measurement_datetime
+from .rolling_growth import rolling_growth
+from .weight_projection import eight_week_weight_projection
 from .storage import PuppyTrackerStorage
 from .time_utils import parse_timestamp
 
@@ -539,6 +541,29 @@ def daily_growth_data(
     }
 
 
+def weight_change_anomaly(series: list) -> dict[str, Any] | None:
+    """Use the same observation rule for stored and proposed measurements."""
+    if len(series) < 3:
+        return None
+    previous = finite_number(series[-2][1].get("weight"))
+    current = finite_number(series[-1][1].get("weight"))
+    if previous is None or current is None or previous <= 0:
+        return None
+    change = (current - previous) / previous * 100
+    if abs(change) < SUSPICIOUS_SINGLE_WEIGHT_CHANGE_PERCENT:
+        return None
+    return {"code": "sudden_weight_change", "change_percent": round(change, 2), "message": "Controleer de laatste meting"}
+
+
+def preview_weight(storage: PuppyTrackerStorage, litter_id: str, puppy_id: str, weight: float) -> dict[str, Any]:
+    if storage.get_puppy(litter_id, puppy_id) is None:
+        raise ValueError("Unknown puppy")
+    series = measurement_series(storage, litter_id, puppy_id)
+    latest = series[-1][1] if series else {}
+    proposed = [*series, (dt_util.now(), {"weight": weight})]
+    return {"anomaly": weight_change_anomaly(proposed), "baseline_id": latest.get("id")}
+
+
 def growth_analysis(
     storage: PuppyTrackerStorage,
     litter_id: str,
@@ -585,6 +610,7 @@ def growth_analysis(
         ),
         "double_weight_reference_days": int(settings.get("double_weight_reference_days", DEFAULT_DOUBLE_WEIGHT_REFERENCE_DAYS)),
         "milestone_projection": projection,
+        "eight_week_weight": eight_week_weight_projection(series, birth_datetime(storage, litter_id, puppy_id)),
         "daily_growth_percent": growth["daily_change_percent"] if growth else None,
         "daily_growth_grams": growth["daily_change_grams"] if growth else None,
         "hours_since_weighing": status.get("hours_since_weighing"),
@@ -598,21 +624,13 @@ def growth_analysis(
         "growth_pattern": _growth_pattern(series, float(settings["min_daily_growth_percent"])),
         "growth_variability": _growth_variability(series),
         "anomaly": None,
+        "rolling_growth": rolling_growth(series),
     }
 
     if not series:
         return result
 
-    if len(series) >= 3:
-        previous_weight = finite_number(series[-2][1].get("weight"))
-        if current is not None and previous_weight is not None and previous_weight > 0:
-            change_percent = (current - previous_weight) / previous_weight * 100
-            if abs(change_percent) >= SUSPICIOUS_SINGLE_WEIGHT_CHANGE_PERCENT:
-                result["anomaly"] = {
-                    "code": "sudden_weight_change",
-                    "change_percent": round(change_percent, 2),
-                    "message": "Controleer de laatste meting",
-                }
+    result["anomaly"] = weight_change_anomaly(series)
 
     if len(series) >= 2:
         result["data_quality"] = "good" if len(series) >= 3 else "limited"

@@ -14,6 +14,8 @@ The current suite covers the main backend, frontend contract and browser flows.
 | --- | --- |
 | `test_measurements_and_time.py` | Timezone-safe ordering, timestamp normalization, active/deleted/superseded measurements and deterministic sorting |
 | `test_metrics.py` | Current/previous weight, weight change, normalized 24-hour growth, monitoring status and per-litter threshold fallback |
+| `test_rolling_growth.py` / chart and weighing Playwright specs | 48/72-hour coverage/interpolation, time-weighted averages, correction/deletion isolation, shared anomaly preflight and exact-baseline save confirmation |
+| `test_weight_projection.py` / chart Playwright specs | Broad-window eight-week forecasts, sample-density independence, missing/insufficient data, target age and localized optional display |
 | `test_storage_corrections.py` | Non-destructive correction chains, delete/restore behavior and birth-weight synchronization |
 | `test_integrity.py` | Safe integrity repairs, duplicate IDs, dangling references and ambiguous correction branches |
 | `test_exports.py` / `test_pdf_export_options.py` | CSV filtering, complete JSON history, direct PDF generation and every PDF selection/section contract |

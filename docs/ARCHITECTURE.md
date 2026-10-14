@@ -26,6 +26,29 @@ A central rule is that persistent scheduling definitions and historical facts ar
 
 ## Frontend presentation contracts
 
+`rolling_growth.py` derives 48/72-hour percentage series and a 48-hour
+time-weighted mean from effective measurement history. Duplicate instants are
+collapsed deterministically; cumulative trapezoidal areas and binary-search
+window boundaries avoid a quadratic rescan. Full coverage is required and
+window endpoints may be interpolated, never extrapolated. These series are
+transient `growth_analysis.rolling_growth` response data, not stored entities.
+The existing normalized 24-hour monitoring calculation remains unchanged.
+`weight_projection.py` fits a continuous elapsed-time-weighted linear trend
+over the latest 14 days for the indicative eight-week weight. Four distinct
+measured instants and seven days of coverage are required. Piecewise-linear
+integrals make the fit independent of denser sampling on the same curve.
+The variation band is descriptive, not a confidence/prediction interval.
+`growth_analysis.eight_week_weight` is derived response data; it is neither
+persisted nor part of notification thresholds. Existing short-window milestone
+projections retain their own settings and behavior.
+
+`puppy_tracker/weight/preview` is an authenticated, read-only WebSocket command
+using `weight_change_anomaly`, the same rule used after persistence. It returns
+only anomaly metadata and the current baseline ID for the selected puppy.
+The shared Weighing surface binds confirmation to litter, puppy, entered value
+and baseline ID. A busy guard and disabled controls protect the async preflight
+and save path; direct record-weight actions are not changed by this UI prompt.
+
 Dossier and Timeline share `puppy-tracker-dossier-search.js` for accent- and
 case-insensitive title/note/result matching and localized search controls.
 The query is transient presentation state. Filtering runs over the full loaded

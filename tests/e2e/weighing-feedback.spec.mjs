@@ -94,6 +94,7 @@ async function mountWeighingStation(page, previousWeight = "410") {
       language: "en",
       states,
       callWS: async (message) => {
+        if (message.type === "puppy_tracker/weight/preview") return { anomaly: null, baseline_id: "previous" };
         if (message.type === "config/entity_registry/list") return entities;
         if (message.type === "config/device_registry/list") return devices;
         throw new Error(`Unexpected WS call: ${message.type}`);

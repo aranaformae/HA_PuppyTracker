@@ -76,6 +76,12 @@ const EXACT_EN = new Map([
   ["Groei 24 uur", "Growth 24 hours"],
   ["Groei 24u", "Growth 24h"],
   ["Groei per 24 uur", "Growth per 24 hours"],
+  ["Groei over 48 uur", "Growth over 48 hours"],
+  ["Groei over 72 uur", "Growth over 72 hours"],
+  ["Gemiddeld gewicht over 48 uur", "Average weight over 48 hours"],
+  ["Geschat gewicht op 8 weken", "Estimated weight at 8 weeks"],
+  ["Indicatief bij huidig groeitempo", "Indicative at the current growth rate"],
+  ["Geschat gewicht op 8 weken tonen", "Show estimated weight at 8 weeks"],
   ["Groei sinds geboorte", "Growth since birth"],
   ["Groei neemt af", "Growth is slowing"],
   ["Groei stabiel", "Growth rate is stable"],
@@ -216,6 +222,7 @@ const EXACT_EN = new Map([
 ]);
 
 const PATTERNS_EN = [
+  [/^([\d.]+) dagen meetgegevens$/, (_m, count) => `${count} days of measurements`],
   [/^(\d+)\/(\d+) gewogen$/, (_m, done, total) => `${done}/${total} weighed`],
   [/^Laatste sessie (.+)$/, (_m, value) => `Last session ${value}`],
   [/^(\d+) pups$/, (_m, count) => `${count} puppies`],

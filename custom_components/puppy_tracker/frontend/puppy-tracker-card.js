@@ -7,6 +7,7 @@ const WEIGHING_TEXT = {
     actionFailed: "De actie kon niet worden uitgevoerd.",
     completed: "Voltooid",
     weighed: "Gewogen",
+    weightWarning: "Controleer {weight} g voor {puppy}: {change}% verschil met de vorige meting. Druk nogmaals op Gewicht opslaan om te bevestigen.",
     editMeasurement: "Meting aanpassen",
     saveCorrection: "Correctie opslaan",
     correctionSaved: "Meting gecorrigeerd.",
@@ -68,6 +69,7 @@ const WEIGHING_TEXT = {
     actionFailed: "The action could not be completed.",
     completed: "Completed",
     weighed: "Weighed",
+    weightWarning: "Check {weight} g for {puppy}: {change}% change from the previous measurement. Press Save weight again to confirm.",
     editMeasurement: "Edit measurement",
     saveCorrection: "Save correction",
     correctionSaved: "Measurement corrected.",
@@ -916,7 +918,7 @@ class PuppyTrackerCard extends HTMLElement {
   }
 
   async _saveWeight(station) {
-    if (!this._hass || !station?.ids?.save) return;
+    if (!this._hass || !station?.ids?.save || this._weightSaveBusy) return;
 
     const input = this.shadowRoot?.querySelector("#weight-input");
     const value = Number(input?.value ?? this._draftWeight ?? 0);
@@ -930,7 +932,22 @@ class PuppyTrackerCard extends HTMLElement {
       return;
     }
 
+    this._weightSaveBusy = true;
+    const controls = [...this.shadowRoot.querySelectorAll("#weight-input, #save-weight, #toggle-session, #puppy-select, #litter-select, [data-puppy-option]")].map((element) => [element, element.disabled]);
+    controls.forEach(([element]) => { element.disabled = true; });
     try {
+      const litterId = this._deviceIdentifier(this._selectedLitterDevice(station), "litter_")?.slice("litter_".length);
+      if (litterId && puppy?.puppyId) {
+        const preview = await this._hass.callWS({ type: "puppy_tracker/weight/preview", litter_id: litterId, puppy_id: puppy.puppyId, weight: value });
+        const key = JSON.stringify([litterId, puppy.puppyId, value, preview.baseline_id]);
+        if (preview.anomaly && this._pendingWeightConfirmation !== key) {
+          this._pendingWeightConfirmation = key;
+          this._localMessage = this._t("weightWarning", { weight: value, puppy: puppy.name, change: preview.anomaly.change_percent });
+          this._localMessageType = "warning";
+          this._scheduleRender(true);
+          return;
+        }
+      }
       if (station.ids.weight) {
         await this._hass.callService(
           "number",
@@ -948,6 +965,7 @@ class PuppyTrackerCard extends HTMLElement {
       );
 
       this._draftWeight = null;
+      this._pendingWeightConfirmation = null;
       const locale =
         this._hass?.locale?.language ||
         this._hass?.language ||
@@ -987,6 +1005,9 @@ class PuppyTrackerCard extends HTMLElement {
       this._scheduleRender(true);
     } catch (err) {
       this._setError(err);
+    } finally {
+      this._weightSaveBusy = false;
+      controls.forEach(([element, disabled]) => { if (element.isConnected) element.disabled = disabled; });
     }
   }
 
@@ -1135,6 +1156,7 @@ class PuppyTrackerCard extends HTMLElement {
         element.addEventListener("click", () => {
           const option = element.dataset.puppyOption;
           this._optimisticPuppyOption = option;
+          this._pendingWeightConfirmation = null;
           this._interactionActive = false;
           this._renderPending = false;
           this._updateView(station);
@@ -1292,6 +1314,7 @@ class PuppyTrackerCard extends HTMLElement {
     const edit = this.shadowRoot?.querySelector("#edit-last-measurement");
     if (edit) edit.disabled = !lastState?.attributes?.measurement_id || this._hass?.user?.is_admin === false;
     this._updatePuppyRows(rows, station);
+    if (this._weightSaveBusy) this.shadowRoot.querySelectorAll("#weight-input, #save-weight, #toggle-session, #puppy-select, #litter-select, [data-puppy-option]").forEach((element) => { element.disabled = true; });
   }
 
   _render() {
@@ -1618,6 +1641,7 @@ class PuppyTrackerCard extends HTMLElement {
       const option = event.target.value;
       this._draftWeight = null;
       this._optimisticLitterOption = option;
+      this._pendingWeightConfirmation = null;
       this._optimisticPuppyOption = null;
 
       // The native iOS select can remain focused after a choice. At this point
@@ -1637,6 +1661,7 @@ class PuppyTrackerCard extends HTMLElement {
     puppySelect?.addEventListener("change", (event) => {
       const option = event.target.value;
       this._optimisticPuppyOption = option;
+      this._pendingWeightConfirmation = null;
 
       event.target.blur();
       this._interactionActive = false;
@@ -1658,6 +1683,7 @@ class PuppyTrackerCard extends HTMLElement {
     });
 
     weightInput?.addEventListener("input", (event) => {
+      this._pendingWeightConfirmation = null;
       this._editingWeight = true;
       this._draftWeight = event.target.value;
     });
@@ -1696,6 +1722,7 @@ class PuppyTrackerCard extends HTMLElement {
     });
 
     toggle?.addEventListener("click", () => {
+      this._pendingWeightConfirmation = null;
       this._beginInteraction();
       const session = this._sessionPresentation(this._state(station.ids.session)?.state);
       const reset = ["active", "complete"].includes(session.code);
@@ -1709,6 +1736,7 @@ class PuppyTrackerCard extends HTMLElement {
       row.addEventListener("click", () => {
         const option = row.dataset.puppyOption;
         this._optimisticPuppyOption = option;
+        this._pendingWeightConfirmation = null;
         this._interactionActive = false;
         this._renderPending = false;
         this._scheduleRender(true);

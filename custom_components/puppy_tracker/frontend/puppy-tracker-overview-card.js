@@ -81,6 +81,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
       show_puppy_cards: true,
       show_advanced_analysis: false,
       show_growth_milestones: true,
+      show_eight_week_weight: true,
       show_milestone_chart_annotations: true,
     };
   }
@@ -114,6 +115,9 @@ class PuppyTrackerOverviewCard extends HTMLElement {
               options: [
                 { value: "weight", label: "Gewicht" },
                 { value: "growth24", label: "Groei per 24 uur" },
+                { value: "growth48", label: "Groei over 48 uur" },
+                { value: "growth72", label: "Groei over 72 uur" },
+                { value: "weightAverage48", label: "Gemiddeld gewicht over 48 uur" },
                 { value: "growthBirth", label: "Groei sinds geboorte" },
               ],
             },
@@ -123,6 +127,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
         { name: "show_puppy_cards", selector: { boolean: {} } },
         { name: "show_advanced_analysis", selector: { boolean: {} } },
         { name: "show_growth_milestones", selector: { boolean: {} } },
+        { name: "show_eight_week_weight", label: "Geschat gewicht op 8 weken tonen", selector: { boolean: {} } },
         { name: "show_milestone_chart_annotations", selector: { boolean: {} } },
       ],
     });
@@ -138,12 +143,13 @@ class PuppyTrackerOverviewCard extends HTMLElement {
       show_puppy_cards: true,
       show_advanced_analysis: false,
       show_growth_milestones: true,
+      show_eight_week_weight: true,
       show_milestone_chart_annotations: true,
       ...config,
     };
 
     this._rangeHours = this._rangeToHours(this._config.default_range);
-    this._metric = ["weight", "growth24", "growthBirth"].includes(
+    this._metric = ["weight", "growth24", "growth48", "growth72", "weightAverage48", "growthBirth"].includes(
       this._config.default_metric
     )
       ? this._config.default_metric
@@ -554,6 +560,10 @@ class PuppyTrackerOverviewCard extends HTMLElement {
   }
 
   _metricConfig(row) {
+    if (["growth48", "growth72", "weightAverage48"].includes(this._metric)) {
+      const label = this._metric === "weightAverage48" ? "Gemiddeld gewicht over 48 uur" : `Groei over ${this._metric === "growth48" ? 48 : 72} uur`;
+      return { entityId: row.entityIds.weight, label, unit: this._metric === "weightAverage48" ? "g" : "%" };
+    }
     if (this._metric === "growth24") {
       return {
         entityId: row.entityIds.growth24,
@@ -575,6 +585,14 @@ class PuppyTrackerOverviewCard extends HTMLElement {
       label: "Gewicht",
       unit: "g",
     };
+  }
+
+  _eightWeekWeightHtml(selected) {
+    if (this._config.show_eight_week_weight === false) return "";
+    const estimate = selected.analysis?.eight_week_weight;
+    if (estimate?.status === "past_target") return "";
+    const available = estimate?.status === "estimated";
+    return `<div class="eight-week-weight"><span>Geschat gewicht op 8 weken</span><strong>${available ? this._formatNumber(estimate.weight_grams, "g") : "Onvoldoende data"}</strong>${available ? `<small>Indicatief bij huidig groeitempo</small><small>${this._formatNumber(estimate.range_min_grams, "g")} – ${this._formatNumber(estimate.range_max_grams, "g")}</small><small>${this._escape(estimate.sample_span_days)} dagen meetgegevens</small>` : ""}</div>`;
   }
 
   _selectedLitterStorageId() {
@@ -1195,9 +1213,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
             <div><span class="eyebrow">Geselecteerde pup</span><strong>${this._escape(
               this._metric === "weight"
                 ? "Gewichtsontwikkeling"
-                : this._metric === "growth24"
-                ? "Groei per 24 uur"
-                : "Groei sinds geboorte"
+                : this._metricConfig(selected).label
             )}</strong></div>
             <span>${this._rangeHours === 0 ? "Alles" : `${this._rangeHours} uur`}</span>
           </div>
@@ -1724,6 +1740,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
             <div><span>Bandje</span><strong>${this._escape(selected.collar || "—")}</strong></div>
             <div><span>Geboortegewicht</span><strong>${this._formatNumber(selected.birthWeight, "g")}</strong></div>
             <div><span>Huidig gewicht</span><strong>${this._formatNumber(selected.weight, "g")}</strong></div>
+            ${this._eightWeekWeightHtml(selected)}
             <div><span>Vorige meting</span><strong>${this._formatNumber(selected.previousWeight, "g")}</strong></div>
             <div><span>Verschil</span><strong>${this._formatNumber(selected.weightChange, "g", true)}</strong></div>
             <div><span>Groei 24 uur</span><strong>${this._formatNumber(selected.growth24, "%", true)}</strong></div>
@@ -1799,6 +1816,9 @@ class PuppyTrackerOverviewCard extends HTMLElement {
           <select id="metric-select">
             <option value="weight" ${this._metric === "weight" ? "selected" : ""}>Gewicht</option>
             <option value="growth24" ${this._metric === "growth24" ? "selected" : ""}>Groei / 24 uur</option>
+            <option value="growth48" ${this._metric === "growth48" ? "selected" : ""}>Groei over 48 uur</option>
+            <option value="growth72" ${this._metric === "growth72" ? "selected" : ""}>Groei over 72 uur</option>
+            <option value="weightAverage48" ${this._metric === "weightAverage48" ? "selected" : ""}>Gemiddeld gewicht over 48 uur</option>
             <option value="growthBirth" ${this._metric === "growthBirth" ? "selected" : ""}>Groei sinds geboorte</option>
           </select>
         </label>
@@ -1832,9 +1852,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
             <h3>${this._escape(
               this._metric === "weight"
                 ? "Gewichtsontwikkeling"
-                : this._metric === "growth24"
-                ? "Groei per 24 uur"
-                : "Groei sinds geboorte"
+                : this._metricConfig(chartRows[0] || { entityIds: {} }).label
             )}</h3>
           </div>
           <span>${chartRows.length} ${chartRows.length === 1 ? "pup" : "pups"} · eigen meetdata</span>
@@ -2426,6 +2444,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
           border-top: 1px solid var(--divider-color);
         }
 
+        .eight-week-weight small{display:block;color:var(--secondary-text-color);font-size:12px;line-height:1.4;overflow-wrap:anywhere}
         .detail-grid {
           display: grid;
           grid-template-columns: repeat(5, minmax(0, 1fr));
