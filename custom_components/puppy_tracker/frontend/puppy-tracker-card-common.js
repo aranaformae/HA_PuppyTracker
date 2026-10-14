@@ -433,6 +433,10 @@ export async function fetchExport(hass, litterId, format, options = {}) {
   return hass.callWS(message);
 }
 
+export async function fetchReportLogo(hass) {
+  return hass.callWS({ type: `${DOMAIN}/report/logo` });
+}
+
 export function downloadExportFile(result) {
   let payload = result.content;
   if (result.encoding === "base64") {

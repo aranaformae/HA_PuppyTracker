@@ -2,9 +2,16 @@
 
 ## PDF branding boundary
 
-The report export WebSocket accepts a bounded `branding` object (`name` up to
-200 characters, `contact` up to 2000, `logo_base64` up to 700000). Branding is
-presentation data and is not persisted in integration storage. The Report
+Breeder identity lives in `settings.breeder`, with a name up to 200 characters,
+contact text up to 2000 and a local logo path up to 2000. A dedicated options
+flow edits it with validation and rollback on failed writes. Monitoring updates
+preserve those fields. Complete backups include this identity; full replacement
+restores it, partial/merge imports keep the current identity, and old full backups
+default to empty fields. The image itself remains in HA's `www` directory.
+The report export WebSocket accepts only bounded `branding.logo_base64`
+(up to 700000 encoded characters). Name/contact come from storage at export
+time; clients cannot override them. `report/logo` exposes only the stored logo
+path, not contact information. The Report
 card obtains PNG/JPEG images only from the HA origin, converts them to bounded
 RGB JPEGs and closes decoded image resources after use. The backend never
 fetches URLs or reads caller-supplied filesystem paths. It validates JPEG

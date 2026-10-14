@@ -8,7 +8,7 @@ test("branding and profile note are independently selected without sending hidde
   await card.locator("#pdf").click();
   await download;
   let message = await page.evaluate(() => window.__reportCalls.filter((call) => call.format === "pdf").at(-1));
-  expect(message.branding).toEqual({ name: "Test kennel" });
+  expect(message.branding).toEqual({});
   await card.locator('[data-pdf-section="breeder_contact"]').check();
   await card.locator('[data-pdf-section="profile_note"]').check();
   await card.locator('[data-pdf-section="brand_logo"]').uncheck();
@@ -16,7 +16,7 @@ test("branding and profile note are independently selected without sending hidde
   await card.locator("#pdf").click();
   await download;
   message = await page.evaluate(() => window.__reportCalls.filter((call) => call.format === "pdf").at(-1));
-  expect(message.branding).toEqual({ name: "Test kennel", contact: "private@example.com" });
+  expect(message.branding).toEqual({});
   expect(message.sections).toMatchObject({ breeder_contact: true, profile_note: true, brand_logo: false });
   await card.locator('[data-pdf-section="identity"]').uncheck();
   await expect(card.locator('[data-pdf-section="profile_note"]')).toBeDisabled();
@@ -24,7 +24,7 @@ test("branding and profile note are independently selected without sending hidde
 });
 
 test("local logo is converted to a bounded JPEG and not loaded when excluded @cross-browser @mobile @tablet", async ({ page }) => {
-  const card = await mountReport(page, { logo_url: "/local/test-logo.png" });
+  const card = await mountReport(page, { logo_url: "/local/obsolete-card-logo.png" }, null, "/local/test-logo.png");
   const png = await page.evaluate(() => {
     const canvas = document.createElement("canvas");
     canvas.width = 160;
@@ -58,10 +58,11 @@ async function openFixture(page) {
   await page.waitForFunction(() => window.__puppyTrackerReady === true);
 }
 
-async function mountReport(page, config = {}, storedState = null) {
+async function mountReport(page, config = {}, storedState = null, logoUrl = "") {
   await openFixture(page);
 
-  await page.evaluate(({ config, storedState }) => {
+  await page.evaluate(({ config, storedState, logoUrl }) => {
+    window.__reportLogoUrl = logoUrl;
     if (storedState) {
       window.localStorage.setItem(
         "puppy_tracker.card_state.puppy-tracker-report-card",
@@ -100,6 +101,8 @@ async function mountReport(page, config = {}, storedState = null) {
       },
       callWS: async (message) => {
         calls.push(JSON.parse(JSON.stringify(message)));
+
+        if (message.type === "puppy_tracker/report/logo") return { logo_url: window.__reportLogoUrl };
 
         if (message.type === "puppy_tracker/litters") {
           return { litters: [{ id: "l1", name: "Luna x Dutch", active: true }] };
@@ -164,7 +167,7 @@ async function mountReport(page, config = {}, storedState = null) {
     card.setConfig({ ...constructor.getStubConfig(), ...config });
     document.querySelector("#cards").appendChild(card);
     card.hass = hass;
-  }, { config, storedState });
+  }, { config, storedState, logoUrl });
 
   const card = page.locator("puppy-tracker-report-card");
   await expect(card.locator("#pdf")).toBeVisible();
@@ -235,6 +238,7 @@ test("report card localizes its own editor options", async ({ page }) => {
     const constructor = customElements.get("puppy-tracker-report-card");
     const config = constructor.getStubConfig();
     const schema = constructor.getConfigForm().schema;
+    if (schema.some((field) => ["breeder_name", "breeder_contact", "logo_url"].includes(field.name))) throw new Error("Breeder settings belong to integration configuration");
     return {
       title: config.title,
       ranges: schema.find((field) => field.name === "default_range").selector.select.options.map((option) => option.label),

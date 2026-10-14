@@ -862,7 +862,7 @@ def build_pdf_export(
     if puppy_id is not None and not puppies:
         raise ValueError("Unknown puppy")
 
-    branding = branding or {}
+    branding = branding if branding is not None else storage.get_breeder()
     logo = _report_logo(branding.get("logo_base64")) if visible["brand_logo"] else None
     report = _PdfReport(logo)
     report.brand_logo()

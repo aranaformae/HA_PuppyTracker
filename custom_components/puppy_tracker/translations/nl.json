@@ -23,6 +23,7 @@
           "manage_measurements": "Metingen beheren",
           "data_management": "Databeheer",
           "settings": "Monitoringinstellingen",
+          "breeder": "Fokkersgegevens",
           "notifications": "Meldingen",
           "integrity": "Data-integriteit controleren"
         }
@@ -293,6 +294,20 @@
           "confirm": "Ik begrijp dit en wil deze puppy permanent verwijderen"
         }
       },
+      "breeder": {
+        "title": "Fokkersgegevens",
+        "description": "Deze gegevens gelden voor alle PDF-rapporten. Kies op de rapportkaart welke onderdelen zichtbaar zijn.",
+        "data": {
+          "name": "Fokkersnaam / kennelnaam",
+          "contact": "Contactgegevens",
+          "logo_url": "Pad naar logo"
+        },
+        "data_description": {
+          "name": "Maximaal 200 tekens.",
+          "contact": "Bijvoorbeeld e-mail, telefoon en adres, maximaal 2000 tekens. Contactgegevens blijven standaard uit in het rapport.",
+          "logo_url": "Bijvoorbeeld /local/logo.png voor /config/www/logo.png. PNG/JPEG op deze Home Assistant-server. Leeg gebruikt het meegeleverde logo."
+        }
+      },
       "settings": {
         "title": "Monitoringinstellingen",
         "description": "Stel hier alleen de grenzen voor gewicht en groei in. Het versturen van meldingen beheer je apart onder Meldingen.",
@@ -390,6 +405,7 @@
       "invalid_litter": "Het geselecteerde nest bestaat niet meer.",
       "invalid_puppy": "De geselecteerde puppy bestaat niet meer.",
       "invalid_settings": "Een of meer monitoringinstellingen zijn ongeldig.",
+      "invalid_breeder": "Controleer de tekstlengte en gebruik voor het logo een lokaal pad zoals /local/logo.png.",
       "invalid_notification_settings": "Een of meer meldingsinstellingen zijn ongeldig.",
       "notification_test_failed": "De testmelding kon niet worden verstuurd. Controleer de ingestelde notify-entiteiten en Home Assistant-meldingsdiensten.",
       "invalid_measurement": "De geselecteerde meting bestaat niet meer of kan in de huidige toestand niet worden aangepast.",

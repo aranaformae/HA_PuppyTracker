@@ -79,17 +79,16 @@ the full profile. Disabling Identity also disables Puppy profile note.
 
 ## Breeder branding and profile notes
 
-Set the breeder name, contact text and logo URL in the Report card's visual
-editor or YAML. No integration source files need to be modified:
+Open **Settings -> Devices & services -> Puppy Tracker -> Configure -> Breeder
+information**. Set the kennel/breeder name, contact text and local logo path
+once for all reports. For example, use `/local/kennel-logo.png` for an image
+stored as `/config/www/kennel-logo.png`. On the Report card, choose only which
+details to include using Logo, Breeder name and Breeder contact details.
 
-```yaml
-type: custom:puppy-tracker-report-card
-breeder_name: My kennel
-breeder_contact: |-
-  contact@example.com
-  +31 6 12345678
-logo_url: /local/kennel-logo.png
-```
+Existing `breeder_name`, `breeder_contact` and `logo_url` card fields are no
+longer used. Copy their values into the central form once, then remove those
+obsolete YAML fields. Card configuration cannot be migrated automatically
+because it belongs to Home Assistant's dashboard, not Puppy Tracker's storage.
 
 Upload the image to Home Assistant's `www` directory to use `/local/...`.
 Use a same-origin PNG or JPEG of at most 2 MB and 16 million pixels. The browser
@@ -99,8 +98,12 @@ ratio within a 96 x 64 point box. Transparent areas become white.
 An unavailable, external, oversized or invalid image falls back to the bundled
 logo. Turning Logo off excludes both logos and skips image loading.
 
-Branding text belongs to dashboard configuration, not the integration's JSON
-backup. The PDF contact and profile-note switches are independent from owner
+Breeder information is stored in the integration and included in complete JSON
+and full backup-to-file exports. Full replace restores it; merge-as-new and
+partial pup/litter imports keep the existing central identity. Older full
+backups without breeder fields restore empty identity fields and the default
+logo. The logo path is backed up, but the image file in `www` must be backed up
+separately by Home Assistant. The PDF contact and profile-note switches are independent from owner
 contact details; review all three before sharing a report. Profile notes are
 printed for the selected puppy, or each puppy in a whole-litter report, and
 are current identity data rather than period-filtered dossier entries.
@@ -144,8 +147,8 @@ PDF language can follow Home Assistant automatically or be fixed to Dutch or
 English. Labels, status text and structured values are translated. User-entered
 names, titles, notes, results and care instructions remain exactly as entered.
 
-The bundled Puppy Tracker brand logo is included in generated PDFs. Replacing
-the integration's logo file is an advanced customization and can be overwritten
+The bundled Puppy Tracker brand logo is the fallback when no valid central
+logo is available. Replacing the integration's logo file is an advanced customization and can be overwritten
 by an update.
 
 ## CSV and JSON

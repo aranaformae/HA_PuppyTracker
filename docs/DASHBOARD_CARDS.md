@@ -310,9 +310,11 @@ importable litter backup and therefore does not follow presentation filters.
 | `handover` | Main sections except weight-attention warnings and status column |
 | `internal` | Main sections except owner contact details |
 
-Optional `breeder_name`, `breeder_contact` and `logo_url` card settings configure
-PDF branding through YAML or the visual editor. Use a local HA PNG/JPEG URL,
-such as `/local/kennel-logo.png`; invalid images use the bundled logo instead.
+Configure breeder identity once under **Puppy Tracker -> Configure -> Breeder
+information**. Use a local HA PNG/JPEG path such as `/local/kennel-logo.png`;
+invalid images use the bundled logo instead. The old `breeder_name`,
+`breeder_contact` and `logo_url` card fields no longer apply: copy their values
+into the integration form once. The Report card only controls visibility.
 Logo and breeder name are included by default; breeder contact details and the
 stored puppy profile note are separate opt-in checkboxes for all profiles.
 The profile note requires Identity. See the export guide for image limits and

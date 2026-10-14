@@ -29,7 +29,7 @@ longitudinal behavior observations, reports and backups.
   over time.
 - Store owner/contact, placement and payment information, record an ordered top
   three puppy shortlist with notes, and link contacts to puppies later.
-- Create configurable PDF reports and export CSV or JSON data.
+- Create configurable PDF reports with central breeder details and export CSV or JSON data.
 - Make validated manual or automated JSON backups.
 
 Puppy Tracker is a registration and monitoring aid. Its templates, growth

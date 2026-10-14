@@ -21,6 +21,7 @@ from .mother_schema import migrate_mother_scope_data
 from .mother_storage import MOTHER_SCHEMA_VERSION
 from .recurring_reminders import normalize_recurring_reminder_backup_data
 from .owners import normalize_owner_backup_data
+from .breeder import normalize_breeder
 from .storage import PuppyTrackerStorage
 
 EXPORT_VERSION = 5
@@ -686,6 +687,13 @@ def _normalize_candidate_schema(candidate: dict[str, Any]) -> None:
             "Restore candidate has an unsupported storage schema",
         )
 
+    try:
+        settings = candidate.setdefault("settings", {})
+        if not isinstance(settings, dict):
+            raise ValueError("Settings must be an object")
+        settings["breeder"] = normalize_breeder(settings.get("breeder"))
+    except ValueError as err:
+        raise BackupValidationError("invalid_backup", str(err)) from err
     migrate_mother_scope_data(candidate)
     candidate["schema_version"] = CURRENT_SCHEMA_VERSION
 

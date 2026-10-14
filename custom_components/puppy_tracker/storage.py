@@ -47,6 +47,7 @@ from .records import (
     validate_record_type,
 )
 from .time_utils import normalize_timestamp
+from .breeder import normalize_breeder
 
 
 def _now_iso() -> str:
@@ -66,6 +67,7 @@ def _default_settings() -> dict[str, Any]:
         "notify_session_complete": DEFAULT_NOTIFY_SESSION_COMPLETE,
         "notify_entities": list(DEFAULT_NOTIFY_ENTITIES),
         "notification_lead_minutes": DEFAULT_NOTIFICATION_LEAD_MINUTES,
+        "breeder": normalize_breeder(),
     }
 
 
@@ -921,6 +923,7 @@ class PuppyTrackerStorage:
                 )
 
             settings = {
+                **before,
                 "min_daily_growth_percent": min_growth,
                 "max_hours_between_weighings": max_hours,
                 "growth_monitoring_days": monitoring_days,
@@ -949,6 +952,29 @@ class PuppyTrackerStorage:
             )
 
             await self.async_save()
+
+    def get_breeder(self) -> dict[str, str]:
+        """Return validated central breeder settings, including legacy defaults."""
+        return normalize_breeder(self.get_settings().get("breeder"))
+
+    async def async_update_breeder(self, breeder: dict[str, Any]) -> None:
+        """Save breeder settings without changing monitoring or losing failed writes."""
+        normalized = normalize_breeder(breeder)
+        async with self._lock:
+            before = deepcopy(self._data)
+            self._data.setdefault("settings", _default_settings())["breeder"] = normalized
+            self._add_audit_entry(
+                action="update_breeder",
+                details={
+                    "before": before.get("settings", {}).get("breeder"),
+                    "after": normalized,
+                },
+            )
+            try:
+                await self.async_save()
+            except Exception:
+                self._data = before
+                raise
 
     async def async_create_litter(
         self,

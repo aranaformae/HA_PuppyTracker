@@ -2,6 +2,7 @@ import {
   downloadExportFile,
   escapeHtml,
   fetchExport,
+  fetchReportLogo,
   fetchLitterData,
   fetchLitters,
   filterMeasurements,
@@ -172,9 +173,6 @@ class PuppyTrackerReportCard extends HTMLElement {
     return {
       schema: [
         { name: "title", selector: { text: {} } },
-        { name: "breeder_name", label: reportText(configHass(), "breederNameSection"), selector: { text: {} } },
-        { name: "breeder_contact", label: reportText(configHass(), "breederContactSection"), selector: { text: { multiline: true } } },
-        { name: "logo_url", label: `${reportText(configHass(), "brandLogoSection")} URL`, selector: { text: {} } },
         {
           name: "default_range",
           selector: { select: { mode: "dropdown", options: [
@@ -386,10 +384,9 @@ class PuppyTrackerReportCard extends HTMLElement {
         options.dossier_types = this._dossierTypes;
         options.dossier_scopes = this._dossierScopes;
         options.branding = {};
-        if (sections.breeder_name) options.branding.name = String(this._config.breeder_name || "").slice(0, 200);
-        if (sections.breeder_contact) options.branding.contact = String(this._config.breeder_contact || "").slice(0, 2000);
         if (sections.brand_logo) {
-          const logo = await reportLogo(this._config.logo_url);
+          const configured = await fetchReportLogo(this._hass);
+          const logo = await reportLogo(configured.logo_url);
           if (logo) options.branding.logo_base64 = logo;
         }
       }

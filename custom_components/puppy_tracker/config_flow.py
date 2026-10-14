@@ -13,9 +13,11 @@ from .const import DOMAIN
 from .data_management_flow import PuppyTrackerDataManagementMixin
 from .mother_data_management import MotherDataManagementMixin
 from .notification_settings_flow import NotificationSettingsMixin
+from .breeder_settings_flow import BreederSettingsMixin
 
 
 class PuppyTrackerOptionsFlow(
+    BreederSettingsMixin,
     NotificationSettingsMixin,
     MotherDataManagementMixin,
     PuppyTrackerDataManagementMixin,
@@ -40,6 +42,7 @@ class PuppyTrackerOptionsFlow(
                 "data_management",
                 "integrity",
                 "settings",
+                "breeder",
                 "notifications",
             ],
         )

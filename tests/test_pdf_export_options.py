@@ -73,7 +73,7 @@ async def test_branding_and_profile_note_visibility(storage, install_litter):
     assert b"Other private marker" not in _pdf_bytes(storage, litter_id, puppy_id=puppy_id, sections=_sections("identity", "profile_note"))
 
 
-@pytest.mark.parametrize("encoded", ["not base64", "", "A" * 700_001, base64.b64encode(b"not a jpeg").decode(), base64.b64encode(b"\xff\xd8\xff\xe0\x00\x00\xff\xd9").decode()])
+@pytest.mark.parametrize("encoded", ["not base64", "", "A" * 700_001, base64.b64encode(b"not a jpeg").decode(), base64.b64encode(b"\xff\xd8\xff\xe0\x00\x00\xff\xd9").decode()], ids=["invalid-base64", "empty", "oversized", "not-jpeg", "invalid-segment"])
 def test_invalid_custom_logo_uses_bundled_fallback(encoded):
     assert pdf_export._report_logo(encoded) == pdf_export.LOGO_PATH.read_bytes()
 

@@ -23,6 +23,7 @@
           "manage_measurements": "Manage measurements",
           "data_management": "Data management",
           "settings": "Monitoring settings",
+          "breeder": "Breeder information",
           "notifications": "Notifications",
           "integrity": "Data integrity check"
         }
@@ -293,6 +294,20 @@
           "confirm": "I understand and want to permanently delete this puppy"
         }
       },
+      "breeder": {
+        "title": "Breeder information",
+        "description": "These details apply to all PDF reports. Choose which details to include on the Report card.",
+        "data": {
+          "name": "Breeder / kennel name",
+          "contact": "Contact details",
+          "logo_url": "Logo path"
+        },
+        "data_description": {
+          "name": "Up to 200 characters.",
+          "contact": "For example email, telephone and address, up to 2000 characters. Contact details default to hidden in reports.",
+          "logo_url": "For example /local/logo.png for /config/www/logo.png. PNG/JPEG on this Home Assistant server. Leave empty to use the bundled logo."
+        }
+      },
       "settings": {
         "title": "Monitoring settings",
         "description": "Configure the weight and growth thresholds used by Puppy Tracker. Notification delivery is managed separately under Notifications.",
@@ -390,6 +405,7 @@
       "invalid_litter": "The selected litter no longer exists.",
       "invalid_puppy": "The selected puppy no longer exists.",
       "invalid_settings": "One or more monitoring settings are invalid.",
+      "invalid_breeder": "Check text lengths and use a local logo path such as /local/logo.png.",
       "invalid_notification_settings": "One or more notification settings are invalid.",
       "notification_test_failed": "The test notification could not be sent. Check the configured notify entities and Home Assistant notification services.",
       "invalid_measurement": "The selected measurement no longer exists or cannot be changed in its current state.",

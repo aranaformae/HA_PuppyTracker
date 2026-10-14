@@ -617,6 +617,19 @@ def _records_payload(
     }
 
 
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/report/logo"})
+@callback
+def websocket_report_logo(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Return the configured logo path without exposing contact information."""
+    storage = _storage_or_error(hass, connection, msg)
+    if storage is not None:
+        connection.send_result(msg["id"], {"logo_url": storage.get_breeder()["logo_url"]})
+
+
 @websocket_api.websocket_command(
     {vol.Required("type"): f"{DOMAIN}/litters"}
 )
@@ -1292,8 +1305,6 @@ async def websocket_integrity_check(
         vol.Optional("dossier_types"): vol.All([str], vol.Length(max=100)),
         vol.Optional("dossier_scopes"): vol.All([vol.In(("litter", "puppy"))], vol.Length(max=2)),
         vol.Optional("branding", default={}): {
-            vol.Optional("name"): vol.All(str, vol.Length(max=200)),
-            vol.Optional("contact"): vol.All(str, vol.Length(max=2000)),
             vol.Optional("logo_base64"): vol.All(str, vol.Length(max=700_000)),
         },
         vol.Optional("sections", default={}): {
@@ -1346,7 +1357,7 @@ def websocket_export_data(
                 language=msg.get("language", "nl"),
                 dossier_types=msg.get("dossier_types"),
                 dossier_scopes=msg.get("dossier_scopes"),
-                branding=msg.get("branding"),
+                branding={**storage.get_breeder(), **msg.get("branding", {})},
             )
             encoding = "base64"
         else:
@@ -1419,5 +1430,6 @@ def async_setup_api(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, websocket_restore_record)
     websocket_api.async_register_command(hass, websocket_integrity_check)
     websocket_api.async_register_command(hass, websocket_export_data)
+    websocket_api.async_register_command(hass, websocket_report_logo)
     websocket_api.async_register_command(hass, websocket_subscribe_updates)
     hass.data[DATA_API_REGISTERED] = True
