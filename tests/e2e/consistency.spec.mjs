@@ -42,10 +42,10 @@ async function mount(page, tag, config = {}, overrides = {}) {
   return page.locator(tag);
 }
 
-async function mountOwnerMatrix(page, { width = "" } = {}) {
+async function mountOwnerMatrix(page, { width = "", language = "en", details = false } = {}) {
   await page.goto("/tests/e2e/cards.html?production=1");
   await page.waitForFunction(() => window.__puppyTrackerReady);
-  await page.evaluate(({ width }) => {
+  await page.evaluate(({ width, language, details }) => {
     const owners = [
       {
         id: "o1", name: "Family Jansen", role: "owner", placement_status: "interested",
@@ -67,12 +67,19 @@ async function mountOwnerMatrix(page, { width = "" } = {}) {
         puppy_preferences: [{ puppy_id: "p2", note: "Placement completed" }],
       },
     ];
+    if (details) Object.assign(owners[0], {
+      email: "jansen@example.com", phone: "0612345678", street: "Main Street 1",
+      postal_code: "1234 AB", city: "Amsterdam", payment_amount: "2500",
+      registration_fee_amount: "250", deposit_amount: "500", payment_balance: "1750",
+      notes: Array.from({ length: 30 }, (_, index) => `Complete note line ${index + 1}`).join("\n"),
+      status_history: [{ status: "reserved", changed_at: "2026-09-01T12:00:00Z" }],
+    });
     const card = document.createElement("puppy-tracker-owner-card");
     if (width) card.style.width = width;
     card.setConfig({ default_view: "matrix" });
     document.querySelector("#cards").append(card);
     card.hass = {
-      language: "en", locale: { language: "en" },
+      language, locale: { language },
       callWS: async (message) => {
         if (message.type === "puppy_tracker/owners/list") return { owners };
         if (message.type === "puppy_tracker/litters") return { litters: [{ id: "l1", name: "Milky Way" }] };
@@ -84,8 +91,60 @@ async function mountOwnerMatrix(page, { width = "" } = {}) {
         throw new Error(message.type);
       },
     };
-  }, { width });
+  }, { width, language, details });
   return page.locator("puppy-tracker-owner-card");
+}
+
+for (const language of ["nl", "en"]) {
+  test(`owner details group related information and retain disclosure choices (${language}) @cross-browser @tablet`, async ({ page }) => {
+    const card = await mountOwnerMatrix(page, { language, details: true });
+    await card.locator("#owners-view").click();
+    await card.locator('[data-toggle-owner="o1"]').click();
+    const group = (key) => card.locator(`[data-group-owner="o1"][data-owner-group="${key}"]`);
+    await expect(card.locator(".owner-detail-group")).toHaveCount(7);
+    for (const key of ["contact", "placement", "notes"]) await expect(group(key)).toHaveAttribute("open", "");
+    for (const key of ["address", "preferences", "financial", "history"]) await expect(group(key)).not.toHaveAttribute("open");
+    await expect(group("address").locator("summary")).toHaveText(language === "nl" ? "Adresgegevens" : "Address details");
+    await expect(group("financial").locator("summary")).toHaveText(language === "nl" ? "Financieel" : "Financial");
+    await expect(group("contact")).toContainText("jansen@example.com");
+    await expect(group("contact")).not.toContainText("Main Street 1");
+    await expect(group("address")).toContainText("Main Street 1");
+    await expect(group("financial")).toContainText("2500");
+    await expect(group("financial")).not.toContainText("Main Street 1");
+    await expect(group("notes").locator(".notes")).toContainText("Complete note line 30");
+    expect(await group("notes").locator(".notes>div").evaluate((element) => {
+      const style = getComputedStyle(element);
+      return style.maxHeight === "none" && element.clientHeight >= element.scrollHeight;
+    })).toBe(true);
+    await card.evaluate((element) => {
+      window.__ownerSummary = element.querySelector('[data-owner-group="financial"] summary');
+      window.__ownerCallWS = element._hass.callWS;
+      window.__ownerDisclosureCalls = 0;
+      element._hass.callWS = (...args) => { window.__ownerDisclosureCalls += 1; return window.__ownerCallWS(...args); };
+    });
+    const financialSummary = group("financial").locator("summary");
+    await financialSummary.focus();
+    await financialSummary.press("Enter");
+    await expect(group("financial")).toHaveAttribute("open", "");
+    await expect(financialSummary).toBeFocused();
+    expect(await card.evaluate((element) => element.querySelector('[data-owner-group="financial"] summary') === window.__ownerSummary)).toBe(true);
+    expect(await page.evaluate(() => window.__ownerDisclosureCalls)).toBe(0);
+    await group("address").locator("summary").click();
+    await group("contact").locator("summary").click();
+    await card.locator('[data-toggle-owner="o1"]').click();
+    await card.locator('[data-toggle-owner="o2"]').click();
+    await expect(card.locator('[data-group-owner="o2"][data-owner-group="address"]')).not.toHaveAttribute("open");
+    await card.locator('[data-toggle-owner="o1"]').click();
+    await expect(group("financial")).toHaveAttribute("open", "");
+    await expect(group("address")).toHaveAttribute("open", "");
+    await expect(group("contact")).not.toHaveAttribute("open");
+    await card.evaluate(async (element) => { await element._load(true); });
+    await expect(group("financial")).toHaveAttribute("open", "");
+    await expect(group("address")).toHaveAttribute("open", "");
+    await expect(group("contact")).not.toHaveAttribute("open");
+    expect(await card.locator("ha-card").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await card.screenshot({ path: test.info().outputPath(`owner-groups-${language}.png`) });
+  });
 }
 
 test("production timeline keeps no categories selected for mother and all scopes", async ({ page }) => {

@@ -259,9 +259,15 @@ Wide cards show the comparison table, with selected details alongside it when
 at least 1000 pixels are available. Preference ranks and actual puppy links stay
 separate; switching a view never creates a link.
 
-The create/edit form starts collapsed. Selecting an owner expands all stored
-contact, placement, payment and note information, including an ordered top
-three puppy shortlist with one short note per preference. The shortlist is
+The create/edit form starts collapsed. Selecting an owner reveals independently
+collapsible categories: **Contact details**, **Address details**, **Placement**,
+**Top 3 puppy preferences**, **Financial**, **Notes** and **Status history**.
+Contact, placement and notes start open; the remaining categories start closed.
+Open/closed choices are retained separately for each owner during the card session,
+including when switching owners or refreshing data. Category toggles do not reload
+the card or make service calls. Notes use the full available width and remain
+fully readable without truncation when expanded. The ordered top-three shortlist
+has one short note per preference. The shortlist is
 planning data; it does not alter placement status or create a puppy link. Its
 selectors include puppies from all available litters and label them with litter
 and call name. Puppy linking remains a separate step. **Export CSV** downloads

@@ -70,6 +70,8 @@ const COPY = {
     update: "Wijzigingen opslaan",
     cancel: "Annuleren",
     contactDetails: "Contactgegevens",
+    addressDetails: "Adresgegevens",
+    financialDetails: "Financieel",
     placementDetails: "Plaatsing",
     puppyPreferences: "Top 3 pupvoorkeuren",
     preference1: "1e voorkeur",
@@ -191,6 +193,8 @@ const COPY = {
     update: "Save changes",
     cancel: "Cancel",
     contactDetails: "Contact details",
+    addressDetails: "Address details",
+    financialDetails: "Financial",
     placementDetails: "Placement",
     puppyPreferences: "Top 3 puppy preferences",
     preference1: "1st preference",
@@ -353,6 +357,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     this._matrixSelection = null;
     this._editing = null;
     this._expandedOwnerId = null;
+    this._ownerGroups = new Map();
     this._showOwnerEditor = false;
     this._status = "";
     this._error = "";
@@ -943,12 +948,31 @@ class PuppyTrackerOwnerCard extends HTMLElement {
   _ownerDetails(owner) {
     const linked = this._linkedPuppies(owner.id).map((puppy) => `${puppy.name || text(this, "puppy")} (${puppy.litter_name})`).join(", ") || text(this, "noLinkedPuppies");
     const history = (owner.status_history || []).map((entry) => `${optionLabel(this, entry.status, PLACEMENT_STATUS_LABELS, entry.status)} · ${formattedDate(this, entry.changed_at, true)}`).join("\n") || "—";
+    const group = (key, title, fields, defaultOpen = false) => {
+      const open = this._ownerGroups.get(owner.id)?.[key] ?? defaultOpen;
+      return `<details class="owner-detail-group" data-owner-group="${key}" data-group-owner="${escapeHtml(owner.id)}" ${open ? "open" : ""}><summary>${escapeHtml(text(this, title))}</summary><div class="owner-detail-fields">${fields}</div></details>`;
+    };
     return `<div class="owner-detail" id="owner-detail-${escapeHtml(owner.id)}">
+      ${group("contact", "contactDetails", `
       ${this._detail(text(this, "name"), owner.name)}
       ${this._detail(text(this, "role"), optionLabel(this, owner.role, OWNER_ROLE_LABELS, "owner"))}
+      ${this._detail(text(this, "email"), owner.email || "—")}
+      ${this._detail(text(this, "phone"), owner.phone || "—")}
+      ${this._detail(text(this, "contactPreference"), optionLabel(this, owner.contact_preference, CONTACT_PREFERENCE_LABELS, "none"))}
+      `, true)}
+      ${group("address", "addressDetails", `
+      ${this._detail(text(this, "street"), owner.street || owner.address || "—")}
+      ${this._detail(text(this, "postalCode"), owner.postal_code || "—")}
+      ${this._detail(text(this, "city"), owner.city || "—")}
+      `)}
+      ${group("placement", "placementDetails", `
       ${this._detail(text(this, "placementStatus"), optionLabel(this, owner.placement_status, PLACEMENT_STATUS_LABELS, "interested"))}
       ${this._detail(text(this, "placementDate"), formattedDate(this, owner.placement_date))}
       ${this._detail(text(this, "expectedPickupDate"), formattedDate(this, owner.expected_pickup_date))}
+      ${this._detail(text(this, "linkedPuppies"), linked, "wide")}
+      `, true)}
+      ${group("preferences", "puppyPreferences", this._puppyPreferenceDetails(owner))}
+      ${group("financial", "financialDetails", `
       ${this._detail(text(this, "paymentStatus"), optionLabel(this, owner.payment_status, PAYMENT_STATUS_LABELS, "none"))}
       ${this._detail(text(this, "paymentAmount"), owner.payment_amount ?? "—")}
       ${this._detail(text(this, "registrationFeeAmount"), owner.registration_fee_amount ?? "—")}
@@ -958,16 +982,9 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       ${this._detail(text(this, "paymentMethod"), optionLabel(this, owner.payment_method, PAYMENT_METHOD_LABELS, "none"))}
       ${this._detail(text(this, "paymentBalance"), owner.payment_balance ?? "—")}
       ${this._detail(text(this, "paymentDate"), formattedDate(this, owner.payment_date))}
-      ${this._detail(text(this, "contactPreference"), optionLabel(this, owner.contact_preference, CONTACT_PREFERENCE_LABELS, "none"))}
-      ${this._detail(text(this, "email"), owner.email || "—")}
-      ${this._detail(text(this, "phone"), owner.phone || "—")}
-      ${this._detail(text(this, "street"), owner.street || owner.address || "—")}
-      ${this._detail(text(this, "postalCode"), owner.postal_code || "—")}
-      ${this._detail(text(this, "city"), owner.city || "—")}
-      ${this._detail(text(this, "linkedPuppies"), linked, "wide")}
-      ${this._puppyPreferenceDetails(owner)}
-      ${this._detail(text(this, "statusHistory"), history, "wide preformatted")}
-      ${this._detail(text(this, "notes"), owner.notes || "—", "wide notes preformatted")}
+      `)}
+      ${group("notes", "notes", this._detail(text(this, "notes"), owner.notes || "—", "wide notes preformatted"), true)}
+      ${group("history", "statusHistory", this._detail(text(this, "statusHistory"), history, "wide preformatted"))}
     </div>`;
   }
 
@@ -1031,6 +1048,13 @@ class PuppyTrackerOwnerCard extends HTMLElement {
 
   _render() {
     if (!this._config) return;
+    this.querySelectorAll("[data-owner-group]").forEach((group) => {
+      const state = this._ownerGroups.get(group.dataset.groupOwner) || {};
+      state[group.dataset.ownerGroup] = group.open;
+      this._ownerGroups.set(group.dataset.groupOwner, state);
+    });
+    const ownerIds = new Set(this._owners.map((owner) => owner.id));
+    for (const id of this._ownerGroups.keys()) if (!ownerIds.has(id)) this._ownerGroups.delete(id);
     const litterPuppies = this._puppies.filter((item) => item.litter_id === this._selectedLitter);
     const puppy = litterPuppies.find((item) => item.id === this._selectedPuppy) || litterPuppies[0] || null;
     this._selectedPuppy = puppy?.id || "";
@@ -1081,8 +1105,12 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       .owner-actions{display:flex;gap:5px}
       .owner-actions button{width:38px;padding:0}
       .owner-actions ha-icon{--mdc-icon-size:19px}
-      .owner-detail{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:12px;background:var(--secondary-background-color);border-radius:8px;font-size:.85rem}
-      .owner-detail>div{min-width:0;overflow-wrap:anywhere}
+      .owner-detail{grid-column:1/-1;min-width:0;font-size:.85rem}
+      .owner-detail-group{border-top:1px solid var(--divider-color)}
+      .owner-detail-group summary{box-sizing:border-box;min-height:44px;padding:12px 2px;color:var(--primary-text-color);font-weight:600;cursor:pointer;overflow-wrap:anywhere}
+      .owner-detail-group summary:focus-visible{outline:2px solid var(--primary-color);outline-offset:2px}
+      .owner-detail-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:2px 2px 14px}
+      .owner-detail-fields>div{min-width:0;overflow-wrap:anywhere}
       .owner-detail span{display:block;color:var(--secondary-text-color);font-size:.72rem;margin-bottom:3px}
       .owner-detail .wide{grid-column:1/-1}
       .owner-detail .preformatted>div{white-space:pre-wrap;word-break:break-word}
@@ -1196,7 +1224,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
         .head-actions{display:grid;justify-content:stretch}
         .head-actions button{width:100%}
         .view-tabs{display:grid}
-        .form,.link-form,.owner-detail,.preference-row{grid-template-columns:1fr}
+        .form,.link-form,.owner-detail-fields,.preference-row{grid-template-columns:1fr}
         .wide,.checks,.owner-detail .wide{grid-column:auto}
         .owner{grid-template-columns:minmax(0,1fr) auto}
         .owner-actions{flex-direction:column}
@@ -1212,6 +1240,12 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     this.querySelector("#add-owner")?.addEventListener("click", () => this._openEditor());
     this.querySelector("#cancel-owner")?.addEventListener("click", () => { this._editing = null; this._showOwnerEditor = false; this._error = ""; this._render(); });
     this.querySelectorAll("[data-toggle-owner]").forEach((button) => button.addEventListener("click", () => { this._expandedOwnerId = this._expandedOwnerId === button.dataset.toggleOwner ? null : button.dataset.toggleOwner; this._render(); }));
+    this.querySelectorAll("[data-owner-group]").forEach((group) => group.addEventListener("toggle", () => {
+      if (!group.isConnected) return;
+      const state = this._ownerGroups.get(group.dataset.groupOwner) || {};
+      state[group.dataset.ownerGroup] = group.open;
+      this._ownerGroups.set(group.dataset.groupOwner, state);
+    }));
     this.querySelectorAll("[data-edit]").forEach((button) => button.addEventListener("click", () => this._openEditor(button.dataset.edit)));
     this.querySelectorAll("[data-delete]").forEach((button) => button.addEventListener("click", () => this._delete(button.dataset.delete)));
     this.querySelectorAll('input[name="payment_amount"], input[name="registration_fee_amount"], input[name="deposit_amount"]').forEach((input) => input.addEventListener("input", () => this._updateFinalPaymentPreview()));

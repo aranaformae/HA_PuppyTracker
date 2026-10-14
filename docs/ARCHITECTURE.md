@@ -689,6 +689,14 @@ persisted as a second source of truth. Monetary values are normalized as
 non-negative decimal strings; registration fee plus deposit cannot exceed a
 known total.
 
+The Owners detail view groups the same fields into native `details` disclosures
+for contact, address, placement, puppy preferences, finance, notes and history.
+Disclosure choices are card-local per owner, not stored in `OwnerStore` or backups.
+Native toggles do not rerender or call the API. Before another action rebuilds
+the view, current open states are captured; entries for deleted owners are pruned.
+Full-width notes retain their complete text. The create/edit form, CSV and PDF
+data contracts are unchanged by this presentation grouping.
+
 `puppy_tracker/owners/save` accepts the complete ordered list. Sending `[]`
 clears it, while omission preserves an existing list so an older cached card
 cannot accidentally erase newer data. Structural validation is authoritative,
