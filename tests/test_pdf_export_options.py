@@ -24,6 +24,10 @@ SECTION_KEYS = (
     "attention",
     "owners",
     "owner_contact",
+    "brand_logo",
+    "breeder_name",
+    "breeder_contact",
+    "profile_note",
 )
 
 
@@ -49,6 +53,39 @@ def _pdf_bytes(storage, litter_id: str, **options) -> bytes:
     )
     assert mime_type == "application/pdf"
     return base64.b64decode(encoded)
+
+
+async def test_branding_and_profile_note_visibility(storage, install_litter):
+    litter_id, puppy_id = install_litter(puppy_overrides={"profile_note": "Private profile marker"})
+    branding = {"name": "Kennel marker", "contact": "breeder-marker@example.com"}
+    markers = {"breeder_name": b"Kennel marker", "breeder_contact": b"breeder-marker@example.com", "profile_note": b"Private profile marker", "brand_logo": b"/Subtype /Image"}
+    for section, marker in markers.items():
+        enabled = ("identity", section) if section == "profile_note" else (section,)
+        document = _pdf_bytes(storage, litter_id, puppy_id=puppy_id, sections=_sections(*enabled), branding=branding)
+        assert marker in document
+        for other, other_marker in markers.items():
+            if other != section:
+                assert other_marker not in document
+    assert b"Private profile marker" not in _pdf_bytes(storage, litter_id, sections=_sections("profile_note"))
+    assert b"Private profile marker" not in _pdf_bytes(storage, litter_id, sections=_sections("identity"))
+    # A selected puppy must never include another puppy's profile note.
+    storage.get_litter(litter_id)["puppies"]["other"] = {"name": "Other", "profile_note": "Other private marker"}
+    assert b"Other private marker" not in _pdf_bytes(storage, litter_id, puppy_id=puppy_id, sections=_sections("identity", "profile_note"))
+
+
+@pytest.mark.parametrize("encoded", ["not base64", "", "A" * 700_001, base64.b64encode(b"not a jpeg").decode(), base64.b64encode(b"\xff\xd8\xff\xe0\x00\x00\xff\xd9").decode()])
+def test_invalid_custom_logo_uses_bundled_fallback(encoded):
+    assert pdf_export._report_logo(encoded) == pdf_export.LOGO_PATH.read_bytes()
+
+
+def test_logo_preserves_aspect_ratio_and_accepts_valid_inline_jpeg():
+    logo = pdf_export.LOGO_PATH.read_bytes()
+    assert pdf_export._report_logo(base64.b64encode(logo).decode()) == logo
+    report = pdf_export._PdfReport(logo)
+    report.brand_logo()
+    width, height = pdf_export._jpeg_dimensions(logo)
+    scale = min(96 / width, 64 / height)
+    assert f"q {width * scale:.2f} 0 0 {height * scale:.2f}" in report.build().decode("latin1")
 
 
 async def test_every_pdf_section_can_be_enabled_and_disabled_independently(

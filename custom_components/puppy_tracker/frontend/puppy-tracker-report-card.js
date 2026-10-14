@@ -25,6 +25,7 @@ const REPORT_TEXT = {
 
 Object.assign(REPORT_TEXT.nl, {
   identitySection: "Identiteit", dossierSection: "Dossieritems", pdfLanguage: "PDF-taal",
+  brandLogoSection: "Logo", breederNameSection: "Fokkersnaam", breederContactSection: "Contactgegevens fokker", profileNoteSection: "Profielnotitie pup",
   chartPoints: "Grafiekpunten",
   automaticLanguage: "Automatisch", dutchLanguage: "Nederlands", englishLanguage: "Engels",
   dossierSources: "Dossierbronnen", litterSource: "Hele nest", puppySource: "Pups",
@@ -36,6 +37,7 @@ Object.assign(REPORT_TEXT.nl, {
 });
 Object.assign(REPORT_TEXT.en, {
   identitySection: "Identity", dossierSection: "Dossier items", pdfLanguage: "PDF language",
+  brandLogoSection: "Logo", breederNameSection: "Breeder name", breederContactSection: "Breeder contact details", profileNoteSection: "Puppy profile note",
   chartPoints: "Chart points",
   automaticLanguage: "Automatic", dutchLanguage: "Dutch", englishLanguage: "English",
   dossierSources: "Dossier sources", litterSource: "Whole litter", puppySource: "Puppies",
@@ -48,14 +50,65 @@ Object.assign(REPORT_TEXT.en, {
 
 const LITTER_VALUE = "__litter__";
 const MOTHER_VALUE = "__mother__";
-const PDF_SECTION_DEFAULTS = { identity: true, summary: true, chart: true, measurements: true, care: true, behavior: true, dossier: true, attention: true, owners: true, owner_contact: false };
-const PDF_SECTION_LABELS = { identity: "identitySection", summary: "summarySection", chart: "chartSection", measurements: "measurementSection", care: "careSection", behavior: "behaviorSection", dossier: "dossierSection", attention: "attentionSection", owners: "ownersSection", owner_contact: "ownerContactSection" };
+const PDF_SECTION_DEFAULTS = { identity: true, summary: true, chart: true, measurements: true, care: true, behavior: true, dossier: true, attention: true, owners: true, owner_contact: false, brand_logo: true, breeder_name: true, breeder_contact: false, profile_note: false };
+const PDF_SECTION_LABELS = { identity: "identitySection", summary: "summarySection", chart: "chartSection", measurements: "measurementSection", care: "careSection", behavior: "behaviorSection", dossier: "dossierSection", attention: "attentionSection", owners: "ownersSection", owner_contact: "ownerContactSection", brand_logo: "brandLogoSection", breeder_name: "breederNameSection", breeder_contact: "breederContactSection", profile_note: "profileNoteSection" };
+
+async function reportLogo(url) {
+  if (!url) return null;
+  let source;
+  try { source = new URL(url, window.location.href); } catch { return null; }
+  // Local HA images avoid external tracking, CORS surprises and server-side URL fetching.
+  if (source.origin !== window.location.origin || !["http:", "https:"].includes(source.protocol)) return null;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+  let bitmap;
+  try {
+    const response = await fetch(source.href, { signal: controller.signal, redirect: "error" });
+    if (!response.ok || Number(response.headers.get("content-length")) > 2_000_000) return null;
+    const mime = (response.headers.get("content-type") || "").split(";")[0].trim();
+    if (!["image/jpeg", "image/png"].includes(mime) || !response.body) return null;
+    const reader = response.body.getReader();
+    const chunks = [];
+    let size = 0;
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        size += value.byteLength;
+        if (size > 2_000_000) { await reader.cancel(); return null; }
+        chunks.push(value);
+      }
+    } finally {
+      reader.releaseLock();
+    }
+    const blob = new Blob(chunks, { type: mime });
+    bitmap = await createImageBitmap(blob);
+    if (bitmap.width * bitmap.height > 16_000_000) return null;
+    const scale = Math.min(1, 1024 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext("2d");
+    context.fillStyle = "white";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const encoded = canvas.toDataURL("image/jpeg", 0.85).split(",")[1];
+    return encoded.length <= 682_668 ? encoded : null;
+  } catch {
+    return null;
+  } finally {
+    controller.abort();
+    clearTimeout(timeout);
+    bitmap?.close();
+  }
+}
 
 function normalizeSections(sections = {}) {
   const normalized = Object.fromEntries(
     Object.entries(PDF_SECTION_DEFAULTS).map(([key, fallback]) => [key, Object.hasOwn(sections, key) ? Boolean(sections[key]) : fallback])
   );
   if (!normalized.owners) normalized.owner_contact = false;
+  if (!normalized.identity) normalized.profile_note = false;
   return normalized;
 }
 
@@ -119,6 +172,9 @@ class PuppyTrackerReportCard extends HTMLElement {
     return {
       schema: [
         { name: "title", selector: { text: {} } },
+        { name: "breeder_name", label: reportText(configHass(), "breederNameSection"), selector: { text: {} } },
+        { name: "breeder_contact", label: reportText(configHass(), "breederContactSection"), selector: { text: { multiline: true } } },
+        { name: "logo_url", label: `${reportText(configHass(), "brandLogoSection")} URL`, selector: { text: {} } },
         {
           name: "default_range",
           selector: { select: { mode: "dropdown", options: [
@@ -329,6 +385,13 @@ class PuppyTrackerReportCard extends HTMLElement {
         options.language = this._pdfLanguage === "auto" ? languageForHass(this._hass) : this._pdfLanguage;
         options.dossier_types = this._dossierTypes;
         options.dossier_scopes = this._dossierScopes;
+        options.branding = {};
+        if (sections.breeder_name) options.branding.name = String(this._config.breeder_name || "").slice(0, 200);
+        if (sections.breeder_contact) options.branding.contact = String(this._config.breeder_contact || "").slice(0, 2000);
+        if (sections.brand_logo) {
+          const logo = await reportLogo(this._config.logo_url);
+          if (logo) options.branding.logo_base64 = logo;
+        }
       }
       const result = await fetchExport(
         this._hass,
@@ -393,7 +456,7 @@ class PuppyTrackerReportCard extends HTMLElement {
     const profiles = { ...REPORT_PROFILES, ...(this._state.reportProfiles || {}) };
     if (this._reportProfile === "custom" && !profiles.custom) profiles.custom = { nl: reportText(this._hass, "customProfile"), en: reportText(this._hass, "customProfile"), sections };
     const profileOptions = Object.entries(profiles).map(([key, profile]) => `<option value="${escapeHtml(key)}" ${key === this._reportProfile ? "selected" : ""}>${escapeHtml(profileLabel(this._hass, profile))}</option>`).join("");
-    const sectionControls = Object.entries(PDF_SECTION_LABELS).map(([key, labelKey]) => `<label><input type="checkbox" data-pdf-section="${key}" ${sections[key] ? "checked" : ""} ${key === "owner_contact" && !sections.owners ? "disabled" : ""}> ${escapeHtml(reportText(this._hass, labelKey))}</label>`).join("");
+    const sectionControls = Object.entries(PDF_SECTION_LABELS).map(([key, labelKey]) => `<label><input type="checkbox" data-pdf-section="${key}" ${sections[key] ? "checked" : ""} ${(key === "owner_contact" && !sections.owners) || (key === "profile_note" && !sections.identity) ? "disabled" : ""}> ${escapeHtml(reportText(this._hass, labelKey))}</label>`).join("");
     const availableTypes = this._availableDossierTypes();
     const categoryControls = availableTypes.map((type) => `<label><input type="checkbox" data-dossier-type="${escapeHtml(type)}" ${this._dossierTypes === null || this._dossierTypes.includes(type) ? "checked" : ""}> ${escapeHtml(recordTypeLabel(this._hass, type))}</label>`).join("");
     const dossierControls = sections.dossier ? `<details class="dossier-filters" ${this._filtersOpen ? "open" : ""}><summary>${escapeHtml(reportText(this._hass, "dossierSources"))} / ${escapeHtml(reportText(this._hass, "dossierCategories"))}</summary><div class="filter-row"><strong>${escapeHtml(reportText(this._hass, "dossierSources"))}</strong><label><input type="checkbox" data-dossier-scope="litter" ${this._dossierScopes.includes("litter") ? "checked" : ""}> ${escapeHtml(reportText(this._hass, "litterSource"))}</label><label><input type="checkbox" data-dossier-scope="puppy" ${this._dossierScopes.includes("puppy") ? "checked" : ""}> ${escapeHtml(reportText(this._hass, "puppySource"))}</label></div>${availableTypes.length ? `<div class="filter-row"><strong>${escapeHtml(reportText(this._hass, "dossierCategories"))}</strong><button type="button" class="small-button" id="all-dossier-types">${escapeHtml(reportText(this._hass, "selectAll"))}</button><button type="button" class="small-button" id="no-dossier-types">${escapeHtml(reportText(this._hass, "selectNone"))}</button>${categoryControls}</div>` : ""}</details>` : "";

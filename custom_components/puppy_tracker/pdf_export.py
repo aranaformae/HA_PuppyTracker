@@ -99,6 +99,7 @@ _PDF_LABELS = {
         "no_chart": "Geen geldige metingen voor een grafiek in deze periode.",
         "chip": "Chip", "born": "Geboren", "birth_weight": "Geboortegewicht",
         "identity_details": "Identiteitsgegevens", "parent_details": "Oudergegevens",
+        "profile_note": "Profielnotitie",
         "registered_name": "Naam", "puppy_registered_name": "Nestnaam", "call_name": "Roepnaam", "birth_date": "Geboortedatum",
         "coat_color": "Vachtkleur", "breed": "Soort", "wala": "WALA", "parent": "Ouder", "value": "Waarde",
         "date_time": "Datum/tijd", "weight": "Gewicht", "difference": "Verschil", "type": "Type",
@@ -138,6 +139,7 @@ _PDF_LABELS = {
         "no_chart": "No valid measurements for a chart in this period.",
         "chip": "Chip", "born": "Born", "birth_weight": "Birth weight",
         "identity_details": "Identity details", "parent_details": "Parent details",
+        "profile_note": "Profile note",
         "registered_name": "Registered name", "puppy_registered_name": "Registered name", "call_name": "Call name", "birth_date": "Birth date",
         "coat_color": "Coat color", "breed": "Breed / type", "wala": "WALA", "parent": "Parent", "value": "Value",
         "date_time": "Date/time", "weight": "Weight", "difference": "Change", "type": "Type",
@@ -503,6 +505,8 @@ def _estimate_width(text: str, size: float, bold: bool = False) -> float:
 
 def _jpeg_dimensions(data: bytes) -> tuple[int, int]:
     """Read JPEG dimensions without adding an image dependency."""
+    if not data.startswith(b"\xff\xd8") or not data.endswith(b"\xff\xd9"):
+        raise ValueError("Invalid logo JPEG")
     index = 2
     while index + 9 < len(data):
         if data[index] != 0xFF:
@@ -513,10 +517,32 @@ def _jpeg_dimensions(data: bytes) -> tuple[int, int]:
         if marker in (0xD8, 0xD9):
             continue
         length = int.from_bytes(data[index:index + 2], "big")
+        if length < 2 or index + length > len(data):
+            raise ValueError("Invalid logo JPEG")
         if 0xC0 <= marker <= 0xC3:
-            return int.from_bytes(data[index + 5:index + 7], "big"), int.from_bytes(data[index + 3:index + 5], "big")
+            if marker not in (0xC0, 0xC2) or length < 17 or data[index + 2] != 8 or data[index + 7] != 3:
+                raise ValueError("Logo must be an 8-bit RGB JPEG")
+            width = int.from_bytes(data[index + 5:index + 7], "big")
+            height = int.from_bytes(data[index + 3:index + 5], "big")
+            if not 0 < width <= 2048 or not 0 < height <= 2048:
+                raise ValueError("Logo dimensions exceed limits")
+            return width, height
         index += length
     raise ValueError("Invalid logo JPEG")
+
+
+def _report_logo(encoded: str | None) -> bytes | None:
+    """Accept bounded inline image bytes only; never read caller paths or URLs."""
+    if isinstance(encoded, str) and len(encoded) <= 700_000:
+        try:
+            logo = base64.b64decode(encoded, validate=True)
+            if len(logo) > 512_000:
+                raise ValueError("Logo exceeds byte limit")
+            _jpeg_dimensions(logo)
+            return logo
+        except ValueError:
+            pass
+    return LOGO_PATH.read_bytes() if LOGO_PATH.is_file() else None
 
 
 def _wrap(text: str, size: float, width: float, bold: bool = False) -> list[str]:
@@ -571,13 +597,15 @@ class _PdfReport:
         self.logo = logo
 
     def brand_logo(self) -> None:
-        """Place the bundled logo at the top of the first page."""
+        """Place a bounded logo without distorting its aspect ratio."""
         if not self.logo:
             return
         self.ensure(72)
-        size = 64
-        self.page.add(f"q {size:.2f} 0 0 {size:.2f} {MARGIN:.2f} {self._py(self.y + size):.2f} cm /Im1 Do Q")
-        self.y += size + 8
+        width, height = _jpeg_dimensions(self.logo)
+        scale = min(96 / width, 64 / height)
+        width, height = width * scale, height * scale
+        self.page.add(f"q {width:.2f} 0 0 {height:.2f} {MARGIN:.2f} {self._py(self.y + height):.2f} cm /Im1 Do Q")
+        self.y += height + 8
 
     @staticmethod
     def _py(top: float) -> float:
@@ -796,6 +824,7 @@ def build_pdf_export(
     language: str = "nl",
     dossier_types: list[str] | None = None,
     dossier_scopes: list[str] | None = None,
+    branding: dict[str, str] | None = None,
 ) -> tuple[str, str, str]:
     """Return filename, MIME type and base64 PDF content."""
     litter = storage.get_litter(litter_id)
@@ -818,6 +847,8 @@ def build_pdf_export(
         "identity": True, "summary": True, "chart": True, "measurements": True,
         "care": True, "dossier": True, "behavior": True,
         "attention": True, "owners": True, "owner_contact": False,
+        "brand_logo": True, "breeder_name": True, "breeder_contact": False,
+        "profile_note": False,
     }
     if isinstance(sections, dict):
         visible.update({key: bool(value) for key, value in sections.items() if key in visible})
@@ -831,9 +862,15 @@ def build_pdf_export(
     if puppy_id is not None and not puppies:
         raise ValueError("Unknown puppy")
 
-    logo = LOGO_PATH.read_bytes() if LOGO_PATH.is_file() else None
+    branding = branding or {}
+    logo = _report_logo(branding.get("logo_base64")) if visible["brand_logo"] else None
     report = _PdfReport(logo)
     report.brand_logo()
+    if visible["breeder_name"] and branding.get("name"):
+        report.paragraph(str(branding["name"])[:200], size=14, bold=True)
+    if visible["breeder_contact"] and branding.get("contact"):
+        for line in str(branding["contact"])[:2000].splitlines():
+            report.paragraph(line, size=9)
     title = f"Puppy Tracker - {litter.get('name') or t('litter')}"
     if puppy_id is not None and puppies:
         title = f"Puppy Tracker - {puppies[0][1].get('name') or 'Puppy'}"
@@ -1052,6 +1089,10 @@ def build_pdf_export(
                 [130, 351],
                 font_size=8,
             )
+            if visible["profile_note"] and puppy.get("profile_note"):
+                report.heading(t("profile_note"), level=3)
+                for line in str(puppy["profile_note"]).splitlines():
+                    report.paragraph(line)
         if visible["measurements"]:
             all_rows = puppy_measurements(puppy, active_only=True)
             rows = _active_measurements(puppy, range_hours)

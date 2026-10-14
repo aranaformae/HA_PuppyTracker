@@ -1291,6 +1291,11 @@ async def websocket_integrity_check(
         vol.Optional("language", default="nl"): vol.In(("nl", "en")),
         vol.Optional("dossier_types"): vol.All([str], vol.Length(max=100)),
         vol.Optional("dossier_scopes"): vol.All([vol.In(("litter", "puppy"))], vol.Length(max=2)),
+        vol.Optional("branding", default={}): {
+            vol.Optional("name"): vol.All(str, vol.Length(max=200)),
+            vol.Optional("contact"): vol.All(str, vol.Length(max=2000)),
+            vol.Optional("logo_base64"): vol.All(str, vol.Length(max=700_000)),
+        },
         vol.Optional("sections", default={}): {
             vol.Optional("identity", default=True): bool,
             vol.Optional("summary", default=True): bool,
@@ -1302,6 +1307,10 @@ async def websocket_integrity_check(
             vol.Optional("attention", default=True): bool,
             vol.Optional("owners", default=True): bool,
             vol.Optional("owner_contact", default=False): bool,
+            vol.Optional("brand_logo", default=True): bool,
+            vol.Optional("breeder_name", default=True): bool,
+            vol.Optional("breeder_contact", default=False): bool,
+            vol.Optional("profile_note", default=False): bool,
         },
     }
 )
@@ -1337,6 +1346,7 @@ def websocket_export_data(
                 language=msg.get("language", "nl"),
                 dossier_types=msg.get("dossier_types"),
                 dossier_scopes=msg.get("dossier_scopes"),
+                branding=msg.get("branding"),
             )
             encoding = "base64"
         else:

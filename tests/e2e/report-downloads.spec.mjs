@@ -1,5 +1,58 @@
 import { expect, test } from "@playwright/test";
 
+test("branding and profile note are independently selected without sending hidden contact data @cross-browser @mobile @tablet", async ({ page }) => {
+  const card = await mountReport(page, { breeder_name: "Test kennel", breeder_contact: "private@example.com", logo_url: "https://external.invalid/logo.png" });
+  await expect(card.locator('[data-pdf-section="breeder_contact"]')).not.toBeChecked();
+  await expect(card.locator('[data-pdf-section="profile_note"]')).not.toBeChecked();
+  let download = page.waitForEvent("download");
+  await card.locator("#pdf").click();
+  await download;
+  let message = await page.evaluate(() => window.__reportCalls.filter((call) => call.format === "pdf").at(-1));
+  expect(message.branding).toEqual({ name: "Test kennel" });
+  await card.locator('[data-pdf-section="breeder_contact"]').check();
+  await card.locator('[data-pdf-section="profile_note"]').check();
+  await card.locator('[data-pdf-section="brand_logo"]').uncheck();
+  download = page.waitForEvent("download");
+  await card.locator("#pdf").click();
+  await download;
+  message = await page.evaluate(() => window.__reportCalls.filter((call) => call.format === "pdf").at(-1));
+  expect(message.branding).toEqual({ name: "Test kennel", contact: "private@example.com" });
+  expect(message.sections).toMatchObject({ breeder_contact: true, profile_note: true, brand_logo: false });
+  await card.locator('[data-pdf-section="identity"]').uncheck();
+  await expect(card.locator('[data-pdf-section="profile_note"]')).toBeDisabled();
+  await expect(card.locator('[data-pdf-section="profile_note"]')).not.toBeChecked();
+});
+
+test("local logo is converted to a bounded JPEG and not loaded when excluded @cross-browser @mobile @tablet", async ({ page }) => {
+  const card = await mountReport(page, { logo_url: "/local/test-logo.png" });
+  const png = await page.evaluate(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 160;
+    canvas.height = 40;
+    const context = canvas.getContext("2d");
+    context.fillStyle = "green";
+    context.fillRect(0, 0, 160, 40);
+    return canvas.toDataURL("image/png").split(",")[1];
+  });
+  let requests = 0;
+  await page.route("**/local/test-logo.png", async (route) => {
+    requests += 1;
+    await route.fulfill({ contentType: "image/png", body: Buffer.from(png, "base64") });
+  });
+  let download = page.waitForEvent("download");
+  await card.locator("#pdf").click();
+  await download;
+  const message = await page.evaluate(() => window.__reportCalls.filter((call) => call.format === "pdf").at(-1));
+  expect(Buffer.from(message.branding.logo_base64, "base64").subarray(0, 2)).toEqual(Buffer.from([255, 216]));
+  expect(message.branding.logo_base64.length).toBeLessThanOrEqual(682668);
+  expect(requests).toBe(1);
+  await card.locator('[data-pdf-section="brand_logo"]').uncheck();
+  download = page.waitForEvent("download");
+  await card.locator("#pdf").click();
+  await download;
+  expect(requests).toBe(1);
+});
+
 async function openFixture(page) {
   await page.goto("/tests/e2e/cards.html");
   await page.waitForFunction(() => window.__puppyTrackerReady === true);

@@ -1,5 +1,19 @@
 # Puppy Tracker architecture
 
+## PDF branding boundary
+
+The report export WebSocket accepts a bounded `branding` object (`name` up to
+200 characters, `contact` up to 2000, `logo_base64` up to 700000). Branding is
+presentation data and is not persisted in integration storage. The Report
+card obtains PNG/JPEG images only from the HA origin, converts them to bounded
+RGB JPEGs and closes decoded image resources after use. The backend never
+fetches URLs or reads caller-supplied filesystem paths. It validates JPEG
+dimensions (maximum 2048 per side), RGB/8-bit frame information and a 512000-byte
+limit before embedding; invalid custom input uses the bundled logo.
+Logo, breeder name, breeder contact and puppy profile note have separate
+section flags. Contacts and profile notes default off. Profile notes require
+Identity, and selecting one puppy cannot expose another puppy's note.
+
 This document describes the architectural direction and current pre-1.0 contracts of Puppy Tracker.
 
 User-facing setup and card instructions live outside this document. See the

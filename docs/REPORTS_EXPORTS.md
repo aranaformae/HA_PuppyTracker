@@ -45,6 +45,10 @@ Every main section can be enabled or disabled independently.
 | Weight attention | Current canonical weight warnings and status column |
 | Owners and placement | Linked contact name, role, placement and payment state |
 | Contact details | E-mail, telephone, street/house number, postal code and city for linked owners |
+| Logo | Custom logo, or bundled logo when no valid custom image is available |
+| Breeder name | Configured kennel/breeder name |
+| Breeder contact details | Configured breeder contact text, independently optional |
+| Puppy profile note | Stored free-text puppy profile note, only with Identity enabled |
 
 **Contact details** is a privacy-sensitive child option of **Owners and
 placement**. Turning the parent off also turns contact details off. Care results
@@ -65,9 +69,41 @@ state instead of silently omitting the section.
 
 | Profile | Sections |
 | --- | --- |
-| `full` | All sections, including owner contact details |
-| `handover` | All sections except weight-attention warnings/status |
-| `internal` | All sections except owner contact details |
+| `full` | Main sections, including owner contact details |
+| `handover` | Main sections except weight-attention warnings/status |
+| `internal` | Main sections except owner contact details |
+
+All built-in profiles include the logo and configured breeder name. Breeder
+contact details and puppy profile notes require explicit selection, even in
+the full profile. Disabling Identity also disables Puppy profile note.
+
+## Breeder branding and profile notes
+
+Set the breeder name, contact text and logo URL in the Report card's visual
+editor or YAML. No integration source files need to be modified:
+
+```yaml
+type: custom:puppy-tracker-report-card
+breeder_name: My kennel
+breeder_contact: |-
+  contact@example.com
+  +31 6 12345678
+logo_url: /local/kennel-logo.png
+```
+
+Upload the image to Home Assistant's `www` directory to use `/local/...`.
+Use a same-origin PNG or JPEG of at most 2 MB and 16 million pixels. The browser
+converts it to a white-backed RGB JPEG, scales the longest side to at most
+1024 pixels and sends at most 512 KB of JPEG data. The PDF preserves the aspect
+ratio within a 96 x 64 point box. Transparent areas become white.
+An unavailable, external, oversized or invalid image falls back to the bundled
+logo. Turning Logo off excludes both logos and skips image loading.
+
+Branding text belongs to dashboard configuration, not the integration's JSON
+backup. The PDF contact and profile-note switches are independent from owner
+contact details; review all three before sharing a report. Profile notes are
+printed for the selected puppy, or each puppy in a whole-litter report, and
+are current identity data rather than period-filtered dossier entries.
 
 Changing any checkbox creates a custom selection. **Save profile** stores that
 selection in this browser's local card state. A saved custom profile is not

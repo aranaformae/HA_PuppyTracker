@@ -301,9 +301,17 @@ importable litter backup and therefore does not follow presentation filters.
 
 | PDF profile | Included content |
 | --- | --- |
-| `full` | Every PDF section, including owner contact details and dossier items |
-| `handover` | Every section except weight-attention warnings and status column |
-| `internal` | Every section except owner contact details |
+| `full` | Main PDF sections, including owner contact details and dossier items |
+| `handover` | Main sections except weight-attention warnings and status column |
+| `internal` | Main sections except owner contact details |
+
+Optional `breeder_name`, `breeder_contact` and `logo_url` card settings configure
+PDF branding through YAML or the visual editor. Use a local HA PNG/JPEG URL,
+such as `/local/kennel-logo.png`; invalid images use the bundled logo instead.
+Logo and breeder name are included by default; breeder contact details and the
+stored puppy profile note are separate opt-in checkboxes for all profiles.
+The profile note requires Identity. See the export guide for image limits and
+privacy considerations.
 
 Individual checkboxes can create a custom profile. **Identity** controls the
 nest/puppy identity table and puppy profile fields; the report title and
