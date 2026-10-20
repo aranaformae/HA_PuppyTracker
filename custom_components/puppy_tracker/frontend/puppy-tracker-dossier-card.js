@@ -16,7 +16,7 @@ import {
   updateProfileNote,
 } from "./puppy-tracker-card-common.js";
 import { matchesDossierSearch, searchMarkup, searchText, bindSearch, syncSearchControls, syncTimelineToggle, SEARCH_STYLE } from "./puppy-tracker-dossier-search.js";
-import { closeRecordEditor, canEditRecords, openRecordEditor, recordContext, recordEditButton, RECORD_ACTION_STYLE } from "./puppy-tracker-record-editor.js";
+import { closeRecordEditor, canEditRecords, openRecordEditor, openFollowupEditor, recordContext, recordEditButton, recordFollowupButton, RECORD_ACTION_STYLE } from "./puppy-tracker-record-editor.js";
 import {
   fieldLabel,
   recordTypeIcon as iconForRecordType,
@@ -77,6 +77,8 @@ const INTERNAL_DATA_KEYS = new Set([
   "reference_type",
   "source_id",
   "source_type",
+  "followup_record_id",
+  "followup_due_date",
   "scores",
 ]);
 
@@ -750,7 +752,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
                 <strong>${escapeHtml(title)}${!this._selectedPuppyId && action.puppy_name ? ` - ${escapeHtml(action.puppy_name)}` : ""}</strong>
                 ${action.description ? `<span>${escapeHtml(action.description)}</span>` : ""}
               </div>
-              <div class="followup-date"><strong>${escapeHtml(formatDateOnly(action.due_date || action.due_at, this._hass))}</strong><span>${escapeHtml(dossierActionStatus(this._hass, action))}</span>${action.source_record_id || action.record_id ? recordEditButton(this, action.id) : ""}</div>
+              <div class="followup-date"><strong>${escapeHtml(formatDateOnly(action.due_date || action.due_at, this._hass))}</strong><span>${escapeHtml(dossierActionStatus(this._hass, action))}</span>${action.source_record_id || action.record_id ? recordFollowupButton(this, action.id, action) : ""}</div>
             </div>`;
           }).join("")}
         </div>
@@ -933,9 +935,9 @@ class PuppyTrackerDossierCard extends HTMLElement {
     });
     bindSearch(this.shadowRoot, (query) => { this._searchQuery = query; this._updateSearchResults(); });
     this.shadowRoot.querySelector(".followup-list")?.addEventListener("click", (event) => {
-      const button = event.target.closest("[data-edit-item]");
-      const action = this._recordData?.actions?.actions?.find((item) => item.id === button?.dataset.editItem);
-      if (action) openRecordEditor(this, recordContext(this, { ...action, record_id: action.source_record_id || action.record_id }), { trigger: button });
+      const button = event.target.closest("[data-edit-item],[data-complete-followup]");
+      const action = this._recordData?.actions?.actions?.find((item) => item.id === (button?.dataset.completeFollowup || button?.dataset.editItem));
+      if (action) openFollowupEditor(this, action, { trigger: button });
     });
     this.shadowRoot.getElementById("add-record")?.addEventListener("click", () => this._startAdd());
     this.shadowRoot.getElementById("toggle-timeline-items")?.addEventListener("click", () => {

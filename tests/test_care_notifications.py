@@ -114,6 +114,30 @@ async def test_care_reminder_store_updates_preferences(hass):
     assert store._store.async_save.await_count == 2
 
 
+async def test_new_followup_execution_retracts_original_notification(hass, storage, install_litter, monkeypatch):
+    litter_id, puppy_id = install_litter()
+    due_date = dt_util.now().date().isoformat()
+    source_id = await storage.async_add_record(litter_id, puppy_id=puppy_id,
+        record_type="deworming", data={"product": "Old product", "next_due_date": due_date})
+    store = _care_store(hass)
+    manager = _manager(hass, storage, store)
+    dismiss = MagicMock()
+    clear = AsyncMock()
+    monkeypatch.setattr("custom_components.puppy_tracker.notifications.async_create_persistent_notification", MagicMock())
+    monkeypatch.setattr("custom_components.puppy_tracker.notifications.async_dismiss_persistent_notification", dismiss)
+    monkeypatch.setattr("custom_components.puppy_tracker.notifications.async_clear_notify_entities", clear)
+    manager._async_send_notify_entities = AsyncMock()
+    await manager._process_care_reminders(store, notify_recovery=False, notify_entities=["notify.phone"])
+    assert len(store.get_states()) == 1
+    await storage.async_add_record(litter_id, puppy_id=puppy_id, record_type="deworming",
+        followup_record_id=source_id, followup_due_date=due_date, data={"product": "New product"})
+    await manager._process_care_reminders(store, notify_recovery=False, notify_entities=["notify.phone"])
+    assert store.get_states() == {}
+    notification_id = manager._care_notification_id(f"{source_id}:next_due_date")
+    dismiss.assert_called_with(hass, notification_id)
+    clear.assert_awaited_once_with(hass, ["notify.phone"], notification_id)
+
+
 async def test_care_reminder_transitions_are_deduplicated(
     hass,
     storage,

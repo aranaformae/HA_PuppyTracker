@@ -1,6 +1,6 @@
 import { escapeHtml, languageForHass } from "./puppy-tracker-card-common.js";
 import { recordTypeLabel } from "./puppy-tracker-dossier-schema.js";
-import { openRecordEditor, recordContext, recordEditButton, RECORD_ACTION_STYLE } from "./puppy-tracker-record-editor.js";
+import { openRecordEditor, openFollowupEditor, recordContext, recordEditButton, recordFollowupButton, RECORD_ACTION_STYLE } from "./puppy-tracker-record-editor.js";
 
 function t(card, nl, en) {
   return languageForHass(card?._hass) === "en" ? en : nl;
@@ -22,6 +22,7 @@ function baseAttentionMeta(card) {
       result.push({
         id: `dossier:${action.id || `${action.source_record_id || action.record_id || "unknown"}:${action.due_field || "due"}`}`,
         type: String(action.record_type || action.type || action.category || "dossier"),
+        followup: { ...action, scope: "puppy", puppy_id: puppy.id },
         context: action.source_record_id || action.record_id ? recordContext(card, { ...action, scope: "puppy", puppy_id: puppy.id, record_id: action.source_record_id || action.record_id }) : null,
       });
     }
@@ -31,6 +32,7 @@ function baseAttentionMeta(card) {
     result.push({
       id: `dossier:${action.id || `${action.source_record_id || action.record_id || "unknown"}:${action.due_field || "due"}`}`,
       type: String(action.record_type || action.type || action.category || "dossier"),
+      followup: { ...action, scope: "litter" },
       context: action.source_record_id || action.record_id ? recordContext(card, { ...action, scope: "litter", record_id: action.source_record_id || action.record_id }) : null,
     });
   }
@@ -64,6 +66,7 @@ function decorateRows(card) {
       id = item?.id || `unknown:${baseIndex}`;
       type = item?.type || "other";
       row.__recordContext = item?.context;
+      row.__followupAction = item?.followup;
     }
     row.dataset.attentionId = id;
     row.dataset.attentionType = type;
@@ -192,11 +195,16 @@ export function renderAttentionQol(card) {
     if (row.__recordContext) {
       row.querySelector(".record-edit-button")?.remove();
       const wrapper = document.createElement("span");
-      wrapper.innerHTML = recordEditButton(card, row.dataset.attentionId, { measurement: Boolean(row.__recordContext.measurementId) });
+      wrapper.innerHTML = row.__followupAction ? recordFollowupButton(card, row.dataset.attentionId, row.__followupAction)
+        : recordEditButton(card, row.dataset.attentionId, { measurement: Boolean(row.__recordContext.measurementId) });
       const edit = wrapper.firstElementChild;
       if (edit) {
         row.classList.add("record-editable");
-        edit.addEventListener("click", (event) => { event.stopPropagation(); openRecordEditor(card, row.__recordContext, { trigger: edit }); });
+        edit.addEventListener("click", (event) => {
+          event.stopPropagation();
+          if (row.__followupAction) openFollowupEditor(card, row.__followupAction, { trigger: edit });
+          else openRecordEditor(card, row.__recordContext, { trigger: edit });
+        });
         row.append(edit);
       }
     }

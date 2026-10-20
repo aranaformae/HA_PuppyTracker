@@ -1098,6 +1098,8 @@ async def websocket_update_profile_note(
         vol.Optional("title"): vol.Any(str, None),
         vol.Optional("note"): vol.Any(str, None),
         vol.Optional("data", default={}): dict,
+        vol.Optional("followup_record_id"): str,
+        vol.Optional("followup_due_date"): str,
     }
 )
 @websocket_api.async_response
@@ -1121,6 +1123,8 @@ async def websocket_add_record(
             title=msg.get("title"),
             note=msg.get("note"),
             data=msg.get("data") or {},
+            followup_record_id=msg.get("followup_record_id"),
+            followup_due_date=msg.get("followup_due_date"),
         )
     except ValueError as err:
         connection.send_error(msg["id"], "invalid_record", str(err))

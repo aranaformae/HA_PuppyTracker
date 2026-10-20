@@ -105,10 +105,15 @@ This affects display labels only, not puppy IDs, saved selections or CSV values.
 Both Dossier and Timeline provide title/note/result search within the current
 scope and filters. The query is retained after editing. Administrators can use each
 saved item's pencil directly, without a card-level edit mode. Dossier, Timeline,
-Today's activity list (also in Mobile), Attention dossier follow-ups, Temperature
+Today's activity list (also in Mobile), Temperature
 and Behavior history share one item editor. Planned care keeps its execution
 dialog; weight entries open a correction, not a dossier edit. Dossier's item menu
 contains owner changes and deletion; deleted records can be restored.
+Deworming and vaccination follow-ups in Dossier and Attention instead show a
+checkmark for **Record completion**: review the proposed product/vaccine, enter
+the actual execution and optional next due date, then save a new logbook entry.
+The original administration remains unchanged. This is separate from acknowledging
+an Attention alert, which does not create a care record.
 Clearing the query leaves owner and category filters unchanged. Search terms are
 not persisted or exported. See [Dossier editing](puppy-dossiers.md#one-editing-workflow).
 

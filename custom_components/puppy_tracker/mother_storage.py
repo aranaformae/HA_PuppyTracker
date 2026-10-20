@@ -19,6 +19,7 @@ from .records import (
 )
 from .storage import PuppyTrackerStorage, _now_iso
 from .time_utils import normalize_timestamp
+from .upcoming import followup_record_data
 
 
 def _clean_name(value: str | None) -> str | None:
@@ -268,6 +269,8 @@ class MotherScopeStorage(PuppyTrackerStorage):
         title: str | None = None,
         note: str | None = None,
         data: dict[str, Any] | None = None,
+        followup_record_id: str | None = None,
+        followup_due_date: str | None = None,
     ) -> str:
         if mother_id is None:
             return await super().async_add_record(
@@ -278,6 +281,8 @@ class MotherScopeStorage(PuppyTrackerStorage):
                 title=title,
                 note=note,
                 data=data,
+                followup_record_id=followup_record_id,
+                followup_due_date=followup_due_date,
             )
         normalized_type = validate_record_type(record_type)
         if normalized_type == BEHAVIOR_RECORD_TYPE:
@@ -288,6 +293,11 @@ class MotherScopeStorage(PuppyTrackerStorage):
                 raise ValueError("Mother is not linked to this litter")
             mother = self._require_mother(mother_id)
             now = _now_iso()
+            normalized_data = followup_record_data(
+                mother.get("records", []), normalized_type,
+                followup_record_id, followup_due_date, data,
+                litter_id=litter_id,
+            )
             record = create_record(
                 litter_id=litter_id,
                 mother_id=mother_id,
@@ -295,9 +305,10 @@ class MotherScopeStorage(PuppyTrackerStorage):
                 occurred_at=occurred_at,
                 title=title,
                 note=note,
-                data=data,
+                data=normalized_data,
                 now=now,
             )
+            before = deepcopy(self._data) if followup_record_id else None
             mother.setdefault("records", []).append(record)
             mother["updated_at"] = now
             litter["updated_at"] = now
@@ -307,7 +318,12 @@ class MotherScopeStorage(PuppyTrackerStorage):
                 record_id=record["id"],
                 details={"mother_id": mother_id, "type": record["type"]},
             )
-        await self.async_save()
+            try:
+                await self.async_save()
+            except Exception:
+                if before is not None:
+                    self._data = before
+                raise
         return str(record["id"])
 
     async def async_update_record(

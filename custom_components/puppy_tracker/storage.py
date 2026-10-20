@@ -47,6 +47,7 @@ from .records import (
     validate_record_type,
 )
 from .time_utils import normalize_timestamp
+from .upcoming import followup_record_data
 from .breeder import normalize_breeder
 from .feeding import normalize_feeding_settings
 from .managed_files import ManagedFiles, normalize_logo, validate_manifest
@@ -2168,6 +2169,8 @@ class PuppyTrackerStorage:
         title: str | None = None,
         note: str | None = None,
         data: dict[str, Any] | None = None,
+        followup_record_id: str | None = None,
+        followup_due_date: str | None = None,
     ) -> str:
         """Add a generic dossier record to a litter or puppy."""
         async with self._lock:
@@ -2175,7 +2178,11 @@ class PuppyTrackerStorage:
             owner = litter if puppy_id is None else self._require_puppy(litter_id, puppy_id)
             now = _now_iso()
             normalized_type = validate_record_type(record_type)
-            normalized_data = data
+            normalized_data = followup_record_data(
+                owner.get("records", []), normalized_type,
+                followup_record_id, followup_due_date, data,
+                litter_id=litter_id,
+            )
             if normalized_type == BEHAVIOR_RECORD_TYPE:
                 if puppy_id is None:
                     raise ValueError("Behavior observations must belong to a puppy")
@@ -2190,6 +2197,7 @@ class PuppyTrackerStorage:
                 data=normalized_data,
                 now=now,
             )
+            before = deepcopy(self._data) if followup_record_id else None
             owner.setdefault("records", []).append(record)
             owner["updated_at"] = now
             litter["updated_at"] = now
@@ -2204,7 +2212,12 @@ class PuppyTrackerStorage:
                     "occurred_at": record["occurred_at"],
                 },
             )
-            await self.async_save()
+            try:
+                await self.async_save()
+            except Exception:
+                if before is not None:
+                    self._data = before
+                raise
             return str(record["id"])
 
     async def async_update_record(

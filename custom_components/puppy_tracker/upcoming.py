@@ -58,6 +58,62 @@ def _status_for_days(days_until_due: int) -> str:
     return STATUS_UPCOMING
 
 
+def _owner_key(record: dict[str, Any]) -> tuple:
+    return tuple(record.get(key) for key in ("litter_id", "scope", "puppy_id", "mother_id"))
+
+
+def completed_followups(records: list[dict[str, Any]]) -> set[tuple]:
+    """Identify completed due dates using active facts from the same owner."""
+    completed = set()
+    for record in records:
+        if not isinstance(record, dict) or record.get("deleted"):
+            continue
+        data = record.get("data")
+        if not isinstance(data, dict):
+            continue
+        source_id = data.get("followup_record_id")
+        due_date = _parse_due_date(data.get("followup_due_date"))
+        if isinstance(source_id, str) and source_id and due_date:
+            completed.add((_owner_key(record), record.get("type"), source_id, due_date.isoformat()))
+    return completed
+
+
+def followup_record_data(
+    records: list[dict[str, Any]],
+    record_type: str,
+    source_id: str | None,
+    due_date: str | None,
+    data: dict[str, Any] | None,
+    *,
+    litter_id: str,
+) -> dict[str, Any]:
+    """Validate a completion under the storage lock and attach its provenance."""
+    result = deepcopy(data) if isinstance(data, dict) else {}
+    if source_id is None and due_date is None:
+        return result
+    if not source_id or not _parse_due_date(due_date):
+        raise ValueError("Select a source record and valid follow-up date")
+    source = next((record for record in records if isinstance(record, dict) and record.get("id") == source_id), None)
+    if source is None or source.get("deleted"):
+        raise ValueError("The source record no longer exists. Refresh the card")
+    if source.get("litter_id") != litter_id:
+        raise ValueError("The follow-up belongs to another litter")
+    if record_type not in ACTIONABLE_RECORD_TYPES or source.get("type") != record_type:
+        raise ValueError("The follow-up must have the same vaccination or deworming type")
+    source_data = source.get("data")
+    if not isinstance(source_data, dict) or source_data.get("next_due_date") != due_date:
+        raise ValueError("The follow-up date has changed. Refresh the card")
+    if (_owner_key(source), record_type, source_id, due_date) in completed_followups(records):
+        raise ValueError("This follow-up has already been completed. Refresh the card")
+    required = "product" if record_type == "deworming" else "vaccine"
+    if not str(result.get(required) or "").strip():
+        raise ValueError(f"Enter the {required} used for this completion")
+    if result.get("next_due_date") and not _parse_due_date(result["next_due_date"]):
+        raise ValueError("Enter a valid next due date")
+    result.update(followup_record_id=source_id, followup_due_date=due_date)
+    return result
+
+
 def upcoming_actions(
     records: list[dict[str, Any]],
     *,
@@ -76,6 +132,7 @@ def upcoming_actions(
     current_date = today or local_today()
     max_days = DAYS_AHEAD_DEFAULT if days_ahead is None else max(0, int(days_ahead))
     actions: list[dict[str, Any]] = []
+    completed = completed_followups(records)
 
     for record in records:
         if not isinstance(record, dict) or record.get("deleted", False):
@@ -93,6 +150,8 @@ def upcoming_actions(
 
         due_date = _parse_due_date(data.get(config["due_field"]))
         if due_date is None:
+            continue
+        if (_owner_key(record), record_type, record.get("id"), due_date.isoformat()) in completed:
             continue
 
         days_until_due = (due_date - current_date).days

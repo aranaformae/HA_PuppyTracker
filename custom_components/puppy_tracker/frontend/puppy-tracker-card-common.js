@@ -694,6 +694,8 @@ export async function addDossierRecord(hass, litterId, puppyId, record) {
   if (record.occurred_at) message.occurred_at = record.occurred_at;
   if (record.title) message.title = record.title;
   if (record.note) message.note = record.note;
+  if (record.followup_record_id) message.followup_record_id = record.followup_record_id;
+  if (record.followup_due_date) message.followup_due_date = record.followup_due_date;
   return hass.callWS(message);
 }
 

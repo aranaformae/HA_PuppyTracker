@@ -25,8 +25,8 @@ a new record, first select the intended litter, mother or puppy owner.
 ### One editing workflow
 
 Administrators see a pencil beside each active saved dossier item in Dossier,
-Timeline, Today's activity list (including the mobile Workspace), Attention's
-dossier follow-ups, Temperature history and Behavior history. There is no separate
+Timeline, Today's activity list (including the mobile Workspace), Temperature
+history and Behavior history. There is no separate
 **Edit items** mode. Every pencil opens the same dialog with the complete saved
 item and its original owner, independent of the current category/search filters.
 The cards remain readable without write controls for non-administrators.
@@ -45,6 +45,26 @@ Planned care occurrences are not stored dossier items: their existing execution
 dialog records the result and notes. Once saved, the dossier result can be edited
 with the shared editor. A weight entry opens a measurement **correction** instead
 of becoming a dossier note; the original measurement remains in its version history.
+
+### Complete a planned deworming or vaccination
+
+The checkmark beside a deworming/vaccination follow-up in Dossier or Attention
+opens **Record completion** (**Uitgevoerd registreren**), not an edit of the
+earlier administration. Check the owner and execution date, review or change the
+suggested product/vaccine, and enter the actual dose and any notes. An optional
+**Next due date** schedules the next follow-up; leave it empty when none is needed.
+
+The execution date starts at now. Old doses, administration weights, batch
+numbers, reactions and notes are not copied. Nothing is completed until saving
+succeeds. Cancelling or a failed save leaves the reminder open. Successful saving
+adds a new logbook item for the same puppy, mother or litter, preserves the
+earlier record unchanged, and resolves only its linked due date. The new entry
+and the original can still be corrected from their history pencils.
+
+Deleting the new completion reopens the original follow-up; restoring it resolves
+that follow-up again. An independently entered care record does not automatically
+resolve every reminder of the same category. Backups retain the link; PDF reports
+show the actual care entries without internal linking IDs.
 
 ## Quick Log and owner selection
 

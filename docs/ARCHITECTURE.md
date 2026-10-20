@@ -125,8 +125,8 @@ Partial updates also synchronize chip state, visibility toggles and search
 controls when a pointer action does not blur the search field, as on Safari.
 
 `puppy-tracker-record-editor.js` owns the common saved-item editor and correction
-dialog. Dossier, Timeline, Today's activity list (including Mobile), Attention
-follow-ups, Temperature and Behavior history pass an explicit source record ID,
+dialog. Dossier, Timeline, Today's activity list (including Mobile), Temperature
+and Behavior history pass an explicit source record ID,
 owner scope, puppy ID and litter ID. Display-event IDs are never used as storage
 IDs. The editor fetches the canonical record with deleted history included,
 checks the returned write permission, and refuses stale/deleted records before
@@ -505,6 +505,26 @@ upcoming
 ```
 
 Mother records can participate in the same attention surface when their record type contains a supported follow-up field.
+
+Vaccination/deworming follow-ups use the common editor's `followup` mode, not
+`edit`. It fetches and checks the source, locks the category, initializes a new
+execution timestamp, and proposes only reusable product/vaccine details. Old
+doses, weights, batches, notes and results are excluded; the next due date is
+initially empty. The existing admin-only `record/add` and `mother/record/add`
+commands accept optional `followup_record_id` and `followup_due_date` arguments.
+Storage validates source ownership, active state, category, exact due date,
+required product/vaccine and absence of another active completion under its
+mutation lock. Completion saves are serialized and roll back runtime data on a
+failed disk write, allowing a safe retry.
+
+The new dossier record stores that provenance in `data`; no task store or schema
+migration is needed. `upcoming_actions` builds a linear-time set of active
+completion keys (owner, category, source ID and due date), then omits matching
+actions. Unrelated care, other owners and changed source due dates do not resolve
+an action. Deleting/restoring or moving a completion recomputes the projection.
+The source record is never rewritten. Existing dashboard dispatch signals update
+counts and notification reconciliation. Backup JSON preserves the provenance;
+frontend detail views and PDF output hide its internal keys.
 
 ## Generic recurring reminders
 
