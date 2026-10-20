@@ -184,6 +184,9 @@ by an update.
   sex, coat and collar colours, microchip number and breed/type. Both parents
   add registered and call names, birth date, breed/type, WALA and chip number without
   exposing internal IDs.
+  Phone and chip columns preserve the saved text, including leading zeroes.
+  CSV has no column-type metadata: import them as text rather than letting a
+  spreadsheet infer numbers. See [CSV privacy and import limits](SECURITY_PRIVACY.md#diagnostics-logs-and-exports).
 - **Litter JSON backup** always contains the complete importable litter data,
   including history required for safe restore. PDF section/category/period
   filters do not alter it.

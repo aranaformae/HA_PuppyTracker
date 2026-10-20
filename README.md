@@ -23,8 +23,8 @@ longitudinal behavior observations, reports and backups.
 - Use recurring reminders and age-based care programs such as ENS, ESI and
   deworming schedules.
 - Complete daily care from the Home, Care or Mobile workspace.
-- Calculate a per-kilogram amount for every active puppy from its latest
-  recorded weight, including a litter total.
+- Calculate per-kilogram amounts or kibble/meat rations from the latest puppy
+  weights, with separate food portions and litter totals.
 - Score repeated behavior observations per puppy and build a neutral profile
   over time.
 - Store owner/contact, placement and payment information, record an ordered top
@@ -117,6 +117,11 @@ items remain editable there, but a specific owner must be selected before a new
 item can be added. This prevents a new entry from being stored under an
 unexpected owner.
 
+Use the pencil beside an existing item to open the shared editor, including
+from Today on mobile, Temperature and Behavior history. Weight items open a
+correction instead. Quick Log keeps your chosen owner after saving or changing
+category. See [Dossier editing](docs/puppy-dossiers.md#one-editing-workflow).
+
 ### Reminders and care programs
 
 Use a recurring reminder when the next action follows the last completion, a
@@ -156,7 +161,8 @@ See [Puppy dossiers and owners](docs/puppy-dossiers.md) and the focused
   collar-colour charts. Individual puppy reports can include the derived
   behavior profile and its observation history. Choose Dutch or English and
   check the content summary before downloading.
-- **CSV** contains effective weight measurements for analysis.
+- **CSV** from Report contains effective weight measurements for analysis;
+  Owners has a separate contact and contract-data CSV for mail merge.
 - **JSON** is the importable backup and transfer format.
 
 Use **Settings -> Devices & services -> Puppy Tracker -> Configure -> Data

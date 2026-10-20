@@ -46,6 +46,31 @@ dialog records the result and notes. Once saved, the dossier result can be edite
 with the shared editor. A weight entry opens a measurement **correction** instead
 of becoming a dossier note; the original measurement remains in its version history.
 
+## Quick Log and owner selection
+
+1. Select the intended litter and owner: the whole litter, mother or one puppy.
+2. Choose a category and enter the observation and any structured values.
+3. Check **Log for**, then save. The selected owner stays selected for the next
+   entry, including after a live update or a category change.
+
+Puppy choices show the name and collar colour, for example `Alice (Red)`.
+The label does not change the saved puppy ID or record ownership.
+
+Quick Log remembers the last owner used for each category in this browser. It
+uses that history only when opening the first category in a new card session
+without a manually chosen owner or a configured mother/puppy default. Once an
+owner has been chosen, opening Note or another category does not switch back to
+that category's older owner. Saving, cancelling and background refreshes do not
+reapply a configured default puppy. The same rules apply in Journal and Mobile.
+
+The draft keeps its timestamp, note and category-specific fields when switching
+categories. Finish or cancel it before changing owner or litter: either of those
+changes closes the current Quick Log form. Background data updates wait while
+the form is active. Browser-local remembered owners are not included in backups.
+
+Quick Log creates entries; it is not an editor for saved records. Use a pencil
+in one of the history views described above to correct an existing entry.
+
 ## Record types and editing
 
 Current dossier concepts include notes, feeding, temperature, vaccination,
@@ -175,7 +200,7 @@ Contact fields include:
 
 Open **Add owner** or **Edit owner** and use **Top 3 puppy preferences** to
 record a first, second and third choice. Each selector shows puppies from every
-available litter as `Litter name · puppy call name`, so equal call names remain
+available litter as `Litter name · puppy call name (collar colour)`, so equal call names remain
 distinguishable. All three rows are optional. When used, fill them in order and
 select each puppy only once. Every selected puppy can have a separate note of up
 to 240 characters.
@@ -240,6 +265,9 @@ Tracker IDs are not exported.
 The card refreshes saved contact and puppy/parent data before downloading, so
 recently entered parent chip numbers are included without reopening the card.
 If refreshing fails, no file is downloaded and the card shows the error.
+Telephone and chip numbers retain their original text in the CSV. Import these
+columns as text in a spreadsheet or mail-merge tool to prevent that application
+from removing leading zeroes; CSV itself cannot specify column types.
 
 Legacy contacts with one free-form address are migrated without data loss: the
 complete old address becomes the street field, while postal code and city stay

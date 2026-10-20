@@ -39,16 +39,20 @@ an old card definition.
 
 ## Configuration
 
-All settings are optional. The visual editor exposes the same settings where supported by the Home Assistant dashboard editor.
+All settings are optional. Set `litter_id`, `show_litter_selector`,
+`default_selected` and `puppy_id` on the Workspace. Put the temperature-specific
+settings under `tab_config.temperature`. The visual editor exposes the same
+settings where supported by the Home Assistant dashboard editor.
 
 | Setting | Allowed values | Default | Description |
 | --- | --- | --- | --- |
 | `title` | text | `Temperatuur` | Heading shown for the surface |
 | `litter_id` | existing litter ID | first available litter | Workspace option selecting the nest opened by default |
 | `show_litter_selector` | boolean | `true` | Workspace option that hides only the nest selector while retaining the other selectors |
-| `default_selected` | `litter`, `mother`, `puppy` | unset | Workspace option selecting the initial owner scope |
+| `default_selected` | `litter`, `mother`, `puppy` | `litter` | Workspace option selecting the initial owner scope; `all` falls back to `litter` here |
+| `puppy_id` | existing puppy ID | first active puppy in puppy scope | Workspace option selecting a particular puppy with `default_selected: puppy` |
 | `default_range` | `24h`, `3d`, `7d`, `14d`, `all` | `3d` | Selects the initial time range |
-| `history_limit` | integer 3-50 | `10` | Limits the number of history rows before scrolling |
+| `history_limit` | integer 3-50 | `10` | Number of rows initially displayed; Show more expands to all matching readings |
 | `max_height` | integer 240-900 | `520` | Sets the history area's maximum height in pixels |
 | `chart_height` | integer 100-500 | `170` | Sets the chart height in pixels |
 | `history_sort` | `newest`, `oldest` | `newest` | Controls history row order |
@@ -64,7 +68,8 @@ All settings are optional. The visual editor exposes the same settings where sup
 The measurement history is an independent scroll area. Once it reaches
 `max_height`, only the list of readings scrolls; the selectors, latest reading,
 chart and input controls remain visible. This keeps the card usable on a phone
-even when the selected period contains many readings.
+even when the selected period contains many readings. **Show more** and
+**Show less** change the displayed row count independently of that height cap.
 
 Example for a fixed mother-dog view:
 
@@ -116,6 +121,14 @@ do not create warnings or replace veterinary guidance. The history shows
 date/time, value, optional method/location and the full observation text. Long
 notes wrap within the row and the history area scrolls instead of expanding the
 complete dashboard indefinitely.
+
+Administrators can use a history row's pencil to edit its saved temperature,
+date/time, method/location and note in the shared dossier dialog. The original
+litter, mother or puppy owner is retained. Live updates and a failed save do not
+discard the open draft. See [Dossier editing](puppy-dossiers.md#one-editing-workflow).
+`show_editor: false` hides the new-reading form, not these saved-item pencils;
+it is a presentation setting, not a read-only permission. Saving additions and
+edits requires administrator access.
 
 ## Data and ownership
 

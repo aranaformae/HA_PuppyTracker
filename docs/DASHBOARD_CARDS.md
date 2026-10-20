@@ -103,7 +103,7 @@ Without a collar colour they show only the name; a colour already used as the
 complete name is not repeated. Cross-litter choices retain their litter prefix.
 This affects display labels only, not puppy IDs, saved selections or CSV values.
 Both Dossier and Timeline provide title/note/result search within the current
-scope and filters and is retained after editing. Administrators can use each
+scope and filters. The query is retained after editing. Administrators can use each
 saved item's pencil directly, without a card-level edit mode. Dossier, Timeline,
 Today's activity list (also in Mobile), Attention dossier follow-ups, Temperature
 and Behavior history share one item editor. Planned care keeps its execution
@@ -122,6 +122,8 @@ Quick Log keeps your chosen owner when opening another category, saving or
 refreshing data. A remembered category owner is only an initial suggestion
 before you choose an owner; an explicitly configured mother or puppy takes
 precedence over that suggestion.
+See [Quick Log and owner selection](puppy-dossiers.md#quick-log-and-owner-selection)
+for draft behavior and the difference between initial defaults and manual choices.
 
 The visual editor changes with the selected preset. It exposes navigation and
 the relevant Home, Growth, Journal, Care or Mobile surface options in grouped

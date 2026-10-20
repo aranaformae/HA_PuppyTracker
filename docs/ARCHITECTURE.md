@@ -210,8 +210,9 @@ neither `frontend.py` nor the Workspace has to encode helper initialization.
 Imported helpers are ordinary ES-module dependencies of their owning cards.
 Every card owns its localization lifecycle; the large
 Overview dictionary is a stateless helper imported directly by that card.
-Summary and Litter render their localized UI directly, while Dossier and
-Timeline own their compact list and edit controls directly. Shared care layers
+Summary and Litter render their localized UI directly. Dossier and Timeline
+render their list actions directly, while the shared saved-item editor owns
+the editing dialog and source-owner save routing. Shared care layers
 export ordinary functions; their callers determine a fixed, reviewable order.
 A new one-card behavior should live in that card or be imported directly by it,
 never depend on replacing a prototype later in the sequence.
@@ -1251,12 +1252,21 @@ Regression tests should protect data meaning and cross-surface contracts, includ
 - measurement correction chains and birth-weight synchronisation;
 - monitoring metrics;
 - dossier ownership/CRUD and mother identity resolution;
+- shared saved-item editing across aggregate/search views, Today/Mobile,
+  Attention, Temperature and Behavior; source-owner routing, care metadata,
+  partial behavior scores, measurement corrections and draft/focus retention;
+- puppy name/collar labels in frontend and native HA selectors without changing
+  option IDs or export values;
+- Quick Log's manual-owner precedence, one-time remembered defaults and stable
+  selection through save/cancel, refresh and presentation-only configuration;
 - owner/contact CRUD, puppy links and full-backup inclusion;
 - temperature structured-data rendering;
 - behavior score validation, partial observations, longitudinal profile
   derivation and PDF output;
 - per-kilogram calculator parsing, latest-weight selection, stale-weight
   presentation and non-persistence;
+- feeding formulas/tables/age tables, kcal allocation, independent portions and
+  atomic per-litter preferences without recording calculated doses or meals;
 - shared Dossier, Quick Log and Bulk Log category/schema parity;
 - upcoming action derivation;
 - recurring-reminder normalization, interval/fixed-time/once scheduling and exact owner matching;
@@ -1273,6 +1283,8 @@ Regression tests should protect data meaning and cross-surface contracts, includ
   subscription lifecycle;
 - real browser care-result flow from row to dialog to WebSocket save to immediate row removal;
 - export selection, care PDF output and runtime selection;
+- administrator-only writes/exports/private owner reads, signed URL checks and
+  trusted automation services; see [Security and privacy](SECURITY_PRIVACY.md);
 - diagnostics scheduler health counts.
 
 Manual release testing should additionally cover HACS upgrade, browser refresh/cache behaviour, phone/tablet interaction, mother selection, reminder completion from real dossier logging, age-based care completion, notification-off production testing, explicit test-notification delivery and restart behaviour.

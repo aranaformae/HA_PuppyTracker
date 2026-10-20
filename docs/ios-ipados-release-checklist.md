@@ -57,15 +57,21 @@ Use this checklist before a release that changes dashboard cards, frontend loadi
 - [ ] Create at least one structured record type (feeding, vaccination, deworming, medication, test, vet visit, or milestone).
 - [ ] Confirm Dossier, Quick Log and Multiple puppies expose the same ten general categories and their matching structured fields.
 - [ ] Switch Quick Log between two structured categories and confirm each category retains its own unsaved draft values.
+- [ ] Save a Quick Log note for the first puppy, select a different puppy and open Note again; confirm the selection and saved owner remain the second puppy. Repeat with mother and whole-litter ownership.
+- [ ] Configure a default puppy, then manually select another owner. Confirm saving, cancelling and live updates do not switch back to the configured puppy.
+- [ ] Puppy selectors show name plus collar colour, including owner linking, top-three preferences and reminder owners, without changing the selected puppy ID.
 - [ ] Move a dossier record between puppy, mother and litter owners and confirm it appears only under the new owner.
-- [ ] Change record type while editing and confirm entered values are preserved where expected.
-- [ ] Edit an existing record.
+- [ ] Change an ordinary record's type while editing and confirm entered values are preserved where expected; care results and behavior observations keep their specialized type locked.
+- [ ] Edit an existing record using its pencil without enabling a separate edit mode.
+- [ ] Open the same saved item from Dossier, Timeline, Today/Mobile and its applicable Attention, Temperature or Behavior history; confirm the dialog uses its original owner and values.
 - [ ] Open the aggregate All scope and edit/delete/restore an existing litter, mother and puppy record.
 - [ ] Open a care-program result and verify status, result, score and day-specific instruction are visible; edit the supported result fields.
 - [ ] Soft-delete a record.
 - [ ] Enable deleted items and restore the record.
 - [ ] Edit a profile note and save it.
 - [ ] Trigger or wait for a live update while an editor is open and confirm unsaved form data remains intact.
+- [ ] Close a changed item draft and confirm the discard prompt; keep it open when declining, and restore page position/focus when closing.
+- [ ] With a non-admin account, confirm histories remain readable without saved-item pencils or private owner/report data.
 
 ## Growth / measurements
 
@@ -73,6 +79,7 @@ Use this checklist before a release that changes dashboard cards, frontend loadi
 - [ ] Select a puppy and switch between one-puppy and all-puppies chart focus.
 - [ ] Open measurement management.
 - [ ] Edit a measurement and verify the corrected value appears.
+- [ ] Use a weight item's pencil in Timeline or Today and confirm it opens a measurement correction rather than a dossier form.
 - [ ] Delete and restore a measurement.
 - [ ] Confirm tapping a chart point still opens/highlights its measurement on touch devices.
 - [ ] Confirm every puppy line and each weight/growth subgraph use the puppy's collar colour.

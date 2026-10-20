@@ -21,6 +21,7 @@ The current suite covers the main backend, frontend contract and browser flows.
 | `test_exports.py` / `test_pdf_export_options.py` | CSV filtering, complete JSON history, direct PDF generation and every PDF selection/section contract |
 | `test_contract_identity.py` | Puppy and parent registered/call names, dates, breed/type, coat colour, chip and WALA persistence |
 | `test_config_flow.py` / `test_options_actions.py` / `test_litter_growth_settings.py` | Valid management-form prefills, read-only opening, saving/clearing profile and growth fields, timestamp precision and monitoring/notification setting isolation |
+| `test_options_actions.py` / `tests/e2e/puppy-selectors.spec.mjs` | Name/collar labels across HA management forms and frontend selectors, missing/duplicate labels, unchanged puppy IDs and owner/preference selection |
 | `test_translations.py` / `test_options_actions.py` | Complete NL/EN key and placeholder coverage, translated management-form fields and selector options, and parent identity labels loaded through Home Assistant |
 | `test_records.py` | Profile-note migration, dossier record CRUD, owner scopes, sorting and integrity checks |
 | `test_upcoming.py` | Derived vaccination/deworming follow-ups, due-state classification, filtering and sorting |
@@ -30,13 +31,17 @@ The current suite covers the main backend, frontend contract and browser flows.
 | `test_care_templates.py` / `test_care_program_frontend.py` | Built-in and user template validation, day-specific instructions, JSON import/export and atomic batch saves |
 | `test_temperature_frontend.py` / `test_temperature_card.py` | Structured temperature logging, localization and dedicated temperature-card contracts |
 | `test_behavior.py` / `test_behavior_frontend.py` | Partial 1-5 observations, puppy-only ownership, longitudinal profiles and Workspace/PDF contracts |
-| `test_calculator_frontend.py` / `tests/e2e/calculator-card.spec.mjs` | Per-kilogram arithmetic, latest/stale weight presentation, responsive layout and non-persistence |
+| `test_calculator_frontend.py` / `tests/e2e/calculator-card.spec.mjs` / `test_feeding_settings.py` | Per-kilogram and feeding arithmetic, food methods, independent portions, age/kcal allocation, latest/stale weights, responsive layout and atomic per-litter preference saves; calculations do not log records |
 | `test_frontend.py` / Quick and Bulk Playwright specs | Shared dossier category/schema parity, card registration and frontend composition contracts |
 | `test_owner_backup.py` / owner Playwright tests | Reusable contact backup/restore, split/legacy address migration, payment validation/calculation, ranked puppy preferences and notes, responsive conflict matrix, puppy links, localized contract CSV fields/delimiters and owner-related frontend contracts |
 | `test_age_based_care_notifications.py` / `test_notification_settings_storage.py` | Notification settings, default lead-time fallback, care-program overrides, grouping and delivery contracts |
 | `test_notification_lifecycle.py` | Coalesced notification checks, transition-only mobile cleanup, inactive-owner cleanup and global notification shutdown |
+| `test_permissions.py` / `tests/e2e/consistency.spec.mjs` | Read/write and export role boundaries, signed backup URLs, trusted automation services and no private frontend reads or late-response disclosure after a role change |
+| `test_managed_files.py` / `test_backup_v5_schedulers.py` | Bounded logo uploads, private serving and coordinated backup/restore of branding, stores and schedules |
 | `tests/e2e/*.spec.mjs` | Lovelace behavior in Chromium plus targeted WebKit mobile, tablet and cross-browser checks |
 | Dossier and Timeline Playwright specs | Search across full loaded scope, shared matching rules, focus retention during updates, and owner-safe editing of searched results |
+| `tests/e2e/record-editor.spec.mjs` | Shared saved-item dialogs, exact source-owner routing, aggregate views, care/behavior fields, measurement corrections, delete/move/restore, failed-save drafts and focus/scroll retention |
+| `tests/e2e/quick-log.spec.mjs` | Exact-owner logging, category drafts, manual selection over remembered owners, initial defaults that do not reset on refresh and queued live updates |
 
 The Python tests protect backend behavior and frontend architecture contracts. Playwright owns observable Lovelace-card behavior. Browser-independent flows run once in desktop Chromium; tagged registration/render smoke tests also run in iPhone WebKit, mobile workflows run in iPhone WebKit, and scroll-stability checks run on iPhone plus both iPad orientations. HACS installation and Home Assistant Companion App push behavior still require manual release testing.
 
@@ -114,6 +119,10 @@ npm run test:all
 ```
 
 This runs Python compilation, all backend tests, JavaScript syntax checks and the complete tiered Playwright matrix. The Playwright web server is started automatically.
+The runner prefers the repository's `.venv` interpreter even without shell
+activation; install dependencies there rather than in the system Python.
+Hassfest and HACS validation run separately in GitHub Actions. CI runs browser
+tests with one worker, compared with two locally, so timings can differ.
 
 Run only the browser suite with:
 
@@ -324,6 +333,20 @@ soft-delete, so delete/restore must preserve identity and content. Generic
 logging tests also keep Dossier, Quick Log and Bulk Log on the shared record
 type and field schema.
 
+Saved-item editing has one shared dialog, not a Dossier-only management mode.
+Browser regressions must assert the original source record/owner in the actual
+save request, including aggregate/search results, Today/Mobile, Attention,
+Temperature and Behavior. Care results retain internal occurrence links while
+exposing supported result fields. Weight pencils use the correction API, not
+record updates. Verify failed saves retain the draft and closing restores focus
+without moving the surrounding page.
+
+Quick Log regressions distinguish a configured initial owner, a browser-local
+remembered owner and a deliberate manual choice. Test repeated Note entries
+across puppy, mother and litter owners, including updates queued during editing.
+A remembered owner must not override a chosen owner, and a refresh must not
+reapply `puppy_id` after the user selects a different scope.
+
 ## Adding a regression test
 
 When fixing a bug, prefer this sequence:
@@ -350,6 +373,13 @@ matrix. Then complete the relevant real-device checks from
 when frontend interaction, downloading or mobile behavior changed.
 
 A release should not proceed when a test failure is unexplained. If behavior is intentionally changed, update or replace the relevant regression test in the same commit as that behavior change.
+
+Keep `VERSION` in `custom_components/puppy_tracker/const.py` and the manifest
+version identical. `frontend.py` derives its cache version from that constant.
+The release workflow starts on a `v<version>` tag or `release/v<version>` branch
+and checks that the ref matches the manifest. Publication waits for backend,
+browser, syntax, metadata, Hassfest and HACS checks. A pushed tag alone is not
+confirmation that a GitHub Release was published.
 
 ## Troubleshooting
 

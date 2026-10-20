@@ -71,8 +71,10 @@ The Analysis tab tracks birth-weight milestones. The current defaults are:
 - `200%`: twice the birth weight;
 - `400%`: four times the birth weight.
 
-For a reached milestone, Puppy Tracker stores the first effective measurement
-at or above the target. For the next milestone it estimates a date and range
+For a reached milestone, Puppy Tracker identifies the first effective measurement
+at or above the target. Milestone state is derived from the effective history,
+so correcting or deleting a measurement recalculates it rather than leaving a
+separate saved milestone behind. For the next milestone it estimates a date and range
 from recent valid growth intervals. The configured projection sample count is
 between 2 and 8 measurements and defaults to 4.
 
@@ -102,7 +104,7 @@ and edit that litter. Available fields include:
 - first-day maximum weight loss percentage;
 - expected adult-weight minimum and maximum;
 - birth-weight milestone percentages and the reference age for doubling;
-- number of recent intervals used for milestone projection.
+- number of recent measurements used for milestone projection.
 
 An empty per-litter threshold uses the integration-wide fallback. Changes
 affect derived status and projections; they do not rewrite measurements.
