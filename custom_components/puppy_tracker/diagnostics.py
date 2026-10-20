@@ -144,5 +144,9 @@ async def async_get_config_entry_diagnostics(
             "notify_session_complete": bool(settings.get("notify_session_complete", False)),
             "notify_target_count": len(settings.get("notify_entities", [])),
         },
-        "integrity": integrity,
+        "integrity": {key: integrity[key] for key in (
+            "healthy", "issues_found", "repairs_applied", "unresolved_count",
+            "unresolved_critical", "unresolved_warnings", "checked", "issue_counts",
+            "repair_counts",
+        ) if key in integrity},
     }

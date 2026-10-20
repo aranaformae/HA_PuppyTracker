@@ -12,6 +12,14 @@ from custom_components.puppy_tracker.owners import (
 )
 
 
+@pytest.mark.parametrize("phone", ["0612345678", "020 123 4567", "+31 6 12345678", "003212345678"])
+def test_owner_phone_remains_text_in_normalization_and_backup(phone):
+    owner = _normalize({"name": "Alex", "phone": phone}, owner_id="owner-1")
+    assert owner["phone"] == phone
+    result = normalize_owner_backup_data({"owners": {"owner-1": owner}})
+    assert result["owners"]["owner-1"]["phone"] == phone
+
+
 def test_owner_backup_normalizes_owner_records() -> None:
     result = normalize_owner_backup_data({
         "owners": {

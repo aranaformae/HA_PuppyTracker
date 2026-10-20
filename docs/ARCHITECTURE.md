@@ -23,6 +23,14 @@ Identity, and selecting one puppy cannot expose another puppy's note.
 
 This document describes the architectural direction and current pre-1.0 contracts of Puppy Tracker.
 
+The [Security and privacy review](SECURITY_PRIVACY.md) defines the permission
+matrix and export trust boundary. Private owner/contact/payment reads, all
+exports and custom WebSocket mutations require an administrator. Custom domain
+services use HA's admin-service helper, preserving trusted user-less automations.
+Native HA entity controls retain HA entity permissions; the shared dashboard
+is not a per-owner portal. Private HTTP downloads recheck the HA principal even
+for signed links. Diagnostics expose aggregate integrity information, not raw IDs.
+
 User-facing setup and card instructions live outside this document. See the
 [documentation index](README.md), [dashboard card reference](DASHBOARD_CARDS.md)
 and [notification guide](NOTIFICATIONS.md). Keeping implementation contracts

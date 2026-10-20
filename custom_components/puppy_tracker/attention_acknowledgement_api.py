@@ -47,6 +47,7 @@ async def websocket_list_acknowledgements(hass, connection, msg) -> None:
     )
 
 
+@websocket_api.require_admin
 @websocket_api.websocket_command({
     vol.Required("type"): f"{DOMAIN}/attention_acknowledgement/set",
     vol.Required("litter_id"): str,

@@ -96,6 +96,58 @@ async function mountOwnerMatrix(page, { width = "", language = "en", details = f
 }
 
 for (const language of ["nl", "en"]) {
+  test(`private owner and report cards do not request or display data for non-admins (${language}) @cross-browser @tablet`, async ({ page }) => {
+    await page.goto("/tests/e2e/cards.html?production=1");
+    await page.waitForFunction(() => window.__puppyTrackerReady);
+    await page.evaluate((language) => {
+      window.__privateCardCalls = [];
+      for (const tag of ["puppy-tracker-owner-card", "puppy-tracker-report-card"]) {
+        const card = document.createElement(tag);
+        card.setConfig({});
+        document.querySelector("#cards").append(card);
+        card.hass = { language, locale: { language }, user: { is_admin: false }, callWS: async (message) => { window.__privateCardCalls.push(message); throw new Error("Private data must not be requested"); } };
+      }
+    }, language);
+    const owners = page.locator("puppy-tracker-owner-card");
+    const report = page.locator("puppy-tracker-report-card");
+    await expect(owners.locator('[role="status"]')).toHaveText(language === "nl"
+      ? "Baasjesgegevens en betalingen zijn alleen beschikbaar voor beheerders."
+      : "Owner details and payments are only available to administrators.");
+    await expect(report.locator('[role="status"]')).toHaveText(language === "nl"
+      ? "Rapporten en exports zijn alleen beschikbaar voor beheerders."
+      : "Reports and exports are only available to administrators.");
+    await expect(owners.locator("#export-owners-csv, .owner-editor, .owner-detail")).toHaveCount(0);
+    await expect(report.locator("#pdf, #csv, #json")).toHaveCount(0);
+    expect(await page.evaluate(() => window.__privateCardCalls)).toEqual([]);
+    expect(await owners.locator("ha-card").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    expect(await report.locator("ha-card").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await page.screenshot({ path: test.info().outputPath(`private-access-${language}.png`) });
+  });
+
+  test(`owner details clear on role changes without repopulating from a late response (${language})`, async ({ page }) => {
+    const card = await mountOwnerMatrix(page, { language, details: true });
+    await card.locator("#owners-view").click();
+    await card.locator('[data-toggle-owner="o1"]').click();
+    await expect(card.locator(".owner-detail")).toContainText("jansen@example.com");
+    await card.evaluate((element) => {
+      const original = element._hass.callWS;
+      element._hass.callWS = async (message) => {
+        if (message.type === "puppy_tracker/owners/list") await new Promise((resolve) => { window.__releasePrivateRead = resolve; });
+        return original(message);
+      };
+      element._load(true);
+    });
+    await page.waitForFunction(() => typeof window.__releasePrivateRead === "function");
+    await card.evaluate((element) => {
+      element.hass = { ...element._hass, user: { is_admin: false } };
+      window.__releasePrivateRead();
+    });
+    await expect(card.locator('[role="status"]')).toContainText(language === "nl" ? "beheerders" : "administrators");
+    await page.waitForFunction(() => !document.querySelector("puppy-tracker-owner-card")._loading);
+    await expect(card).not.toContainText("jansen@example.com");
+    expect(await card.evaluate((element) => [element._owners.length, element._puppies.length, element._ownerGroups.size])).toEqual([0, 0, 0]);
+  });
+
   test(`owner details group related information and retain disclosure choices (${language}) @cross-browser @tablet`, async ({ page }) => {
     const card = await mountOwnerMatrix(page, { language, details: true });
     await card.locator("#owners-view").click();
@@ -493,7 +545,7 @@ test("owner CSV is comma-separated, keeps unlinked owners and exports one row pe
         id: "owner-alex",
         name: "Alex",
         email: "alex@example.com",
-        phone: "+31612345678",
+        phone: "0612345678",
         street: "Main street 1",
         postal_code: "1234 AB",
         city: "Amsterdam",
@@ -518,6 +570,7 @@ test("owner CSV is comma-separated, keeps unlinked owners and exports one row pe
         id: "owner-blair",
         name: "Blair",
         email: "blair@example.com",
+        phone: "+31687654321",
         role: "co_owner",
         placement_status: "interested",
         payment_status: "none",
@@ -566,6 +619,8 @@ test("owner CSV is comma-separated, keeps unlinked owners and exports one row pe
   expect(header).toContain('"Mother registered name","Mother call name","Mother birth date","Mother breed / type","Mother WALA","Mother chip number"');
   expect(header).not.toContain('";"');
   expect(content).toContain('"Main street 1","1234 AB","Amsterdam"');
+  expect(content).toContain('"Alex","alex@example.com","0612345678",');
+  expect(content).toContain('"Blair","blair@example.com","+31687654321",');
   expect(content).toContain('"Second · Blue","Preferred coat and temperament"');
   expect(content).toContain('"Contract ""signed""; ready, paid"');
   expect(content).toContain('"First","Milky Way Red","Red","2026-06-01","Male","Caramel","red","0001","Multi-generation Australian Labradoodle","Father Registered","Max"');
@@ -585,6 +640,8 @@ test("owner CSV is comma-separated, keeps unlinked owners and exports one row pe
   await card.locator("#export-owners-csv").click();
   const semicolonDownload = await semicolonDownloadPromise;
   const semicolonContent = await readFile(await semicolonDownload.path(), "utf8");
+  expect(semicolonContent).toContain('"Alex";"alex@example.com";"0612345678";');
+  expect(semicolonContent).toContain('"Blair";"blair@example.com";"+31687654321";');
   const semicolonHeader = semicolonContent.slice(1).split("\r\n")[0];
   expect(semicolonHeader).toContain('"Name";"Email";"Phone";"Street and house number";"Postal code";"City";"Role"');
   expect(semicolonHeader).not.toContain('","');

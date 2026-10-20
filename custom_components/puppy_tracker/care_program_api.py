@@ -167,6 +167,7 @@ async def websocket_list_care_occurrences(hass, connection, msg) -> None:
     connection.send_result(msg["id"], {"occurrences": occurrences, "skipped": skipped})
 
 
+@websocket_api.require_admin
 @websocket_api.websocket_command({
     vol.Required("type"): f"{DOMAIN}/care_occurrence/record",
     vol.Required("program_id"): str,

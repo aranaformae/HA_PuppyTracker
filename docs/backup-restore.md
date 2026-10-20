@@ -63,6 +63,10 @@ The `puppy_tracker.backup_to_file` Home Assistant action writes an importable
 JSON backup to a file. It is available in **Developer tools -> Actions** and can
 also be called from an automation. The path must be inside the Home Assistant
 configuration directory and must end in `.json`.
+It cannot point into the public `www` directory, including through a symlink.
+User-originating calls require an administrator; trusted HA automations without
+a user context remain supported. The status sensor reports `backup_failed` on
+failure without exposing the raw exception text.
 
 ```yaml
 action:

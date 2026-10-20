@@ -14,6 +14,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.service import async_register_admin_service
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .api import async_setup_api
@@ -301,6 +302,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             target.relative_to(config_dir)
         except ValueError as err:
             raise ValueError("Backup path must be inside the Home Assistant config directory") from err
+        if target.is_relative_to((config_dir / "www").resolve()):
+            raise ValueError("Backups cannot be written to the public www directory")
         if target == config_dir or target.suffix.lower() != ".json":
             raise ValueError("Backup path must be a JSON file")
         if call.data["include_timestamp"]:
@@ -367,9 +370,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         """Run a backup and expose failures through the diagnostic sensor."""
         try:
             await _handle_backup_to_file_impl(call)
-        except Exception as err:
+        except Exception:
             runtime.last_backup_status = "error"
-            runtime.last_backup_error = str(err)
+            runtime.last_backup_error = "backup_failed"
             async_dispatcher_send(hass, SIGNAL_DASHBOARD_UPDATE)
             raise
 
@@ -381,7 +384,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     ):
         if hass.services.has_service(DOMAIN, service):
             continue
-        hass.services.async_register(DOMAIN, service, handler, schema=schema)
+        async_register_admin_service(hass, DOMAIN, service, handler, schema=schema)
 
     return True
 

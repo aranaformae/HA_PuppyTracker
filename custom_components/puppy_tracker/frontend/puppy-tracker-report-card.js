@@ -25,6 +25,7 @@ const REPORT_TEXT = {
 };
 
 Object.assign(REPORT_TEXT.nl, {
+  adminOnly: "Rapporten en exports zijn alleen beschikbaar voor beheerders.",
   identitySection: "Identiteit", dossierSection: "Dossieritems", pdfLanguage: "PDF-taal",
   brandLogoSection: "Logo", breederNameSection: "Fokkersnaam", breederContactSection: "Contactgegevens fokker", profileNoteSection: "Profielnotitie pup",
   chartPoints: "Grafiekpunten",
@@ -37,6 +38,7 @@ Object.assign(REPORT_TEXT.nl, {
   note: "PDF en CSV volgen de gekozen pup en periode. De PDF-periode filtert metingen, grafiek, zorgresultaten, gedrag en dossieritems; samenvatting, gewichtsaandacht en baasjes tonen de actuele stand. JSON blijft een volledige importeerbare nestback-up.",
 });
 Object.assign(REPORT_TEXT.en, {
+  adminOnly: "Reports and exports are only available to administrators.",
   identitySection: "Identity", dossierSection: "Dossier items", pdfLanguage: "PDF language",
   brandLogoSection: "Logo", breederNameSection: "Breeder name", breederContactSection: "Breeder contact details", profileNoteSection: "Puppy profile note",
   chartPoints: "Chart points",
@@ -209,6 +211,13 @@ class PuppyTrackerReportCard extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
+    if (hass?.user?.is_admin === false) {
+      this._data = null;
+      this._litters = [];
+      this.disconnectedCallback();
+      this._render();
+      return;
+    }
     if (!this._litters.length && !this._loading) {
       this._loadInitial();
     } else if (this.isConnected) {
@@ -234,10 +243,11 @@ class PuppyTrackerReportCard extends HTMLElement {
   getGridOptions() { return { columns: 12, min_columns: 6 }; }
 
   async _loadInitial() {
-    if (!this._hass || this._loading) return;
+    if (!this._hass || this._hass.user?.is_admin === false || this._loading) return;
     this._loading = true;
     try {
       const response = await fetchLitters(this._hass);
+      if (this._hass?.user?.is_admin === false) return;
       this._litters = response?.litters || [];
       this._selectedLitterId = selectDefaultLitter(this._litters, this._selectedLitterId || this._config.litter_id);
       await this._loadData(false);
@@ -251,10 +261,11 @@ class PuppyTrackerReportCard extends HTMLElement {
   }
 
   async _ensureSubscription() {
-    if (!this._hass || this._unsubscribe || this._subscriptionPending || !this.isConnected) return;
+    if (!this._hass || this._hass.user?.is_admin === false || this._unsubscribe || this._subscriptionPending || !this.isConnected) return;
     this._subscriptionPending = true;
     try {
       this._unsubscribe = await subscribeUpdates(this._hass, () => this._queueRefresh(), this);
+      if (this._hass?.user?.is_admin === false) this.disconnectedCallback();
     } catch (err) {
       // Keep showing the last good data. The next hass/connected cycle retries.
       this._unsubscribe = null;
@@ -264,7 +275,7 @@ class PuppyTrackerReportCard extends HTMLElement {
   }
 
   async _queueRefresh() {
-    if (!this._hass) return;
+    if (!this._hass || this._hass.user?.is_admin === false) return;
     if (this._refreshing) {
       this._refreshAgain = true;
       return;
@@ -291,9 +302,11 @@ class PuppyTrackerReportCard extends HTMLElement {
   }
 
   async _loadData(render = true) {
-    if (!this._hass || !this._selectedLitterId) return;
+    if (!this._hass || this._hass.user?.is_admin === false || !this._selectedLitterId) return;
     try {
-      this._data = await fetchLitterData(this._hass, this._selectedLitterId);
+      const data = await fetchLitterData(this._hass, this._selectedLitterId);
+      if (this._hass?.user?.is_admin === false) return;
+      this._data = data;
       const specialScopes = new Set([LITTER_VALUE, MOTHER_VALUE]);
       if (!specialScopes.has(this._selectedPuppyId) && !(this._data.puppies || []).some((p) => p.id === this._selectedPuppyId)) {
         this._selectedPuppyId = LITTER_VALUE;
@@ -363,7 +376,7 @@ class PuppyTrackerReportCard extends HTMLElement {
   }
 
   async _export(format) {
-    if (!this._hass || !this._selectedLitterId) return;
+    if (!this._hass || this._hass.user?.is_admin === false || !this._selectedLitterId) return;
     if (this._selectedPuppyId === MOTHER_VALUE) {
       await this._exportMother(format);
       return;
@@ -405,6 +418,7 @@ class PuppyTrackerReportCard extends HTMLElement {
   }
 
   async _exportMother(format) {
+    if (this._hass?.user?.is_admin === false) return;
     if (format !== "json") {
       this._status = reportText(this._hass, "motherJsonOnly");
       this._render();
@@ -434,6 +448,10 @@ class PuppyTrackerReportCard extends HTMLElement {
   }
 
   _render() {
+    if (this._hass?.user?.is_admin === false) {
+      this.shadowRoot.innerHTML = `<ha-card style="display:block;padding:16px"><div role="status">${escapeHtml(reportText(this._hass, "adminOnly"))}</div></ha-card>`;
+      return;
+    }
     const litter = this._data?.litter;
     const motherName = litter?.mother || "";
     const motherSelected = this._selectedPuppyId === MOTHER_VALUE;

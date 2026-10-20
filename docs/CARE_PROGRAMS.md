@@ -138,6 +138,9 @@ program revision and occurrence identity remain unchanged.
 A second active result for the same `care_occurrence_id` is rejected. Soft-deleted dossier records do not count as completion.
 
 The result API re-derives the requested occurrence from the authoritative program and puppy rather than trusting arbitrary schedule metadata supplied by the frontend.
+Recording a result requires an administrator, like editing other dossier records.
+Non-admins can view schedules and instructions but cannot complete or mark an
+occurrence as missed. See [Security and privacy](SECURITY_PRIVACY.md).
 
 ## Care-program templates
 

@@ -213,10 +213,13 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
     this.shadowRoot.querySelector("#day-select")?.addEventListener("change", (event) => { this._selectedDate = event.target.value; this._render(); });
     this.shadowRoot.querySelector("#previous-day")?.addEventListener("click", () => { const dates = this._dateOptions(); const index = dates.indexOf(this._selectedDate); if (index > 0) { this._selectedDate = dates[index - 1]; this._render(); } });
     this.shadowRoot.querySelector("#next-day")?.addEventListener("click", () => { const dates = this._dateOptions(); const index = dates.indexOf(this._selectedDate); if (index >= 0 && index < dates.length - 1) { this._selectedDate = dates[index + 1]; this._render(); } });
-    this.shadowRoot.querySelectorAll("button[data-action]").forEach((button) => button.addEventListener("click", () => {
-      const item = this._occurrences.find((candidate) => candidate.id === button.dataset.id);
-      if (item) this._openResult(item, button.dataset.action);
-    }));
+    this.shadowRoot.querySelectorAll("button[data-action]").forEach((button) => {
+      button.disabled = this._hass?.user?.is_admin === false;
+      button.addEventListener("click", () => {
+        const item = this._occurrences.find((candidate) => candidate.id === button.dataset.id);
+        if (item) this._openResult(item, button.dataset.action);
+      });
+    });
     renderCareExecutionRows(this);
   }
 }

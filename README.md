@@ -35,6 +35,11 @@ longitudinal behavior observations, reports and backups.
 Puppy Tracker is a registration and monitoring aid. Its templates, growth
 indicators and estimates are not veterinary advice or diagnoses.
 
+Owner/contact and payment details, reports, exports and custom data-management
+actions require a Home Assistant administrator. Dashboard information is shared
+with authenticated HA users; Puppy Tracker is not a private portal per owner.
+See [Security and privacy](docs/SECURITY_PRIVACY.md) for the exact permissions.
+
 ## Installation
 
 ### HACS

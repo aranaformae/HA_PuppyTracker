@@ -26,6 +26,7 @@ feature overview.
 | Guide | Contents |
 | --- | --- |
 | [Architecture](ARCHITECTURE.md) | Data ownership, stores, APIs, frontend contracts and extension rules |
+| [Security and privacy](SECURITY_PRIVACY.md) | Role policy, private exports, signed URLs, file boundaries and review evidence |
 | [Storage migrations](storage-migrations.md) | Supported schema path and migration invariants |
 | [Local tests](../tests/README.md) | Python, JavaScript and Playwright test environment |
 | [iOS/iPadOS checklist](ios-ipados-release-checklist.md) | Manual release verification for touch devices |

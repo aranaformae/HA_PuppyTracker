@@ -14,6 +14,7 @@ from homeassistant.helpers.network import get_url
 from .backup import SCHEDULER_BACKUP_VERSION, serialize_export
 from .const import DOMAIN
 from .runtime import PuppyTrackerRuntimeData, require_runtime_data
+from .permissions import require_admin_request
 
 DATA_BACKUP_HTTP_REGISTERED = f"{DOMAIN}_backup_http_registered"
 DOWNLOAD_TTL = timedelta(minutes=10)
@@ -83,7 +84,7 @@ class PuppyTrackerFullBackupView(HomeAssistantView):
         self._hass = hass
 
     async def get(self, request: web.Request) -> web.Response:
-        del request
+        require_admin_request(request)
         return await _download_response(require_runtime_data(self._hass), scope="full")
 
 
@@ -98,7 +99,7 @@ class PuppyTrackerLitterBackupView(HomeAssistantView):
         self._hass = hass
 
     async def get(self, request: web.Request, litter_id: str) -> web.Response:
-        del request
+        require_admin_request(request)
         try:
             return await _download_response(
                 require_runtime_data(self._hass),
@@ -125,7 +126,7 @@ class PuppyTrackerPuppyBackupView(HomeAssistantView):
         litter_id: str,
         puppy_id: str,
     ) -> web.Response:
-        del request
+        require_admin_request(request)
         try:
             return await _download_response(
                 require_runtime_data(self._hass),

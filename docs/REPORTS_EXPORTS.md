@@ -1,5 +1,9 @@
 # Reports and exports
 
+Reports and all CSV/JSON/PDF exports require a Home Assistant administrator,
+regardless of selected sections. Owner/contact reads and signed JSON backup
+downloads follow the same policy. See [Security and privacy](SECURITY_PRIVACY.md).
+
 The Report card creates a readable PDF dossier, a weight CSV or an importable
 JSON backup. The separate Owners card exports contact, placement and puppy
 preference data as a mail-merge CSV. PDF and CSV are presentation exports; JSON

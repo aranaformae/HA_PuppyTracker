@@ -14,7 +14,7 @@ def test_mother_dashboard_api_exposes_attention_and_export_url() -> None:
     assert 'f"{DOMAIN}/mother/attention"' in source
     assert 'dossier_action_summary(context.get("records", []))' in source
     assert 'f"{DOMAIN}/mother/export_url"' in source
-    assert 'await async_signed_mother_export_path(' in source
+    assert 'url = async_signed_mother_export_path(' in source
     assert 'history_scope' in source
 
 

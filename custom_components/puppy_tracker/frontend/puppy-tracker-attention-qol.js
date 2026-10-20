@@ -183,6 +183,7 @@ export function renderAttentionQol(card) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "attention-ack-button";
+    button.disabled = card?._hass?.user?.is_admin === false;
     button.title = acknowledged
       ? t(card, "Markeer als niet bevestigd", "Unacknowledge")
       : t(card, "Bevestig melding", "Acknowledge");

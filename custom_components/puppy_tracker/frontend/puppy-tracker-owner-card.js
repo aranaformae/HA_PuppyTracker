@@ -72,6 +72,7 @@ const COPY = {
     contactDetails: "Contactgegevens",
     addressDetails: "Adresgegevens",
     financialDetails: "Financieel",
+    adminOnly: "Baasjesgegevens en betalingen zijn alleen beschikbaar voor beheerders.",
     placementDetails: "Plaatsing",
     puppyPreferences: "Top 3 pupvoorkeuren",
     preference1: "1e voorkeur",
@@ -195,6 +196,7 @@ const COPY = {
     contactDetails: "Contact details",
     addressDetails: "Address details",
     financialDetails: "Financial",
+    adminOnly: "Owner details and payments are only available to administrators.",
     placementDetails: "Placement",
     puppyPreferences: "Top 3 puppy preferences",
     preference1: "1st preference",
@@ -396,6 +398,16 @@ class PuppyTrackerOwnerCard extends HTMLElement {
 
   set hass(value) {
     this._hass = value;
+    if (value?.user?.is_admin === false) {
+      this._owners = [];
+      this._puppies = [];
+      this._litters = [];
+      this._ownerGroups.clear();
+      this._editing = null;
+      this._loaded = false;
+      this._render();
+      return;
+    }
     if (this._config && !this._loaded && !this._loading) this._load();
   }
 
@@ -407,7 +419,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
   getGridOptions() { return { columns: 12, min_columns: 6 }; }
 
   async _load(force = false) {
-    if (!this._hass || this._loading || (this._loaded && !force)) return false;
+    if (!this._hass || this._hass.user?.is_admin === false || this._loading || (this._loaded && !force)) return false;
     this._loading = true;
     this._error = "";
     this._render();
@@ -416,6 +428,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
         this._hass.callWS({ type: "puppy_tracker/owners/list" }),
         this._hass.callWS({ type: "puppy_tracker/litters" }),
       ]);
+      if (this._hass?.user?.is_admin === false) return false;
       this._owners = ownerResult?.owners || [];
       this._litters = litterResult?.litters || [];
       if (!this._litters.some((litter) => litter.id === this._selectedLitter)) {
@@ -435,6 +448,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
           father_details: litterDetails.father_details || {},
         }));
       }));
+      if (this._hass?.user?.is_admin === false) return false;
       this._puppies = data.flat();
       const selectedLitterPuppies = this._puppies.filter((puppy) => puppy.litter_id === this._selectedLitter);
       if (!selectedLitterPuppies.some((puppy) => puppy.id === this._matrixSelectedPuppy)) {
@@ -1048,6 +1062,10 @@ class PuppyTrackerOwnerCard extends HTMLElement {
 
   _render() {
     if (!this._config) return;
+    if (this._hass?.user?.is_admin === false) {
+      this.innerHTML = `<ha-card style="display:block;padding:16px"><div role="status">${escapeHtml(text(this, "adminOnly"))}</div></ha-card>`;
+      return;
+    }
     this.querySelectorAll("[data-owner-group]").forEach((group) => {
       const state = this._ownerGroups.get(group.dataset.groupOwner) || {};
       state[group.dataset.ownerGroup] = group.open;

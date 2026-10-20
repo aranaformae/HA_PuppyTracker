@@ -18,6 +18,7 @@ def _owners(hass: HomeAssistant):
     return runtime.owners if runtime is not None else None
 
 
+@websocket_api.require_admin
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/owners/list"})
 @callback
 def websocket_list_owners(hass: HomeAssistant, connection, msg: dict[str, Any]) -> None:

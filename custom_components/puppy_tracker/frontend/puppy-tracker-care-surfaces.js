@@ -140,7 +140,7 @@ function ensureDirectActionStyle(card) {
 
 export function addCareDirectActionButtons(card) {
   const root = card?.shadowRoot;
-  if (!root) return;
+  if (!root || card?._hass?.user?.is_admin === false) return;
   ensureDirectActionStyle(card);
   root.querySelectorAll("[data-care-occurrence]").forEach((row) => {
     if (row.querySelector(":scope > .care-direct-action")) return;
@@ -164,7 +164,7 @@ export function addCareDirectActionButtons(card) {
 
 function wireCareRows(card) {
   const root = card?.shadowRoot;
-  if (!root) return;
+  if (!root || card?._hass?.user?.is_admin === false) return;
   root.querySelectorAll("[data-care-occurrence]").forEach((row) => {
     row.classList.add("care-clickable");
     row.addEventListener("click", (event) => {

@@ -14,6 +14,7 @@ from homeassistant.helpers.network import get_url
 from .const import DOMAIN
 from .mother_backup import serialize_mother_export
 from .runtime import require_runtime_data
+from .permissions import require_admin_request
 
 DATA_MOTHER_BACKUP_HTTP_REGISTERED = f"{DOMAIN}_mother_backup_http_registered"
 DOWNLOAD_TTL = timedelta(minutes=10)
@@ -30,6 +31,7 @@ class PuppyTrackerMotherBackupView(HomeAssistantView):
         self._hass = hass
 
     async def get(self, request: web.Request, mother_id: str) -> web.Response:
+        require_admin_request(request)
         litter_id = request.query.get("litter_id") or None
         try:
             filename, _mime, content = serialize_mother_export(

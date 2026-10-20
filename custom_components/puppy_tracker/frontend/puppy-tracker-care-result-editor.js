@@ -22,7 +22,7 @@ export function findCareOccurrence(card, occurrenceId) {
 
 export function openCareResultEditor(card, item, options = {}) {
   const root = card?.shadowRoot;
-  if (!root || !item || !card?._hass) return;
+  if (!root || !item || !card?._hass || card._hass.user?.is_admin === false) return;
 
   root.querySelector(".care-result-overlay")?.remove();
   const previousFocus = root.activeElement || document.activeElement;

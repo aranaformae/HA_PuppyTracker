@@ -314,7 +314,7 @@ def _litter_payload(
                 "birth_time": puppy.get("birth_time"),
                 "profile_note": puppy.get("profile_note"),
                 "chip_number": puppy.get("chip_number"),
-                "owner_ids": list(puppy.get("owner_ids") or []),
+                "owner_ids": list(puppy.get("owner_ids") or []) if can_manage_measurements else [],
                 "active": puppy.get("active", True),
                 "created_at": puppy.get("created_at"),
                 "updated_at": puppy.get("updated_at"),
@@ -1324,6 +1324,7 @@ async def websocket_integrity_check(
     connection.send_result(msg["id"], report)
 
 
+@websocket_api.require_admin
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/export",

@@ -280,6 +280,15 @@ contract identity, including registered/call names, coat colour, breed/type and
 WALA values and both parent chip numbers. The six shortlist columns are included
 on every owner row.
 
+Phone and chip numbers are exported verbatim as quoted text, including leading
+zeroes and international `+` prefixes. CSV has no column-type metadata: spreadsheet
+software can still interpret these values as numbers when opening the file.
+Import the original CSV with **Phone** and all chip-number columns set to **Text**,
+rather than opening and resaving it with automatic number detection. Merely
+changing the display format after conversion does not restore lost digits.
+See the [Excel import guidance](https://support.microsoft.com/en-au/excel/keeping-leading-zeros-and-large-numbers)
+or [Calc Text Import](https://help.libreoffice.org/latest/en-US/text/shared/00/00000208.html).
+
 The **Preference matrix** is calculated from the same shortlist and puppy-link
 data; it does not store a second matching state. Select one litter to place
 owners on rows and puppies on columns. Cells show first, second or third choice,
