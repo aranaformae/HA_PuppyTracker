@@ -1,3 +1,5 @@
+import { FormState } from "./puppy-tracker-form-state.js";
+import { openRecordEditor } from "./puppy-tracker-record-editor.js";
 import {
   puppySelectorLabel,
   addDossierRecord,
@@ -125,6 +127,7 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
     this._saving = false;
     this._review = false;
     this._dirty = false;
+    this._formState = new FormState(this, { preserve: false });
     this._error = "";
     this._status = "";
     this._result = null;
@@ -343,6 +346,7 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
   }
 
   _startReview() {
+    this._formState.clearErrors();
     this._captureForm();
     if (!this._selectedPuppyIds.size) {
       this._error = text(this._hass, "selectAtLeastOne");
@@ -352,6 +356,7 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
     if (!toIsoTimestamp(this._form.occurred_at)) {
       this._error = localize(this._hass, "invalidDateTime");
       this._render();
+      this._formState.error("#bulk-occurred", this._error);
       return;
     }
     const validationError = requiredFieldsMessage(
@@ -362,6 +367,8 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
     if (validationError) {
       this._error = validationError;
       this._render();
+      const field = (TYPE_FIELDS[this._form.record_type] || []).find((item) => item.required && !this._currentData()[item.key]);
+      if (field) this._formState.error(`#bulk-data-${field.key}`, this._error);
       return;
     }
     this._error = "";
@@ -406,13 +413,13 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
         );
         successes.push({
           puppy_id: puppy.id,
-          puppy_name: puppy.name || puppy.id,
+          puppy_name: puppySelectorLabel(puppy, puppy.id),
           record_id: result?.record_id || result?.record?.id || null,
         });
       } catch (err) {
         failures.push({
           puppy_id: puppy.id,
-          puppy_name: puppy.name || puppy.id,
+          puppy_name: puppySelectorLabel(puppy, puppy.id),
           error: err?.message || text(this._hass, "saveFailed"),
         });
       }
@@ -431,6 +438,7 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
       });
     } else {
       this._status = bulkCountText(this._hass, "allSaved", successes.length);
+      this._formState.reset();
       const recordType = this._form.record_type;
       this._form = this._emptyForm(recordType);
       this._dirty = false;
@@ -575,8 +583,23 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
         ${this._loading ? `<div class="message">${escapeHtml(localize(this._hass, "loading"))}</div>` : ""}
       </ha-card>`;
 
+    this.shadowRoot.getElementById("bulk-litter")?.setAttribute("data-draft-ignore", "");
+    this._formState.bind(this.shadowRoot.querySelector("ha-card"));
+    this.shadowRoot.querySelector("ha-card")?.addEventListener("input", () => this._captureForm());
+    for (const saved of (canManage ? this._result?.successes : []) || []) {
+      if (!saved.record_id) continue;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "secondary";
+      button.textContent = saved.puppy_name;
+      button.title = localize(this._hass, "editDossierItem");
+      button.insertAdjacentHTML("afterbegin", '<ha-icon icon="mdi:pencil-outline"></ha-icon> ');
+      button.addEventListener("click", (event) => openRecordEditor(this, { litterId: this._selectedLitterId, scope: "puppy", puppyId: saved.puppy_id, recordId: saved.record_id }, { trigger: event.currentTarget }));
+      this.shadowRoot.querySelector("ha-card").append(button);
+    }
     this.shadowRoot.getElementById("bulk-litter")?.addEventListener("change", (event) => {
       if (requestLitterChange(this, event.target.value)) this._selectLitter(event.target.value);
+      else event.target.value = this._selectedLitterId;
     });
     this.shadowRoot.getElementById("select-all")?.addEventListener("click", () => this._setSelection(this._puppies.map((puppy) => puppy.id)));
     this.shadowRoot.getElementById("clear-all")?.addEventListener("click", () => this._setSelection([]));

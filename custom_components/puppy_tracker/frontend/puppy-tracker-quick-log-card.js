@@ -1,3 +1,5 @@
+import { FormState, savedRecordFeedback, savedEditButton } from "./puppy-tracker-form-state.js";
+import { closeRecordEditor, openRecordEditor, RECORD_ACTION_STYLE } from "./puppy-tracker-record-editor.js";
 import {
   puppySelectorLabel,
   addDossierRecord,
@@ -179,6 +181,7 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
     this._ownerSelectionResolved = false;
     this._litterData = null;
     this._draft = null;
+    this._formState = new FormState(this, { preserve: false });
     this._loading = false;
     this._saving = false;
     this._error = "";
@@ -266,6 +269,7 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
   }
 
   disconnectedCallback() {
+    closeRecordEditor(this);
     if (this._unsubscribe) Promise.resolve(this._unsubscribe()).catch(() => undefined);
     this._unsubscribe = null;
   }
@@ -394,16 +398,22 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
   }
 
   _selectOwner(value) {
+    if (this._saving || !this._formState.discard()) {
+      this.shadowRoot.getElementById("owner-select").value = this.__motherSelected ? MOTHER_OWNER : this._selectedPuppyId || LITTER_OWNER;
+      return;
+    }
     this._ownerSelectionResolved = true;
     if (this._draft?.presetId) this._rememberOwner(this._draft.presetId, value);
     this.__motherSelected = value === MOTHER_OWNER;
     this._selectedPuppyId = value === LITTER_OWNER || value === MOTHER_OWNER ? null : value;
     this._draft = null;
     this._status = "";
+    this._savedRecord = null;
     this._render();
   }
 
   _startPreset(presetId) {
+    if (this._saving) return;
     const preset = PRESETS.find((item) => item.id === presetId) || PRESETS[0];
     const remembered = this._state.recentOwners?.[preset.id];
     const ownerAvailable = remembered === LITTER_OWNER
@@ -466,7 +476,9 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
     return data;
   }
 
-  async _finishDraft() {
+  async _finishDraft(saved = false) {
+    if (!saved && !this._formState.discard()) return;
+    this._formState.reset();
     this._draft = null;
     this._saving = false;
     this._render();
@@ -490,22 +502,27 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
     if (!occurredAt) {
       this._error = text(this._hass, "invalidDateTime");
       this._render();
+      this._formState.error("#quick-occurred", this._error);
       return;
     }
     if (preset.recordType === "temperature" && (!Number.isFinite(temperature) || temperature < 20 || temperature > 45)) {
       this._error = text(this._hass, "temperatureInvalid");
       this._render();
+      this._formState.error("#quick-temperature", this._error);
       return;
     }
     const validationError = requiredFieldsMessage(this._hass, preset.recordType, data);
     if (validationError) {
       this._error = validationError;
       this._render();
+      const field = (TYPE_FIELDS[preset.recordType] || []).find((item) => item.required && !data[item.key]);
+      if (field) this._formState.error(`#${this._fieldInputId(field)}`, this._error);
       return;
     }
     if (!note && !Object.keys(data).length) {
       this._error = text(this._hass, "detailsRequired");
       this._render();
+      this._formState.error("#quick-note", this._error);
       return;
     }
 
@@ -513,6 +530,7 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
     if (preset.recordType === "temperature") normalizedData.temperature_c = temperature;
 
     this._saving = true;
+    this._formState.clearErrors();
     this._error = "";
     this._render();
     try {
@@ -523,22 +541,24 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
         note: note || null,
         data: normalizedData,
       };
+      let result;
+      const context = { litterId: this._selectedLitterId, scope: this.__motherSelected ? "mother" : this._selectedPuppyId ? "puppy" : "litter", puppyId: this._selectedPuppyId };
       if (this.__motherSelected) {
-        await this._hass.callWS({
+        result = await this._hass.callWS({
           type: "puppy_tracker/mother/record/add",
           litter_id: this._selectedLitterId,
           ...payload,
         });
       } else {
-        await addDossierRecord(
+        result = await addDossierRecord(
           this._hass,
           this._selectedLitterId,
           this._selectedPuppyId,
           payload,
         );
       }
-      this._status = text(this._hass, "saved", { owner: this._ownerName });
-      await this._finishDraft();
+      this._status = savedRecordFeedback(this, result, context, presetTitle(this._hass, preset) || recordTypeLabel(this._hass, preset.recordType));
+      await this._finishDraft(true);
     } catch (error) {
       this._saving = false;
       this._error = error?.message || text(this._hass, "saveFailed");
@@ -617,11 +637,19 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
         </div>
         ${this._loading ? `<div class="empty">${escapeHtml(text(this._hass, "loading"))}</div>` : !litter ? `<div class="empty">${escapeHtml(text(this._hass, "noLitter"))}</div>` : `<div class="presets">${presetButtons}</div>${editor}`}
         ${this._error ? `<div class="message error">${escapeHtml(this._error)}</div>` : ""}
-        ${this._status ? `<div class="message status">${escapeHtml(this._status)}</div>` : ""}
+        ${this._status ? `<div class="message status" role="status">${escapeHtml(this._status)} ${savedEditButton(this)}</div>` : ""}
       </ha-card>`;
+
+    this._formState.bind(this.shadowRoot.querySelector(".editor"));
+    const actionStyle = document.createElement("style");
+    actionStyle.textContent = RECORD_ACTION_STYLE;
+    this.shadowRoot.append(actionStyle);
+    this.shadowRoot.querySelector("[data-edit-saved]")?.addEventListener("click", (event) => openRecordEditor(this, this._savedRecord, { trigger: event.currentTarget }));
+    this.shadowRoot.querySelectorAll("#owner-select,#litter-select").forEach((select) => { select.disabled = !litter || this._saving; });
 
     this.shadowRoot.getElementById("litter-select")?.addEventListener("change", (event) => {
       if (requestLitterChange(this, event.target.value)) this._selectLitter(event.target.value);
+      else event.target.value = this._selectedLitterId;
     });
     this.shadowRoot.getElementById("owner-select")?.addEventListener("change", (event) => this._selectOwner(event.target.value));
     this.shadowRoot.querySelectorAll("[data-preset]").forEach((button) => button.addEventListener("click", () => {

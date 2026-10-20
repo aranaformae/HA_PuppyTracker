@@ -51,6 +51,11 @@ test("deleting an edited reminder closes the editor without recreating it", asyn
   await expect(card.locator(".item")).toHaveCount(1);
   await card.locator("button.edit").click();
   await expect(card.locator("#save-reminder")).toBeVisible();
+  page.once("dialog", (dialog) => dialog.dismiss());
+  await card.locator("#delete-reminder").click();
+  await expect(card.locator(".item")).toHaveCount(1);
+  await expect(card.locator("#save-reminder")).toBeVisible();
+  page.once("dialog", (dialog) => dialog.accept());
   await card.locator("#delete-reminder").click();
 
   await expect(card.locator(".item")).toHaveCount(0);

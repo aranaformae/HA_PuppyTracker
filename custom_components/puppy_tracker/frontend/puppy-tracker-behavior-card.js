@@ -1,3 +1,4 @@
+import { FormState, savedRecordFeedback, savedEditButton } from "./puppy-tracker-form-state.js";
 import {
   puppySelectorLabel,
   addDossierRecord,
@@ -66,6 +67,7 @@ class PuppyTrackerBehaviorCard extends HTMLElement {
     this._selectedLitterId = null;
     this._selectedPuppyId = null;
     this._editing = null;
+    this._formState = new FormState(this, { preserve: false });
     this._loading = false;
     this._saving = false;
     this._error = "";
@@ -174,6 +176,7 @@ class PuppyTrackerBehaviorCard extends HTMLElement {
   }
 
   async _cancelEditor() {
+    if (!this._formState.discard()) return;
     this._editing = null;
     this._error = "";
     if (this._refreshDeferred) {
@@ -185,11 +188,15 @@ class PuppyTrackerBehaviorCard extends HTMLElement {
   }
 
   async _changeLitter(litterId) {
+    if (!requestLitterChange(this, litterId)) {
+      const select = this.shadowRoot.getElementById("behavior-litter");
+      if (select) select.value = this._selectedLitterId;
+      return;
+    }
     this._selectedLitterId = litterId;
     this._selectedPuppyId = null;
     this._editing = null;
     this._refreshDeferred = false;
-    requestLitterChange(this, litterId);
     try {
       await this._loadData();
       this._error = "";
@@ -200,6 +207,7 @@ class PuppyTrackerBehaviorCard extends HTMLElement {
   }
 
   async _changePuppy(puppyId) {
+    if (!this._formState.discard()) { this.shadowRoot.getElementById("behavior-puppy").value = this._selectedPuppyId || ""; return; }
     this._selectedPuppyId = puppyId || null;
     this._editing = null;
     if (this._refreshDeferred) {
@@ -222,9 +230,9 @@ class PuppyTrackerBehaviorCard extends HTMLElement {
     if (!this._editing || this._saving || !this._selectedPuppyId) return;
     this._captureInputs();
     const scores = Object.fromEntries(Object.entries(this._editing.scores).filter(([, value]) => Number.isInteger(Number(value)) && Number(value) >= 1 && Number(value) <= 5).map(([key, value]) => [key, Number(value)]));
-    if (!Object.keys(scores).length) { this._error = text(this, "noScores"); this._render(); return; }
+    if (!Object.keys(scores).length) { this._error = text(this, "noScores"); this._render(); this._formState.error("[data-score-key]", this._error); return; }
     const occurred = new Date(this._editing.occurred_at);
-    if (!Number.isFinite(occurred.getTime())) { this._error = text(this, "invalidDate"); this._render(); return; }
+    if (!Number.isFinite(occurred.getTime())) { this._error = text(this, "invalidDate"); this._render(); this._formState.error("#behavior-occurred_at", this._error); return; }
     const puppy = this._selectedPuppy();
     const ageDays = behaviorAgeDays(puppy?.birth_time || this._data?.litter?.birth_date, occurred);
     const payload = {
@@ -240,9 +248,11 @@ class PuppyTrackerBehaviorCard extends HTMLElement {
       },
     };
     this._saving = true;
+    this._render();
     try {
-      await addDossierRecord(this._hass, this._selectedLitterId, this._selectedPuppyId, payload);
-      this._status = text(this, "saved");
+      const result = await addDossierRecord(this._hass, this._selectedLitterId, this._selectedPuppyId, payload);
+      this._status = savedRecordFeedback(this, result, { litterId: this._selectedLitterId, scope: "puppy", puppyId: this._selectedPuppyId }, languageForHass(this._hass) === "en" ? "Behavior observation" : "Gedragsobservatie");
+      this._formState.reset();
       this._editing = null;
       this._error = "";
       await this._loadData(false);
@@ -299,6 +309,12 @@ class PuppyTrackerBehaviorCard extends HTMLElement {
     </style><div class="head"><div><div class="title">${escapeHtml(this._config.title || text(this, "title"))}</div><div class="subtitle">${escapeHtml(text(this, "subtitle"))}</div></div><div class="selectors">${this._config.show_litter_selector === false ? "" : `<label>${escapeHtml(text(this, "litter"))}<select id="behavior-litter">${litterOptions}</select></label>`}<label>${escapeHtml(text(this, "puppy"))}<select id="behavior-puppy" ${puppyOptions ? "" : "disabled"}><option value="">${escapeHtml(text(this, "choosePuppy"))}</option>${puppyOptions}</select></label></div></div>${this._error ? `<div class="error">${escapeHtml(this._error)}</div>` : ""}${this._status ? `<div class="status">${escapeHtml(this._status)}</div>` : ""}${puppy && canEditRecords(this) && !this._editing ? `<div class="toolbar"><button type="button" class="primary" id="behavior-add"><ha-icon icon="mdi:plus"></ha-icon> ${escapeHtml(text(this, "add"))}</button></div>` : ""}${this._renderEditor()}${puppy ? `${profileSection}${historySection}` : `<div class="empty">${escapeHtml(text(this, "choosePuppy"))}</div>`}</ha-card>`;
 
     this.shadowRoot.getElementById("behavior-litter")?.addEventListener("change", (event) => this._changeLitter(event.target.value));
+    this._formState.bind(this.shadowRoot.querySelector(".editor"));
+    this.shadowRoot.querySelector(".editor")?.addEventListener("input", () => this._captureInputs());
+    const status = this.shadowRoot.querySelector(".status");
+    if (status) { status.setAttribute("role", "status"); status.insertAdjacentHTML("beforeend", savedEditButton(this)); }
+    status?.querySelector("[data-edit-saved]")?.addEventListener("click", (event) => openRecordEditor(this, this._savedRecord, { trigger: event.currentTarget }));
+    this.shadowRoot.querySelectorAll("#behavior-litter,#behavior-puppy").forEach((select) => { select.disabled = this._saving; });
     this.shadowRoot.getElementById("behavior-puppy")?.addEventListener("change", (event) => this._changePuppy(event.target.value));
     this.shadowRoot.getElementById("behavior-add")?.addEventListener("click", () => this._startEditor());
     this.shadowRoot.getElementById("behavior-cancel")?.addEventListener("click", () => this._cancelEditor());

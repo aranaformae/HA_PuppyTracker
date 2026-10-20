@@ -1,3 +1,4 @@
+import { FormState } from "./puppy-tracker-form-state.js";
 import {
   puppySelectorLabel,
   addDossierRecord, changeDossierRecordOwner, deleteDossierRecord, deleteMotherDossierRecord,
@@ -16,6 +17,10 @@ let activeEditor = null;
 
 export function closeRecordEditor(card) {
   if (activeEditor?._card === card) activeEditor._close(false);
+}
+
+export function requestCloseRecordEditor(card) {
+  return !activeEditor || activeEditor._card !== card || activeEditor.requestClose();
 }
 
 export function canEditRecords(card) {
@@ -105,6 +110,7 @@ class PuppyTrackerRecordEditor extends HTMLElement {
     this._busy = false;
     this._closed = false;
     this._record = null;
+    this._formState = new FormState(this, { preserve: false, busy: () => this._busy });
   }
 
   configure(card, context, options) {
@@ -176,6 +182,7 @@ class PuppyTrackerRecordEditor extends HTMLElement {
   _close(saved) {
     if (this._closed) return;
     this._closed = true;
+    this._formState.reset();
     this._dialog.close();
     this.remove();
     if (this._previousFocus?.isConnected) this._previousFocus.focus({ preventScroll: true });
@@ -211,6 +218,7 @@ class PuppyTrackerRecordEditor extends HTMLElement {
     const body = this.shadowRoot.querySelector(".body");
     body.innerHTML = `<form><label>${escape(copy(this._hass, "Gewicht (g)", "Weight (g)"))}<input id="measurement-weight" type="number" min="1" max="10000" step="any" required value="${escape(this._draft.weight)}"></label><label>${escape(localize(this._hass, "dateAndTime"))}<input id="measurement-time" type="datetime-local" step="1" required value="${escape(this._draft.occurred_at)}"></label><label>${escape(copy(this._hass, "Reden voor correctie", "Reason for correction"))}<input id="measurement-reason"></label><div class="error" role="alert" hidden></div><div class="actions"><button type="button" id="record-cancel">${escape(localize(this._hass, "cancel"))}</button><button type="submit" class="primary" id="record-save">${escape(copy(this._hass, "Correctie opslaan", "Save correction"))}</button></div></form>`;
     body.querySelector("form").addEventListener("input", () => { this._dirty = true; });
+    this._formState.bind(body.querySelector("form"));
     body.querySelector("#record-cancel").addEventListener("click", () => this.requestClose());
     body.querySelector("form").addEventListener("submit", (event) => { event.preventDefault(); this._save(); });
     body.querySelector("input").focus({ preventScroll: true });
@@ -260,6 +268,7 @@ class PuppyTrackerRecordEditor extends HTMLElement {
       <div class="error" role="alert" hidden></div><div class="actions"><button type="button" id="record-cancel">${escape(localize(this._hass, "cancel"))}</button><button type="submit" class="primary" id="record-save">${escape(label)}</button></div></form>`;
     body.querySelector("form").addEventListener("input", () => { this._dirty = true; });
     body.querySelector("form").addEventListener("change", () => { this._dirty = true; });
+    this._formState.bind(body.querySelector("form"));
     body.querySelector("#record-type")?.addEventListener("change", (event) => { this._capture(); this._draft.record_type = event.target.value; this._renderForm(); });
     body.querySelector("#record-cancel").addEventListener("click", () => this.requestClose());
     body.querySelector("form").addEventListener("submit", (event) => { event.preventDefault(); this._save(); });
@@ -268,6 +277,7 @@ class PuppyTrackerRecordEditor extends HTMLElement {
 
   async _save() {
     if (this._busy || this._closed) return;
+    this._formState.clearErrors();
     const error = this.shadowRoot.querySelector(".error");
     if (this._mode !== "measurement") this._capture();
     try {
@@ -276,7 +286,7 @@ class PuppyTrackerRecordEditor extends HTMLElement {
       const data = structuredClone(this._draft.data || {});
       const occurred = new Date(this._draft.occurred_at);
       if (["add", "edit"].includes(this._mode)) {
-        if (!Number.isFinite(occurred.getTime())) throw new Error(localize(this._hass, "invalidDateTime"));
+        if (!Number.isFinite(occurred.getTime())) { this._formState.error("#record-occurred", localize(this._hass, "invalidDateTime")); throw new Error(localize(this._hass, "invalidDateTime")); }
         for (const key of KNOWN_DATA_KEYS) delete data[key];
         for (const field of TYPE_FIELDS[this._draft.record_type] || []) {
           const value = String(this._draft.data[field.key] ?? "").trim();
@@ -287,7 +297,11 @@ class PuppyTrackerRecordEditor extends HTMLElement {
           data.care_result = String(data.care_result || "").trim() || null;
         }
         const validation = requiredFieldsMessage(this._hass, this._draft.record_type, data);
-        if (validation) throw new Error(validation);
+        if (validation) {
+          const field = (TYPE_FIELDS[this._draft.record_type] || []).find((item) => item.required && !data[item.key]);
+          if (field) this._formState.error(`#record-data-${field.key}`, validation);
+          throw new Error(validation);
+        }
         if (this._draft.record_type === "behavior_observation" && !Object.keys(data.scores || {}).length) throw new Error(behaviorText({ _hass: this._hass }, "noScores"));
         if (this._draft.record_type === "behavior_observation") {
           const source = this._card._litterData || this._card._data;

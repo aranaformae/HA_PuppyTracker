@@ -1,3 +1,4 @@
+import { FormState, appendEditAction } from "./puppy-tracker-form-state.js";
 import {
   escapeHtml,
   fetchLitters,
@@ -66,6 +67,8 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
     this._error = "";
     this._unsubscribe = null;
     this._query = "";
+    this._formState = new FormState(this, { repeat: "#age-instruction-list" });
+    this._status = "";
   }
 
   static getStubConfig() { return { title: "", show_litter_selector: true, show_disabled: true, max_items: 50, compact: false, sort_order: "schedule" }; }
@@ -201,50 +204,63 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
   }
 
   async _save() {
+    if (this._saving) return;
+    this._formState.clearErrors();
     const data = this._captureEditor();
     if (!data?.title) {
       this._error = t(this, "Geef het zorgprogramma een naam.", "Give the care program a name.");
       this._render();
+      this._formState.error("#care-title", this._error);
       return;
     }
     if (!Number.isInteger(data.start_age_days) || data.start_age_days < 0 || data.start_age_days > 3650) {
       this._error = t(this, "De startleeftijd moet tussen 0 en 3650 dagen liggen.", "Start age must be between 0 and 3650 days.");
       this._render();
+      this._formState.error("#care-start", this._error);
       return;
     }
     if (data.schedule_type === "range" && data.end_age_days < data.start_age_days) {
       this._error = t(this, "De eindleeftijd moet gelijk aan of later zijn dan de startleeftijd.", "End age must be equal to or later than start age.");
       this._render();
+      this._formState.error("#care-end", this._error);
       return;
     }
-    if (data.schedule_type === "range" && (!Number.isInteger(data.end_age_days) || data.end_age_days > 3650 || data.interval_days < 1)) {
+    if (data.schedule_type === "range" && (!Number.isInteger(data.end_age_days) || data.end_age_days > 3650 || !Number.isInteger(data.interval_days) || data.interval_days < 1)) {
       this._error = t(this, "Controleer eindleeftijd en herhalingsinterval.", "Check the end age and repeat interval.");
       this._render();
+      this._formState.error("#care-interval", this._error);
       return;
     }
     if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(data.time_of_day || ""))) {
       this._error = t(this, "Vul een geldig tijdstip in.", "Enter a valid time.");
       this._render();
+      this._formState.error("#care-time", this._error);
       return;
     }
     if (data.notification_lead_minutes != null && (!Number.isInteger(data.notification_lead_minutes) || data.notification_lead_minutes < 0 || data.notification_lead_minutes > 10080)) {
       this._error = t(this, "De meldingstijd moet tussen 0 en 10080 minuten liggen.", "Notification lead time must be between 0 and 10080 minutes.");
       this._render();
+      this._formState.error("#care-lead-minutes", this._error);
       return;
     }
 
     this._saving = true;
     this._render();
     try {
-      if (this._editing?.id) {
-        await this._hass.callWS({
+      let result;
+      const editingId = this._editing?.id;
+      if (editingId) {
+        result = await this._hass.callWS({
           type: "puppy_tracker/care_program/update",
           program_id: this._editing.id,
           ...data,
         });
       } else {
-        await this._hass.callWS({ type: "puppy_tracker/care_program/create", ...data });
+        result = await this._hass.callWS({ type: "puppy_tracker/care_program/create", ...data });
       }
+      this._lastSavedId = result?.program_id || editingId;
+      this._status = t(this, `Zorgprogramma opgeslagen: ${data.title}.`, `Care program saved: ${data.title}.`);
+      this._formState.reset();
       this._showEditor = false;
       this._editing = null;
       await this._loadCurrent();
@@ -257,14 +273,22 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
   }
 
   async _delete(id) {
-    if (!id) return;
+    if (!id || this._saving || !window.confirm(t(this, "Dit zorgprogramma verwijderen?", "Delete this care program?"))) return;
+    this._saving = true;
+    this._render();
     try {
       await this._hass.callWS({ type: "puppy_tracker/care_program/delete", program_id: id });
       this._showEditor = false;
       this._editing = null;
+      this._formState.reset();
+      this._status = "";
+      this._lastSavedId = null;
       await this._loadCurrent();
     } catch (error) {
       this._error = error?.message || t(this, "Zorgprogramma kon niet worden verwijderd.", "Care program could not be deleted.");
+      this._render();
+    } finally {
+      this._saving = false;
       this._render();
     }
   }
@@ -272,6 +296,7 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
   _applyTemplate(templateId) {
     const template = this._templates.find((item) => item.id === templateId);
     if (!template) return;
+    if (!this._formState.discard()) { this.shadowRoot.getElementById("care-template").value = ""; return; }
     this._editing = { ...template, id: null, litter_id: this._selectedLitterId };
     this._error = "";
     this._render();
@@ -336,6 +361,7 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
 
   _render() {
     if (!this.shadowRoot) return;
+    this._formState.capture();
     const draft = this._draft();
     const isAdmin = Boolean(this._hass?.user?.is_admin);
     const selector = this._config.show_litter_selector !== false && this._litters.length > 1
@@ -412,14 +438,17 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
       ${list}${editor}${this._error ? `<div class="error">${escapeHtml(this._error)}</div>` : ""}
       </ha-card>`;
 
+    this.shadowRoot.getElementById("care-template")?.setAttribute("data-draft-ignore", "");
+    this._formState.bind(this.shadowRoot.querySelector(".editor"));
     this.shadowRoot.getElementById("litter-select")?.addEventListener("change", async (event) => {
-      if (!requestLitterChange(this, event.target.value)) return;
+      if (!requestLitterChange(this, event.target.value)) { event.target.value = this._selectedLitterId; return; }
       this._selectedLitterId = event.target.value;
       this._showEditor = false;
       this._editing = null;
       await this._loadCurrent();
     });
     this.shadowRoot.getElementById("add-program")?.addEventListener("click", () => {
+      if (!this._formState.discard()) return;
       this._editing = null;
       this._showEditor = true;
       this._render();
@@ -432,6 +461,7 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
       this._render();
     });
     this.shadowRoot.querySelectorAll(".edit").forEach((button) => button.addEventListener("click", () => {
+      if (!this._formState.discard()) return;
       this._editing = this._programs.find((item) => item.id === button.dataset.id) || null;
       this._showEditor = true;
       this._render();
@@ -441,6 +471,7 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
       if (program) this._saveAsTemplate(program);
     }));
     this.shadowRoot.getElementById("cancel-program")?.addEventListener("click", () => {
+      if (!this._formState.discard()) return;
       this._showEditor = false;
       this._editing = null;
       this._error = "";
@@ -479,6 +510,21 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
     };
     this.shadowRoot.getElementById("care-schedule-type")?.addEventListener("change", syncSchedule);
     syncSchedule();
+    this.shadowRoot.querySelectorAll("#litter-select,#add-program,.edit,.save-template").forEach((button) => { button.disabled = this._saving; });
+    if (this._status) {
+      const status = document.createElement("div");
+      status.setAttribute("role", "status");
+      status.textContent = this._status;
+      if (this._lastSavedId) {
+        appendEditAction(this, status, () => {
+          if (!this._formState.discard()) return;
+          this._editing = this._programs.find((item) => item.id === this._lastSavedId) || null;
+          this._showEditor = Boolean(this._editing);
+          this._render();
+        });
+      }
+      this.shadowRoot.querySelector("ha-card").append(status);
+    }
   }
 }
 

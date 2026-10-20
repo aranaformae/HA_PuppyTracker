@@ -233,7 +233,11 @@ test("temperature editor keeps text and focus through a live update", async ({ p
   await page.evaluate(async () => { for (const cb of window.updateCallbacks) await cb({}); });
   await expect(card.locator("#temperature-note")).toHaveValue("Keep this observation");
   await expect(card.locator("#temperature-note")).toBeFocused();
-  await expect(card.locator("#scope-select")).toBeDisabled();
+  await expect(card.locator("#scope-select")).toBeEnabled();
+  page.once("dialog", (dialog) => dialog.dismiss());
+  await card.locator("#scope-select").selectOption("mother");
+  await expect(card.locator("#scope-select")).toHaveValue("puppy");
+  await expect(card.locator("#temperature-note")).toHaveValue("Keep this observation");
   await card.locator('button[type="submit"]').click();
   await expect.poll(() => page.evaluate(() => window.calls.find(c => c.type.endsWith("/record/add")))).toMatchObject({ puppy_id: "p1", note: "Keep this observation", data: { temperature_c: 38.6 } });
 });

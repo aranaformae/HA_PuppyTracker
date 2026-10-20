@@ -1,3 +1,4 @@
+import { FormState } from "./puppy-tracker-form-state.js";
 import {
   puppySelectorLabel,
   escapeHtml,
@@ -181,6 +182,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
     this._refreshDeferred = false;
     this._searchQuery = "";
     this._profileEditing = false;
+    this._formState = new FormState(this);
     this._timelineItemsVisible = null;
     this.__allSelected = false;
     this.__motherSelected = false;
@@ -468,6 +470,10 @@ class PuppyTrackerDossierCard extends HTMLElement {
   }
 
   async _selectOwner(value) {
+    if (!this._formState.discard()) {
+      this.shadowRoot.getElementById("owner-select").value = this.__allSelected ? ALL_OWNER : this.__motherSelected ? MOTHER_OWNER : this._selectedPuppyId || LITTER_OWNER;
+      return;
+    }
     this.__allSelected = value === ALL_OWNER;
     this.__motherSelected = value === MOTHER_OWNER;
     this._selectedPuppyId = [ALL_OWNER, LITTER_OWNER, MOTHER_OWNER].includes(value) ? null : value;
@@ -668,6 +674,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
         );
       }
       this._profileEditing = false;
+      this._formState.reset();
       this._status = localize(this._hass, "profileNoteSaved");
       this._saving = false;
       await this._loadLitterAndRecords(false);
@@ -936,7 +943,9 @@ class PuppyTrackerDossierCard extends HTMLElement {
       this._render();
     });
     this.shadowRoot.getElementById("profile-edit")?.addEventListener("click", () => this._startProfileEdit());
+    this._formState.bind(this._profileEditing ? this.shadowRoot.querySelector(".profile-panel") : null);
     this.shadowRoot.getElementById("profile-cancel")?.addEventListener("click", async () => {
+      if (!this._formState.discard()) return;
       this._profileEditing = false;
       this._render();
       if (this._refreshDeferred) {

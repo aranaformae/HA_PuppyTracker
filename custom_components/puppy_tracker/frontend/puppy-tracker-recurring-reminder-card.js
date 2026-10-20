@@ -1,3 +1,4 @@
+import { FormState, appendEditAction } from "./puppy-tracker-form-state.js";
 import {
   puppySelectorLabel,
   escapeHtml,
@@ -68,6 +69,8 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
     this._unsubscribe = null;
     this._loadSequence = 0;
     this._deletedReminderIds = new Set();
+    this._formState = new FormState(this);
+    this._status = "";
   }
 
   static getStubConfig() { return { title: "", show_litter_selector: true }; }
@@ -210,7 +213,7 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
       schedule_mode: root.getElementById("rem-mode")?.value || "interval",
       interval_minutes: Number(root.getElementById("rem-interval")?.value || 0),
       fixed_times: String(root.getElementById("rem-times")?.value || "").split(",").map((v) => v.trim()).filter(Boolean),
-      due_at: root.getElementById("rem-due")?.value ? new Date(root.getElementById("rem-due").value).toISOString() : undefined,
+      due_at: Number.isFinite(new Date(root.getElementById("rem-due")?.value || "").getTime()) ? new Date(root.getElementById("rem-due").value).toISOString() : undefined,
       enabled: Boolean(root.getElementById("rem-enabled")?.checked),
       notification_lead_minutes: root.getElementById("rem-lead-minutes")?.value === ""
         ? null
@@ -219,40 +222,52 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
   }
 
   async _save() {
+    if (this._saving) return;
+    this._formState.clearErrors();
     const data = this._captureEditor();
     if (!data || !data.title) {
       this._error = t(this, "Geef de herinnering een naam.", "Give the reminder a name.");
       this._render();
+      this._formState.error("#rem-title", this._error);
       return;
     }
     if (data.schedule_mode === "interval" && (!Number.isInteger(data.interval_minutes) || data.interval_minutes < 1)) {
       this._error = t(this, "Vul een geldig interval in.", "Enter a valid interval.");
       this._render();
+      this._formState.error("#rem-interval", this._error);
       return;
     }
     if (data.schedule_mode === "fixed_times" && (!data.fixed_times.length || data.fixed_times.some((value) => !/^([01]\d|2[0-3]):[0-5]\d$/.test(value)))) {
       this._error = t(this, "Gebruik geldige tijden in HH:MM-notatie.", "Use valid times in HH:MM format.");
       this._render();
+      this._formState.error("#rem-times", this._error);
       return;
     }
     if (data.schedule_mode === "once" && !data.due_at) {
       this._error = t(this, "Kies een datum en tijd.", "Choose a date and time.");
       this._render();
+      this._formState.error("#rem-due", this._error);
       return;
     }
     if (data.notification_lead_minutes != null && (!Number.isInteger(data.notification_lead_minutes) || data.notification_lead_minutes < 0 || data.notification_lead_minutes > 10080)) {
       this._error = t(this, "De meldingstijd moet tussen 0 en 10080 minuten liggen.", "Notification lead time must be between 0 and 10080 minutes.");
       this._render();
+      this._formState.error("#rem-lead-minutes", this._error);
       return;
     }
     this._saving = true;
     this._render();
     try {
-      if (this._editing?.id) {
-        await this._hass.callWS({ type: "puppy_tracker/recurring_reminder/update", reminder_id: this._editing.id, ...data });
+      let result;
+      const editingId = this._editing?.id;
+      if (editingId) {
+        result = await this._hass.callWS({ type: "puppy_tracker/recurring_reminder/update", reminder_id: editingId, ...data });
       } else {
-        await this._hass.callWS({ type: "puppy_tracker/recurring_reminder/create", ...data });
+        result = await this._hass.callWS({ type: "puppy_tracker/recurring_reminder/create", ...data });
       }
+      this._lastSavedId = result?.reminder_id || editingId;
+      this._status = t(this, `Herinnering opgeslagen: ${data.title}.`, `Reminder saved: ${data.title}.`);
+      this._formState.reset();
       this._showEditor = false;
       this._editing = null;
       await this._loadCurrent();
@@ -265,7 +280,7 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
   }
 
   async _delete(id) {
-    if (!id || this._saving) return;
+    if (!id || this._saving || !window.confirm(t(this, "Deze herinnering verwijderen?", "Delete this reminder?"))) return;
     const reminderId = String(id);
     this._saving = true;
     this._error = "";
@@ -273,6 +288,9 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
     try {
       await this._hass.callWS({ type: "puppy_tracker/recurring_reminder/delete", reminder_id: reminderId });
       this._deletedReminderIds.add(reminderId);
+      this._formState.reset();
+      this._status = "";
+      this._lastSavedId = null;
       this._editing = null;
       this._showEditor = false;
       await this._loadCurrent();
@@ -285,6 +303,7 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
   }
 
   _render() {
+    this._formState.capture();
     if (!this.shadowRoot) return;
     const draft = this._draft();
     const owners = this._owners();
@@ -332,15 +351,17 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
       <div class="top"><div class="title">${escapeHtml(this._config.title || t(this,"Herinneringen","Reminders"))}</div><div class="controls">${selector}<button class="primary" id="add-reminder">+ ${escapeHtml(t(this,"Toevoegen","Add"))}</button></div></div>
       ${this._error ? `<div class="error">${escapeHtml(this._error)}</div>` : ""}${list}${editor}</ha-card>`;
 
+    this._formState.bind(this.shadowRoot.querySelector(".editor"));
     this.shadowRoot.getElementById("litter-select")?.addEventListener("change", async (event) => {
-      if (!requestLitterChange(this, event.target.value)) return;
+      if (!requestLitterChange(this, event.target.value)) { event.target.value = this._selectedLitterId; return; }
       this._selectedLitterId = event.target.value; this._editing = null; this._showEditor = false; await this._loadCurrent();
     });
-    this.shadowRoot.getElementById("add-reminder")?.addEventListener("click", () => { this._editing = null; this._showEditor = true; this._render(); });
+    this.shadowRoot.getElementById("add-reminder")?.addEventListener("click", () => { if (!this._formState.discard()) return; this._editing = null; this._showEditor = true; this._render(); });
     this.shadowRoot.querySelectorAll("button.edit").forEach((button) => button.addEventListener("click", () => {
+      if (!this._formState.discard()) return;
       this._editing = this._items.find((item) => item.id === button.dataset.id) || null; this._showEditor = true; this._render();
     }));
-    this.shadowRoot.getElementById("cancel-reminder")?.addEventListener("click", () => { this._editing = null; this._showEditor = false; this._render(); });
+    this.shadowRoot.getElementById("cancel-reminder")?.addEventListener("click", () => { if (!this._formState.discard()) return; this._editing = null; this._showEditor = false; this._render(); });
     this.shadowRoot.getElementById("save-reminder")?.addEventListener("click", () => this._save());
     this.shadowRoot.getElementById("delete-reminder")?.addEventListener("click", () => this._delete(this._editing?.id));
     this.shadowRoot.getElementById("rem-mode")?.addEventListener("change", () => {
@@ -349,6 +370,21 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
     });
     const mode = this.shadowRoot.getElementById("rem-mode")?.value;
     this.shadowRoot.querySelectorAll(".mode").forEach((el) => { el.style.display = el.classList.contains(mode) ? "grid" : "none"; });
+    this.shadowRoot.querySelectorAll("#litter-select,#add-reminder,button.edit").forEach((button) => { button.disabled = this._saving; });
+    if (this._status) {
+      const status = document.createElement("div");
+      status.setAttribute("role", "status");
+      status.textContent = this._status;
+      if (this._lastSavedId) {
+        appendEditAction(this, status, () => {
+          if (!this._formState.discard()) return;
+          this._editing = this._items.find((item) => item.id === this._lastSavedId) || null;
+          this._showEditor = Boolean(this._editing);
+          this._render();
+        });
+      }
+      this.shadowRoot.querySelector("ha-card").append(status);
+    }
   }
 }
 

@@ -64,9 +64,16 @@ that category's older owner. Saving, cancelling and background refreshes do not
 reapply a configured default puppy. The same rules apply in Journal and Mobile.
 
 The draft keeps its timestamp, note and category-specific fields when switching
-categories. Finish or cancel it before changing owner or litter: either of those
-changes closes the current Quick Log form. Background data updates wait while
-the form is active. Browser-local remembered owners are not included in backups.
+categories. Changing owner or litter, or cancelling a changed form, asks before
+discarding entered values. Declining keeps both the original selection and the
+draft. An untouched form closes without that extra confirmation. Background
+data updates wait while the form is active. Browser-local remembered owners
+are not included in backups.
+
+After a successful save, the confirmation names the category and owner, including
+the puppy's collar colour where available. Its pencil opens the exact saved
+record for a quick correction. A failed save keeps all entered values for retry;
+known validation errors are shown beside the relevant input.
 
 Quick Log creates entries; it is not an editor for saved records. Use a pencil
 in one of the history views described above to correct an existing entry.
@@ -185,6 +192,10 @@ csv_delimiter: comma
 The create/edit form starts collapsed. Select **Add owner** or edit an existing
 contact to expose it. Clicking an owner row expands the complete stored details,
 including long notes.
+Changing or closing a modified contact form asks before discarding it. A failed
+save or another card redraw retains contact, preference, payment and note inputs.
+The save confirmation names the contact and offers a pencil to reopen it. These
+drafts stay in memory only; they are not auto-saved contacts or backup data.
 
 Contact fields include:
 

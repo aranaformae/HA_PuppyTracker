@@ -42,6 +42,7 @@ The current suite covers the main backend, frontend contract and browser flows.
 | Dossier and Timeline Playwright specs | Search across full loaded scope, shared matching rules, focus retention during updates, and owner-safe editing of searched results |
 | `tests/e2e/record-editor.spec.mjs` | Shared saved-item dialogs, exact source-owner routing, aggregate views, care/behavior fields, measurement corrections, delete/move/restore, failed-save drafts and focus/scroll retention |
 | `tests/e2e/quick-log.spec.mjs` | Exact-owner logging, category drafts, manual selection over remembered owners, initial defaults that do not reset on refresh and queued live updates |
+| `tests/e2e/form-workflows.spec.mjs` | Changed versus untouched drafts, cancelled discard, failed-save retention across logging/contact/scheduler/profile forms, exact saved-item edit actions, inline validation, busy navigation and hidden drafts during litter changes |
 
 The Python tests protect backend behavior and frontend architecture contracts. Playwright owns observable Lovelace-card behavior. Browser-independent flows run once in desktop Chromium; tagged registration/render smoke tests also run in iPhone WebKit, mobile workflows run in iPhone WebKit, and scroll-stability checks run on iPhone plus both iPad orientations. HACS installation and Home Assistant Companion App push behavior still require manual release testing.
 
@@ -123,6 +124,9 @@ The runner prefers the repository's `.venv` interpreter even without shell
 activation; install dependencies there rather than in the system Python.
 Hassfest and HACS validation run separately in GitHub Actions. CI runs browser
 tests with one worker, compared with two locally, so timings can differ.
+`scripts/serve-test-fixtures.py` binds only to localhost and provides a larger
+connection queue for concurrent module loads. A reset test-server connection
+must not be mistaken for an unregistered production card.
 
 Run only the browser suite with:
 

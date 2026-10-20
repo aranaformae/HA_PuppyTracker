@@ -150,7 +150,8 @@ test("bulk care review blocks missing required product fields", async ({ page })
   await card.locator("#select-all").click();
   await card.locator("#bulk-review").click();
 
-  await expect(card.getByText(/Complete the required field\(s\): Product/)).toBeVisible();
+  await expect(card.locator("#bulk-data-product")).toHaveAttribute("aria-invalid", "true");
+  await expect(card.locator("#bulk-data-product-error")).toContainText("Complete the required field(s): Product");
   await expect(card.getByText("Review bulk entry", { exact: true })).toHaveCount(0);
   expect(await recordAddCalls(page)).toHaveLength(0);
 });

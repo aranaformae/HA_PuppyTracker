@@ -1,4 +1,5 @@
 import { puppySelectorLabel, downloadExportFile, escapeHtml, languageForHass } from "./puppy-tracker-card-common.js";
+import { FormState, appendEditAction } from "./puppy-tracker-form-state.js";
 import { collarColor } from "./puppy-tracker-collar-chart-colors.js";
 
 const TAG = "puppy-tracker-owner-card";
@@ -366,6 +367,8 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     this._loaded = false;
     this._loading = false;
     this._busy = false;
+    this._formState = new FormState(this);
+    this._linkFormState = new FormState(this);
   }
 
   static getStubConfig() { return { title: "", default_view: "owners", csv_delimiter: "comma" }; }
@@ -399,6 +402,8 @@ class PuppyTrackerOwnerCard extends HTMLElement {
   set hass(value) {
     this._hass = value;
     if (value?.user?.is_admin === false) {
+      this._formState.reset();
+      this._linkFormState.reset();
       this._owners = [];
       this._puppies = [];
       this._litters = [];
@@ -468,7 +473,22 @@ class PuppyTrackerOwnerCard extends HTMLElement {
 
   async _save(form) {
     if (this._busy) return;
+    this._formState.clearErrors();
     const data = Object.fromEntries(new FormData(form).entries());
+    for (const field of ["payment_amount", "registration_fee_amount", "deposit_amount", "payment_balance"]) {
+      if (!String(data[field] || "").trim()) continue;
+      const amount = numericAmount(data[field]);
+      if (amount === null || amount < 0) {
+        this._formState.error(`[name="${field}"]`, languageForHass(this._hass) === "en" ? "Enter a valid non-negative amount." : "Vul een geldig bedrag van nul of hoger in.");
+        return;
+      }
+    }
+    const total = numericAmount(data.payment_amount);
+    const paidCents = Math.round(((numericAmount(data.registration_fee_amount) || 0) + (numericAmount(data.deposit_amount) || 0) + Number.EPSILON) * 100);
+    if (total !== null && paidCents > Math.round((total + Number.EPSILON) * 100)) {
+      this._formState.error('[name="deposit_amount"]', languageForHass(this._hass) === "en" ? "Registration fee and deposit cannot exceed the total amount." : "Inschrijfgeld en aanbetaling mogen samen niet hoger zijn dan het totaalbedrag.");
+      return;
+    }
     const puppyPreferences = [];
     const selectedPuppies = new Set();
     let hasEmptyEarlierPreference = false;
@@ -507,11 +527,14 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     if (this._editing) data.owner_id = this._editing;
     this._busy = true;
     this._error = "";
+    this._render();
     try {
-      await this._hass.callWS({ type: "puppy_tracker/owners/save", ...data });
+      const result = await this._hass.callWS({ type: "puppy_tracker/owners/save", ...data });
+      this._lastSavedOwnerId = result?.owner?.id || this._editing;
+      this._formState.reset();
       this._editing = null;
       this._showOwnerEditor = false;
-      this._status = text(this, "saved");
+      this._status = `${text(this, "saved")} ${data.name || ""}`;
       this._loaded = false;
       await this._load();
     } catch (error) {
@@ -526,9 +549,12 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     if (this._busy || !window.confirm(text(this, "confirmDelete"))) return;
     this._busy = true;
     this._error = "";
+    this._render();
     try {
       await this._hass.callWS({ type: "puppy_tracker/owners/delete", owner_id: id });
+      if (this._editing === id) { this._formState.reset(); this._editing = null; this._showOwnerEditor = false; }
       this._expandedOwnerId = null;
+      this._lastSavedOwnerId = null;
       this._status = text(this, "deleted");
       this._loaded = false;
       await this._load();
@@ -547,8 +573,11 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     const ownerIds = [...this.querySelectorAll("input[name=linked_owner]:checked")].map((input) => input.value);
     this._busy = true;
     this._error = "";
+    this._render();
     try {
       await this._hass.callWS({ type: "puppy_tracker/owners/link", litter_id: puppy.litter_id, puppy_id: puppy.id, owner_ids: ownerIds });
+      this._linkFormState.reset();
+      this._lastSavedOwnerId = null;
       this._status = text(this, "linked");
       this._loaded = false;
       await this._load();
@@ -946,6 +975,8 @@ class PuppyTrackerOwnerCard extends HTMLElement {
   }
 
   _openEditor(ownerId = null) {
+    if (!this._formState.discard()) return;
+    this._lastSavedOwnerId = null;
     this._activeView = "owners";
     this._editing = ownerId;
     this._showOwnerEditor = true;
@@ -1062,6 +1093,8 @@ class PuppyTrackerOwnerCard extends HTMLElement {
 
   _render() {
     if (!this._config) return;
+    this._formState.capture();
+    this._linkFormState.capture();
     if (this._hass?.user?.is_admin === false) {
       this.innerHTML = `<ha-card style="display:block;padding:16px"><div role="status">${escapeHtml(text(this, "adminOnly"))}</div></ha-card>`;
       return;
@@ -1251,12 +1284,19 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       }
     </style>`;
 
+    this._formState.bind(this.querySelector(".owner-editor form"));
+    this._linkFormState.bind(this.querySelector(".link-form .checks"));
+    this._updateFinalPaymentPreview();
+    const savedStatus = this.querySelector("#owner-status");
+    if (this._status && this._lastSavedOwnerId && savedStatus) {
+      appendEditAction(this, savedStatus, () => this._openEditor(this._lastSavedOwnerId), text(this, "editOwner"));
+    }
     this.querySelector(".owner-editor form")?.addEventListener("submit", (event) => { event.preventDefault(); this._save(event.currentTarget); });
     this.querySelector("#export-owners-csv")?.addEventListener("click", () => this._downloadOwnersCsv());
     this.querySelector("#owners-view")?.addEventListener("click", () => this._switchView("owners"));
     this.querySelector("#matrix-view")?.addEventListener("click", () => this._switchView("matrix"));
     this.querySelector("#add-owner")?.addEventListener("click", () => this._openEditor());
-    this.querySelector("#cancel-owner")?.addEventListener("click", () => { this._editing = null; this._showOwnerEditor = false; this._error = ""; this._render(); });
+    this.querySelector("#cancel-owner")?.addEventListener("click", () => { if (!this._formState.discard()) return; this._editing = null; this._showOwnerEditor = false; this._error = ""; this._render(); });
     this.querySelectorAll("[data-toggle-owner]").forEach((button) => button.addEventListener("click", () => { this._expandedOwnerId = this._expandedOwnerId === button.dataset.toggleOwner ? null : button.dataset.toggleOwner; this._render(); }));
     this.querySelectorAll("[data-owner-group]").forEach((group) => group.addEventListener("toggle", () => {
       if (!group.isConnected) return;
@@ -1267,8 +1307,8 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     this.querySelectorAll("[data-edit]").forEach((button) => button.addEventListener("click", () => this._openEditor(button.dataset.edit)));
     this.querySelectorAll("[data-delete]").forEach((button) => button.addEventListener("click", () => this._delete(button.dataset.delete)));
     this.querySelectorAll('input[name="payment_amount"], input[name="registration_fee_amount"], input[name="deposit_amount"]').forEach((input) => input.addEventListener("input", () => this._updateFinalPaymentPreview()));
-    this.querySelector("#link-litter")?.addEventListener("change", (event) => { this._selectedLitter = event.target.value; this._selectedPuppy = ""; this._matrixSelectedPuppy = ""; this._matrixSelection = null; this._render(); });
-    this.querySelector("#link-puppy")?.addEventListener("change", (event) => { this._selectedPuppy = event.target.value; this._render(); });
+    this.querySelector("#link-litter")?.addEventListener("change", (event) => { if (!this._linkFormState.discard()) { event.target.value = this._selectedLitter; return; } this._selectedLitter = event.target.value; this._selectedPuppy = ""; this._matrixSelectedPuppy = ""; this._matrixSelection = null; this._render(); });
+    this.querySelector("#link-puppy")?.addEventListener("change", (event) => { if (!this._linkFormState.discard()) { event.target.value = this._selectedPuppy; return; } this._selectedPuppy = event.target.value; this._render(); });
     this.querySelector("#link-save")?.addEventListener("click", () => this._link());
     this.querySelector("#matrix-litter")?.addEventListener("change", (event) => { this._selectedLitter = event.target.value; this._selectedPuppy = ""; this._matrixSelectedPuppy = ""; this._matrixSelection = null; this._render(); });
     this.querySelector("#matrix-show-resolved")?.addEventListener("change", (event) => { this._matrixShowResolved = event.target.checked; this._matrixSelection = null; this._render(); });

@@ -1,5 +1,5 @@
 import { escapeHtml, languageForHass } from "./puppy-tracker-card-common.js";
-import { findCareOccurrence, openCareResultEditor } from "./puppy-tracker-care-result-editor.js";
+import { findCareOccurrence, openCareResultEditor, renderCareSaveFeedback } from "./puppy-tracker-care-result-editor.js";
 
 function t(card, nl, en) {
   return languageForHass(card?._hass) === "en" ? en : nl;
@@ -186,6 +186,7 @@ export function renderCareExecutionRows(card) {
 }
 
 export function renderTodayCare(card) {
+    renderCareSaveFeedback(card);
     const root = card.shadowRoot;
     if (!root) return;
     const items = openItems(card).filter((item) => ["overdue", "due_today", "upcoming"].includes(item.status));
@@ -204,6 +205,7 @@ export function renderTodayCare(card) {
 }
 
 export function renderAttentionCare(card) {
+    renderCareSaveFeedback(card);
     const root = card.shadowRoot;
     if (!root) return;
     root.querySelectorAll("[data-care-occurrence]").forEach((row) => row.remove());

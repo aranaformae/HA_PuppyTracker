@@ -139,6 +139,31 @@ puppy, metric, period and day controls remain available. The Home Summary has
 no separate nest selector because it follows the Workspace's shared nest
 context.
 
+## Drafts and save feedback
+
+Quick Log, Owners, Temperature, Behavior, profile notes, Bulk Log, Programs,
+Reminders and care-result entry protect entered values. Cancelling or replacing
+a changed form asks before discarding it; empty, untouched forms do not add a
+confirmation step. Failed saves retain the draft, and known validation problems
+appear beside their fields. Save confirmations identify the item or owner;
+saved-record, contact, program and reminder confirmations offer an edit action
+when their saved ID is available. Bulk Log offers edits for successful entries
+while keeping failed puppies selected for retry.
+
+Workspace tab switches retain inline drafts without prompting. A requested
+litter change checks drafts on hidden tabs too and asks once before replacing
+them. A native weighing/entity update does not silently discard a draft or
+reassign it to another owner: that surface keeps its original litter and values.
+Selectors show the actual owner of the draft. Navigation is blocked while its
+save is in progress. Once the retained draft is saved or cancelled, reopening
+its tab follows the current Workspace litter again. Closing a saved-item dialog
+still uses its own discard guard. Deleting a reminder or program asks for confirmation.
+
+Drafts are temporary memory only. They are not added to backups or browser
+storage and do not survive a full page reload or removal of the Workspace.
+This is not automatic dossier/contact saving. Calculator preferences retain
+their separate, existing per-litter automatic-save behavior.
+
 ## Advanced tab configuration
 
 In YAML, use `tab_config` for settings that belong to one internal surface.

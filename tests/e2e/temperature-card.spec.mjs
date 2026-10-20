@@ -52,5 +52,5 @@ test("temperature card shows selected puppy readings and saves a note", async ({
   await card.locator("#temperature-value").fill("38.6");
   await card.locator("#temperature-note").fill("Na voeding");
   await card.locator("form.editor").evaluate((form) => form.requestSubmit());
-  await expect(card.getByText("Temperatuur opgeslagen.", { exact: true })).toBeVisible();
+  await expect(card.locator(".message.success")).toContainText("Temperatuur opgeslagen voor");
 });

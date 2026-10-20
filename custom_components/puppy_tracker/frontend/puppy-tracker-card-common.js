@@ -65,12 +65,15 @@ export function preserveScrollPosition(element, update) {
 
 export function requestLitterChange(element, litterId) {
   if (!element || !litterId) return true;
-  return element.dispatchEvent(new CustomEvent(LITTER_CHANGE_EVENT, {
+  const proceed = element.dispatchEvent(new CustomEvent(LITTER_CHANGE_EVENT, {
     bubbles: true,
     composed: true,
     cancelable: true,
     detail: { litterId },
   }));
+  if (!proceed || (element._formState && !element._formState.confirmDiscard())) return false;
+  element._formState?.reset();
+  return true;
 }
 
 export function announceLitterChange(element, litterId) {

@@ -150,6 +150,27 @@ and call `measurement/correct`, preserving the original version. They never call
 `puppy-tracker-behavior-schema.js`, shared by the specialized observation entry
 surface and the common saved-item editor.
 
+`puppy-tracker-form-state.js` owns shared transient form snapshots, changed-value
+checks, localized discard prompts, field-error presentation and saved-item
+feedback helpers. DOM-owned forms (Owners, Programs, Reminders and profile notes)
+restore their raw field values, including invalid input, after a redraw or failed
+save. Model-owned forms keep their existing draft model and use the helper for
+change tracking and feedback rather than a second editable store. Dynamic
+care-instruction rows are retained with their values. Listener groups are
+aborted on rebinding/reset; there is no global event hook, autosave timer,
+local-storage draft or extra persistent store.
+
+Workspace retains inline drafts when detaching a tab and blocks tab changes
+during a save. Cancelable litter requests inspect every retained child before
+replacing surfaces, with one confirmation for all changed drafts. Noncancelable
+native/entity announcements preserve busy or dirty children under their original
+owner context. Once that draft is finished, reopening its tab resynchronizes
+with the Workspace litter. Repeated same-litter announcements do not rebuild
+surfaces. Backend owner IDs and authorization remain authoritative.
+Saving a form is distinct from refreshing its history, and only successful saves
+clear its draft. The care-result dialog also guards close/replacement and locks
+all its controls while sending its result.
+
 The frontend cards are projections of the same authoritative entities and
 WebSocket data; they must not maintain a second measurement or care-result
 store. The Weighing surface calculates the pre-save comparison from the

@@ -747,7 +747,8 @@ test("vaccination form validates required product and stores enriched structured
   await expect(page.locator("puppy-tracker-record-editor").locator("#record-data-vaccine")).toBeVisible();
 
   await page.locator("puppy-tracker-record-editor").locator("#record-save").click();
-  await expect(page.locator("puppy-tracker-record-editor").getByText(/Complete the required field\(s\): Vaccine/)).toBeVisible();
+  await expect(page.locator("puppy-tracker-record-editor").locator("#record-data-vaccine")).toHaveAttribute("aria-invalid", "true");
+  await expect(page.locator("puppy-tracker-record-editor").locator("#record-data-vaccine-error")).toContainText("Complete the required field(s): Vaccine");
 
   let addCalls = await page.evaluate(() =>
     window.__dossierCalls.filter((call) => call.type === "puppy_tracker/record/add")

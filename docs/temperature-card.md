@@ -129,6 +129,10 @@ discard the open draft. See [Dossier editing](puppy-dossiers.md#one-editing-work
 `show_editor: false` hides the new-reading form, not these saved-item pencils;
 it is a presentation setting, not a read-only permission. Saving additions and
 edits requires administrator access.
+The new-reading form also asks before discarding changed values on Cancel or
+an owner/puppy/litter switch. Declining preserves the original selection and
+inputs. Save errors retain the reading for retry; success identifies its owner
+and offers editing of the saved record.
 
 ## Data and ownership
 

@@ -1,4 +1,6 @@
-import { escapeHtml, languageForHass } from "./puppy-tracker-card-common.js";
+import { escapeHtml, fetchLitterData, languageForHass } from "./puppy-tracker-card-common.js";
+import { FormState, appendEditAction, savedOwnerLabel, savedRecordFeedback } from "./puppy-tracker-form-state.js";
+import { canEditRecords, openRecordEditor } from "./puppy-tracker-record-editor.js";
 
 function t(card, nl, en) {
   return languageForHass(card?._hass) === "en" ? en : nl;
@@ -20,9 +22,23 @@ export function findCareOccurrence(card, occurrenceId) {
   return items.find((item) => item?.id === occurrenceId) || null;
 }
 
+export function renderCareSaveFeedback(card) {
+  const root = card.shadowRoot;
+  root?.querySelector(".care-save-feedback")?.remove();
+  if (!card._careSaveMessage) return;
+  const status = document.createElement("div");
+  status.className = "care-save-feedback";
+  status.setAttribute("role", "status");
+  status.style.cssText = "margin-top:12px;padding:10px;background:var(--secondary-background-color);overflow-wrap:anywhere";
+  status.textContent = card._careSaveMessage;
+  if (card._savedRecord && canEditRecords(card)) appendEditAction(card, status, (event) => openRecordEditor(card, card._savedRecord, { trigger: event.currentTarget }));
+  root?.querySelector("ha-card")?.append(status);
+}
+
 export function openCareResultEditor(card, item, options = {}) {
   const root = card?.shadowRoot;
   if (!root || !item || !card?._hass || card._hass.user?.is_admin === false) return;
+  if (card._careFormState && !card._careFormState.discard()) return;
 
   root.querySelector(".care-result-overlay")?.remove();
   const previousFocus = root.activeElement || document.activeElement;
@@ -44,11 +60,18 @@ export function openCareResultEditor(card, item, options = {}) {
   </div>`;
   root.appendChild(overlay);
   card.__careResultEditorOpen = true;
+  let saving = false;
+  const formState = new FormState(card, { busy: () => saving });
+  card._careFormState = formState;
+  formState.bind(overlay);
 
   let closed = false;
   const close = (saved = false) => {
     if (closed) return;
+    if (!saved && !formState.confirmDiscard()) return;
     closed = true;
+    formState.reset();
+    card._careFormState = null;
     card.__careResultEditorOpen = false;
     overlay.remove();
     if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
@@ -64,13 +87,16 @@ export function openCareResultEditor(card, item, options = {}) {
     }
   });
   overlay.querySelector(".care-result-save")?.addEventListener("click", async () => {
-    const button = overlay.querySelector(".care-result-save");
+    if (saving) return;
     const error = overlay.querySelector(".care-result-error");
-    button.disabled = true;
+    const scoreInput = overlay.querySelector(".care-result-score");
+    if (scoreInput && !scoreInput.validity.valid) { formState.error(".care-result-score", scoreInput.validationMessage); return; }
+    saving = true;
+    overlay.querySelectorAll("button,input,select,textarea").forEach((input) => { input.disabled = true; });
     error.hidden = true;
     try {
       const scoreRaw = overlay.querySelector(".care-result-score")?.value;
-      await card._hass.callWS({
+      const result = await card._hass.callWS({
         type: "puppy_tracker/care_occurrence/record",
         program_id: item.program_id,
         puppy_id: item.puppy_id,
@@ -80,14 +106,26 @@ export function openCareResultEditor(card, item, options = {}) {
         score: scoreRaw === undefined || scoreRaw === "" ? undefined : Number(scoreRaw),
         note: overlay.querySelector(".care-result-note")?.value?.trim() || undefined,
       });
+      const context = { litterId: item.litter_id || card._selectedLitterId, scope: "puppy", puppyId: item.puppy_id };
+      if (result?.record_id && !canEditRecords(card)) {
+        try { card._litterData = await fetchLitterData(card._hass, context.litterId); }
+        catch (_error) { /* The result is saved even if refreshing its edit permissions fails. */ }
+      }
+      const data = card._litterData || card._data;
+      context.ownerName = data?.puppies?.some((puppy) => puppy.id === item.puppy_id)
+        ? savedOwnerLabel(card, "puppy", item.puppy_id) : item.puppy_name;
+      card._careSaveMessage = savedRecordFeedback(card, result, context, item.title || t(card, "Zorgactie", "Care action"));
+      saving = false;
       close(true);
       if (typeof options.onSaved === "function") await options.onSaved(item);
       else await refreshCard(card);
+      renderCareSaveFeedback(card);
     } catch (err) {
       if (closed) return;
+      saving = false;
       error.textContent = err?.message || t(card, "Resultaat kon niet worden opgeslagen.", "Result could not be saved.");
       error.hidden = false;
-      button.disabled = false;
+      overlay.querySelectorAll("button,input,select,textarea").forEach((input) => { input.disabled = false; });
     }
   });
   queueMicrotask(() => overlay.querySelector("input, textarea, select, .care-result-save")?.focus({ preventScroll: true }));

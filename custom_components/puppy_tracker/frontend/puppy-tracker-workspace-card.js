@@ -4,6 +4,8 @@ import {
   LITTER_CHANGE_EVENT,
   preserveScrollPosition,
 } from "./puppy-tracker-card-common.js";
+import { confirmDiscardForms } from "./puppy-tracker-form-state.js";
+import { requestCloseRecordEditor } from "./puppy-tracker-record-editor.js";
 const TAG = "puppy-tracker-workspace-card";
 const EDITOR_TAG = "puppy-tracker-workspace-card-editor";
 
@@ -397,15 +399,24 @@ class PuppyTrackerWorkspaceCard extends HTMLElement {
       slot.appendChild(child);
       if (this._hass) child.hass = this._hass;
     }
+    return child;
   }
 
   _selectTab(tab) {
     if (!this._tabs.includes(tab) && tab !== "bulk") return;
+    const current = this._children.get(this._tab);
+    if (tab !== this._tab && (current?._saving || current?._busy || current?._careFormState?.busy() || !requestCloseRecordEditor(current))) {
+      const select = this.shadowRoot.getElementById("workspace-tab-select");
+      if (select) select.value = this._tab;
+      return;
+    }
     preserveScrollPosition(this, () => {
       if (tab !== "bulk") this._previousTab = tab;
       this._tab = tab;
       if (tab !== "bulk") this._saveTab(tab);
-      const child = this._children.get(tab);
+      let child = this._children.get(tab);
+      if (this._litterId && child?._selectedLitterId && child._selectedLitterId !== this._litterId
+        && !child._formState?.dirty && !child._careFormState?.dirty && !child._saving && !child._busy) child = this._replaceSurface(tab);
       if (child && this._hass) child.hass = this._hass;
       this._updateVisibility();
     });
@@ -457,12 +468,22 @@ class PuppyTrackerWorkspaceCard extends HTMLElement {
     const litterId = String(event?.detail?.litterId || "").trim();
     if (!litterId) return;
     if (event.cancelable) event.preventDefault();
-    if (litterId === this._litterId) return;
     const path = event.composedPath?.() || [];
     const sourceKey = [...this._children.entries()].find(([, child]) => path.includes(child))?.[0] || null;
+    if (litterId === this._litterId && (!event.cancelable || this._children.get(sourceKey)?._selectedLitterId === litterId)) return;
+    const children = [...this._children.values()];
+    if (event.cancelable && !confirmDiscardForms(children, this._hass)) return;
+    // Native weighing/entity updates are announcements, not permission to discard drafts.
+    const keep = new Set(!event.cancelable ? children.filter((child) =>
+      child._saving || child._busy || child._formState?.dirty || child._careFormState?.dirty) : []);
+    for (const child of children) {
+      if (keep.has(child)) continue;
+      child._formState?.reset(); child._careFormState?.reset();
+    }
     this._litterId = litterId;
     preserveScrollPosition(this, () => {
       for (const key of this._allSurfaceKeys()) {
+        if (keep.has(this._children.get(key))) continue;
         if (sourceKey === "weighing" && key === sourceKey) continue;
         this._replaceSurface(key);
       }

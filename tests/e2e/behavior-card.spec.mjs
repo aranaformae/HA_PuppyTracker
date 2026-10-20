@@ -42,7 +42,7 @@ test("behavior surface saves observations and builds a neutral profile", async (
   await card.locator("#behavior-note").fill("Rustige observatie");
   await card.locator("#behavior-save").click();
 
-  await expect(card.getByText("Gedragsobservatie opgeslagen.", { exact: true })).toBeVisible();
+  await expect(card.locator(".status")).toContainText("opgeslagen voor Alice (Roze).");
   await expect(card.locator(".stat").first()).toContainText("3");
   await expect(card.getByText("Rustige observatie", { exact: true })).toBeVisible();
 
