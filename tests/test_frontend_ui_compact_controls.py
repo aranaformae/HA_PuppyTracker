@@ -27,12 +27,12 @@ def test_timeline_toggle_is_large_footer_button_and_timeline_scrolls():
     assert 'this._timelineItemsVisible = this._config.show_timeline_items === true' in text
 
 
-def test_dossier_uses_one_card_level_edit_mode():
+def test_dossier_uses_shared_item_editor_without_card_level_edit_mode():
     text = source(DOSSIER)
-    assert 'id="toggle-dossier-manage"' in text
-    assert '"Items aanpassen", "Edit items"' in text
-    assert 'this._canManage && this._manageMode' in text
-    assert 'if (this._manageMode) this._timelineItemsVisible = true' in text
+    assert 'id="toggle-dossier-manage"' not in text
+    assert "openRecordEditor(this, recordContext(this, record), { trigger })" in text
+    assert "recordEditButton(this, recordKey)" in text
+    assert 'class="record-menu"' in text
 
 
 def test_dossier_timeline_toggle_matches_timeline_card_button():

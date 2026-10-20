@@ -1,4 +1,4 @@
-import { downloadExportFile, escapeHtml, languageForHass } from "./puppy-tracker-card-common.js";
+import { puppySelectorLabel, downloadExportFile, escapeHtml, languageForHass } from "./puppy-tracker-card-common.js";
 import { collarColor } from "./puppy-tracker-collar-chart-colors.js";
 
 const TAG = "puppy-tracker-owner-card";
@@ -574,7 +574,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     const puppies = [...this._puppies].sort((left, right) =>
       `${left.litter_name || ""}\u0000${left.name || ""}`.localeCompare(`${right.litter_name || ""}\u0000${right.name || ""}`),
     );
-    const options = puppies.map((puppy) => `<option value="${escapeHtml(puppy.id)}" ${puppy.id === selectedId ? "selected" : ""}>${escapeHtml(this._puppyPreferenceLabel(puppy.id))}</option>`);
+    const options = puppies.map((puppy) => `<option value="${escapeHtml(puppy.id)}" ${puppy.id === selectedId ? "selected" : ""}>${escapeHtml([puppy.litter_name, puppySelectorLabel(puppy, text(this, "puppy"))].filter(Boolean).join(" · "))}</option>`);
     if (selectedId && !puppies.some((puppy) => puppy.id === selectedId)) {
       options.unshift(`<option value="${escapeHtml(selectedId)}" selected>${escapeHtml(text(this, "unavailablePuppy"))}</option>`);
     }
@@ -771,7 +771,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       || String(left.owner.name || "").localeCompare(String(right.owner.name || "")),
     );
     const counts = model.rankCounts.get(puppy.id) || [0, 0, 0];
-    const options = model.puppies.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === puppy.id ? "selected" : ""}>${escapeHtml(item.name || text(this, "puppy"))}${item.collar_color ? ` · ${escapeHtml(item.collar_color)}` : ""}</option>`).join("");
+    const options = model.puppies.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === puppy.id ? "selected" : ""}>${escapeHtml(puppySelectorLabel(item, text(this, "puppy")))}</option>`).join("");
     return `<div class="matrix-mobile">${perspective}<label class="mobile-puppy-select"><span>${escapeHtml(text(this, "puppy"))}</span><select id="matrix-puppy">${options}</select></label><div class="mobile-puppy-head">${this._matrixPuppyHeader(puppy, puppyIndex)}<span>${escapeHtml(text(this, "firstShort"))} ${counts[0]} · ${escapeHtml(text(this, "secondShort"))} ${counts[1]} · ${escapeHtml(text(this, "thirdShort"))} ${counts[2]}</span></div><div class="mobile-matches">${matches.length ? matches.map((match) => this._matrixMobileMatch(match, model)).join("") : `<div class="empty">${escapeHtml(text(this, "noPreferenceForPuppy"))}</div>`}</div></div>`;
   }
 
@@ -1078,7 +1078,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     this._selectedPuppy = puppy?.id || "";
     const linked = new Set(puppy?.owner_ids || []);
     const litterOptions = this._litters.map((litter) => `<option value="${escapeHtml(litter.id)}" ${litter.id === this._selectedLitter ? "selected" : ""}>${escapeHtml(litter.name || text(this, "litter"))}</option>`).join("");
-    const puppyOptions = litterPuppies.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === this._selectedPuppy ? "selected" : ""}>${escapeHtml(item.name || text(this, "puppy"))}</option>`).join("");
+    const puppyOptions = litterPuppies.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === this._selectedPuppy ? "selected" : ""}>${escapeHtml(puppySelectorLabel(item, text(this, "puppy")))}</option>`).join("");
 
     const ownersView = this._activeView !== "matrix";
     const headerActions = `<div class="head-actions"><button type="button" id="export-owners-csv" class="secondary" ${!this._owners.length || this._loading ? "disabled" : ""}><ha-icon icon="mdi:file-delimited-outline"></ha-icon>${escapeHtml(text(this, "exportCsv"))}</button>${ownersView && !this._showOwnerEditor ? this._ownerForm() : ""}</div>`;

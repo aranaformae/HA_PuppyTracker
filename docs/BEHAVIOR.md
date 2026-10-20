@@ -5,6 +5,12 @@ vast te leggen. Gebruik hiervoor het tabblad **Gedrag** in de Logboek- of
 Mobiel-workspace. Kies een pup, vul de context en observator in en scoor alleen
 de punten die tijdens dat moment werkelijk zijn waargenomen.
 
+Een opgeslagen observatie pas je aan met het potlood in de historie. Dit opent
+dezelfde itemeditor als in Dossier, Tijdlijn en de andere overzichten. Daar kun
+je de observator, context, notitie en afzonderlijke scores wijzigen of een score
+weer leegmaken. Bij een aangepast tijdstip wordt de leeftijd opnieuw berekend
+als de geboortedatum bekend is. Alleen beheerders kunnen wijzigingen opslaan.
+
 ## Scoreschaal
 
 Iedere score beschrijft hoe zichtbaar of sterk het gedrag tijdens die ene

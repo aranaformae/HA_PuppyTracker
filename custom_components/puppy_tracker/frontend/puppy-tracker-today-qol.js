@@ -1,5 +1,6 @@
 import { escapeHtml, formatWeight, languageForHass } from "./puppy-tracker-card-common.js";
 import { recordTypeIcon, recordTypeLabel } from "./puppy-tracker-dossier-schema.js";
+import { openRecordEditor, recordContext, recordEditButton, RECORD_ACTION_STYLE } from "./puppy-tracker-record-editor.js";
 
 function t(card, nl, en) {
   return languageForHass(card?._hass) === "en" ? en : nl;
@@ -53,7 +54,7 @@ function recordSummary(record) {
     if (text && !values.includes(text)) values.push(text);
   }
   const data = record?.data && typeof record.data === "object" ? record.data : {};
-  for (const key of ["result", "test_result", "product", "vaccine", "dose", "amount", "unit", "clinic", "diagnosis"]) {
+  for (const key of ["care_result", "result", "test_result", "product", "vaccine", "dose", "amount", "unit", "clinic", "diagnosis"]) {
     const text = primitiveText(data[key]).trim();
     if (text && !values.includes(text)) values.push(text);
     if (values.length >= 3) break;
@@ -78,6 +79,7 @@ function todayTimelineEvents(card) {
       occurredAt,
       owner: record.puppy_name || puppy?.name || t(card, "Nest", "Litter"),
       detail: recordSummary(record),
+      context: recordContext(card, { ...record, scope: record.scope || (puppy ? "puppy" : "litter"), puppy_id: record.puppy_id || puppy?.id }),
     });
   };
 
@@ -94,6 +96,7 @@ function todayTimelineEvents(card) {
         occurredAt,
         owner: puppy.name || t(card, "Pup", "Puppy"),
         detail: formatWeight(measurement.weight, "", card?._hass),
+        context: { litterId: card._selectedLitterId, scope: "puppy", puppyId: puppy.id, measurementId: measurement.id, ownerName: puppy.name },
       });
     }
     for (const record of puppy?.records || []) addRecord(record, puppy);
@@ -161,7 +164,12 @@ function createTimelineSection(card, events) {
   if (!events.length) return null;
   const section = document.createElement("div");
   section.className = "today-timeline-section";
-  section.innerHTML = `<div class="today-group-title">${escapeHtml(t(card, "Tijdlijn vandaag", "Today's timeline"))}</div><div class="today-timeline-list">${events.map((event) => `<div class="today-timeline-row" data-today-type="${escapeHtml(event.type)}" data-today-event="${escapeHtml(event.id)}"><ha-icon icon="${escapeHtml(recordTypeIcon(event.type))}"></ha-icon><div class="today-main"><strong>${escapeHtml(event.owner)}</strong><span>${escapeHtml(recordTypeLabel(card?._hass, event.type))}${event.detail ? ` · ${escapeHtml(event.detail)}` : ""}</span></div><div class="today-time">${escapeHtml(formatTime(card, event.occurredAt))}</div></div>`).join("")}</div>`;
+  section.innerHTML = `<style>${RECORD_ACTION_STYLE}.today-timeline-row{grid-template-columns:24px minmax(0,1fr) auto}.today-timeline-row .today-actions{display:flex;gap:6px;align-items:center}</style><div class="today-group-title">${escapeHtml(t(card, "Tijdlijn vandaag", "Today's timeline"))}</div><div class="today-timeline-list">${events.map((event) => `<div class="today-timeline-row" data-today-type="${escapeHtml(event.type)}" data-today-event="${escapeHtml(event.id)}"><ha-icon icon="${escapeHtml(recordTypeIcon(event.type))}"></ha-icon><div class="today-main"><strong>${escapeHtml(event.owner)}</strong><span>${escapeHtml(recordTypeLabel(card?._hass, event.type))}${event.detail ? ` · ${escapeHtml(event.detail)}` : ""}</span></div><div class="today-actions"><div class="today-time">${escapeHtml(formatTime(card, event.occurredAt))}</div>${recordEditButton(card, event.id, { measurement: event.type === "weight" })}</div></div>`).join("")}</div>`;
+  section.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-edit-item]");
+    const item = events.find((candidate) => candidate.id === button?.dataset.editItem);
+    if (item) { event.stopPropagation(); openRecordEditor(card, item.context, { trigger: button }); }
+  });
   return section;
 }
 

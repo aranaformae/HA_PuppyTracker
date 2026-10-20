@@ -1,5 +1,6 @@
 import { escapeHtml, languageForHass } from "./puppy-tracker-card-common.js";
 import { recordTypeLabel } from "./puppy-tracker-dossier-schema.js";
+import { openRecordEditor, recordContext, recordEditButton, RECORD_ACTION_STYLE } from "./puppy-tracker-record-editor.js";
 
 function t(card, nl, en) {
   return languageForHass(card?._hass) === "en" ? en : nl;
@@ -13,6 +14,7 @@ function baseAttentionMeta(card) {
       result.push({
         id: `weight:${puppy.id}:${summary.status_code || "unknown"}:${summary.latest_measurement_id || "none"}`,
         type: "weight",
+        context: summary.latest_measurement_id ? { litterId: card._selectedLitterId, scope: "puppy", puppyId: puppy.id, measurementId: summary.latest_measurement_id, ownerName: puppy.name } : null,
       });
     }
     for (const action of summary.dossier_actions?.actions || []) {
@@ -20,6 +22,7 @@ function baseAttentionMeta(card) {
       result.push({
         id: `dossier:${action.id || `${action.source_record_id || action.record_id || "unknown"}:${action.due_field || "due"}`}`,
         type: String(action.record_type || action.type || action.category || "dossier"),
+        context: action.source_record_id || action.record_id ? recordContext(card, { ...action, scope: "puppy", puppy_id: puppy.id, record_id: action.source_record_id || action.record_id }) : null,
       });
     }
   }
@@ -28,6 +31,7 @@ function baseAttentionMeta(card) {
     result.push({
       id: `dossier:${action.id || `${action.source_record_id || action.record_id || "unknown"}:${action.due_field || "due"}`}`,
       type: String(action.record_type || action.type || action.category || "dossier"),
+      context: action.source_record_id || action.record_id ? recordContext(card, { ...action, scope: "litter", record_id: action.source_record_id || action.record_id }) : null,
     });
   }
   return result;
@@ -59,6 +63,7 @@ function decorateRows(card) {
       const item = base[baseIndex++];
       id = item?.id || `unknown:${baseIndex}`;
       type = item?.type || "other";
+      row.__recordContext = item?.context;
     }
     row.dataset.attentionId = id;
     row.dataset.attentionType = type;
@@ -147,6 +152,12 @@ export function renderAttentionQol(card) {
 
   const rows = decorateRows(card);
   if (!rows.length) return;
+  if (!root.getElementById("record-action-style")) {
+    const style = document.createElement("style");
+    style.id = "record-action-style";
+    style.textContent = `${RECORD_ACTION_STYLE}.list>.row.record-editable,.attention-ack-list>.row.record-editable{grid-template-columns:34px minmax(0,1fr) auto 40px 32px}@container attention-card (max-width:520px){.list>.row.record-editable,.attention-ack-list>.row.record-editable{grid-template-columns:34px minmax(0,1fr) 40px 32px}}`;
+    root.append(style);
+  }
   root.querySelector(".all-ok")?.remove();
 
   const types = [...new Set(rows.map((row) => row.dataset.attentionType).filter(Boolean))]
@@ -178,6 +189,17 @@ export function renderAttentionQol(card) {
     row.classList.toggle("attention-filter-hidden", !matches);
     row.style.display = matches ? "" : "none";
     if (!matches) continue;
+    if (row.__recordContext) {
+      row.querySelector(".record-edit-button")?.remove();
+      const wrapper = document.createElement("span");
+      wrapper.innerHTML = recordEditButton(card, row.dataset.attentionId, { measurement: Boolean(row.__recordContext.measurementId) });
+      const edit = wrapper.firstElementChild;
+      if (edit) {
+        row.classList.add("record-editable");
+        edit.addEventListener("click", (event) => { event.stopPropagation(); openRecordEditor(card, row.__recordContext, { trigger: edit }); });
+        row.append(edit);
+      }
+    }
     const attentionId = row.dataset.attentionId;
     const acknowledged = Boolean(acknowledgements[attentionId]);
     const button = document.createElement("button");

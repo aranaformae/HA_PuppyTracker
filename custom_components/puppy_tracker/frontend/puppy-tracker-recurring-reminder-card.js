@@ -1,4 +1,5 @@
 import {
+  puppySelectorLabel,
   escapeHtml,
   fetchLitterData,
   fetchLitters,
@@ -172,7 +173,7 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
       result.push({ value: `mother:${mother.id}`, scope: "mother", id: mother.id, label: `${t(this, "Moederhond", "Mother")} · ${mother.name || t(this, "Moederhond", "Mother")}` });
     }
     for (const puppy of (this._litterData?.puppies || []).filter((item) => item.active !== false)) {
-      result.push({ value: `puppy:${puppy.id}`, scope: "puppy", id: puppy.id, label: `${t(this, "Pup", "Puppy")} · ${puppy.name || t(this, "Pup", "Puppy")}` });
+      result.push({ value: `puppy:${puppy.id}`, scope: "puppy", id: puppy.id, label: `${t(this, "Pup", "Puppy")} · ${puppySelectorLabel(puppy, t(this, "Pup", "Puppy"))}` });
     }
     return result;
   }

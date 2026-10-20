@@ -17,6 +17,21 @@ from custom_components.puppy_tracker.devices import async_sync_devices
 from custom_components.puppy_tracker.mother_storage import MotherScopeStorage
 from custom_components.puppy_tracker.runtime import PuppyTrackerRuntimeData
 from custom_components.puppy_tracker.storage import _empty_data
+from custom_components.puppy_tracker.dog_identity import puppy_selector_label
+from custom_components.puppy_tracker.select import PuppySelect
+
+
+@pytest.mark.parametrize("puppy, expected", [
+    ({"name": "Alice", "collar_color": "Red"}, "Alice (Red)"),
+    ({"name": "Alice", "collar_color": ""}, "Alice"),
+    ({"name": "Alice"}, "Alice"),
+    ({"name": "Red", "collar_color": "red"}, "Red"),
+    ({"name": " Alice ", "collar_color": " Red "}, "Alice (Red)"),
+    ({"collar_color": "Red"}, "Puppy (Red)"),
+])
+def test_puppy_selector_labels_match_weighing_options(puppy, expected):
+    assert puppy_selector_label(puppy) == expected
+    assert PuppySelect._base_label(puppy) == expected
 
 
 @pytest.fixture
@@ -56,6 +71,20 @@ def _prefilled_input(form):
         for marker in form["data_schema"].schema
         if marker.description and "suggested_value" in marker.description
     }
+
+
+@pytest.mark.parametrize("step", ["manage_puppy", "manage_measurements", "export_puppy"])
+async def test_puppy_management_selectors_include_collar_without_changing_ids(options_flow, step):
+    flow, storage = options_flow
+    litter_id, puppy_id = flow._selected_litter_id, flow._selected_puppy_id
+    storage._data["litters"][litter_id]["puppies"][puppy_id].update(name="Alice", collar_color="Red")
+    form = await getattr(flow, f"async_step_{step}")()
+    field = next(value for marker, value in form["data_schema"].schema.items() if marker.schema == "puppy")
+    options = field.config["options"]
+    assert options[0]["value"] == f"{litter_id}|{puppy_id}"
+    assert "Luna 2026" in options[0]["label"]
+    assert options[0]["label"].endswith("Alice (Red)")
+    storage.async_save.assert_not_awaited()
 
 
 @pytest.mark.parametrize("step", [

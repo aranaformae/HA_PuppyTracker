@@ -43,7 +43,7 @@ export function recordTypeIcon(value) {
 export function recordTypeOptions(hass, selectedType) {
   const types = RECORD_TYPES.map(([value, labelKey]) => [value, localize(hass, labelKey)]);
   if (selectedType && !types.some(([value]) => value === selectedType)) {
-    types.push([selectedType, selectedType.replaceAll("_", " ")]);
+    types.push([selectedType, recordTypeLabel(hass, selectedType)]);
   }
   return types.map(([value, label]) => `<option value="${escapeHtml(value)}" ${value === selectedType ? "selected" : ""}>${escapeHtml(label)}</option>`).join("");
 }

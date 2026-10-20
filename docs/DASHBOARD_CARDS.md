@@ -97,10 +97,20 @@ Aggregate scope `all` is supported by Dossier and Timeline. Quick Log and
 Temperature require one exact owner and therefore fall back to `litter` when
 the workspace default is `all`. Existing dossier items remain editable in the
 aggregate view; select a specific owner before adding a new item.
+Puppy selectors consistently show `Name (collar colour)`, including owner
+linking/preferences, reminders, bulk selection and the Change owner dialog.
+Without a collar colour they show only the name; a colour already used as the
+complete name is not repeated. Cross-litter choices retain their litter prefix.
+This affects display labels only, not puppy IDs, saved selections or CSV values.
 Both Dossier and Timeline provide title/note/result search within the current
-scope and filters. Search also applies in Dossier item-management mode and is
-retained after editing. Clearing the query leaves owner and category filters
-unchanged. Search terms are not persisted or exported.
+scope and filters and is retained after editing. Administrators can use each
+saved item's pencil directly, without a card-level edit mode. Dossier, Timeline,
+Today's activity list (also in Mobile), Attention dossier follow-ups, Temperature
+and Behavior history share one item editor. Planned care keeps its execution
+dialog; weight entries open a correction, not a dossier edit. Dossier's item menu
+contains owner changes and deletion; deleted records can be restored.
+Clearing the query leaves owner and category filters unchanged. Search terms are
+not persisted or exported. See [Dossier editing](puppy-dossiers.md#one-editing-workflow).
 
 Quick Log, Dossier and the Journal **Multiple puppies** action share one
 category schema: Note, Feeding, Temperature, Vaccination, Test/result,
@@ -108,6 +118,10 @@ Deworming, Medication, Vet visit, Milestone and Other. Their structured fields
 and required-field validation therefore stay aligned. Quick Log also keeps a
 Stool/urine shortcut that saves a titled note. Bulk Log remains puppy-only,
 while Quick Log can write to the litter, mother or one puppy.
+Quick Log keeps your chosen owner when opening another category, saving or
+refreshing data. A remembered category owner is only an initial suggestion
+before you choose an owner; an explicitly configured mother or puppy takes
+precedence over that suggestion.
 
 The visual editor changes with the selected preset. It exposes navigation and
 the relevant Home, Growth, Journal, Care or Mobile surface options in grouped

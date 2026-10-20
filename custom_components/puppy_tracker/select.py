@@ -21,6 +21,7 @@ from .const import (
     DOMAIN,
     SIGNAL_DASHBOARD_UPDATE,
 )
+from .dog_identity import puppy_selector_label
 from .runtime import (
     PuppyTrackerRuntimeData,
     reconcile_dashboard_selection,
@@ -371,25 +372,7 @@ class PuppySelect(
     ) -> str:
         """Create base puppy display label."""
 
-        name = puppy.get(
-            "name",
-            "Puppy",
-        )
-
-        collar = puppy.get(
-            "collar_color"
-        )
-
-        if (
-            collar
-            and collar.lower()
-            != name.lower()
-        ):
-            return (
-                f"{name} ({collar})"
-            )
-
-        return name
+        return puppy_selector_label(puppy)
 
     def _option_map(
         self,

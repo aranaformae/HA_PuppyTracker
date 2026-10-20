@@ -31,7 +31,7 @@ from .devices import (
     async_remove_puppy_device,
     async_sync_devices,
 )
-from .dog_identity import DEFAULT_DOG_BREED
+from .dog_identity import DEFAULT_DOG_BREED, puppy_selector_label
 from .measurements import measurement_status
 from .runtime import PuppyTrackerRuntimeData
 from .storage import PuppyTrackerStorage
@@ -898,7 +898,7 @@ class PuppyTrackerManagementOptionsFlow(
                         label=(
                             f"{litter.get('name', 'Litter')}"
                             f" - "
-                            f"{puppy.get('name', 'Puppy')}"
+                            f"{puppy_selector_label(puppy)}"
                         ),
                     )
                 )
@@ -1320,7 +1320,7 @@ class PuppyTrackerManagementOptionsFlow(
                         value=f"{litter_id}|{puppy_id}",
                         label=(
                             f"{litter.get('name', 'Litter')} - "
-                            f"{puppy.get('name', 'Puppy')}"
+                            f"{puppy_selector_label(puppy)}"
                         ),
                     )
                 )

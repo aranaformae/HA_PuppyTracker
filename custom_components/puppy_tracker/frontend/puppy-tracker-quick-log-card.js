@@ -1,4 +1,5 @@
 import {
+  puppySelectorLabel,
   addDossierRecord,
   escapeHtml,
   fetchLitterData,
@@ -174,6 +175,8 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
     this._selectedLitterId = null;
     this._selectedPuppyId = null;
     this.__motherSelected = false;
+    this._ownerConfigKey = null;
+    this._ownerSelectionResolved = false;
     this._litterData = null;
     this._draft = null;
     this._loading = false;
@@ -233,9 +236,20 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
       this._stateNamespace = stateNamespace;
       this._state = loadCardState(this, { recentOwners: {} });
     }
-    this._selectedLitterId = this._config.litter_id || this._selectedLitterId;
-    this.__motherSelected = this._config.default_selected === "mother";
-    this._selectedPuppyId = this.__motherSelected ? null : (this._config.puppy_id || this._selectedPuppyId);
+    const ownerConfigKey = JSON.stringify([
+      this._config.litter_id || "",
+      this._config.default_selected,
+      this._config.puppy_id || "",
+      stateNamespace,
+    ]);
+    if (ownerConfigKey !== this._ownerConfigKey) {
+      this._ownerConfigKey = ownerConfigKey;
+      this._selectedLitterId = this._config.litter_id || this._selectedLitterId;
+      this.__motherSelected = this._config.default_selected === "mother";
+      this._selectedPuppyId = this.__motherSelected ? null : (this._config.puppy_id || null);
+      this._ownerSelectionResolved = this.__motherSelected || Boolean(this._selectedPuppyId);
+      this._draft = null;
+    }
     this._render();
   }
 
@@ -313,9 +327,6 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
     if (this._selectedPuppyId && !puppyIds.has(this._selectedPuppyId)) {
       this._selectedPuppyId = null;
     }
-    if (!this._selectedPuppyId && this._config.puppy_id && puppyIds.has(this._config.puppy_id)) {
-      this._selectedPuppyId = this._config.puppy_id;
-    }
     if (render) this._render();
   }
 
@@ -366,6 +377,7 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
   async _selectLitter(litterId) {
     this._selectedLitterId = litterId;
     this._selectedPuppyId = null;
+    this._ownerSelectionResolved = true;
     this._draft = null;
     this._status = "";
     this._loading = true;
@@ -382,6 +394,7 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
   }
 
   _selectOwner(value) {
+    this._ownerSelectionResolved = true;
     if (this._draft?.presetId) this._rememberOwner(this._draft.presetId, value);
     this.__motherSelected = value === MOTHER_OWNER;
     this._selectedPuppyId = value === LITTER_OWNER || value === MOTHER_OWNER ? null : value;
@@ -396,10 +409,12 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
     const ownerAvailable = remembered === LITTER_OWNER
       || (remembered === MOTHER_OWNER && Boolean(this._litterData?.litter?.mother))
       || this._puppies.some((puppy) => puppy.id === remembered);
-    if (!this._draft && remembered && ownerAvailable) {
+    // Restore a remembered default only before an owner has been chosen this session.
+    if (!this._ownerSelectionResolved && remembered && ownerAvailable) {
       this.__motherSelected = remembered === MOTHER_OWNER;
       this._selectedPuppyId = remembered === LITTER_OWNER || remembered === MOTHER_OWNER ? null : remembered;
     }
+    this._ownerSelectionResolved = true;
     const previousDraft = this._draft;
     this._draft = {
       presetId: preset.id,
@@ -561,7 +576,7 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
     const ownerOptions = [
       `<option value="${LITTER_OWNER}" ${!this.__motherSelected && !this._selectedPuppyId ? "selected" : ""}>${escapeHtml(text(this._hass, "litterScope"))}</option>`,
       ...(litter?.mother ? [`<option value="${MOTHER_OWNER}" ${this.__motherSelected ? "selected" : ""}>${escapeHtml(text(this._hass, "mother"))} · ${escapeHtml(litter.mother)}</option>`] : []),
-      ...puppies.map((puppy) => `<option value="${escapeHtml(puppy.id)}" ${puppy.id === this._selectedPuppyId ? "selected" : ""}>${escapeHtml(puppy.name || text(this._hass, "puppy"))}</option>`),
+      ...puppies.map((puppy) => `<option value="${escapeHtml(puppy.id)}" ${puppy.id === this._selectedPuppyId ? "selected" : ""}>${escapeHtml(puppySelectorLabel(puppy, text(this._hass, "puppy")))}</option>`),
     ].join("");
 
     const presetButtons = PRESETS.map((preset) => `

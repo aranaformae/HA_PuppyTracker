@@ -1,6 +1,12 @@
 export const DOMAIN = "puppy_tracker";
 export const LITTER_CHANGE_EVENT = "puppy-tracker-litter-change";
 
+export function puppySelectorLabel(puppy, fallback = "Puppy") {
+  const name = String(puppy?.name || fallback).trim() || fallback;
+  const collar = String(puppy?.collar_color || "").trim();
+  return collar && collar.toLowerCase() !== name.toLowerCase() ? `${name} (${collar})` : name;
+}
+
 const CARD_STATE_PREFIX = "puppy_tracker.card_state.";
 
 function cardStateKey(card) {

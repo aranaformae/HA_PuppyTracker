@@ -1,4 +1,5 @@
 import {
+  puppySelectorLabel,
   DOMAIN,
   escapeHtml,
   fetchLitterData,
@@ -13,7 +14,8 @@ import {
   subscribeUpdates,
 } from "./puppy-tracker-card-common.js";
 import { recordTypeIcon, recordTypeLabel } from "./puppy-tracker-dossier-schema.js";
-import { matchesDossierSearch, searchMarkup, searchText, bindSearch, SEARCH_STYLE } from "./puppy-tracker-dossier-search.js";
+import { closeRecordEditor, openRecordEditor, recordContext, recordEditButton, recordRestoreButton, RECORD_ACTION_STYLE } from "./puppy-tracker-record-editor.js";
+import { matchesDossierSearch, searchMarkup, searchText, bindSearch, syncSearchControls, syncTimelineToggle, SEARCH_STYLE } from "./puppy-tracker-dossier-search.js";
 
 const ALL_VALUE = "__all__";
 const LITTER_VALUE = "__litter__";
@@ -127,6 +129,7 @@ function measurementEvent(measurement, puppy, statusOverride = null) {
   );
   return {
     id: `weight:${puppy?.id || "unknown"}:${measurement?.id || "unknown"}`,
+    measurement_id: measurement?.id,
     type: "weight",
     source: "measurement",
     occurred_at: measurement?.timestamp || measurement?.created_at || null,
@@ -150,6 +153,8 @@ function recordEvent(record, puppy = null) {
   const type = normalizedRecordType(record?.type);
   return {
     id: `record:${record?.scope || (puppy ? "puppy" : "litter")}:${record?.id || "unknown"}`,
+    record_id: record?.id,
+    litter_id: record?.litter_id,
     type,
     source: "record",
     occurred_at: record?.occurred_at || record?.created_at || null,
@@ -178,6 +183,8 @@ function motherRecordEvent(hass, record, ownerName) {
   }
   return {
     id: `mother:${record?.id || "unknown"}`,
+    record_id: record?.id,
+    litter_id: record?.litter_id,
     type,
     raw_type: rawType,
     source: "record",
@@ -294,6 +301,7 @@ function summarizeData(data) {
     "unit",
     "result",
     "test_result",
+    "care_result",
     "clinic",
     "veterinarian",
     "diagnosis",
@@ -428,6 +436,7 @@ class PuppyTrackerTimelineCard extends HTMLElement {
   }
 
   disconnectedCallback() {
+    closeRecordEditor(this);
     if (this._unsubscribe) Promise.resolve(this._unsubscribe()).catch(() => undefined);
     this._unsubscribe = null;
   }
@@ -715,7 +724,7 @@ class PuppyTrackerTimelineCard extends HTMLElement {
               <div class="event-title">${escapeHtml(title)}</div>
               <div class="meta">${escapeHtml(owner)} · ${escapeHtml(formatDateTime(event.occurred_at, "—", this._hass))}</div>
             </div>
-            <div class="badges"><span class="type-badge">${escapeHtml(label)}</span>${status}</div>
+            <div class="badges"><span class="type-badge">${escapeHtml(label)}</span>${status}${event.source === "record" && event.status === "deleted" ? recordRestoreButton(this, event.id) : event.source === "record" || event.source === "measurement" ? recordEditButton(this, event.id, { measurement: isWeight, deleted: event.status !== "active" }) : ""}</div>
           </div>
           ${detailLine}
           ${note}
@@ -753,6 +762,11 @@ class PuppyTrackerTimelineCard extends HTMLElement {
     });
     this.shadowRoot?.querySelector(".timeline-scroll")?.addEventListener("click", (event) => {
       if (event.target.closest("#clear-filters")) this._clearFilters();
+      const button = event.target.closest("[data-edit-item],[data-restore-item]");
+      if (!button) return;
+      const item = this._timelineEvents().find((candidate) => candidate.id === (button.dataset.editItem || button.dataset.restoreItem));
+      if (!item) return;
+      openRecordEditor(this, { ...recordContext(this, item), measurementId: item.measurement_id }, { trigger: button, mode: button.dataset.restoreItem ? "restore" : "edit" });
     });
     this.shadowRoot?.querySelectorAll("[data-filter-type]").forEach((button) => {
       button.addEventListener("click", () => this._toggleType(button.dataset.filterType));
@@ -776,11 +790,18 @@ class PuppyTrackerTimelineCard extends HTMLElement {
     const scrollTop = list.scrollTop;
     list.innerHTML = this._searchResultsMarkup(visible);
     list.scrollTop = scrollTop;
-    this.shadowRoot.getElementById("record-search-count").textContent = searchText(this._hass, "count", events.length);
+    syncSearchControls(this.shadowRoot, this._hass, this._searchQuery, events.length);
+    this.shadowRoot.querySelectorAll("[data-filter-type]").forEach((button) => {
+      const active = button.dataset.filterType === "__all__" ? this._selectedTypes.size === TIMELINE_TYPES.length : this._selectedTypes.has(button.dataset.filterType);
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+    for (const [id, value] of [["from-date", this._from], ["to-date", this._to]]) this.shadowRoot.getElementById(id).value = value;
     this.shadowRoot.querySelector(".count").textContent = events.length > visible.length
       ? text(this._hass, "showing", { shown: visible.length, total: events.length })
       : `${events.length} ${text(this._hass, "items")}`;
-    if (!this._timelineItemsVisible) this.shadowRoot.querySelector("#toggle-timeline-items span").textContent = text(this._hass, "showTimelineItems", { count: visible.length });
+    syncTimelineToggle(this.shadowRoot, this._timelineItemsVisible, ".timeline-scroll", this._timelineItemsVisible
+      ? text(this._hass, "hideTimelineItems") : text(this._hass, "showTimelineItems", { count: visible.length }));
   }
 
   _render() {
@@ -812,7 +833,7 @@ class PuppyTrackerTimelineCard extends HTMLElement {
       <option value="${ALL_VALUE}" ${scopeValue === ALL_VALUE ? "selected" : ""}>${escapeHtml(text(this._hass, "allOwners"))}</option>
       <option value="${LITTER_VALUE}" ${scopeValue === LITTER_VALUE ? "selected" : ""}>${escapeHtml(text(this._hass, "allLitter"))}</option>
       ${this._litterData?.litter?.mother ? `<option value="${MOTHER_VALUE}" ${scopeValue === MOTHER_VALUE ? "selected" : ""}>${escapeHtml(text(this._hass, "mother"))} · ${escapeHtml(this._litterData.litter.mother)}</option>` : ""}
-      ${this._puppies.map((puppy) => `<option value="${escapeHtml(puppy.id)}" ${scopeValue === puppy.id ? "selected" : ""}>${escapeHtml(puppy.name || puppy.id)}</option>`).join("")}
+      ${this._puppies.map((puppy) => `<option value="${escapeHtml(puppy.id)}" ${scopeValue === puppy.id ? "selected" : ""}>${escapeHtml(puppySelectorLabel(puppy, text(this._hass, "puppy")))}</option>`).join("")}
     </select></label>`;
 
     const historyToggle = this._config.show_history_toggle !== false && this._canManageHistory
@@ -853,6 +874,7 @@ class PuppyTrackerTimelineCard extends HTMLElement {
       </ha-card>
       <style>
         ${SEARCH_STYLE}
+        ${RECORD_ACTION_STYLE}
         :host { display: block; }
         ha-card { overflow: hidden; }
         .card-header { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; padding:20px 20px 12px; }

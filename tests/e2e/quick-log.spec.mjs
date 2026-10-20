@@ -5,10 +5,10 @@ async function openFixture(page) {
   await page.waitForFunction(() => window.__puppyTrackerReady === true);
 }
 
-async function mountQuickLog(page, language = "en") {
+async function mountQuickLog(page, language = "en", config = {}) {
   await openFixture(page);
 
-  await page.evaluate((selectedLanguage) => {
+  await page.evaluate(({ selectedLanguage, config }) => {
     const calls = [];
     const subscriptions = [];
     const hass = {
@@ -93,10 +93,10 @@ async function mountQuickLog(page, language = "en") {
 
     const constructor = customElements.get("puppy-tracker-quick-log-card");
     const card = document.createElement("puppy-tracker-quick-log-card");
-    card.setConfig(constructor.getStubConfig());
+    card.setConfig({ ...constructor.getStubConfig(), ...config });
     document.querySelector("#cards").appendChild(card);
     card.hass = hass;
-  }, language);
+  }, { selectedLanguage: language, config });
 
   const card = page.locator("puppy-tracker-quick-log-card");
   await expect(card.locator("#owner-select")).toBeVisible();
@@ -108,6 +108,71 @@ function recordAddCalls(page) {
     window.__quickLogCalls.filter((call) => call.type === "puppy_tracker/record/add")
   );
 }
+
+test("a chosen owner takes precedence over the remembered note owner", { tag: ["@cross-browser", "@tablet"] }, async ({ page }) => {
+  const card = await mountQuickLog(page);
+  await card.locator("#owner-select").selectOption("p1");
+  await card.locator('[data-preset="note"]').click();
+  await card.locator("#quick-note").fill("First puppy");
+  await card.locator("#quick-save").click();
+
+  for (const owner of ["p2", "__mother__", "__litter__"]) {
+    await card.locator("#owner-select").selectOption(owner);
+    await card.locator('[data-preset="note"]').click();
+    await expect(card.locator("#owner-select")).toHaveValue(owner);
+    await card.locator("#quick-note").fill(`Observation for ${owner}`);
+    await page.evaluate(() => window.__quickLogSubscriptions[0]({ reason: "test-update" }));
+    await card.locator("#quick-save").click();
+    await expect(card.locator("#quick-save")).toHaveCount(0);
+    await expect(card.locator("#owner-select")).toHaveValue(owner);
+    await card.locator('[data-preset="note"]').click();
+    await expect(card.locator("#owner-select")).toHaveValue(owner);
+    await card.locator("#quick-cancel").click();
+  }
+
+  const calls = await recordAddCalls(page);
+  expect(calls.map((call) => call.puppy_id || "__litter__")).toEqual(["p1", "p2", "__litter__"]);
+  const motherCalls = await page.evaluate(() => window.__quickLogCalls.filter((call) => call.type === "puppy_tracker/mother/record/add"));
+  expect(motherCalls).toHaveLength(1);
+  expect(motherCalls[0].note).toBe("Observation for __mother__");
+});
+
+test("configured puppy is an initial default, not a forced owner on refresh", { tag: ["@cross-browser", "@tablet"] }, async ({ page }) => {
+  const card = await mountQuickLog(page, "en", { default_selected: "puppy", puppy_id: "p1" });
+  await expect(card.locator("#owner-select")).toHaveValue("p1");
+  for (const owner of ["p2", "__mother__", "__litter__"]) {
+    await card.locator("#owner-select").selectOption(owner);
+    await card.evaluate(async (element) => {
+      await element._queueRefresh();
+      element.setConfig({ ...element._config, title: "Quick Log updated" });
+    });
+    await expect(card.locator("#owner-select")).toHaveValue(owner);
+    await card.locator('[data-preset="note"]').click();
+    await expect(card.locator("#owner-select")).toHaveValue(owner);
+    await card.locator("#quick-cancel").click();
+  }
+});
+
+test("remembered owners only initialize a new session without an explicit owner", async ({ page }) => {
+  const card = await mountQuickLog(page);
+  await card.evaluate((element) => {
+    element._rememberOwner("note", "p2");
+    element._rememberOwner("feeding", "p1");
+    const replacement = document.createElement(element.localName);
+    replacement.setConfig(element._config);
+    element.replaceWith(replacement);
+    replacement.hass = element._hass;
+  });
+  await card.locator('[data-preset="note"]').click();
+  await expect(card.locator("#owner-select")).toHaveValue("p2");
+  await card.locator("#quick-cancel").click();
+  await card.locator('[data-preset="feeding"]').click();
+  await expect(card.locator("#owner-select")).toHaveValue("p2");
+  await card.locator("#quick-note").fill("Keep this draft with Bob");
+  await card.evaluate((element) => element.setConfig({ ...element._config, title: "New title" }));
+  await expect(card.locator("#owner-select")).toHaveValue("p2");
+  await expect(card.locator("#quick-note")).toHaveValue("Keep this draft with Bob");
+});
 
 test("logs a feeding observation for the selected puppy with an editable current timestamp", async ({ page }) => {
   const card = await mountQuickLog(page, "en");

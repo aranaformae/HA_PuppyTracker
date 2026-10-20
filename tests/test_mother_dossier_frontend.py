@@ -15,12 +15,12 @@ def test_mother_owner_and_history_filter_are_available() -> None:
 
 
 def test_mother_dossier_crud_uses_dedicated_api() -> None:
-    source = DOSSIER_UI.read_text(encoding="utf-8")
+    source = DOSSIER_UI.with_name("puppy-tracker-record-editor.js").read_text(encoding="utf-8")
     assert 'type: "puppy_tracker/mother/record/add"' in source
     assert "updateMotherDossierRecord" in source
     assert "deleteMotherDossierRecord" in source
     assert "restoreMotherDossierRecord" in source
-    assert 'type: "puppy_tracker/mother/profile_note/update"' in source
+    assert 'type: "puppy_tracker/mother/profile_note/update"' in DOSSIER_UI.read_text(encoding="utf-8")
 
 
 def test_all_litter_history_shows_record_litter_context() -> None:

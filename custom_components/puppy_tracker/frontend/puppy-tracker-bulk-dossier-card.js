@@ -1,4 +1,5 @@
 import {
+  puppySelectorLabel,
   addDossierRecord,
   escapeHtml,
   fetchLitterData,
@@ -495,7 +496,7 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
     const puppyOptions = this._puppies.map((puppy) => `
       <label class="puppy-option">
         <input class="puppy-check" type="checkbox" data-puppy-id="${escapeHtml(puppy.id)}" ${this._selectedPuppyIds.has(puppy.id) ? "checked" : ""}>
-        <span>${escapeHtml(puppy.name || puppy.id)}</span>
+        <span>${escapeHtml(puppySelectorLabel(puppy, localize(this._hass, "puppy")))}</span>
       </label>`).join("");
     const typeOptions = RECORD_TYPES.map(([value, labelKey]) => `<option value="${value}" ${value === this._form.record_type ? "selected" : ""}>${escapeHtml(localize(this._hass, labelKey))}</option>`).join("");
 

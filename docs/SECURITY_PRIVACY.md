@@ -1,7 +1,7 @@
 # Security and Privacy Review for 1.0
 
-Review baseline: v0.28.16 (`df75a70`), with the permission hardening in this working
-change. This is a scoped application review, not an independent penetration test
+Review baseline: v0.28.16 (`df75a70`), with the permission hardening in `3205c5c`
+included in v0.28.17. This is a scoped application review, not an independent penetration test
 or a claim of protection against a compromised Home Assistant host.
 
 ## Trust Model and Policy

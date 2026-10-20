@@ -20,6 +20,7 @@ from .backup import (
 )
 from .backup_http import async_signed_export_path
 from .backup_transaction import async_apply_import_transaction
+from .dog_identity import puppy_selector_label
 from .const import (
     SIGNAL_DASHBOARD_UPDATE,
     SIGNAL_NEW_LITTER,
@@ -64,7 +65,7 @@ class PuppyTrackerDataManagementMixin:
                 options.append(
                     selector.SelectOptionDict(
                         value=f"{litter_id}|{puppy_id}",
-                        label=f"{litter_name} · {puppy.get('name') or 'Puppy'}",
+                        label=f"{litter_name} · {puppy_selector_label(puppy)}",
                     )
                 )
         return options

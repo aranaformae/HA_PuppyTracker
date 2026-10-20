@@ -1,4 +1,5 @@
 import {
+  puppySelectorLabel,
   addDossierRecord,
   escapeHtml,
   fetchLitterData,
@@ -11,6 +12,7 @@ import {
   subscribeUpdates,
 } from "./puppy-tracker-card-common.js";
 import { collarColor } from "./puppy-tracker-collar-chart-colors.js";
+import { closeRecordEditor, openRecordEditor, recordContext, recordEditButton, RECORD_ACTION_STYLE } from "./puppy-tracker-record-editor.js";
 
 const RANGE_HOURS = { "24h": 24, "3d": 72, "7d": 168, "14d": 336, all: null };
 
@@ -137,6 +139,7 @@ class PuppyTrackerTemperatureCard extends HTMLElement {
   }
 
   disconnectedCallback() {
+    closeRecordEditor(this);
     this._loadSequence += 1;
     if (this._unsubscribe) Promise.resolve(this._unsubscribe()).catch(() => undefined);
     this._unsubscribe = null;
@@ -374,7 +377,7 @@ class PuppyTrackerTemperatureCard extends HTMLElement {
     const limit = this._historyExpanded ? filtered.length : Math.max(3, Math.min(50, Number(this._config.history_limit) || 10));
     const ownerName = this._scope === "puppy" ? puppies.find((puppy) => puppy.id === this._selectedPuppyId)?.name : litter?.mother;
     const litterOptions = this._litters.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === this._selectedLitterId ? "selected" : ""}>${escapeHtml(item.name || text(this, "litter"))}</option>`).join("");
-    const puppyOptions = puppies.map((puppy) => `<option value="${escapeHtml(puppy.id)}" ${puppy.id === this._selectedPuppyId ? "selected" : ""}>${escapeHtml(puppy.name || text(this, "puppy"))}</option>`).join("");
+    const puppyOptions = puppies.map((puppy) => `<option value="${escapeHtml(puppy.id)}" ${puppy.id === this._selectedPuppyId ? "selected" : ""}>${escapeHtml(puppySelectorLabel(puppy, text(this, "puppy")))}</option>`).join("");
     const history = filtered.slice(0, limit).map((record) => `<div class="history-row"><strong>${escapeHtml(record.value.toLocaleString(languageForHass(this._hass) === "en" ? "en-US" : "nl-NL", { maximumFractionDigits: 1 }))} °C</strong><div><span>${escapeHtml(formatDateTime(record.occurred_at, "—", this._hass))}</span>${record.method ? `<small>${escapeHtml(record.method)}</small>` : ""}${record.observation ? `<p>${escapeHtml(record.observation)}</p>` : ""}</div></div>`).join("");
     const editor = this._showEditor && this._config.show_editor !== false ? `<form class="editor"><strong>${escapeHtml(text(this, "add"))}</strong><label>${escapeHtml(text(this, "value"))}<input id="temperature-value" type="number" min="20" max="45" step="0.1" inputmode="decimal" value="${escapeHtml(this._draft?.temperature_c || "")}" required></label><label>${escapeHtml(text(this, "date"))}<input id="temperature-date" type="datetime-local" value="${escapeHtml(this._draft?.occurred_at || nowInputValue())}" required></label><label>${escapeHtml(text(this, "method"))}<input id="temperature-method" placeholder="${escapeHtml(text(this, "methodPlaceholder"))}" value="${escapeHtml(this._draft?.method || "")}"></label><label class="wide">${escapeHtml(text(this, "note"))}<textarea id="temperature-note" rows="3" placeholder="${escapeHtml(text(this, "notePlaceholder"))}">${escapeHtml(this._draft?.note || "")}</textarea></label><div class="actions"><button type="button" class="secondary" id="cancel-temperature">${escapeHtml(text(this, "cancel"))}</button><button type="submit" class="primary">${escapeHtml(text(this, "save"))}</button></div></form>` : "";
     const latestSection = this._config.show_latest !== false ? `<section class="latest"><div><span class="section-label">${escapeHtml(text(this, "latest"))}</span><strong>${latest ? `${escapeHtml(latest.value.toLocaleString(languageForHass(this._hass) === "en" ? "en-US" : "nl-NL", { maximumFractionDigits: 1 }))} °C` : "—"}</strong><small>${latest ? escapeHtml(formatDateTime(latest.occurred_at, "—", this._hass)) : escapeHtml(text(this, "noMeasurement"))}</small></div><span class="owner-label">${escapeHtml(ownerLabel(this, this._scope, ownerName))}</span></section>` : "";
@@ -394,6 +397,15 @@ class PuppyTrackerTemperatureCard extends HTMLElement {
       this.shadowRoot.querySelector(".history")?.append(more);
     }
     this.shadowRoot.getElementById("scope-select")?.addEventListener("change", (event) => this._selectScope(event.target.value));
+    const editStyle = document.createElement("style");
+    editStyle.textContent = `${RECORD_ACTION_STYLE}.history-row{grid-template-columns:88px minmax(0,1fr) auto}`;
+    this.shadowRoot.append(editStyle);
+    this.shadowRoot.querySelectorAll(".history-row").forEach((row, index) => {
+      const record = filtered[index];
+      if (!record) return;
+      row.insertAdjacentHTML("beforeend", recordEditButton(this, record.id));
+      row.querySelector("[data-edit-item]")?.addEventListener("click", (event) => openRecordEditor(this, recordContext(this, { ...record, scope: this._scope, puppy_id: this._scope === "puppy" ? this._selectedPuppyId : null }), { trigger: event.currentTarget }));
+    });
     this.shadowRoot.getElementById("puppy-select")?.addEventListener("change", (event) => this._selectPuppy(event.target.value));
     this.shadowRoot.getElementById("range-select")?.addEventListener("change", (event) => { this._range = event.target.value; this._render(); });
     this.shadowRoot.getElementById("add-temperature")?.addEventListener("click", () => this._openEditor());

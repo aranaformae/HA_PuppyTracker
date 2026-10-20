@@ -1,4 +1,5 @@
 import { escapeHtml, languageForHass } from "./puppy-tracker-card-common.js";
+import { recordContext } from "./puppy-tracker-record-editor.js";
 
 function isEnglish(card) {
   return languageForHass(card?._hass) === "en";
@@ -73,6 +74,7 @@ export function renderMotherAttention(card) {
     const sourceId = action.id || `${action.source_record_id || action.record_id || "unknown"}:${action.due_field || "due"}`;
     row.dataset.attentionId = `mother:${sourceId}`;
     row.dataset.attentionType = String(action.record_type || action.type || action.category || "dossier");
+    if (action.source_record_id || action.record_id) row.__recordContext = recordContext(card, { ...action, scope: "mother", record_id: action.source_record_id || action.record_id });
     const reason = `${actionTitle(card, action)} · ${actionDate(card, action.due_date || action.due_at)}`;
     row.innerHTML = `<div class="icon ha"><ha-icon icon="${escapeHtml(action.icon || "mdi:calendar-alert")}"></ha-icon></div><div class="main"><div class="name">${escapeHtml(copy(card, "Moederhond", "Mother"))} · ${escapeHtml(card.__motherAttention?.owner?.name || motherName(card) || "")}</div><div class="reason">${escapeHtml(reason)}</div></div><div class="status">${escapeHtml(actionStatus(card, action))}</div>`;
     list.append(row);

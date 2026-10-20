@@ -34,10 +34,12 @@ def test_dossier_all_scope_keeps_owner_context_for_crud() -> None:
     assert "__aggregate_owner_puppy_id" in dossier
     assert "__aggregate_record_key" in dossier
     assert "canManageRecords" in dossier
-    assert "updateMotherDossierRecord" in dossier
-    assert "deleteMotherDossierRecord" in dossier
-    assert "restoreMotherDossierRecord" in dossier
-    assert "_recordOwnerContext" in dossier
+    assert "openRecordEditor(this, recordContext(this, record), { trigger })" in dossier
+    editor = _read("custom_components/puppy_tracker/frontend/puppy-tracker-record-editor.js")
+    assert "updateMotherDossierRecord" in editor
+    assert "deleteMotherDossierRecord" in editor
+    assert "restoreMotherDossierRecord" in editor
+    assert "__aggregate_owner_puppy_id" in editor
     assert "this._canManage && !this.__allSelected" in dossier
     assert "this.__allSelected" in dossier
     assert '"Alles (nest + moeder + pups)"' in dossier

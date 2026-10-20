@@ -259,19 +259,16 @@ async function mountDossier(page, { compact = false, production = false } = {}) 
   await expect(card.locator("#owner-select")).toBeVisible();
   await card.locator("#owner-select").selectOption("p1");
   await expect(card.locator("#add-record")).toBeVisible();
-  if (!compact) await card.locator("#toggle-dossier-manage").click();
+  if (!compact) await card.locator("#toggle-timeline-items").click();
   return card;
 }
 
-test("dossier item management stays available without matching records", async ({ page }) => {
+test("dossier has no separate edit mode and creation remains available without matching records", async ({ page }) => {
   const card = await mountDossier(page, { compact: true });
-
-  await expect(card.locator("#toggle-dossier-manage")).toBeVisible();
+  await expect(card.locator("#toggle-dossier-manage")).toHaveCount(0);
+  await expect(card.locator("#add-record")).toBeVisible();
   await card.locator("#owner-select").selectOption("__litter__");
-  await expect(card.locator("#toggle-dossier-manage")).toBeVisible();
-
-  await card.locator("#toggle-dossier-manage").click();
-  await expect(card.locator("#toggle-dossier-manage")).toHaveText("Done editing");
+  await expect(card.locator("#add-record")).toBeVisible();
 });
 
 test("dossier create, edit, delete and restore flow", async ({ page }) => {
@@ -279,26 +276,29 @@ test("dossier create, edit, delete and restore flow", async ({ page }) => {
   const card = await mountDossier(page);
 
   await card.locator("#add-record").click();
-  await card.locator("#record-title").fill("First check");
-  await card.locator("#record-note").fill("Everything looks good");
-  await card.locator("#record-save").click();
+  await page.locator("puppy-tracker-record-editor").locator("#record-title").fill("First check");
+  await page.locator("puppy-tracker-record-editor").locator("#record-note").fill("Everything looks good");
+  await page.locator("puppy-tracker-record-editor").locator("#record-save").click();
 
   await expect(card.getByText("First check", { exact: true })).toBeVisible();
 
-  await card.locator(".edit-record").first().click();
-  await card.locator("#record-title").fill("Updated check");
-  await card.locator("#record-note").fill("Updated note");
-  await card.locator("#record-save").click();
+  await card.locator("[data-edit-item]").first().click();
+  await page.locator("puppy-tracker-record-editor").locator("#record-title").fill("Updated check");
+  await page.locator("puppy-tracker-record-editor").locator("#record-note").fill("Updated note");
+  await page.locator("puppy-tracker-record-editor").locator("#record-save").click();
 
   await expect(card.getByText("Updated check", { exact: true })).toBeVisible();
   await expect(card.getByText("Updated note", { exact: true })).toBeVisible();
 
+  await card.locator(".record-menu summary").first().click();
   await card.locator(".delete-record").first().click();
+  await page.locator("puppy-tracker-record-editor #record-save").click();
   await expect(card.getByText("Updated check", { exact: true })).toHaveCount(0);
 
   await card.locator("#show-deleted").check();
   await expect(card.locator(".restore-record")).toBeVisible();
   await card.locator(".restore-record").first().click();
+  await page.locator("puppy-tracker-record-editor #record-save").click();
 
   await expect(card.getByText("Updated check", { exact: true })).toBeVisible();
 
@@ -328,7 +328,6 @@ test("dossier search remains usable while editing results in the combined scope 
     );
   });
   await card.locator("#owner-select").selectOption("__all__");
-  await card.locator("#toggle-dossier-manage").click();
   const search = card.locator("#record-search");
   await search.fill("GEVOELIG");
   await expect(card.locator(".record")).toHaveCount(1);
@@ -336,18 +335,14 @@ test("dossier search remains usable while editing results in the combined scope 
   await page.evaluate(async () => { await document.querySelector("puppy-tracker-dossier-card")._queueRefresh(); });
   await expect(search).toBeFocused();
   await expect(search).toHaveValue("GEVOELIG");
-  await card.locator("#toggle-dossier-manage").click();
   await expect(search).toHaveValue("GEVOELIG");
-  await card.locator(".edit-record").click();
-  await expect(card.locator("#record-care-result")).toHaveValue("Gevoelig");
-  await card.locator("#record-note").fill("Niet opgeslagen concept");
-  await search.fill("een rustige");
-  await expect(card.locator(".record")).toHaveCount(1);
-  await expect(card.locator("#record-note")).toHaveValue("Niet opgeslagen concept");
-  await expect(search).toBeFocused();
-  await search.fill("GEVOELIG");
-  await card.locator("#record-care-result").fill("Rustig");
-  await card.locator("#record-save").click();
+  await card.locator("[data-edit-item]").click();
+  await expect(page.locator("puppy-tracker-record-editor").locator("#record-care-result")).toHaveValue("Gevoelig");
+  await page.locator("puppy-tracker-record-editor").locator("#record-note").fill("Niet opgeslagen concept");
+  await page.evaluate(() => window.__dossierSubscription?.({ reason: "editing-test" }));
+  await expect(page.locator("puppy-tracker-record-editor #record-note")).toHaveValue("Niet opgeslagen concept");
+  await page.locator("puppy-tracker-record-editor").locator("#record-care-result").fill("Rustig");
+  await page.locator("puppy-tracker-record-editor").locator("#record-save").click();
   await expect(search).toHaveValue("GEVOELIG");
   await expect(card.locator(".record")).toHaveCount(0);
   const update = await page.evaluate(() => window.__dossierCalls.find((call) => call.type === "puppy_tracker/record/update"));
@@ -363,9 +358,9 @@ test("dossier search remains usable while editing results in the combined scope 
   await expect(card.locator(".record")).toHaveCount(0);
   await card.locator('[data-dossier-category="note"]').click();
   await expect(card.locator(".record")).toHaveCount(1);
-  await card.locator(".edit-record").click();
-  await card.locator("#record-title").fill("Mother note updated via search");
-  await card.locator("#record-save").click();
+  await card.locator("[data-edit-item]").click();
+  await page.locator("puppy-tracker-record-editor").locator("#record-title").fill("Mother note updated via search");
+  await page.locator("puppy-tracker-record-editor").locator("#record-save").click();
   await expect(card.locator(".record")).toContainText("Mother note updated via search");
   expect(await page.evaluate(() => window.__dossierCalls.some((call) => call.type === "puppy_tracker/mother/record/update" && call.record_id === "m1"))).toBe(true);
 });
@@ -375,18 +370,17 @@ test("dossier edits each source owner from the combined scope", async ({ page })
   const card = await mountDossier(page, { production: true });
 
   await card.locator("#add-record").click();
-  await card.locator("#record-title").fill("Combined puppy check");
-  await card.locator("#record-note").fill("Puppy source");
-  await card.locator("#record-save").click();
+  await page.locator("puppy-tracker-record-editor").locator("#record-title").fill("Combined puppy check");
+  await page.locator("puppy-tracker-record-editor").locator("#record-note").fill("Puppy source");
+  await page.locator("puppy-tracker-record-editor").locator("#record-save").click();
   const puppyRecordId = await page.evaluate(() => window.__dossierRecords.at(-1).id);
 
   await card.locator("#owner-select").selectOption("__all__");
-  await expect(card.locator("#toggle-dossier-manage")).toBeVisible();
   const puppyRecord = card.locator(".record").filter({ hasText: "Combined puppy check" });
   await expect(puppyRecord.locator(".aggregate-owner-badge")).toHaveText("Puppy · Alice");
-  await puppyRecord.locator(".edit-record").click();
-  await card.locator("#record-title").fill("Combined puppy check updated");
-  await card.locator("#record-save").click();
+  await puppyRecord.locator("[data-edit-item]").click();
+  await page.locator("puppy-tracker-record-editor").locator("#record-title").fill("Combined puppy check updated");
+  await page.locator("puppy-tracker-record-editor").locator("#record-save").click();
 
   const puppyUpdate = await page.evaluate((recordId) =>
     window.__dossierCalls.find((call) => call.type === "puppy_tracker/record/update" && call.record_id === recordId),
@@ -395,9 +389,9 @@ test("dossier edits each source owner from the combined scope", async ({ page })
 
   const motherRecord = card.locator(".record").filter({ hasText: "Mother note" });
   await expect(motherRecord.locator(".aggregate-owner-badge")).toHaveText("Mother · Luna");
-  await motherRecord.locator(".edit-record").click();
-  await card.locator("#record-title").fill("Mother note updated");
-  await card.locator("#record-save").click();
+  await motherRecord.locator("[data-edit-item]").click();
+  await page.locator("puppy-tracker-record-editor").locator("#record-title").fill("Mother note updated");
+  await page.locator("puppy-tracker-record-editor").locator("#record-save").click();
 
   await expect(card.getByText("Mother note updated", { exact: true })).toBeVisible();
   await expect(
@@ -409,11 +403,14 @@ test("dossier edits each source owner from the combined scope", async ({ page })
   expect(motherUpdate).toMatchObject({ record_id: "m1", litter_id: "l1" });
 
   const updatedPuppyRecord = card.locator(".record").filter({ hasText: "Combined puppy check updated" });
+  await updatedPuppyRecord.locator(".record-menu summary").click();
   await updatedPuppyRecord.locator(".delete-record").click();
+  await page.locator("puppy-tracker-record-editor #record-save").click();
   await expect(card.getByText("Combined puppy check updated", { exact: true })).toHaveCount(0);
   await card.locator("#show-deleted").check();
   const deletedPuppyRecord = card.locator(".record").filter({ hasText: "Combined puppy check updated" });
   await deletedPuppyRecord.locator(".restore-record").click();
+  await page.locator("puppy-tracker-record-editor #record-save").click();
   await expect(card.getByText("Combined puppy check updated", { exact: true })).toBeVisible();
 
   const deleteCall = await page.evaluate((recordId) =>
@@ -436,9 +433,9 @@ test("mother dossier owns records, profile note and cross-litter history directl
   await expect(card.getByText("Mother profile", { exact: true })).toBeVisible();
 
   await card.locator("#add-record").click();
-  await card.locator("#record-title").fill("Mother check");
-  await card.locator("#record-note").fill("Mother remains calm");
-  await card.locator("#record-save").click();
+  await page.locator("puppy-tracker-record-editor").locator("#record-title").fill("Mother check");
+  await page.locator("puppy-tracker-record-editor").locator("#record-note").fill("Mother remains calm");
+  await page.locator("puppy-tracker-record-editor").locator("#record-save").click();
   await expect(card.getByText("Mother check", { exact: true })).toBeVisible();
 
   await card.locator("#profile-edit").click();
@@ -452,11 +449,14 @@ test("mother dossier owns records, profile note and cross-litter history directl
   ))).toBe(true);
 
   const added = card.locator(".record").filter({ hasText: "Mother check" });
+  await added.locator(".record-menu summary").click();
   await added.locator(".delete-record").click();
+  await page.locator("puppy-tracker-record-editor #record-save").click();
   await expect(card.getByText("Mother check", { exact: true })).toHaveCount(0);
   await card.locator("#show-deleted").check();
   const deleted = card.locator(".record").filter({ hasText: "Mother check" });
   await deleted.locator(".restore-record").click();
+  await page.locator("puppy-tracker-record-editor #record-save").click();
   await expect(card.getByText("Mother check", { exact: true })).toBeVisible();
 
   const mutationTypes = await page.evaluate(() => window.__dossierCalls.map((call) => call.type));
@@ -556,14 +556,14 @@ test("dossier shows and edits user-facing care result fields", async ({ page }) 
   await expect(record.getByText("Rustig", { exact: true })).toBeVisible();
   await expect(record.getByText("tactiel", { exact: true })).toBeVisible();
 
-  await record.locator(".edit-record").click();
-  await expect(card.locator("#record-care-result")).toHaveValue("Rustig");
-  await expect(card.locator("#record-care-score")).toHaveValue("4");
-  await expect(card.locator("#record-care-status")).toHaveValue("completed");
-  await card.locator("#record-care-result").fill("Gevoelig");
-  await card.locator("#record-care-score").fill("3.5");
-  await card.locator("#record-care-status").selectOption("missed");
-  await card.locator("#record-save").click();
+  await record.locator("[data-edit-item]").click();
+  await expect(page.locator("puppy-tracker-record-editor").locator("#record-care-result")).toHaveValue("Rustig");
+  await expect(page.locator("puppy-tracker-record-editor").locator("#record-care-score")).toHaveValue("4");
+  await expect(page.locator("puppy-tracker-record-editor").locator("#record-care-status")).toHaveValue("completed");
+  await page.locator("puppy-tracker-record-editor").locator("#record-care-result").fill("Gevoelig");
+  await page.locator("puppy-tracker-record-editor").locator("#record-care-score").fill("3.5");
+  await page.locator("puppy-tracker-record-editor").locator("#record-care-status").selectOption("missed");
+  await page.locator("puppy-tracker-record-editor").locator("#record-save").click();
 
   const update = await page.evaluate(() =>
     window.__dossierCalls.find((call) => call.type === "puppy_tracker/record/update" && call.record_id === "care-edit-record"),
@@ -586,12 +586,15 @@ test("dossier can change a record owner and keeps the record identity", async ({
   const card = await mountDossier(page);
 
   await card.locator("#add-record").click();
-  await card.locator("#record-title").fill("Move me");
-  await card.locator("#record-note").fill("Owner transfer");
-  await card.locator("#record-save").click();
+  await page.locator("puppy-tracker-record-editor").locator("#record-title").fill("Move me");
+  await page.locator("puppy-tracker-record-editor").locator("#record-note").fill("Owner transfer");
+  await page.locator("puppy-tracker-record-editor").locator("#record-save").click();
   const recordId = await page.evaluate(() => window.__dossierRecords.at(-1).id);
 
+  await card.locator(".record-menu summary").first().click();
   await card.locator(".move-record").first().click();
+  await expect(page.locator("puppy-tracker-record-editor #record-owner option")).toHaveText(["Whole litter", "Mother · Luna", "Puppy · Bob (Blue)"]);
+  await page.locator("puppy-tracker-record-editor #record-save").click();
   await expect(card.getByText("Owner transfer", { exact: true })).toHaveCount(0);
   await card.locator("#owner-select").selectOption("__litter__");
   await expect(card.getByText("Move me", { exact: true })).toBeVisible();
@@ -599,20 +602,19 @@ test("dossier can change a record owner and keeps the record identity", async ({
   const moveCall = await page.evaluate(() => window.__dossierCalls.find((call) => call.type === "puppy_tracker/record/change_owner"));
   expect(moveCall).toMatchObject({ record_id: recordId, source_puppy_id: "p1" });
   expect(moveCall).not.toHaveProperty("target_puppy_id");
-  expect(dialogs[0]).toContain("0: Luna x Dutch");
-  expect(dialogs[0]).toContain("1: Mother · Luna");
+
 });
 
 test("dossier can create a structured feeding record", async ({ page }) => {
   const card = await mountDossier(page);
 
   await card.locator("#add-record").click();
-  await card.locator("#record-type").selectOption("feeding");
-  await card.locator("#record-data-feeding_type").fill("Bottle");
-  await card.locator("#record-data-amount").fill("45");
-  await card.locator("#record-data-unit").fill("ml");
-  await card.locator("#record-data-observation").fill("Drank well");
-  await card.locator("#record-save").click();
+  await page.locator("puppy-tracker-record-editor").locator("#record-type").selectOption("feeding");
+  await page.locator("puppy-tracker-record-editor").locator("#record-data-feeding_type").fill("Bottle");
+  await page.locator("puppy-tracker-record-editor").locator("#record-data-amount").fill("45");
+  await page.locator("puppy-tracker-record-editor").locator("#record-data-unit").fill("ml");
+  await page.locator("puppy-tracker-record-editor").locator("#record-data-observation").fill("Drank well");
+  await page.locator("puppy-tracker-record-editor").locator("#record-save").click();
 
   const addCall = await page.evaluate(() =>
     window.__dossierCalls.find((call) => call.type === "puppy_tracker/record/add" && call.record_type === "feeding")
@@ -716,24 +718,24 @@ test("live updates do not reset an active dossier form", async ({ page }) => {
   const card = await mountDossier(page);
 
   await card.locator("#add-record").click();
-  await card.locator("#record-title").fill("Unsaved title");
-  await card.locator("#record-note").fill("Unsaved details");
+  await page.locator("puppy-tracker-record-editor").locator("#record-title").fill("Unsaved title");
+  await page.locator("puppy-tracker-record-editor").locator("#record-note").fill("Unsaved details");
 
   await page.evaluate(() => window.__dossierSubscription?.({ reason: "test-update" }));
   await page.waitForTimeout(100);
 
-  await expect(card.locator("#record-title")).toHaveValue("Unsaved title");
-  await expect(card.locator("#record-note")).toHaveValue("Unsaved details");
+  await expect(page.locator("puppy-tracker-record-editor").locator("#record-title")).toHaveValue("Unsaved title");
+  await expect(page.locator("puppy-tracker-record-editor").locator("#record-note")).toHaveValue("Unsaved details");
 
   const editorState = await page.evaluate(() => {
     const cardElement = document.querySelector("puppy-tracker-dossier-card");
     return {
       refreshDeferred: Boolean(cardElement._refreshDeferred),
-      editorActive: Boolean(cardElement._editor),
+      editorActive: Boolean(document.querySelector("puppy-tracker-record-editor")),
     };
   });
 
-  expect(editorState.refreshDeferred).toBe(true);
+  expect(editorState.refreshDeferred).toBe(false);
   expect(editorState.editorActive).toBe(true);
 });
 
@@ -741,26 +743,26 @@ test("vaccination form validates required product and stores enriched structured
   const card = await mountDossier(page);
 
   await card.locator("#add-record").click();
-  await card.locator("#record-type").selectOption("vaccination");
-  await expect(card.locator("#record-data-vaccine")).toBeVisible();
+  await page.locator("puppy-tracker-record-editor").locator("#record-type").selectOption("vaccination");
+  await expect(page.locator("puppy-tracker-record-editor").locator("#record-data-vaccine")).toBeVisible();
 
-  await card.locator("#record-save").click();
-  await expect(card.getByText(/Complete the required field\(s\): Vaccine/)).toBeVisible();
+  await page.locator("puppy-tracker-record-editor").locator("#record-save").click();
+  await expect(page.locator("puppy-tracker-record-editor").getByText(/Complete the required field\(s\): Vaccine/)).toBeVisible();
 
   let addCalls = await page.evaluate(() =>
     window.__dossierCalls.filter((call) => call.type === "puppy_tracker/record/add")
   );
   expect(addCalls).toHaveLength(0);
 
-  await card.locator("#record-data-vaccine").fill("Nobivac Puppy DP");
-  await card.locator("#record-data-vaccine_type").fill("Puppy DP");
-  await card.locator("#record-data-batch_number").fill("LOT-2026-42");
-  await card.locator("#record-data-veterinarian").fill("Dr. Vet");
-  await card.locator("#record-data-clinic").fill("Puppy Clinic");
-  await card.locator("#record-data-reaction").fill("No reaction observed");
-  await card.locator("#record-data-weight_grams").fill("1450");
-  await card.locator("#record-data-next_due_date").fill("2026-09-28");
-  await card.locator("#record-save").click();
+  await page.locator("puppy-tracker-record-editor").locator("#record-data-vaccine").fill("Nobivac Puppy DP");
+  await page.locator("puppy-tracker-record-editor").locator("#record-data-vaccine_type").fill("Puppy DP");
+  await page.locator("puppy-tracker-record-editor").locator("#record-data-batch_number").fill("LOT-2026-42");
+  await page.locator("puppy-tracker-record-editor").locator("#record-data-veterinarian").fill("Dr. Vet");
+  await page.locator("puppy-tracker-record-editor").locator("#record-data-clinic").fill("Puppy Clinic");
+  await page.locator("puppy-tracker-record-editor").locator("#record-data-reaction").fill("No reaction observed");
+  await page.locator("puppy-tracker-record-editor").locator("#record-data-weight_grams").fill("1450");
+  await page.locator("puppy-tracker-record-editor").locator("#record-data-next_due_date").fill("2026-09-28");
+  await page.locator("puppy-tracker-record-editor").locator("#record-save").click();
 
   addCalls = await page.evaluate(() =>
     window.__dossierCalls.filter((call) => call.type === "puppy_tracker/record/add")

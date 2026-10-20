@@ -187,8 +187,8 @@ test("report selection exposes one clear whole-litter scope and historical puppi
   await expect(options).toHaveText([
     "Whole litter",
     "Mother · Luna",
-    "Alice – Red",
-    "Bob – Blue (inactive)",
+    "Alice (Red)",
+    "Bob (Blue) (inactive)",
   ]);
   await expect(card.locator("#puppy")).toHaveValue("__litter__");
   await expect(card.locator(".box").first().locator("b")).toHaveText("2");

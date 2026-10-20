@@ -1,3 +1,4 @@
+import { closeRecordEditor } from "./puppy-tracker-record-editor.js";
 import {
   escapeHtml,
   fetchLitterData,
@@ -114,6 +115,7 @@ class PuppyTrackerTodayCard extends HTMLElement {
   }
 
   disconnectedCallback() {
+    closeRecordEditor(this);
     if (this._unsubscribe) Promise.resolve(this._unsubscribe()).catch(() => undefined);
     this._unsubscribe = null;
   }

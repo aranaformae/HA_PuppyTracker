@@ -19,9 +19,32 @@ Reminder completion also matches the exact scope: a mother's temperature record
 does not complete a whole-litter or puppy reminder.
 
 The Dossier and Timeline surfaces can show **All** as an aggregate view. Existing
-records can be edited, deleted, restored or moved there because their source
-owner remains known. To add a new record, first select the intended litter,
-mother or puppy owner.
+records remain editable there because their source owner remains known. To add
+a new record, first select the intended litter, mother or puppy owner.
+
+### One editing workflow
+
+Administrators see a pencil beside each active saved dossier item in Dossier,
+Timeline, Today's activity list (including the mobile Workspace), Attention's
+dossier follow-ups, Temperature history and Behavior history. There is no separate
+**Edit items** mode. Every pencil opens the same dialog with the complete saved
+item and its original owner, independent of the current category/search filters.
+The cards remain readable without write controls for non-administrators.
+
+Dossier's three-dot item menu contains **Change owner** and **Delete**. Both open
+an explicit dialog; deleted items in Dossier and Timeline history offer
+**Restore**, not editing. Changing owner
+uses a named destination selector rather than a numbered prompt.
+
+The editor stays open with its draft during background refreshes and failed
+saves. Closing a changed draft asks for confirmation. While saving, actions are
+disabled to avoid duplicate submissions. Closing returns focus without scrolling
+the page. Removing the source card also removes its editor.
+
+Planned care occurrences are not stored dossier items: their existing execution
+dialog records the result and notes. Once saved, the dossier result can be edited
+with the shared editor. A weight entry opens a measurement **correction** instead
+of becoming a dossier note; the original measurement remains in its version history.
 
 ## Record types and editing
 
@@ -53,8 +76,9 @@ Behavior observations are also timestamped puppy dossier records, but are
 created in the dedicated **Behavior** surface because one observation can hold
 multiple 1-5 criterion scores. They are puppy-only: changing the owner may
 correct an observation to another puppy, but not move it to the litter or
-mother. The Dossier surface preserves and summarizes these entries without
-exposing the raw score object. See [Behavior observations](BEHAVIOR.md).
+mother. Dossier summarizes these entries without exposing the raw score object;
+the shared editor provides the individual criterion scores, observer and context.
+See [Behavior observations](BEHAVIOR.md).
 
 Fields marked required are validated before saving in Dossier, Quick Log and
 Bulk Log. Switching categories while entering data retains the draft values
@@ -63,8 +87,8 @@ readable even when they predate the structured fields.
 
 Care-program results are normal puppy dossier records. Their expanded details
 show the care day, scheduled time, localized status, result, score,
-day-specific instruction and additional care data. When item management is
-enabled, status, result and score can be changed in the normal Dossier editor.
+day-specific instruction and additional care data. Status, result and score can
+be changed in the shared item editor from any surface displaying that result.
 Internal program, revision, occurrence and source identifiers are preserved but
 are not shown as user-facing fields.
 
@@ -77,16 +101,16 @@ the selected owner, categories and (in Timeline) dates/history settings.
 Clearing the search leaves those other filters unchanged. Timeline searches
 the complete loaded scope before applying its display limit.
 
-Search also remains active in **Edit items**, including the combined **All**
-scope. A matching item is edited under its original owner; entering another
-search while an editor is open leaves its unsaved fields intact. Search only
-updates the results and counts, not the search field or editor. Search terms
-are temporary card state, not saved data or part of backups. Internal care
+Search also applies to editable results, including the combined **All** scope.
+A matching item is edited under its original owner. The modal editor does not
+change the card's search, owner or categories. After saving, an item that no longer
+matches the current search/filter disappears from that list. Search terms are
+temporary card state, not saved data or part of backups. Internal care
 program/occurrence IDs are not searched.
 
 ## Changing a record owner
 
-Use **Change owner** on a Dossier item to move it to the whole litter, the
+Use the three-dot menu's **Change owner** on a Dossier item to move it to the whole litter, the
 linked mother or another puppy. This is a move, not a copy: the same record ID,
 timestamps and audit history are retained and the item appears only under its
 new owner after saving.

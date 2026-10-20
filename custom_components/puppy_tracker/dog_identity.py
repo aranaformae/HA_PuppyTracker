@@ -14,6 +14,13 @@ PARENT_IDENTITY_FIELDS = (
 _MISSING = object()
 
 
+def puppy_selector_label(puppy: dict[str, Any]) -> str:
+    """Identify a puppy in selectors without changing its stored name or ID."""
+    name = str(puppy.get("name") or "Puppy").strip() or "Puppy"
+    collar = str(puppy.get("collar_color") or "").strip()
+    return f"{name} ({collar})" if collar and collar.lower() != name.lower() else name
+
+
 def optional_text(value: Any) -> str | None:
     """Return trimmed optional text."""
     text = str(value or "").strip()

@@ -116,11 +116,39 @@ Dossier and Timeline share `puppy-tracker-dossier-search.js` for accent- and
 case-insensitive title/note/result matching and localized search controls.
 The query is transient presentation state. Filtering runs over the full loaded
 scope, before Timeline display limits. Input changes replace only the result
-list and counts, retaining search/editor DOM nodes. Dossier record actions use
+list and counts, retaining search DOM nodes. Dossier record actions use
 one delegated list listener and authoritative aggregate record keys, so newly
 filtered results keep the existing owner-safe edit/delete/move/restore routes.
-Background refreshes retain a focused search field; editor refresh deferral
-continues to protect unsaved edits. No backend API or storage migration is added.
+Background refreshes retain a focused search field. No backend API or storage
+migration is added.
+Partial updates also synchronize chip state, visibility toggles and search
+controls when a pointer action does not blur the search field, as on Safari.
+
+`puppy-tracker-record-editor.js` owns the common saved-item editor and correction
+dialog. Dossier, Timeline, Today's activity list (including Mobile), Attention
+follow-ups, Temperature and Behavior history pass an explicit source record ID,
+owner scope, puppy ID and litter ID. Display-event IDs are never used as storage
+IDs. The editor fetches the canonical record with deleted history included,
+checks the returned write permission, and refuses stale/deleted records before
+enabling editing. Mother records use the mother API; puppy/litter records use
+their exact owner route. Unknown structured fields and internal care links are
+preserved. Care result status/result/score and behavior criteria have typed
+controls; care/behavior entry types are locked while editing.
+
+The editor is a custom element containing a native modal `dialog`, mounted
+outside card rendering. Native modality traps focus and prevents background
+interaction; card refreshes cannot remove the form. Its short-lived draft is
+never persisted to card state. Failed saves retain the same form, closing a dirty
+draft asks for confirmation, and a busy guard prevents duplicate writes. Source
+card disconnection closes its dialog; close restores the original focus with
+`preventScroll`. Backend admin checks remain the authorization boundary.
+
+The separate scheduled-care execution dialog creates a fact; it does not edit
+an existing dossier fact. Weight-event pencils fetch the exact active measurement
+and call `measurement/correct`, preserving the original version. They never call
+`record/update`. Behavior labels and criteria live in
+`puppy-tracker-behavior-schema.js`, shared by the specialized observation entry
+surface and the common saved-item editor.
 
 The frontend cards are projections of the same authoritative entities and
 WebSocket data; they must not maintain a second measurement or care-result
@@ -933,8 +961,12 @@ flow. No separate mother-dossier or aggregate-scope patch module is loaded.
 
 Quick Log owns its complete single-owner workflow directly. Litter, mother and
 puppy selection, remembered owners per preset, structured type fields and the
-corresponding owner-specific save endpoint are handled in the base card. Its
-presets and Bulk Dossier's type selector both derive from the same
+corresponding owner-specific save endpoint are handled in the base card. The
+owner selection is resolved once per configuration context: a configured mother
+or puppy, a manual choice, or the first preset's remembered owner takes
+precedence over later preset history. Data refreshes do not reapply `puppy_id`,
+and presentation-only configuration updates retain both owner and draft.
+Its presets and Bulk Dossier's type selector both derive from the same
 `RECORD_TYPES` and `TYPE_FIELDS` schema used by Dossier; no surface-specific
 category subset is maintained. Quick Log's Stool / urine shortcut remains a
 titled `note` record rather than a separate stored type. There is no

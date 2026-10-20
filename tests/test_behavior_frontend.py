@@ -27,7 +27,7 @@ def test_behavior_surface_is_loaded_before_workspace_and_not_public() -> None:
 
 
 def test_frontend_criteria_match_the_backend_contract() -> None:
-    source = CARD.read_text()
+    source = CARD.with_name("puppy-tracker-behavior-schema.js").read_text()
     group_source = source.split("export const BEHAVIOR_GROUPS = [", 1)[1].split("];", 1)[0]
     frontend_criteria = set(re.findall(r'"([a-z_]+)"', group_source)) - {
         "observations",
