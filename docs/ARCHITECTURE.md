@@ -601,13 +601,21 @@ Reconciliation derives the latest completion from active owner history instead
 of only moving a stored cursor forward. Editing, deleting, restoring or moving
 an execution therefore recomputes the projection. Older manual completion state
 without a linked record ID is retained. Explicit `recurring_reminder_id` links
-only match that reminder, while ordinary unlinked Quick Log records retain the
-existing category/title matching behavior.
+only match that reminder. Historical unlinked records and unflagged records from
+other entry points retain category/title matching. New Quick Log records without
+an explicit selection carry `data.recurring_completion = "none"`; matching always
+rejects this marker, even after edits or backup/restore. Dossier and PDF details
+hide it. Explicit execution removes an incoming opt-out marker before linking
+the new fact to the selected reminder.
 
 The admin-only `recurring_reminder/record` command uses the shared record editor
 in `reminder` mode. The server resolves owner/category from the definition, checks
 the expected definition timestamp and due instant, validates execution time and
 required category values, and serializes execution against definition changes.
+The optional `expected_context` also checks the intended litter, owner scope,
+puppy ID and category before either saving or returning an idempotent retry.
+The list response's `owner_available` flag excludes definitions whose owner is
+no longer linked to the litter from Quick Log choices.
 It writes one authoritative dossier fact with `recurring_reminder_id` and
 `recurring_due_at`. There is no two-store transaction: reminder completion is a
 rebuildable projection, so projection-write failure never requires another care
@@ -1065,6 +1073,19 @@ category subset is maintained. Quick Log's Stool / urine shortcut remains a
 titled `note` record rather than a separate stored type. There is no
 temperature compatibility module and `mother-surfaces.js` exports the mother
 load/render operations invoked explicitly by Attention.
+
+Quick Log loads recurring choices with its litter data, filtered by exact owner
+and type, without automatic selection. A draft stores a snapshot of the chosen
+definition revision and due instant. Explicit refresh never upgrades that
+snapshot to another occurrence; an outdated choice remains visible separately
+until the user replaces it. Background updates stay deferred while typing.
+Owner/category changes retain input but clear the link; changing litter retains
+the existing discard confirmation. Missing owners in an active draft are not
+replaced by litter scope. The shared record-editor helpers build the execution
+request and saved-entry/undo feedback for both Quick Log and direct execution;
+there is no second scheduling or completion engine. Log-only writes use the
+normal owner-specific add endpoints and retain the opt-out marker in generic
+record data. Failed writes roll back runtime data just like linked executions.
 
 ## Frontend surfaces
 

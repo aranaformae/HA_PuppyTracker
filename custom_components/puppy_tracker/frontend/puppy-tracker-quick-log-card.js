@@ -1,5 +1,6 @@
 import { FormState, savedRecordFeedback, savedEditButton } from "./puppy-tracker-form-state.js";
-import { closeRecordEditor, openRecordEditor, RECORD_ACTION_STYLE } from "./puppy-tracker-record-editor.js";
+import { canEditRecords, closeRecordEditor, openRecordEditor, recordReminderExecution, rememberReminderExecution, RECORD_ACTION_STYLE } from "./puppy-tracker-record-editor.js";
+import { loadRecurringReminders, renderRecurringSaveFeedback } from "./puppy-tracker-recurring-surfaces.js";
 import {
   puppySelectorLabel,
   addDossierRecord,
@@ -61,6 +62,15 @@ const QUICK_LOG_TRANSLATIONS = {
     saveFailed: "Quick Log could not be saved.",
     refreshFailed: "Quick Log data could not be refreshed.",
     cardDescription: "Fast litter and puppy dossier logging.",
+    completeReminder: "Complete reminder",
+    logOnly: "Log only",
+    refreshReminders: "Refresh reminders",
+    remindersUnavailable: "Reminders could not be loaded. Logging without a reminder is still available.",
+    reminderChanged: "This reminder or scheduled moment has changed. Refresh the choices and check the owner, category and execution time. Your input has been kept.",
+    previousChoice: "Previously selected",
+    overdue: "Overdue",
+    ownerUnavailable: "This owner is no longer available. Choose an owner before saving; your input has been kept.",
+    unavailablePuppy: "Puppy no longer available",
   },
   nl: {
     title: "Snel loggen",
@@ -97,6 +107,15 @@ const QUICK_LOG_TRANSLATIONS = {
     saveFailed: "Quick Log kon niet worden opgeslagen.",
     refreshFailed: "Quick Log-data kon niet worden vernieuwd.",
     cardDescription: "Snel dossiernotities voor nesten en pups vastleggen.",
+    completeReminder: "Herinnering afhandelen",
+    logOnly: "Alleen loggen",
+    refreshReminders: "Herinneringen vernieuwen",
+    remindersUnavailable: "Herinneringen konden niet worden geladen. Alleen loggen blijft mogelijk.",
+    reminderChanged: "Deze herinnering of het geplande moment is gewijzigd. Vernieuw de keuzes en controleer de eigenaar, categorie en uitvoertijd. Je invoer is bewaard.",
+    previousChoice: "Eerder gekozen",
+    overdue: "Achterstallig",
+    ownerUnavailable: "Deze eigenaar is niet meer beschikbaar. Kies een eigenaar voordat je opslaat; je invoer is bewaard.",
+    unavailablePuppy: "Pup niet meer beschikbaar",
   },
 };
 
@@ -180,6 +199,9 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
     this._ownerConfigKey = null;
     this._ownerSelectionResolved = false;
     this._litterData = null;
+    this._recurringReminders = [];
+    this._remindersAvailable = false;
+    this._remindersLoading = false;
     this._draft = null;
     this._formState = new FormState(this, { preserve: false });
     this._loading = false;
@@ -319,16 +341,23 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
     if (!this._hass || !this._selectedLitterId) {
       this._litterData = null;
       this._selectedPuppyId = null;
+      this._recurringReminders = [];
       if (render) this._render();
       return;
     }
 
-    this._litterData = await fetchLitterData(this._hass, this._selectedLitterId);
-    if (this.__motherSelected && !this._litterData?.litter?.mother) {
+    const litterId = this._selectedLitterId;
+    const data = await fetchLitterData(this._hass, litterId);
+    if (litterId !== this._selectedLitterId) return;
+    this._litterData = data;
+    const remindersAvailable = await loadRecurringReminders(this);
+    if (litterId !== this._selectedLitterId) return;
+    this._remindersAvailable = remindersAvailable;
+    if (!this._draft && this.__motherSelected && !this._litterData?.litter?.mother) {
       this.__motherSelected = false;
     }
     const puppyIds = new Set(this._puppies.map((puppy) => puppy.id));
-    if (this._selectedPuppyId && !puppyIds.has(this._selectedPuppyId)) {
+    if (!this._draft && this._selectedPuppyId && !puppyIds.has(this._selectedPuppyId)) {
       this._selectedPuppyId = null;
     }
     if (render) this._render();
@@ -398,22 +427,26 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
   }
 
   _selectOwner(value) {
-    if (this._saving || !this._formState.discard()) {
+    if (this._saving || this._busy) {
       this.shadowRoot.getElementById("owner-select").value = this.__motherSelected ? MOTHER_OWNER : this._selectedPuppyId || LITTER_OWNER;
       return;
     }
+    this._captureDraft();
     this._ownerSelectionResolved = true;
     if (this._draft?.presetId) this._rememberOwner(this._draft.presetId, value);
     this.__motherSelected = value === MOTHER_OWNER;
     this._selectedPuppyId = value === LITTER_OWNER || value === MOTHER_OWNER ? null : value;
-    this._draft = null;
+    if (this._draft) this._draft.reminder = null;
     this._status = "";
+    this._error = "";
     this._savedRecord = null;
+    this._reminderSaveMessage = "";
+    this._reminderUndo = null;
     this._render();
   }
 
   _startPreset(presetId) {
-    if (this._saving) return;
+    if (this._saving || this._busy) return;
     const preset = PRESETS.find((item) => item.id === presetId) || PRESETS[0];
     const remembered = this._state.recentOwners?.[preset.id];
     const ownerAvailable = remembered === LITTER_OWNER
@@ -431,6 +464,7 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
       occurred_at: previousDraft?.occurred_at || toLocalDateTimeInput(),
       note: previousDraft?.note || "",
       dataByPreset: { ...(previousDraft?.dataByPreset || {}) },
+      reminder: previousDraft?.presetId === preset.id ? previousDraft.reminder : null,
     };
     if (!this._draft.dataByPreset[preset.id]) this._draft.dataByPreset[preset.id] = {};
     this._error = "";
@@ -476,6 +510,55 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
     return data;
   }
 
+  _matchingReminders(preset) {
+    const scope = this.__motherSelected ? "mother" : this._selectedPuppyId ? "puppy" : "litter";
+    return this._recurringReminders.filter((item) => item.enabled !== false && item.owner_available !== false
+      && item.litter_id === this._selectedLitterId && item.owner_scope === scope
+      && item.record_type === preset.recordType && item.next_due_at && item.updated_at
+      && Number.isFinite(new Date(item.next_due_at).getTime())
+      && (scope !== "puppy" || item.owner_id === this._selectedPuppyId)
+      && (scope !== "litter" || item.owner_id === this._selectedLitterId)
+      && (scope !== "mother" || !this._litterData?.litter?.mother_id || item.owner_id === this._litterData.litter.mother_id));
+  }
+
+  _reminderLabel(item) {
+    const time = new Intl.DateTimeFormat(languageForHass(this._hass) === "en" ? "en-GB" : "nl-NL", {
+      dateStyle: "short", timeStyle: "short", timeZone: this._hass?.config?.time_zone || undefined,
+    }).format(new Date(item.next_due_at));
+    return `${item.title} · ${time}${new Date(item.next_due_at).getTime() < Date.now() ? ` · ${text(this._hass, "overdue")}` : ""}`;
+  }
+
+  _renderReminderChoice(preset) {
+    const items = this._matchingReminders(preset);
+    const chosen = this._draft.reminder;
+    const current = chosen && items.some((item) => item.id === chosen.id
+      && item.next_due_at === chosen.next_due_at && item.updated_at === chosen.updated_at);
+    return `<div class="reminder-choice"><label class="field"><span>${escapeHtml(text(this._hass, "completeReminder"))}</span>
+      <select id="quick-reminder" ${!canEditRecords(this) ? "disabled" : ""}>
+        <option value="" ${!chosen ? "selected" : ""}>${escapeHtml(text(this._hass, "logOnly"))}</option>
+        ${chosen && !current ? `<option value="__previous__" selected disabled>${escapeHtml(`${text(this._hass, "previousChoice")}: ${this._reminderLabel(chosen)}`)}</option>` : ""}
+        ${items.map((item) => `<option value="${escapeHtml(item.id)}" ${current && chosen.id === item.id ? "selected" : ""}>${escapeHtml(this._reminderLabel(item))}</option>`).join("")}
+      </select></label><button type="button" id="quick-reminders-refresh" title="${escapeHtml(text(this._hass, "refreshReminders"))}" aria-label="${escapeHtml(text(this._hass, "refreshReminders"))}" ${this._saving || this._busy || this._remindersLoading ? "disabled" : ""}><ha-icon icon="mdi:refresh"></ha-icon></button>
+      ${!this._remindersAvailable ? `<div class="reminder-load-error" role="status">${escapeHtml(text(this._hass, "remindersUnavailable"))}</div>` : ""}</div>`;
+  }
+
+  async _reloadReminders() {
+    if (this._saving || this._busy || this._remindersLoading) return;
+    this._captureDraft();
+    this._remindersLoading = true;
+    const litterId = this._selectedLitterId;
+    const button = this.shadowRoot.getElementById("quick-reminders-refresh");
+    if (button) button.disabled = true;
+    try {
+      const available = await loadRecurringReminders(this);
+      if (litterId === this._selectedLitterId) this._remindersAvailable = available;
+    }
+    finally {
+      this._remindersLoading = false;
+      if (this.isConnected) this._render();
+    }
+  }
+
   async _finishDraft(saved = false) {
     if (!saved && !this._formState.discard()) return;
     this._formState.reset();
@@ -489,14 +572,20 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
   }
 
   async _saveQuickLog() {
-    if (!this._draft || !this._hass || !this._selectedLitterId || this._saving) return;
+    if (!this._draft || !this._hass || !this._selectedLitterId || this._saving || this._busy) return;
     this._captureDraft();
+    if ((this.__motherSelected && !this._litterData?.litter?.mother) || (this._selectedPuppyId && !this._selectedPuppy)) {
+      this._error = text(this._hass, "ownerUnavailable");
+      this._render();
+      return;
+    }
     const preset = PRESETS.find((item) => item.id === this._draft.presetId) || PRESETS[0];
     const ownerValue = this.__motherSelected ? MOTHER_OWNER : (this._selectedPuppyId || LITTER_OWNER);
     this._rememberOwner(preset.id, ownerValue);
     const occurredAt = toIsoTimestamp(this._draft.occurred_at);
     const note = String(this._draft.note || "").trim();
     const data = this._currentData(preset);
+    const reminder = this._draft.reminder;
     const temperature = Number(String(data.temperature_c || "").replace(",", "."));
 
     if (!occurredAt) {
@@ -543,13 +632,21 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
       };
       let result;
       const context = { litterId: this._selectedLitterId, scope: this.__motherSelected ? "mother" : this._selectedPuppyId ? "puppy" : "litter", puppyId: this._selectedPuppyId };
-      if (this.__motherSelected) {
+      if (reminder) {
+        payload.title = reminder.match_title || reminder.title;
+        result = await recordReminderExecution(this._hass, reminder, context, payload);
+        rememberReminderExecution(this, result, context, recordTypeLabel(this._hass, preset.recordType), reminder);
+        this._status = "";
+        this._refreshDeferred = true;
+      } else if (this.__motherSelected) {
+        payload.data.recurring_completion = "none";
         result = await this._hass.callWS({
           type: "puppy_tracker/mother/record/add",
           litter_id: this._selectedLitterId,
           ...payload,
         });
       } else {
+        payload.data.recurring_completion = "none";
         result = await addDossierRecord(
           this._hass,
           this._selectedLitterId,
@@ -557,11 +654,16 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
           payload,
         );
       }
-      this._status = savedRecordFeedback(this, result, context, presetTitle(this._hass, preset) || recordTypeLabel(this._hass, preset.recordType));
+      if (!reminder) {
+        this._reminderSaveMessage = "";
+        this._reminderUndo = null;
+        this._status = savedRecordFeedback(this, result, context, presetTitle(this._hass, preset) || recordTypeLabel(this._hass, preset.recordType));
+      }
       await this._finishDraft(true);
     } catch (error) {
       this._saving = false;
-      this._error = error?.message || text(this._hass, "saveFailed");
+      this._error = reminder && error?.code === "invalid_reminder"
+        ? text(this._hass, "reminderChanged") : error?.message || text(this._hass, "saveFailed");
       this._render();
     }
   }
@@ -595,7 +697,8 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
       : "";
     const ownerOptions = [
       `<option value="${LITTER_OWNER}" ${!this.__motherSelected && !this._selectedPuppyId ? "selected" : ""}>${escapeHtml(text(this._hass, "litterScope"))}</option>`,
-      ...(litter?.mother ? [`<option value="${MOTHER_OWNER}" ${this.__motherSelected ? "selected" : ""}>${escapeHtml(text(this._hass, "mother"))} · ${escapeHtml(litter.mother)}</option>`] : []),
+      ...(litter?.mother || this.__motherSelected ? [`<option value="${MOTHER_OWNER}" ${this.__motherSelected ? "selected" : ""}>${escapeHtml(text(this._hass, "mother"))}${litter?.mother ? ` · ${escapeHtml(litter.mother)}` : ""}</option>`] : []),
+      ...(this._selectedPuppyId && !this._selectedPuppy ? [`<option value="${escapeHtml(this._selectedPuppyId)}" selected disabled>${escapeHtml(text(this._hass, "unavailablePuppy"))}</option>`] : []),
       ...puppies.map((puppy) => `<option value="${escapeHtml(puppy.id)}" ${puppy.id === this._selectedPuppyId ? "selected" : ""}>${escapeHtml(puppySelectorLabel(puppy, text(this._hass, "puppy")))}</option>`),
     ].join("");
 
@@ -609,6 +712,7 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
     const placeholder = activePreset ? text(this._hass, activePreset.placeholderKey) : "";
     const editor = draft ? `
       <div class="editor">
+        ${this._renderReminderChoice(activePreset)}
         <label class="field"><span>${escapeHtml(text(this._hass, "when"))}</span><input id="quick-occurred" type="datetime-local" step="1" value="${escapeHtml(draft.occurred_at)}"></label>
         ${this._renderTypeFields(activePreset)}
         <label class="field details"><span>${escapeHtml(text(this._hass, "details"))}</span><textarea id="quick-note" rows="2" placeholder="${escapeHtml(placeholder)}">${escapeHtml(draft.note)}</textarea></label>
@@ -628,6 +732,7 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
           .presets{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:7px;margin-top:13px}.preset{min-width:0;min-height:56px;padding:7px 5px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:1px solid var(--divider-color);border-radius:11px;background:var(--secondary-background-color);color:var(--primary-text-color);font:inherit;cursor:pointer}.preset ha-icon{--mdc-icon-size:20px;color:var(--primary-color)}.preset span{font-size:11px;line-height:1.15;text-align:center;overflow-wrap:anywhere}.preset.selected{border-color:var(--primary-color);background:color-mix(in srgb,var(--primary-color) 10%,var(--secondary-background-color))}.preset:disabled{opacity:.5;cursor:default}
           .editor{display:grid;grid-template-columns:minmax(170px,.45fr) minmax(220px,1fr) auto;align-items:end;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--divider-color)}.typed-grid{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.typed-field.wide{grid-column:1/-1}.optional,.required{display:inline!important;margin-left:4px;font-size:10px}.optional{color:var(--secondary-text-color)}.required{color:var(--error-color);font-weight:650}.details textarea{min-height:64px}.actions{display:flex;gap:7px;align-items:center}.actions button{height:40px;padding:0 11px;border-radius:10px;border:1px solid var(--divider-color);font:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}.primary{background:var(--primary-color);border-color:var(--primary-color)!important;color:var(--text-primary-color,#fff);font-weight:600}.secondary{background:var(--secondary-background-color);color:var(--primary-text-color)}button:disabled{opacity:.55;cursor:default}
           .message{margin-top:9px;padding:8px 10px;border-radius:9px;font-size:12px}.status{background:var(--secondary-background-color);color:var(--secondary-text-color)}.error{background:color-mix(in srgb,var(--error-color) 10%,transparent);color:var(--error-color)}.empty{padding:12px 0 2px;color:var(--secondary-text-color);font-size:12px;text-align:center}
+          .reminder-choice{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) 40px;align-items:end;gap:7px;min-width:0}.reminder-choice select{min-width:0;text-overflow:ellipsis}.reminder-choice button{width:40px;height:40px;padding:0;border:1px solid var(--divider-color);border-radius:8px;background:var(--secondary-background-color);color:var(--primary-text-color);cursor:pointer}.reminder-load-error{grid-column:1/-1;overflow-wrap:anywhere;font-size:12px;color:var(--error-color)}
           @container quick-log-card (max-width:720px){.head{flex-direction:column}.context{width:100%;justify-content:stretch}.context .field{flex:1}.context .field select{min-width:0;width:100%}.presets{grid-template-columns:repeat(5,minmax(66px,1fr));overflow-x:auto;padding-bottom:2px}.editor{grid-template-columns:1fr 1fr}.details{grid-column:1/-1}.actions{grid-column:1/-1;justify-content:flex-end}}
           @container quick-log-card (max-width:430px){ha-card{padding:13px}.context{display:grid;grid-template-columns:1fr}.presets{grid-template-columns:repeat(3,1fr);overflow:visible}.preset{min-height:54px}.editor,.typed-grid{grid-template-columns:1fr}.typed-field.wide,.details,.actions{grid-column:auto}.actions{display:grid;grid-template-columns:1fr 1fr}.actions button{justify-content:center}}
         </style>
@@ -673,6 +778,13 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
     }
     this.shadowRoot.getElementById("quick-cancel")?.addEventListener("click", () => this._finishDraft());
     this.shadowRoot.getElementById("quick-save")?.addEventListener("click", () => this._saveQuickLog());
+    this.shadowRoot.getElementById("quick-reminder")?.addEventListener("change", (event) => {
+      if (!this._draft || !activePreset) return;
+      const item = this._matchingReminders(activePreset).find((candidate) => candidate.id === event.target.value);
+      this._draft.reminder = item ? structuredClone(item) : null;
+    });
+    this.shadowRoot.getElementById("quick-reminders-refresh")?.addEventListener("click", () => this._reloadReminders());
+    renderRecurringSaveFeedback(this);
   }
 }
 

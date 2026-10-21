@@ -121,6 +121,8 @@ Use the pencil beside an existing item to open the shared editor, including
 from Today on mobile, Temperature and Behavior history. Weight items open a
 correction instead. Quick Log keeps your chosen owner after saving or changing
 category. See [Dossier editing](docs/puppy-dossiers.md#one-editing-workflow).
+Quick Log defaults to **Log only**, without completing reminders. Select an
+open reminder explicitly to save a new entry and complete only that reminder.
 
 ### Reminders and care programs
 

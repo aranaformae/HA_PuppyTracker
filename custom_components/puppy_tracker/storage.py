@@ -2198,7 +2198,8 @@ class PuppyTrackerStorage:
                 data=normalized_data,
                 now=now,
             )
-            before = deepcopy(self._data) if followup_record_id or normalized_data.get("recurring_reminder_id") else None
+            before = deepcopy(self._data) if (followup_record_id or normalized_data.get("recurring_reminder_id")
+                                             or normalized_data.get("recurring_completion") == "none") else None
             owner.setdefault("records", []).append(record)
             owner["updated_at"] = now
             litter["updated_at"] = now

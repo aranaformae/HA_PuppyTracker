@@ -75,6 +75,28 @@ export function openReminderEditor(card, reminder, options = {}) {
   { ...options, mode: "reminder", reminder: structuredClone(reminder) });
 }
 
+export function recordReminderExecution(hass, reminder, context, payload) {
+  return hass.callWS({ type: "puppy_tracker/recurring_reminder/record", reminder_id: reminder.id,
+    due_at: reminder.next_due_at, expected_updated_at: reminder.updated_at,
+    expected_context: { litter_id: context.litterId, owner_scope: context.scope,
+      puppy_id: context.puppyId || null, record_type: payload.record_type },
+    occurred_at: payload.occurred_at, title: payload.title, note: payload.note, data: payload.data });
+}
+
+export function rememberReminderExecution(card, result, context, category, reminder) {
+  const owner = context.ownerName || savedOwnerLabel(card, context.scope, context.puppyId);
+  const saved = savedRecordFeedback(card, result, context, category);
+  card._reminderSaveMessage = result.already_completed
+    ? copy(card._hass, `Deze uitvoering was al opgeslagen voor ${owner}.`, `This execution was already saved for ${owner}.`)
+    : `${saved} ${copy(card._hass, `Herinnering "${reminder.title}" afgehandeld.`, `Reminder "${reminder.title}" completed.`)}`;
+  card._reminderSavedRecord = card._savedRecord;
+  card._reminderUndoError = "";
+  card._reminderFeedbackLitterId = context.litterId;
+  card._reminderUndo = !result.already_completed && result.record?.updated_at
+    ? { reminderId: reminder.id, recordId: result.record.id, updatedAt: result.record.updated_at,
+      litterId: context.litterId, ownerName: owner, occurredAt: result.record.occurred_at } : null;
+}
+
 export const RECORD_ACTION_STYLE = `.record-edit-button{display:inline-grid;place-items:center;flex:0 0 auto;width:40px;height:40px;min-width:40px;padding:0;border:1px solid var(--divider-color);border-radius:8px;background:var(--secondary-background-color);color:var(--primary-text-color);cursor:pointer;vertical-align:middle}.record-edit-button ha-icon{--mdc-icon-size:19px}.record-edit-button:focus-visible{outline:2px solid var(--primary-color);outline-offset:2px}`;
 
 export function recordRestoreButton(card, key) {
@@ -112,7 +134,7 @@ export async function refreshRecordSource(card) {
   if (!card.isConnected) return;
   const selectors = [".timeline-scroll", ".dossier-timeline-scroll", ".today-items-scroll", ".list", ".attention-ack-list", ".history", ".history-list"];
   const positions = selectors.map((selector) => [selector, Array.from(card.shadowRoot?.querySelectorAll(selector) || [], (node) => node.scrollTop)]);
-  if (card._queueRefresh) await card._queueRefresh();
+  if (card._queueRefresh) await card._queueRefresh(true);
   else if (card._loadLitterAndRecords) { await card._loadLitterAndRecords(false); card._render(); }
   else if (card._loadData) await card._loadData();
   else if (card._loadCurrent) await card._loadCurrent();
@@ -393,21 +415,8 @@ class PuppyTrackerRecordEditor extends HTMLElement {
         }
         if (this._mode === "reminder") {
           const reminder = this._options.reminder;
-          const result = await this._hass.callWS({ type: "puppy_tracker/recurring_reminder/record", reminder_id: reminder.id,
-            due_at: reminder.next_due_at, expected_updated_at: reminder.updated_at,
-            occurred_at: payload.occurred_at, title: payload.title, note: payload.note, data: payload.data });
-          this._card._reminderSaveMessage = savedRecordFeedback(this._card, result,
-            { litterId, scope, puppyId, ownerName: this._context.ownerName }, recordTypeLabel(this._hass, this._draft.record_type));
-          this._card._reminderSavedRecord = this._card._savedRecord;
-          this._card._reminderUndoError = "";
-          this._card._reminderFeedbackLitterId = litterId;
-          this._card._reminderUndo = !result.already_completed && result.record?.updated_at
-            ? { reminderId: reminder.id, recordId: result.record.id, updatedAt: result.record.updated_at,
-              litterId, ownerName: this._context.ownerName, occurredAt: result.record.occurred_at } : null;
-          if (result.already_completed) {
-            const owner = this._context.ownerName || savedOwnerLabel(this._card, scope, puppyId);
-            this._card._reminderSaveMessage = copy(this._hass, `Deze uitvoering was al opgeslagen voor ${owner}.`, `This execution was already saved for ${owner}.`);
-          }
+          const result = await recordReminderExecution(this._hass, reminder, this._context, payload);
+          rememberReminderExecution(this._card, result, this._context, recordTypeLabel(this._hass, this._draft.record_type), reminder);
         } else if (["add", "followup"].includes(this._mode)) {
           if (scope === "mother") await this._hass.callWS({ type: "puppy_tracker/mother/record/add", litter_id: litterId, ...payload });
           else await addDossierRecord(this._hass, litterId, puppyId || null, payload);

@@ -58,8 +58,10 @@ test("Quick Log protects changed drafts and offers exact-owner editing after ret
   await expect(card.locator("#quick-note")).toHaveCount(0);
   await card.locator('[data-preset="note"]').click();
   await card.locator("#quick-note").fill("Keep Bob's observation");
-  page.once("dialog", (dialog) => dialog.dismiss());
   await card.locator("#owner-select").selectOption("p1");
+  await expect(card.locator("#owner-select")).toHaveValue("p1");
+  await expect(card.locator("#quick-note")).toHaveValue("Keep Bob's observation");
+  await card.locator("#owner-select").selectOption("p2");
   await expect(card.locator("#owner-select")).toHaveValue("p2");
   await expect(card.locator("#quick-note")).toHaveValue("Keep Bob's observation");
   page.once("dialog", (dialog) => dialog.dismiss());

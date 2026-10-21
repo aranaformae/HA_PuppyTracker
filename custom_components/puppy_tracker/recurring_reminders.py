@@ -194,6 +194,8 @@ def reminder_matches_record(reminder: dict[str, Any], record: dict[str, Any]) ->
     if str(record.get("type") or "") != str(reminder.get("record_type") or ""):
         return False
     data = record.get("data") or {}
+    if isinstance(data, dict) and data.get("recurring_completion") == "none":
+        return False
     if isinstance(data, dict) and data.get("recurring_reminder_id"):
         return data["recurring_reminder_id"] == reminder.get("id")
     match_title = str(reminder.get("match_title") or "").strip().casefold()
@@ -471,12 +473,19 @@ class RecurringReminderStore:
     async def async_record_completion(self, storage, reminder_id: str, *, due_at: str,
                                       expected_updated_at: str, occurred_at: str,
                                       title: str | None = None, note: str | None = None,
-                                      data: dict[str, Any] | None = None) -> dict[str, Any]:
+                                      data: dict[str, Any] | None = None,
+                                      expected_context: dict[str, Any] | None = None) -> dict[str, Any]:
         """Save one authoritative execution; reminder state is a recoverable projection."""
         async with self._lock:
             reminder = self.get_reminder(reminder_id)
             if reminder is None or not reminder.get("enabled", True):
                 raise ValueError("This reminder no longer exists or is disabled. Refresh the card")
+            if expected_context is not None:
+                context = {"litter_id": reminder["litter_id"], "owner_scope": reminder["owner_scope"],
+                           "puppy_id": reminder["owner_id"] if reminder["owner_scope"] == "puppy" else None,
+                           "record_type": reminder["record_type"]}
+                if any(expected_context.get(key) != value for key, value in context.items()):
+                    raise ValueError("This reminder does not match the selected owner or category. Refresh the card")
             records = reminder_owner_records(storage, reminder)
             due = _validated_datetime(due_at, field="due_at")
             for record in records:
@@ -495,6 +504,7 @@ class RecurringReminderStore:
             if occurred is None or occurred > now or (start and occurred < start - timedelta(seconds=1)) or (last and occurred <= last):
                 raise ValueError("Choose an execution time after the previous execution and not in the future")
             payload = deepcopy(data or {})
+            payload.pop("recurring_completion", None)
             record_type = reminder["record_type"]
             if record_type == "temperature":
                 try:

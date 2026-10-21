@@ -309,7 +309,8 @@ class MotherScopeStorage(PuppyTrackerStorage):
                 data=normalized_data,
                 now=now,
             )
-            before = deepcopy(self._data) if followup_record_id or normalized_data.get("recurring_reminder_id") else None
+            before = deepcopy(self._data) if (followup_record_id or normalized_data.get("recurring_reminder_id")
+                                             or normalized_data.get("recurring_completion") == "none") else None
             mother.setdefault("records", []).append(record)
             mother["updated_at"] = now
             litter["updated_at"] = now

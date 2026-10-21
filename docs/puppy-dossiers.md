@@ -83,8 +83,10 @@ the selected fixed-time slot; merely passing its time does not complete it.
 Failed saving retains the form. Retrying a saved execution does not duplicate
 it; the confirmation offers its exact log entry for editing. Deleting or moving
 that entry away from its owner recalculates the reminder, while restoring it
-restores completion. Ordinary Quick Log entries can still complete reminders
-by matching their owner, category and optional exact title. A direct execution
+restores completion. Older unlinked entries and ordinary entries from other
+logging routes can still complete reminders by matching their owner, category
+and optional exact title. New Quick Log entries default to **Log only** and do
+not complete recurring reminders unless you explicitly select one. A direct execution
 is linked to the selected reminder and does not complete other reminders of the
 same category. Today-only and category filters also apply to the reminder list.
 
@@ -106,7 +108,9 @@ retry does not offer undo for an older execution.
 
 1. Select the intended litter and owner: the whole litter, mother or one puppy.
 2. Choose a category and enter the observation and any structured values.
-3. Check **Log for**, then save. The selected owner stays selected for the next
+3. Leave **Complete reminder** on **Log only**, or select the intended open
+   reminder for this owner and category. Overdue moments remain selectable.
+4. Check **Log for**, then save. The selected owner stays selected for the next
    entry, including after a live update or a category change.
 
 Puppy choices show the name and collar colour, for example `Alice (Red)`.
@@ -120,9 +124,11 @@ that category's older owner. Saving, cancelling and background refreshes do not
 reapply a configured default puppy. The same rules apply in Journal and Mobile.
 
 The draft keeps its timestamp, note and category-specific fields when switching
-categories. Changing owner or litter, or cancelling a changed form, asks before
-discarding entered values. Declining keeps both the original selection and the
-draft. An untouched form closes without that extra confirmation. Background
+categories or owners. Changing either clears only the reminder choice; switching
+back to a category restores its field values, not its old reminder selection.
+Changing litter or cancelling a changed form asks before discarding entered
+values. Declining keeps both the original selection and the draft. An untouched
+form closes without that extra confirmation. Background
 data updates wait while the form is active. Browser-local remembered owners
 are not included in backups.
 
@@ -130,6 +136,18 @@ After a successful save, the confirmation names the category and owner, includin
 the puppy's collar colour where available. Its pencil opens the exact saved
 record for a quick correction. A failed save keeps all entered values for retry;
 known validation errors are shown beside the relevant input.
+
+When you select a reminder, saving creates one new entry and completes only that
+reminder. The confirmation names it and offers the same editing and confirmed
+undo actions as direct reminder execution. **Log only** never silently falls
+back to automatic completion, even if the new entry matches several reminders.
+A lone candidate is not selected automatically. Use the refresh icon to reload
+choices without losing the draft. A previous choice remains tied to its original
+moment, so retrying after a lost connection cannot complete the next moment by
+accident. If the reminder changed, choose its new moment explicitly or choose
+Log only. If loading choices fails, Log only remains available. If the owner
+disappears during an edit, choose a valid owner before saving; the draft never
+silently switches to the litter. These rules also apply in Mobile.
 
 Quick Log creates entries; it is not an editor for saved records. Use a pencil
 in one of the history views described above to correct an existing entry.

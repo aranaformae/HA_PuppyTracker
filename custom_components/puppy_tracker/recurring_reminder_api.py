@@ -85,8 +85,9 @@ async def websocket_list_reminders(hass, connection, msg) -> None:
             try:
                 histories[owner] = {record["id"]: record for record in reminder_owner_records(storage, reminder)}
             except ValueError:
-                histories[owner] = {}
-        item["last_execution"] = histories[owner].get(reminder.get("last_completed_record_id"))
+                histories[owner] = None
+        item["owner_available"] = histories[owner] is not None
+        item["last_execution"] = (histories[owner] or {}).get(reminder.get("last_completed_record_id"))
         items.append(item)
     items.sort(
         key=lambda item: (
@@ -207,6 +208,12 @@ async def websocket_delete_reminder(hass, connection, msg) -> None:
     vol.Optional("title"): vol.Any(str, None),
     vol.Optional("note"): vol.Any(str, None),
     vol.Optional("data", default={}): dict,
+    vol.Optional("expected_context"): {
+        vol.Required("litter_id"): str,
+        vol.Required("owner_scope"): vol.In(("litter", "mother", "puppy")),
+        vol.Required("record_type"): str,
+        vol.Optional("puppy_id"): vol.Any(str, None),
+    },
 })
 @websocket_api.async_response
 async def websocket_record_reminder(hass, connection, msg) -> None:
@@ -218,7 +225,8 @@ async def websocket_record_reminder(hass, connection, msg) -> None:
     try:
         result = await store.async_record_completion(storage, msg["reminder_id"],
             due_at=msg["due_at"], expected_updated_at=msg["expected_updated_at"], occurred_at=msg["occurred_at"],
-            title=msg.get("title"), note=msg.get("note"), data=msg.get("data"))
+            title=msg.get("title"), note=msg.get("note"), data=msg.get("data"),
+            expected_context=msg.get("expected_context"))
     except ValueError as err:
         connection.send_error(msg["id"], "invalid_reminder", str(err))
         return

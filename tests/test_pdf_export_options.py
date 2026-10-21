@@ -637,6 +637,7 @@ def test_dossier_field_labels_are_readable_without_internal_references() -> None
             "test_name": "DNA",
             "next_due_date": "2026-10-01",
             "reference_id": "private-id",
+            "recurring_completion": "none",
         },
     }
     dutch = pdf_export._record_data_text(record, "nl")
@@ -648,6 +649,7 @@ def test_dossier_field_labels_are_readable_without_internal_references() -> None
     assert "Test name: DNA" in english
     assert "Next due date: 2026-10-01" in english
     assert "private-id" not in dutch + english
+    assert "recurring" not in (dutch + english).lower()
 
 
 def test_long_table_row_continues_on_new_pages_without_clipping() -> None:

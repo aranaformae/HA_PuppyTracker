@@ -63,12 +63,14 @@ export function bindLastExecutions(card, root, items) {
 
 export async function loadRecurringReminders(card) {
   const litterId = card._selectedLitterId;
-  if (!card._hass || !litterId) { card._recurringReminders = []; return; }
+  if (!card._hass || !litterId) { card._recurringReminders = []; return false; }
   try {
     const result = await card._hass.callWS({ type: "puppy_tracker/recurring_reminders", litter_id: litterId });
     if (litterId === card._selectedLitterId) card._recurringReminders = result?.reminders || [];
+    return litterId === card._selectedLitterId;
   } catch (_error) {
     if (litterId === card._selectedLitterId) card._recurringReminders = [];
+    return false;
   }
 }
 

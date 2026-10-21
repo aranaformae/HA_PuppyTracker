@@ -498,6 +498,7 @@ test("dossier hides internal care program identifiers", async ({ page }) => {
           care_score: 4,
           care_data: {},
           reference_id: "internal-ref",
+          recurring_completion: "none",
         },
       },
     ];
@@ -515,6 +516,7 @@ test("dossier hides internal care program identifiers", async ({ page }) => {
   await expect(card.getByText("Care result", { exact: true })).toHaveCount(0);
   await expect(card.getByText("2251b89c-0f0d-47e0-bcba-abe69e91e773", { exact: true })).toHaveCount(0);
   await expect(card.getByText("internal-ref", { exact: true })).toHaveCount(0);
+  await expect(card.getByText("Recurring completion", { exact: true })).toHaveCount(0);
 });
 
 test("dossier shows and edits user-facing care result fields", async ({ page }) => {

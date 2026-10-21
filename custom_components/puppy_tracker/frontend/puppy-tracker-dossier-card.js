@@ -81,6 +81,7 @@ const INTERNAL_DATA_KEYS = new Set([
   "followup_due_date",
   "recurring_reminder_id",
   "recurring_due_at",
+  "recurring_completion",
   "scores",
 ]);
 

@@ -141,6 +141,13 @@ Quick Log keeps your chosen owner when opening another category, saving or
 refreshing data. A remembered category owner is only an initial suggestion
 before you choose an owner; an explicitly configured mother or puppy takes
 precedence over that suggestion.
+Its **Complete reminder** selector defaults to **Log only**. Only enabled open
+reminders for the exact litter, owner and category appear, including overdue
+moments. Saving with a choice completes only that reminder; Log only completes
+none. Changing owner/category clears the choice while retaining typed values.
+The refresh icon preserves the draft and the originally selected moment for
+safe retries. Confirmation names the completed reminder and offers editing and
+undo. The same controls are used by Mobile's Quick Log tab.
 See [Quick Log and owner selection](puppy-dossiers.md#quick-log-and-owner-selection)
 for draft behavior and the difference between initial defaults and manual choices.
 

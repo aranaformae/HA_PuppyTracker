@@ -24,6 +24,7 @@ async function mountQuickLog(page, language = "en", config = {}) {
       },
       callWS: async (message) => {
         calls.push(JSON.parse(JSON.stringify(message)));
+        if (message.type === "puppy_tracker/recurring_reminders") return { reminders: [] };
 
         if (message.type === "puppy_tracker/litters") {
           return {
@@ -264,7 +265,7 @@ test("exposes every shared dossier type and saves structured deworming", { tag: 
     puppy_id: "p1",
     record_type: "deworming",
     title: "Deworming",
-    data: { product: "Puppy wormer", amount: "1.5", unit: "ml" },
+    data: { product: "Puppy wormer", amount: "1.5", unit: "ml", recurring_completion: "none" },
   }));
 
   const dimensions = await card.evaluate((element) => {
@@ -288,7 +289,7 @@ test("logs a temperature for the selected mother instead of the whole litter", a
     type: "puppy_tracker/mother/record/add",
     litter_id: "l1",
     record_type: "temperature",
-    data: { temperature_c: 38.4 },
+    data: { temperature_c: 38.4, recurring_completion: "none" },
   }));
 });
 
@@ -309,7 +310,7 @@ test("logs a structured temperature for the selected puppy with an optional obse
     record_type: "temperature",
     title: "Temperature",
     note: "Sleeping after feeding",
-    data: { temperature_c: 37.9 },
+    data: { temperature_c: 37.9, recurring_completion: "none" },
   }));
 });
 

@@ -11,6 +11,7 @@ from homeassistant.setup import async_setup_component
 from custom_components.puppy_tracker import recurring_reminder_api as api
 from custom_components.puppy_tracker import recurring_reminders as model
 from custom_components.puppy_tracker.mother_storage import MotherScopeStorage
+from custom_components.puppy_tracker.records import normalize_record
 from custom_components.puppy_tracker.runtime import PuppyTrackerRuntimeData
 
 NOW = datetime(2026, 10, 20, 12, 10, tzinfo=timezone.utc)
@@ -208,7 +209,9 @@ async def test_real_websocket_completion_route(hass, execution, hass_ws_client, 
     client = await hass_ws_client(hass)
     command = {"type": "puppy_tracker/recurring_reminder/record", "reminder_id": reminder_id,
         "due_at": "2026-10-20T12:00:00+00:00", "expected_updated_at": store.get_reminder(reminder_id)["updated_at"],
-        "occurred_at": NOW.isoformat(), "data": {"temperature_c": 38.4}}
+        "occurred_at": NOW.isoformat(), "data": {"temperature_c": 38.4},
+        "expected_context": {"litter_id": "litter-1", "owner_scope": scope, "record_type": "temperature",
+                             "puppy_id": "puppy-1" if scope == "puppy" else None}}
     await client.send_json_auto_id(command)
     result = await client.receive_json()
     assert result["success"], result
@@ -229,6 +232,17 @@ async def test_real_websocket_completion_route(hass, execution, hass_ws_client, 
     listed = await client.receive_json()
     assert listed["result"]["reminders"][0]["last_execution"] is None
     assert listed["result"]["reminders"][0]["status"] == "overdue"
+    assert listed["result"]["reminders"][0]["owner_available"] is True
+    if scope == "puppy":
+        del main._data["litters"]["litter-1"]["puppies"]["puppy-1"]
+    elif scope == "mother":
+        main._data["litters"]["litter-1"]["mother_id"] = None
+    else:
+        del main._data["litters"]["litter-1"]
+    await client.send_json_auto_id({"type": "puppy_tracker/recurring_reminders", "litter_id": "litter-1"})
+    listed = await client.receive_json()
+    assert listed["result"]["reminders"][0]["owner_available"] is False
+    assert listed["result"]["reminders"][0]["last_execution"] is None
 
 
 async def undo(main, store, reminder_id, saved, **changes):
@@ -374,3 +388,59 @@ async def test_list_never_invents_last_execution_from_unrelated_history(hass, ex
     assert reminder["id"] == reminder_id
     assert reminder["last_execution"] is None
     assert bool(reminder["last_completed_at"]) == legacy
+
+
+@pytest.mark.parametrize("scope", ["puppy", "mother", "litter"])
+async def test_log_only_never_completes_any_reminder_even_after_edit_and_reload(execution, scope):
+    main, store = execution
+    ids = [await create(store, scope, "feeding") for _ in range(2)]
+    owner = {"puppy_id": "puppy-1"} if scope == "puppy" else {"mother_id": "mother-1"} if scope == "mother" else {}
+    before = store.get_backup_data()
+    record_id = await main.async_add_record("litter-1", **owner, record_type="feeding", occurred_at=NOW.isoformat(),
+        data={"feeding_type": "Bottle", "amount": 30, "unit": "ml", "recurring_completion": "none"})
+    entry = main.get_record("litter-1", record_id, **owner)
+    await main.async_update_record("litter-1", record_id, **owner, record_type="feeding", note="Corrected log only", data=entry["data"])
+    restored = main.get_record("litter-1", record_id, **owner)
+    normalize_record(restored, litter_id="litter-1", puppy_id=owner.get("puppy_id"), mother_id=owner.get("mother_id"))
+    assert restored["data"]["recurring_completion"] == "none"
+    await store.async_reconcile_records(main)
+    assert store.get_backup_data() == before
+    assert all(not model.reminder_matches_record(store.get_reminder(reminder_id), entry) for reminder_id in ids)
+
+
+@pytest.mark.parametrize("scope", ["puppy", "mother", "litter"])
+async def test_log_only_disk_failure_rolls_back_runtime_data(execution, scope):
+    main, _store = execution
+    owner = {"puppy_id": "puppy-1"} if scope == "puppy" else {"mother_id": "mother-1"} if scope == "mother" else {}
+    before = main.get_data()
+    main.async_save.side_effect = OSError("Disk failure")
+    with pytest.raises(OSError):
+        await main.async_add_record("litter-1", **owner, record_type="note", occurred_at=NOW.isoformat(),
+            note="Only log this observation", data={"recurring_completion": "none"})
+    assert main.get_data() == before
+
+
+@pytest.mark.parametrize("scope", ["puppy", "mother", "litter"])
+@pytest.mark.parametrize("changes", [{"litter_id": "other"}, {"owner_scope": "wrong"}, {"puppy_id": "other"}, {"record_type": "temperature"}])
+async def test_selected_reminder_rejects_wrong_context_even_on_retry(execution, scope, changes):
+    main, store = execution
+    reminder_id = await create(store, scope)
+    context = {"litter_id": "litter-1", "owner_scope": scope, "record_type": "medication",
+               "puppy_id": "puppy-1" if scope == "puppy" else None}
+    for completed in (False, True):
+        before = main.get_data()
+        with pytest.raises(ValueError, match="selected owner or category"):
+            await record(main, store, reminder_id, expected_context={**context, **changes})
+        assert main.get_data() == before
+        if not completed:
+            await record(main, store, reminder_id, expected_context=context)
+
+
+async def test_explicit_execution_overrides_log_only_but_never_completes_another_reminder(execution):
+    main, store = execution
+    selected, other = await create(store), await create(store)
+    result = await record(main, store, selected, data={"medication": "Example", "recurring_completion": "none"})
+    assert "recurring_completion" not in result["record"]["data"]
+    await store.async_reconcile_records(main)
+    assert store.get_reminder(selected)["last_completed_record_id"] == result["record_id"]
+    assert store.get_reminder(other)["last_completed_record_id"] is None
