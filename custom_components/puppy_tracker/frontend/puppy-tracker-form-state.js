@@ -152,6 +152,67 @@ export function savedEditButton(card) {
   return card._savedRecord && card._hass?.user?.is_admin !== false && (card._litterData || card._data)?.can_manage_records ? `<button type="button" data-edit-saved class="record-edit-button" title="${escapeHtml(text(card, "Bewerken", "Edit"))}" aria-label="${escapeHtml(text(card, "Bewerken", "Edit"))}"><ha-icon icon="mdi:pencil-outline"></ha-icon></button>` : "";
 }
 
+// A failed read after a confirmed write must never invite the user to save twice.
+export class SavedRecordRefresh {
+  constructor(card, load, context) {
+    this.card = card;
+    this.load = load;
+    this.context = context;
+    this.reset();
+  }
+
+  reset() {
+    this.generation = (this.generation || 0) + 1;
+    this.failedContext = null;
+    this.pending = false;
+  }
+
+  refreshed() {
+    if (this.failedContext === this.context()) this.failedContext = null;
+  }
+
+  async run() {
+    if (this.pending) return false;
+    const generation = ++this.generation;
+    const context = this.context();
+    const current = () => generation === this.generation && context === this.context();
+    this.pending = true;
+    try {
+      const applied = await this.load();
+      if (current() && applied !== false) this.failedContext = null;
+    } catch (_error) {
+      if (current()) this.failedContext = context;
+    } finally {
+      if (generation === this.generation) this.pending = false;
+    }
+    return current();
+  }
+
+  bind(status) {
+    if (!status || this.failedContext === null || this.failedContext !== this.context()) return;
+    const warning = document.createElement("div");
+    warning.className = "saved-refresh-warning";
+    warning.setAttribute("role", "status");
+    warning.style.cssText = "display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:var(--warning-color,var(--primary-text-color))";
+    const message = document.createElement("span");
+    message.textContent = text(this.card, "Opgeslagen, maar het overzicht kon niet worden ververst.", "Saved, but the overview could not be refreshed.");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "secondary";
+    button.style.cssText = "display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 10px;border-radius:8px;font:inherit;cursor:pointer";
+    button.dataset.retrySavedRefresh = "";
+    button.innerHTML = `<ha-icon icon="mdi:refresh"></ha-icon> ${text(this.card, "Overzicht verversen", "Refresh overview")}`;
+    button.disabled = this.pending || this.card._saving || this.card._loading || Boolean(this.card._editing || this.card._showEditor);
+    button.addEventListener("click", async () => {
+      if (this.pending || this.card._saving || this.card._loading || this.card._editing || this.card._showEditor) return;
+      button.disabled = true;
+      if (await this.run() && !this.card._editing && !this.card._showEditor) this.card._render();
+    });
+    warning.append(message, button);
+    status.after(warning);
+  }
+}
+
 export function appendEditAction(card, container, onEdit, label = text(card, "Bewerken", "Edit")) {
   if (!container || card._hass?.user?.is_admin === false) return;
   const button = document.createElement("button");

@@ -1,4 +1,4 @@
-import { FormState, savedRecordFeedback, savedEditButton } from "./puppy-tracker-form-state.js";
+import { FormState, SavedRecordRefresh, savedOwnerLabel, savedRecordFeedback, savedEditButton } from "./puppy-tracker-form-state.js";
 import {
   puppySelectorLabel,
   addDossierRecord,
@@ -79,6 +79,7 @@ class PuppyTrackerBehaviorCard extends HTMLElement {
     this._refreshDeferred = false;
     this._contextVersion = 0;
     this._dataRequest = 0;
+    this._savedRefresh = new SavedRecordRefresh(this, () => this._loadData(false, !this._saving), () => `${this._selectedLitterId}:${this._selectedPuppyId}`);
   }
 
   static getStubConfig() { return { show_litter_selector: true, show_profile: true, show_history: true, max_items: 20 }; }
@@ -106,6 +107,7 @@ class PuppyTrackerBehaviorCard extends HTMLElement {
   }
 
   disconnectedCallback() {
+    this._savedRefresh.reset();
     this._invalidateLoads();
     closeRecordEditor(this);
     if (this._unsubscribe) Promise.resolve(this._unsubscribe()).catch(() => undefined);
@@ -195,6 +197,7 @@ class PuppyTrackerBehaviorCard extends HTMLElement {
     this._data = data;
     const puppies = this._data?.puppies || [];
     if (!puppies.some((puppy) => puppy.id === this._selectedPuppyId)) this._selectedPuppyId = puppies.find((puppy) => puppy.active !== false)?.id || puppies[0]?.id || null;
+    this._savedRefresh.refreshed();
     if (render) this._render();
     return true;
   }
@@ -212,6 +215,8 @@ class PuppyTrackerBehaviorCard extends HTMLElement {
       scores: {},
     };
     this._error = "";
+    this._status = "";
+    this._savedRefresh.reset();
     this._render();
   }
 
@@ -299,15 +304,22 @@ class PuppyTrackerBehaviorCard extends HTMLElement {
         ...(ageDays === null ? {} : { age_days: ageDays }),
       },
     };
+    const hass = this._hass;
+    const context = { litterId: this._selectedLitterId, scope: "puppy", puppyId: this._selectedPuppyId, ownerName: savedOwnerLabel(this, "puppy", this._selectedPuppyId) };
+    this._dataRequest += 1;
     this._saving = true;
+    this._error = "";
+    this._status = "";
+    this._savedRecord = null;
+    this._savedRefresh.reset();
     this._render();
     try {
-      const result = await addDossierRecord(this._hass, this._selectedLitterId, this._selectedPuppyId, payload);
-      this._status = savedRecordFeedback(this, result, { litterId: this._selectedLitterId, scope: "puppy", puppyId: this._selectedPuppyId }, languageForHass(this._hass) === "en" ? "Behavior observation" : "Gedragsobservatie");
+      const result = await addDossierRecord(hass, context.litterId, context.puppyId, payload);
+      this._status = savedRecordFeedback(this, result, context, languageForHass(hass) === "en" ? "Behavior observation" : "Gedragsobservatie");
       this._formState.reset();
       this._editing = null;
       this._error = "";
-      await this._loadData(false);
+      await this._savedRefresh.run();
       this._refreshDeferred = false;
     } catch (error) {
       this._error = error?.message || text(this, "saveFailed");
@@ -365,6 +377,7 @@ class PuppyTrackerBehaviorCard extends HTMLElement {
     this.shadowRoot.querySelector(".editor")?.addEventListener("input", () => this._captureInputs());
     const status = this.shadowRoot.querySelector(".status");
     if (status) { status.setAttribute("role", "status"); status.insertAdjacentHTML("beforeend", savedEditButton(this)); }
+    this._savedRefresh.bind(status);
     status?.querySelector("[data-edit-saved]")?.addEventListener("click", (event) => openRecordEditor(this, this._savedRecord, { trigger: event.currentTarget }));
     this.shadowRoot.querySelectorAll("#behavior-litter,#behavior-puppy").forEach((select) => { select.disabled = this._saving || (select.id === "behavior-puppy" && (this._loading || !puppyOptions)); });
     this.shadowRoot.querySelector("ha-card")?.setAttribute("aria-busy", String(this._loading || this._saving));

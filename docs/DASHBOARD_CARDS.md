@@ -281,6 +281,10 @@ Useful surface-specific options include:
 - `calculator`: `active_only`, `stale_after_hours`, `max_height`, `default_unit`, `default_mode` (`per_kg` or `feeding`);
 - `programs`: `show_disabled`, `max_items`, `compact`, `sort_order`.
 
+Temperature and Behavior confirm the saved item and its owner even if the
+subsequent overview refresh fails. **Refresh overview** retries only the read;
+it does not save another copy. If saving itself fails, the draft stays open.
+
 The Mobile preset hides the care day selector by default and loads today plus
 overdue care actions. Set `tab_config.care.show_day_selector: true` to browse
 other days without leaving the mobile Workspace. Opening a care item uses the

@@ -1185,6 +1185,13 @@ and retain a usable litter selector after a failed read. Behavior rechecks edito
 state after background reads and defers replacement while a draft is open. Report
 also invalidates outstanding responses when administrator access is revoked.
 
+Temperature and Behavior separate confirmed writes from subsequent overview reads.
+The shared `SavedRecordRefresh` feedback keeps the saved-record owner/ID intact,
+shows a localized refresh warning without reporting a write failure, and offers
+a read-only retry. A true write failure retains the draft and shows no success.
+Retry results are scoped to the originating owner/lifecycle and cannot replace
+a new draft. The helper stores transient UI state only; it adds no write retries.
+
 Quick Log loads recurring choices with its litter data, filtered by exact owner
 and type, without automatic selection. A draft stores a snapshot of the chosen
 definition revision and due instant. Explicit refresh never upgrades that

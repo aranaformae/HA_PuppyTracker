@@ -1,4 +1,4 @@
-import { FormState, savedRecordFeedback, savedEditButton } from "./puppy-tracker-form-state.js";
+import { FormState, SavedRecordRefresh, savedOwnerLabel, savedRecordFeedback, savedEditButton } from "./puppy-tracker-form-state.js";
 import {
   puppySelectorLabel,
   addDossierRecord,
@@ -85,6 +85,7 @@ class PuppyTrackerTemperatureCard extends HTMLElement {
     this._subscriptionPending = false;
     this._loadSequence = 0;
     this._historyExpanded = false;
+    this._savedRefresh = new SavedRecordRefresh(this, () => this._loadData(false, !this._saving), () => `${this._selectedLitterId}:${this._scope}:${this._scope === "puppy" ? this._selectedPuppyId : ""}`);
   }
 
   static getStubConfig() {
@@ -141,6 +142,7 @@ class PuppyTrackerTemperatureCard extends HTMLElement {
   }
 
   disconnectedCallback() {
+    this._savedRefresh.reset();
     closeRecordEditor(this);
     this._loadSequence += 1;
     if (this._unsubscribe) Promise.resolve(this._unsubscribe()).catch(() => undefined);
@@ -169,7 +171,7 @@ class PuppyTrackerTemperatureCard extends HTMLElement {
     }
   }
 
-  async _loadData(render = true) {
+  async _loadData(render = true, background = false) {
     const sequence = ++this._loadSequence;
     const litterId = this._selectedLitterId;
     const scope = this._scope;
@@ -177,15 +179,22 @@ class PuppyTrackerTemperatureCard extends HTMLElement {
       this._litterData = null;
       this._records = [];
       if (render) this._render();
-      return;
+      return true;
     }
-    const litterData = await fetchLitterData(this._hass, litterId);
-    if (sequence !== this._loadSequence) return;
+    const hass = this._hass;
+    const current = () => sequence === this._loadSequence && hass.connection === this._hass?.connection;
+    const read = async (request) => {
+      try { return await request(); }
+      catch (error) { if (!current() || (background && this._showEditor)) return null; throw error; }
+    };
+    const litterData = await read(() => fetchLitterData(hass, litterId));
+    if (!current() || !litterData || (background && this._showEditor)) return false;
     const puppies = (litterData?.puppies || []).filter((puppy) => puppy.active !== false);
     const puppyId = puppies.some((puppy) => puppy.id === this._selectedPuppyId) ? this._selectedPuppyId : puppies[0]?.id || null;
     let records;
     if (scope === "mother") {
-      const response = await this._hass.callWS({ type: "puppy_tracker/mother/records", litter_id: litterId, history_scope: "current" });
+      const response = await read(() => hass.callWS({ type: "puppy_tracker/mother/records", litter_id: litterId, history_scope: "current" }));
+      if (!response) return false;
       records = temperatureRecords(response?.records);
     } else if (scope === "puppy") {
       const puppy = puppies.find((item) => item.id === puppyId);
@@ -193,11 +202,13 @@ class PuppyTrackerTemperatureCard extends HTMLElement {
     } else {
       records = temperatureRecords(litterData?.litter?.records);
     }
-    if (sequence !== this._loadSequence) return;
+    if (!current() || (background && this._showEditor)) return false;
     this._litterData = litterData;
     this._selectedPuppyId = puppyId;
     this._records = records;
+    this._savedRefresh.refreshed();
     if (render) this._render();
+    return true;
   }
 
   async _subscribe() {
@@ -206,7 +217,7 @@ class PuppyTrackerTemperatureCard extends HTMLElement {
     try {
       this._unsubscribe = await subscribeUpdates(this._hass, async () => {
         if (this._showEditor || this._saving) return;
-        try { await this._loadData(); } catch (_error) { /* next update retries */ }
+        try { await this._loadData(true, true); } catch (_error) { /* next update retries */ }
       }, this);
     } catch (_error) { this._unsubscribe = null; }
     finally { this._subscriptionPending = false; }
@@ -259,6 +270,7 @@ class PuppyTrackerTemperatureCard extends HTMLElement {
     this._draft = { temperature_c: "", method: "", note: "", occurred_at: nowInputValue() };
     this._showEditor = true;
     this._status = "";
+    this._savedRefresh.reset();
     this._error = "";
     this._render();
     queueMicrotask(() => this.shadowRoot?.getElementById("temperature-value")?.focus({ preventScroll: true }));
@@ -289,6 +301,7 @@ class PuppyTrackerTemperatureCard extends HTMLElement {
 
   async _save() {
     if (!this._draft || this._saving || !this._selectedLitterId) return;
+    this._captureDraft();
     if (!this._hasOwner) {
       this._error = text(this, "selectOwner");
       this._render();
@@ -308,24 +321,30 @@ class PuppyTrackerTemperatureCard extends HTMLElement {
       this._formState.error("#temperature-date", this._error);
       return;
     }
+    const hass = this._hass;
+    const context = { litterId: this._selectedLitterId, scope: this._scope, puppyId: this._scope === "puppy" ? this._selectedPuppyId : null, ownerName: savedOwnerLabel(this, this._scope, this._selectedPuppyId) };
+    this._loadSequence += 1;
     this._saving = true;
     this._error = "";
+    this._status = "";
+    this._savedRecord = null;
+    this._savedRefresh.reset();
     this._render();
     try {
       const data = { temperature_c: value };
       if (String(this._draft.method || "").trim()) data.method = String(this._draft.method).trim();
       if (String(this._draft.note || "").trim()) data.observation = String(this._draft.note).trim();
       let result;
-      if (this._scope === "mother") {
-        result = await this._hass.callWS({ type: "puppy_tracker/mother/record/add", litter_id: this._selectedLitterId, record_type: "temperature", occurred_at: occurredAt.toISOString(), title: text(this, "title"), note: String(this._draft.note || "").trim() || null, data });
+      if (context.scope === "mother") {
+        result = await hass.callWS({ type: "puppy_tracker/mother/record/add", litter_id: context.litterId, record_type: "temperature", occurred_at: occurredAt.toISOString(), title: text(this, "title"), note: String(this._draft.note || "").trim() || null, data });
       } else {
-        result = await addDossierRecord(this._hass, this._selectedLitterId, this._scope === "puppy" ? this._selectedPuppyId : null, { record_type: "temperature", occurred_at: occurredAt.toISOString(), title: text(this, "title"), note: String(this._draft.note || "").trim() || null, data });
+        result = await addDossierRecord(hass, context.litterId, context.puppyId, { record_type: "temperature", occurred_at: occurredAt.toISOString(), title: text(this, "title"), note: String(this._draft.note || "").trim() || null, data });
       }
-      this._status = savedRecordFeedback(this, result, { litterId: this._selectedLitterId, scope: this._scope, puppyId: this._scope === "puppy" ? this._selectedPuppyId : null }, text(this, "title"));
+      this._status = savedRecordFeedback(this, result, context, text(this, "title"));
       this._formState.reset();
       this._showEditor = false;
       this._draft = null;
-      await this._loadData(false);
+      await this._savedRefresh.run();
     } catch (error) {
       this._error = error?.message || text(this, "failed");
     } finally {
@@ -417,6 +436,7 @@ class PuppyTrackerTemperatureCard extends HTMLElement {
     this._formState.bind(this.shadowRoot.querySelector(".editor"));
     const savedStatus = this.shadowRoot.querySelector(".message.success");
     if (savedStatus) { savedStatus.setAttribute("role", "status"); savedStatus.insertAdjacentHTML("beforeend", savedEditButton(this)); }
+    this._savedRefresh.bind(savedStatus);
     savedStatus?.querySelector("[data-edit-saved]")?.addEventListener("click", (event) => openRecordEditor(this, this._savedRecord, { trigger: event.currentTarget }));
     this.shadowRoot.querySelectorAll(".history-row").forEach((row, index) => {
       const record = filtered[index];
