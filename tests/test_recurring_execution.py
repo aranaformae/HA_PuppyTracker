@@ -218,3 +218,159 @@ async def test_real_websocket_completion_route(hass, execution, hass_ws_client, 
     assert repeated["success"]
     assert repeated["result"]["already_completed"]
     assert repeated["result"]["record_id"] == result["result"]["record_id"]
+    await client.send_json_auto_id({"type": "puppy_tracker/recurring_reminders", "litter_id": "litter-1"})
+    listed = await client.receive_json()
+    assert listed["result"]["reminders"][0]["last_execution"] == result["result"]["record"]
+    await client.send_json_auto_id({"type": "puppy_tracker/recurring_reminder/undo", "reminder_id": reminder_id,
+        "record_id": result["result"]["record_id"], "expected_record_updated_at": result["result"]["record"]["updated_at"]})
+    undone = await client.receive_json()
+    assert undone["success"], undone
+    await client.send_json_auto_id({"type": "puppy_tracker/recurring_reminders", "litter_id": "litter-1"})
+    listed = await client.receive_json()
+    assert listed["result"]["reminders"][0]["last_execution"] is None
+    assert listed["result"]["reminders"][0]["status"] == "overdue"
+
+
+async def undo(main, store, reminder_id, saved, **changes):
+    arguments = {"record_id": saved["record_id"], "expected_record_updated_at": saved["record"]["updated_at"]}
+    arguments.update(changes)
+    await store.async_undo_completion(main, reminder_id, **arguments)
+
+
+@pytest.mark.parametrize("scope", ["puppy", "mother", "litter"])
+@pytest.mark.parametrize("mode", ["once", "interval", "fixed_times"])
+async def test_undo_restores_planning_and_retains_previous_history(execution, scope, mode):
+    main, store = execution
+    reminder_id = await create(store, scope, schedule_mode=mode, due_at="2026-10-20T12:00:00+00:00", fixed_times=["12:00", "14:00"])
+    owner = {"puppy_id": "puppy-1"} if scope == "puppy" else {"mother_id": "mother-1"} if scope == "mother" else {}
+    old_id = await main.async_add_record("litter-1", **owner, record_type="note", note="Keep original",
+                                        occurred_at=(NOW - timedelta(days=1)).isoformat())
+    old = main.get_record("litter-1", old_id, **owner)
+    due_before = model.next_due_at(store.get_reminder(reminder_id), now=NOW)
+    saved = await record(main, store, reminder_id)
+    await store.async_reconcile_records(main)
+    await undo(main, store, reminder_id, saved)
+    await store.async_reconcile_records(main)
+    assert main.get_record("litter-1", old_id, **owner) == old
+    assert main.get_record("litter-1", saved["record_id"], **owner)["deleted"]
+    assert model.next_due_at(store.get_reminder(reminder_id), now=NOW) == due_before
+    with pytest.raises(ValueError):
+        await undo(main, store, reminder_id, saved)
+
+
+@pytest.mark.parametrize("scope", ["puppy", "mother", "litter"])
+async def test_failed_undo_rolls_back_all_data_and_can_retry(execution, scope):
+    main, store = execution
+    reminder_id = await create(store, scope)
+    saved = await record(main, store, reminder_id)
+    before = main.get_data()
+    main.async_save.side_effect = OSError("Disk failure")
+    with pytest.raises(OSError):
+        await undo(main, store, reminder_id, saved)
+    assert main.get_data() == before
+    main.async_save.side_effect = None
+    await undo(main, store, reminder_id, saved)
+
+
+@pytest.mark.parametrize("change", ["edited", "newer", "other_reminder", "disabled", "removed", "moved", "revision"])
+async def test_undo_rejects_changed_or_unrelated_execution(execution, change):
+    main, store = execution
+    reminder_id = await create(store)
+    saved = await record(main, store, reminder_id)
+    if change == "edited":
+        await main.async_update_record("litter-1", saved["record_id"], puppy_id="puppy-1", record_type="medication", note="Corrected")
+    elif change == "newer":
+        await main.async_add_record("litter-1", puppy_id="puppy-1", record_type="medication", occurred_at=NOW.isoformat())
+        latest = main._data["litters"]["litter-1"]["puppies"]["puppy-1"]["records"][-1]
+        latest["created_at"] = (datetime.fromisoformat(saved["record"]["created_at"]) + timedelta(seconds=1)).isoformat()
+    elif change == "other_reminder":
+        reminder_id = await create(store)
+    elif change == "disabled":
+        await store.async_update(reminder_id, {"enabled": False})
+    elif change == "removed":
+        await store.async_delete(reminder_id)
+    elif change == "moved":
+        await main.async_change_record_owner("litter-1", saved["record_id"], source_scope="puppy", source_puppy_id="puppy-1", target_scope="litter")
+    before = main.get_data()
+    with pytest.raises(ValueError):
+        await undo(main, store, reminder_id, saved, **({"expected_record_updated_at": "old"} if change == "revision" else {}))
+    assert main.get_data() == before
+
+
+async def test_undo_validation_runs_after_waiting_for_main_storage_lock(execution):
+    main, store = execution
+    reminder_id = await create(store)
+    saved = await record(main, store, reminder_id)
+    async with main._lock:
+        pending = asyncio.create_task(undo(main, store, reminder_id, saved))
+        await asyncio.sleep(0)
+        main._data["litters"]["litter-1"]["puppies"]["puppy-1"]["records"][0]["updated_at"] = "edited-during-wait"
+    with pytest.raises(ValueError):
+        await pending
+    assert not main.get_record("litter-1", saved["record_id"], "puppy-1")["deleted"]
+
+
+async def test_undo_revalidates_mother_link_under_main_storage_lock(execution):
+    main, store = execution
+    reminder_id = await create(store, "mother")
+    saved = await record(main, store, reminder_id)
+    async with main._lock:
+        pending = asyncio.create_task(undo(main, store, reminder_id, saved))
+        await asyncio.sleep(0)
+        main._data["litters"]["litter-1"]["mother_id"] = None
+    with pytest.raises(ValueError):
+        await pending
+    assert not main.get_record("litter-1", saved["record_id"], mother_id="mother-1")["deleted"]
+
+
+async def test_undo_without_projection_or_with_failed_projection_keeps_older_matching_fact(execution):
+    main, store = execution
+    reminder_id = await create(store)
+    old_id = await main.async_add_record("litter-1", puppy_id="puppy-1", record_type="medication",
+        occurred_at=(NOW - timedelta(minutes=30)).isoformat(), note="Older actual administration")
+    await store.async_reconcile_records(main)
+    saved = await record(main, store, reminder_id)
+    store._store.async_save.side_effect = OSError("Projection unavailable")
+    await undo(main, store, reminder_id, saved)
+    assert main.get_record("litter-1", old_id, "puppy-1")["note"] == "Older actual administration"
+    store._store.async_save.side_effect = None
+    await store.async_reconcile_records(main)
+    assert store.get_reminder(reminder_id)["last_completed_record_id"] == old_id
+    assert model.next_due_at(store.get_reminder(reminder_id), now=NOW) == NOW + timedelta(minutes=30)
+
+
+async def test_undo_after_reconciliation_preserves_legacy_manual_completion_and_backup(execution):
+    main, store = execution
+    manual = NOW - timedelta(minutes=30)
+    reminder_id = await create(store, last_completed_at=manual.isoformat())
+    await main.async_add_record("litter-1", puppy_id="puppy-1", record_type="medication", occurred_at=(manual - timedelta(minutes=5)).isoformat())
+    saved = await record(main, store, reminder_id)
+    await store.async_reconcile_records(main)
+    backup = store.get_backup_data()
+    await store.async_restore_backup_data(backup)
+    await undo(main, store, reminder_id, saved)
+    await store.async_reconcile_records(main)
+    reminder = store.get_reminder(reminder_id)
+    assert reminder["last_completed_at"] == manual.isoformat()
+    assert reminder["last_completed_record_id"] is None
+    assert model.next_due_at(reminder, now=NOW) == manual + timedelta(hours=1)
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+async def test_list_never_invents_last_execution_from_unrelated_history(hass, execution, hass_ws_client, monkeypatch, legacy):
+    main, store = execution
+    reminder_id = await create(store, match_title="Exact title", **({"last_completed_at": NOW.isoformat()} if legacy else {}))
+    await main.async_add_record("litter-1", puppy_id="puppy-1", record_type="medication", title="Another title", occurred_at=NOW.isoformat())
+    await main.async_add_record("litter-1", record_type="medication", title="Exact title", occurred_at=NOW.isoformat())
+    runtime = PuppyTrackerRuntimeData(storage=main, recurring_reminders=store)
+    monkeypatch.setattr(api, "get_runtime_data", lambda _hass: runtime)
+    monkeypatch.setattr(api, "get_runtime_storage", lambda _hass: main)
+    await async_setup_component(hass, "websocket_api", {})
+    api.async_setup_recurring_reminder_api(hass)
+    client = await hass_ws_client(hass)
+    await client.send_json_auto_id({"type": "puppy_tracker/recurring_reminders", "litter_id": "litter-1"})
+    response = await client.receive_json()
+    reminder = response["result"]["reminders"][0]
+    assert reminder["id"] == reminder_id
+    assert reminder["last_execution"] is None
+    assert bool(reminder["last_completed_at"]) == legacy

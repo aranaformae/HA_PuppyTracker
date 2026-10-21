@@ -88,6 +88,20 @@ by matching their owner, category and optional exact title. A direct execution
 is linked to the selected reminder and does not complete other reminders of the
 same category. Today-only and category filters also apply to the reminder list.
 
+Each reminder shows **Last execution**. Expand it to see the scheduled and actual
+time, recorded values and the full note. **Edit log entry** corrects that exact
+past registration; the reminder's own pencil still changes its schedule. If an
+older completion has no linked log entry, only its known timestamp is shown.
+
+After a new execution is saved, **Undo execution** is available beside the save
+confirmation. Confirm it to remove only that new entry and recalculate planning
+from the remaining history. A changed entry or a newer execution blocks undo so
+later work cannot be lost. This shortcut disappears when another recurring
+execution is saved, the entry is corrected, or the card is reloaded;
+previously saved entries remain accessible through Last execution and
+Dossier. Undo uses recoverable deletion, not permanent removal. An already-saved
+retry does not offer undo for an older execution.
+
 ## Quick Log and owner selection
 
 1. Select the intended litter and owner: the whole litter, mother or one puppy.

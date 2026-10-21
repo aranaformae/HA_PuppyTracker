@@ -108,7 +108,7 @@ function localDate(value) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
-async function refreshSource(card) {
+export async function refreshRecordSource(card) {
   if (!card.isConnected) return;
   const selectors = [".timeline-scroll", ".dossier-timeline-scroll", ".today-items-scroll", ".list", ".attention-ack-list", ".history", ".history-list"];
   const positions = selectors.map((selector) => [selector, Array.from(card.shadowRoot?.querySelectorAll(selector) || [], (node) => node.scrollTop)]);
@@ -399,6 +399,11 @@ class PuppyTrackerRecordEditor extends HTMLElement {
           this._card._reminderSaveMessage = savedRecordFeedback(this._card, result,
             { litterId, scope, puppyId, ownerName: this._context.ownerName }, recordTypeLabel(this._hass, this._draft.record_type));
           this._card._reminderSavedRecord = this._card._savedRecord;
+          this._card._reminderUndoError = "";
+          this._card._reminderFeedbackLitterId = litterId;
+          this._card._reminderUndo = !result.already_completed && result.record?.updated_at
+            ? { reminderId: reminder.id, recordId: result.record.id, updatedAt: result.record.updated_at,
+              litterId, ownerName: this._context.ownerName, occurredAt: result.record.occurred_at } : null;
           if (result.already_completed) {
             const owner = this._context.ownerName || savedOwnerLabel(this._card, scope, puppyId);
             this._card._reminderSaveMessage = copy(this._hass, `Deze uitvoering was al opgeslagen voor ${owner}.`, `This execution was already saved for ${owner}.`);
@@ -409,6 +414,7 @@ class PuppyTrackerRecordEditor extends HTMLElement {
         } else if (scope === "mother") await updateMotherDossierRecord(this._hass, litterId, recordId, payload);
         else await updateDossierRecord(this._hass, litterId, puppyId || null, recordId, payload);
       }
+      if (recordId && this._card._reminderUndo?.recordId === recordId) this._card._reminderUndo = null;
       this._card._status = this._mode === "delete" ? localize(this._hass, "dossierItemDeleted")
         : this._mode === "move" ? localize(this._hass, "recordOwnerChanged")
           : this._mode === "restore" ? localize(this._hass, "dossierItemRestored")
@@ -417,7 +423,7 @@ class PuppyTrackerRecordEditor extends HTMLElement {
           : this._mode === "add" ? localize(this._hass, "dossierItemAdded")
             : localize(this._hass, "dossierItemUpdated");
       this._close(true);
-      try { await refreshSource(this._card); }
+      try { await refreshRecordSource(this._card); }
       catch (refreshError) { this._card._error = refreshError.message; this._card._render?.(); }
     } catch (err) {
       error.textContent = err?.message || localize(this._hass, "dossierItemCouldNotSave");

@@ -121,6 +121,13 @@ action, not completion. Today's reminder list shares the category filters and
 scroll container with the activity list and respects `show_today_only` in the
 Home Assistant timezone. Successful saves identify the owner and offer editing
 of the new logbook item; the reminder's pencil still edits its schedule.
+The compact **Last execution** row expands to show planned/actual times, values
+and the complete note, with **Edit log entry** for that exact registration.
+Immediately after a new save, **Undo execution** asks for confirmation and
+recalculates planning without changing older history. Undo is refused when the
+entry has changed or a newer execution exists. Read-only users can inspect the
+details but cannot edit, execute or undo. Expanded rows stay expanded through
+background refreshes of the same card.
 Clearing the query leaves owner and category filters unchanged. Search terms are
 not persisted or exported. See [Dossier editing](puppy-dossiers.md#one-editing-workflow).
 

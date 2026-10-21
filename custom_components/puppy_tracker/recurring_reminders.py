@@ -143,6 +143,9 @@ def normalize_reminder(
         "start_at": _iso(start_at),
         "due_at": _iso(due_at),
         "last_completed_at": _iso(last_completed_at),
+        "manual_completed_at": _iso(_validated_datetime(
+            data.get("manual_completed_at") or (data.get("last_completed_at") if not data.get("last_completed_record_id") else None),
+            field="manual_completed_at")),
         "last_completed_record_id": str(data.get("last_completed_record_id") or "") or None,
         "last_completed_due_at": _iso(_validated_datetime(data.get("last_completed_due_at"), field="last_completed_due_at")),
         "created_at": str(data.get("created_at") or now),
@@ -309,15 +312,18 @@ def reminder_owner_records(storage, reminder: dict[str, Any]) -> list[dict[str, 
 
 
 def _completion_state(reminder: dict[str, Any], records: list[dict[str, Any]], now: datetime) -> dict[str, Any]:
+    manual = _parse_datetime(reminder.get("manual_completed_at"))
+    if manual is None and not reminder.get("last_completed_record_id"):
+        manual = _parse_datetime(reminder.get("last_completed_at"))
     matches = [record for record in records if reminder_matches_record(reminder, record)
                and (occurred := _parse_datetime(record.get("occurred_at"))) is not None and occurred <= now]
-    if not reminder.get("last_completed_record_id") and (manual := _parse_datetime(reminder.get("last_completed_at"))):
+    if manual:
         matches = [record for record in matches if _parse_datetime(record.get("occurred_at")) > manual]
     if not matches and not reminder.get("last_completed_record_id"):
         return reminder
     newest = max(matches, key=record_sort_key) if matches else None
     data = (newest.get("data") or {}) if newest else {}
-    return {**reminder, "last_completed_at": newest.get("occurred_at") if newest else None,
+    return {**reminder, "last_completed_at": newest.get("occurred_at") if newest else _iso(manual),
             "last_completed_record_id": newest.get("id") if newest else None,
             "last_completed_due_at": _iso(_parse_datetime(data.get("recurring_due_at"))) if isinstance(data, dict) else None}
 
@@ -506,3 +512,29 @@ class RecurringReminderStore:
             record_id = await storage.async_add_record(litter_id, **owner, record_type=record_type,
                 occurred_at=occurred.isoformat(), title=title or reminder.get("match_title") or reminder["title"], note=note, data=payload)
             return {"record": storage.get_record(litter_id, record_id, **owner), "record_id": record_id, "already_completed": False}
+
+    async def async_undo_completion(self, storage, reminder_id: str, *, record_id: str,
+                                    expected_record_updated_at: str) -> dict[str, Any]:
+        """Undo only the unchanged latest execution, atomically with dossier edits."""
+        async with self._lock:
+            reminder = self.get_reminder(reminder_id)
+            if reminder is None or not reminder.get("enabled", True):
+                raise ValueError("This reminder no longer exists or is disabled. Refresh the card")
+            litter_id, scope = reminder["litter_id"], reminder["owner_scope"]
+
+            def validate(record, records):
+                validate_reminder_owner(storage, reminder)
+                data = record.get("data") or {}
+                if (record.get("deleted") or record.get("litter_id") != litter_id
+                    or record.get("scope") != scope
+                    or not isinstance(data, dict) or data.get("recurring_reminder_id") != reminder_id
+                    or not expected_record_updated_at or record.get("updated_at") != expected_record_updated_at):
+                    raise ValueError("This execution has changed. Refresh the card")
+                history = [item for item in records if item.get("litter_id") == litter_id]
+                latest = _completion_state(reminder, history, dt_util.now())
+                if latest.get("last_completed_record_id") != record_id:
+                    raise ValueError("A newer execution exists. Refresh the card")
+
+            owner = {"mother_id": reminder["owner_id"]} if scope == "mother" else {"puppy_id": reminder["owner_id"]} if scope == "puppy" else {}
+            await storage.async_delete_record(litter_id, record_id, **owner, validate_delete=validate)
+            return storage.get_record(litter_id, record_id, **owner)

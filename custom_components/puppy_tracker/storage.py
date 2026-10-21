@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Any
@@ -2330,15 +2331,20 @@ class PuppyTrackerStorage:
         litter_id: str,
         record_id: str,
         puppy_id: str | None = None,
+        *,
+        validate_delete: Callable[[dict, list[dict]], None] | None = None,
     ) -> None:
-        """Soft-delete a dossier record."""
+        """Soft-delete a record, optionally validating against locked owner history."""
         async with self._lock:
             litter = self._require_litter(litter_id)
             owner = litter if puppy_id is None else self._require_puppy(litter_id, puppy_id)
             record = self._require_record(owner, record_id)
+            if validate_delete is not None:
+                validate_delete(record, owner.get("records", []))
             if record.get("deleted", False):
                 return
 
+            before = deepcopy(self._data) if validate_delete is not None else None
             now = _now_iso()
             record["deleted"] = True
             record["deleted_at"] = now
@@ -2352,7 +2358,12 @@ class PuppyTrackerStorage:
                 record_id=record_id,
                 details={"type": record.get("type")},
             )
-            await self.async_save()
+            try:
+                await self.async_save()
+            except Exception:
+                if before is not None:
+                    self._data = before
+                raise
 
     async def async_restore_record(
         self,

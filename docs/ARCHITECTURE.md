@@ -620,6 +620,27 @@ actions and exact saved-record feedback; Attention and the Reminders management
 surface use the same editor and action helper. Seen acknowledgements remain
 independent of execution.
 
+The list response includes `last_execution`, resolved by the reconciled record
+ID within the exact owner history, cached once per owner per request. It never
+substitutes another recent item from the same category. Legacy manual timestamps
+without a record ID remain timestamps only. The shared recurring-surfaces module
+renders expandable details and schema-labelled values; expansion state is local
+to the card and survives its background renders without changing the URL.
+
+The admin-only `recurring_reminder/undo` command accepts the reminder ID, exact
+record ID and expected record revision. It serializes against definition changes
+and resolves ownership server-side. A synchronous deletion validator runs under
+the main storage lock, checking the active execution link, litter/scope, revision
+and latest matching execution before soft-deletion. This closes the race with
+ordinary dossier edits/moves and newer direct or unlinked executions.
+Older manual-only completion
+dates are retained separately as `manual_completed_at` during normalization, so
+undo/deletion after reconciliation cannot erase this historical baseline.
+Failed main-store writes roll back runtime data, including audit entries. Completion
+remains a rebuildable projection, with ordinary update signals recalculating
+planning and notifications. The UI offers undo only for a new successful save,
+not an idempotent retry; its transient confirmation is not backed up or restored.
+
 ### Interval schedules
 
 For `interval`, the next due time is:

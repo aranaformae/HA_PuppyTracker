@@ -15,7 +15,7 @@ import {
   renderTodayCare,
 } from "./puppy-tracker-care-surfaces.js";
 import { renderTodayQol } from "./puppy-tracker-today-qol.js";
-import { loadRecurringReminders, renderTodayReminders, renderRecurringSaveFeedback } from "./puppy-tracker-recurring-surfaces.js";
+import { loadRecurringReminders, renderTodayReminders, renderRecurringSaveFeedback, captureLastExecutions } from "./puppy-tracker-recurring-surfaces.js";
 
 const TEXT = {
   nl: {
@@ -169,6 +169,7 @@ class PuppyTrackerTodayCard extends HTMLElement {
   }
 
   _render() {
+    captureLastExecutions(this);
     if (!this.shadowRoot) return;
     const litter = this._data?.litter;
     const info = sessionInfo(this._data);

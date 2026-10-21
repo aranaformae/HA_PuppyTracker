@@ -1,5 +1,6 @@
 import { escapeHtml, languageForHass } from "./puppy-tracker-card-common.js";
 import { recordTypeLabel } from "./puppy-tracker-dossier-schema.js";
+import { lastExecutionDetails, bindLastExecutions } from "./puppy-tracker-recurring-surfaces.js";
 import { openRecordEditor, openFollowupEditor, openReminderEditor, reminderCompleteButton, recordContext, recordEditButton, recordFollowupButton, RECORD_ACTION_STYLE } from "./puppy-tracker-record-editor.js";
 
 function t(card, nl, en) {
@@ -188,13 +189,16 @@ export function renderAttentionQol(card) {
   let ackCount = 0;
   const acknowledgements = card.__attentionAcknowledgements || {};
   for (const row of rows) {
+    if (row.__recurringReminder && !row.querySelector(".recurring-last-execution,.recurring-last-empty")) {
+      row.querySelector(".main")?.insertAdjacentHTML("beforeend", lastExecutionDetails(card, row.__recurringReminder));
+    }
     const matches = selectedTypes.has(row.dataset.attentionType);
     row.hidden = !matches;
     row.classList.toggle("attention-filter-hidden", !matches);
     row.style.display = matches ? "" : "none";
     if (!matches) continue;
     if (row.__recordContext || row.__recurringReminder) {
-      row.querySelector(".record-edit-button")?.remove();
+      row.querySelector(":scope > .record-edit-button")?.remove();
       const wrapper = document.createElement("span");
       wrapper.innerHTML = row.__recurringReminder ? reminderCompleteButton(card, row.__recurringReminder)
         : row.__followupAction ? recordFollowupButton(card, row.dataset.attentionId, row.__followupAction)
@@ -269,4 +273,5 @@ export function renderAttentionQol(card) {
   controls.querySelectorAll("[data-attention-filter-type]").forEach((button) => {
     button.addEventListener("click", () => toggleType(card, button.dataset.attentionFilterType, types));
   });
+  bindLastExecutions(card, root, card._recurringReminders || []);
 }

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from copy import deepcopy
 from typing import Any
 from uuid import uuid4
@@ -466,21 +467,32 @@ class MotherScopeStorage(PuppyTrackerStorage):
         puppy_id: str | None = None,
         *,
         mother_id: str | None = None,
+        validate_delete: Callable[[dict, list[dict]], None] | None = None,
     ) -> None:
         if mother_id is None:
-            return await super().async_delete_record(litter_id, record_id, puppy_id)
+            return await super().async_delete_record(litter_id, record_id, puppy_id, validate_delete=validate_delete)
         async with self._lock:
             mother = self._require_mother(mother_id)
             record = self._require_record(mother, record_id)
+            if validate_delete is not None:
+                validate_delete(record, mother.get("records", []))
             if record.get("deleted", False):
                 return
+            before = deepcopy(self._data) if validate_delete is not None else None
             now = _now_iso()
             record["deleted"] = True
             record["deleted_at"] = now
             record["updated_at"] = now
             mother["updated_at"] = now
             self._require_litter(litter_id)["updated_at"] = now
-        await self.async_save()
+            self._add_audit_entry(action="delete_record", litter_id=litter_id,
+                                  record_id=record_id, details={"type": record.get("type"), "mother_id": mother_id})
+            try:
+                await self.async_save()
+            except Exception:
+                if before is not None:
+                    self._data = before
+                raise
 
     async def async_restore_record(
         self,

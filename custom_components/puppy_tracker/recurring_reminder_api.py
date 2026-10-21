@@ -15,6 +15,7 @@ from .mother_storage import MotherScopeStorage
 from .recurring_reminders import (
     RecurringReminderStore,
     reminder_status,
+    reminder_owner_records,
     validate_reminder_owner as _validate_owner,
 )
 from .runtime import get_runtime_data, get_runtime_storage
@@ -75,9 +76,17 @@ async def websocket_list_reminders(hass, connection, msg) -> None:
         settings.get("notification_lead_minutes", DEFAULT_NOTIFICATION_LEAD_MINUTES)
     )
     items = []
+    histories = {}
     for reminder in store.get_reminders(litter_id=msg.get("litter_id")):
         item = reminder_status(reminder, notification_lead_minutes=default_lead_minutes)
         item["owner_name"] = _owner_label(storage, reminder)
+        owner = tuple(reminder[key] for key in ("litter_id", "owner_scope", "owner_id"))
+        if owner not in histories:
+            try:
+                histories[owner] = {record["id"]: record for record in reminder_owner_records(storage, reminder)}
+            except ValueError:
+                histories[owner] = {}
+        item["last_execution"] = histories[owner].get(reminder.get("last_completed_record_id"))
         items.append(item)
     items.sort(
         key=lambda item: (
@@ -218,6 +227,30 @@ async def websocket_record_reminder(hass, connection, msg) -> None:
     connection.send_result(msg["id"], {"ok": True, **result})
 
 
+@websocket_api.require_admin
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/recurring_reminder/undo",
+    vol.Required("reminder_id"): str,
+    vol.Required("record_id"): str,
+    vol.Required("expected_record_updated_at"): str,
+})
+@websocket_api.async_response
+async def websocket_undo_reminder(hass, connection, msg) -> None:
+    """Soft-delete a just-saved execution; derive planning again from history."""
+    store = _store_or_error(hass, connection, msg)
+    storage = get_runtime_storage(hass)
+    if store is None or storage is None:
+        return
+    try:
+        record = await store.async_undo_completion(storage, msg["reminder_id"], record_id=msg["record_id"],
+            expected_record_updated_at=msg["expected_record_updated_at"])
+    except ValueError as err:
+        connection.send_error(msg["id"], "stale_execution", str(err))
+        return
+    dispatch_dossier_update(hass, record.get("puppy_id"))
+    connection.send_result(msg["id"], {"ok": True})
+
+
 @callback
 def async_setup_recurring_reminder_api(hass: HomeAssistant) -> None:
     if hass.data.get(DATA_API_REGISTERED):
@@ -228,6 +261,7 @@ def async_setup_recurring_reminder_api(hass: HomeAssistant) -> None:
         websocket_update_reminder,
         websocket_delete_reminder,
         websocket_record_reminder,
+        websocket_undo_reminder,
     ):
         websocket_api.async_register_command(hass, command)
     hass.data[DATA_API_REGISTERED] = True

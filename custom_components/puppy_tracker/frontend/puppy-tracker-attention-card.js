@@ -1,5 +1,5 @@
 import { closeRecordEditor } from "./puppy-tracker-record-editor.js";
-import { renderRecurringSaveFeedback } from "./puppy-tracker-recurring-surfaces.js";
+import { renderRecurringSaveFeedback, captureLastExecutions } from "./puppy-tracker-recurring-surfaces.js";
 import {
   describeStatus,
   escapeHtml,
@@ -231,6 +231,7 @@ class PuppyTrackerAttentionCard extends HTMLElement {
   }
 
   _render() {
+    captureLastExecutions(this);
     const litter = this._data?.litter;
     const activePuppies = (this._data?.puppies || []).filter((puppy) => puppy.active !== false);
     const entries = [];
