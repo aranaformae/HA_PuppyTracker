@@ -10,7 +10,6 @@ const CARD_TYPES = [
   "puppy-tracker-dossier-card",
   "puppy-tracker-quick-log-card",
   "puppy-tracker-bulk-dossier-card",
-  "puppy-tracker-timeline-card",
   "puppy-tracker-behavior-card",
   "puppy-tracker-calculator-card",
   "puppy-tracker-workspace-card",
@@ -255,7 +254,7 @@ test("workspace editor switches preset options and writes existing tab config", 
   expect(result.editorConfig.default_tab).toBe("weighing");
   expect(result.editorConfig.tab_config.analysis.default_metric).toBe("growth24");
   expect(result.schemaRetained).toBe(true);
-  expect(result.groupsByPreset.journal).toEqual(["title", "preset", "litter_id", "show_litter_selector", "navigation", "options_presetOptions", "options_dossier", "options_timeline", "options_temperature", "options_behavior"]);
+  expect(result.groupsByPreset.journal).toEqual(["title", "preset", "litter_id", "show_litter_selector", "navigation", "options_presetOptions", "options_dossier", "options_temperature", "options_behavior"]);
   expect(result.groupsByPreset.care).toEqual(["title", "preset", "litter_id", "show_litter_selector", "navigation", "options_care", "options_calculator", "options_programs"]);
   expect(result.groupsByPreset.mobile).toEqual(["title", "preset", "litter_id", "show_litter_selector", "navigation", "options_presetOptions", "options_weighing", "options_care", "options_calculator", "options_behavior"]);
   expect(result.savedByPreset.home.show_summary).toBe(false);

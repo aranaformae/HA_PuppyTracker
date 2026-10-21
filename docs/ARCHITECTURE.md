@@ -112,10 +112,10 @@ The shared Weighing surface binds confirmation to litter, puppy, entered value
 and baseline ID. A busy guard and disabled controls protect the async preflight
 and save path; direct record-weight actions are not changed by this UI prompt.
 
-Dossier and Timeline share `puppy-tracker-dossier-search.js` for accent- and
+Dossier share `puppy-tracker-dossier-search.js` for accent- and
 case-insensitive title/note/result matching and localized search controls.
 The query is transient presentation state. Filtering runs over the full loaded
-scope, before Timeline display limits. Input changes replace only the result
+scope, before the Dossier display batch. Input changes replace only the result
 list and counts, retaining search DOM nodes. Dossier record actions use
 one delegated list listener and authoritative aggregate record keys, so newly
 filtered results keep the existing owner-safe edit/delete/move/restore routes.
@@ -125,7 +125,7 @@ Partial updates also synchronize chip state, visibility toggles and search
 controls when a pointer action does not blur the search field, as on Safari.
 
 `puppy-tracker-record-editor.js` owns the common saved-item editor and correction
-dialog. Dossier, Timeline, Today's activity list (including Mobile), Temperature
+dialog. Dossier, Today's activity list (including Mobile), Temperature
 and Behavior history pass an explicit source record ID,
 owner scope, puppy ID and litter ID. Display-event IDs are never used as storage
 IDs. The editor fetches the canonical record with deleted history included,
@@ -231,7 +231,7 @@ neither `frontend.py` nor the Workspace has to encode helper initialization.
 Imported helpers are ordinary ES-module dependencies of their owning cards.
 Every card owns its localization lifecycle; the large
 Overview dictionary is a stateless helper imported directly by that card.
-Summary and Litter render their localized UI directly. Dossier and Timeline
+Summary and Litter render their localized UI directly. Dossier
 render their list actions directly, while the shared saved-item editor owns
 the editing dialog and source-owner save routing. Shared care layers
 export ordinary functions; their callers determine a fixed, reviewable order.
@@ -431,7 +431,7 @@ as one universal growth curve; `australian_labradoodle` and its miniature/medium
 standard size classes are only labels for later analysis unless validated data is
 added explicitly.
 
-The Timeline may display weight events beside dossier records, but authoritative weight data remains in `measurements[]`.
+Dossier displays weight events beside dossier records, but authoritative weight data remains in `measurements[]`.
 
 The Overview card keeps analysis data available independently of presentation.
 Per-card options `show_advanced_analysis`, `show_growth_milestones` and
@@ -1089,13 +1089,37 @@ after replacing its shadow DOM. Its imported helper has no observer, global DOM
 scan or constructor patch, so localization cannot trigger an extra render or
 depend on frontend registration order.
 
-The Timeline card likewise owns its complete scope and event model. Aggregate,
-litter, mother and puppy scopes are loaded and rendered directly by the card;
-mother records and structured temperature values are normalized before the
-shared filtering stage. The mother, aggregate-scope and temperature modules no
-longer wrap Timeline methods, so their load order cannot change Timeline data.
+The unified Dossier owns the sole general history surface. The old Timeline
+card and its duplicate scope/filter/render implementation are removed.
+`puppy-tracker-dossier-history.js` merges canonical records and measurements for
+presentation, preserving exact owner keys and measurement IDs. It never writes
+data or converts measurements to ordinary care records. Categories derive from
+actual record types, including behavior observations.
 
-The Dossier card owns the same four scopes directly. Its aggregate records keep
+Dossier captures litter/scope at load start and publishes its complete snapshot
+only when the load generation is still current. Missing owners disable creation
+instead of falling back to the litter. Whole-litter scope means litter-owned
+records only; All includes litter, current-litter mother and all puppy histories.
+Measurement versions are fetched only for relevant puppies when an administrator
+enables history and has measurement permission. The normal view uses active
+measurements already provided by the litter API.
+The existing litter records endpoint also returns puppy follow-ups. The history
+helper admits follow-ups only when their source ID exists in the exact owner's
+returned record set. Aggregation then combines each owner once, preserving the
+source owner and showing an explicit owner label in To do.
+
+Native disclosures show full details without requesting data or rebuilding the
+card. Expansion and scroll state survive updates, and unchanged markup retains
+the existing DOM. Profile notes and advanced filters have separate disclosures.
+Date/category/search filters run before the bounded display batch; Show more
+extends that batch. `show_history`, `show_weights`, `show_details`, `max_items`
+and `max_height` form one presentation contract, inherited through Workspace.
+The shared editor requires an explicit owner for new entries opened from All.
+The choice uses stable scope/puppy keys, survives failed validation and cannot be
+saved after the source litter changes. The backend/storage/export contracts are
+unchanged.
+
+The Dossier card owns its four scopes directly. Its aggregate records keep
 private source-owner metadata for edit, move, delete and restore operations,
 while mother records use the dedicated mother endpoints. Mother profile notes
 and current/all-litter history are part of the normal Dossier state and render
@@ -1172,11 +1196,11 @@ unrelated owner, puppy, metric, period or day controls. Summary follows the
 shared context and intentionally has no duplicate nest selector.
 The weighing surface announces the actual litter device identifier after a
 successful Home Assistant select action. It is retained as the event source so
-an in-progress weight entry is not rebuilt. Filter state for Quick Log, Dossier
-and Timeline is namespaced by Workspace and surface; `state_key` can distinguish
+an in-progress weight entry is not rebuilt. Filter state for Quick Log and Dossier
+is namespaced by Workspace and surface; `state_key` can distinguish
 otherwise identical Workspace instances.
 
-Mother scope is expected on Dossier, Quick Log, Timeline, Attention, Report/export and Recurring Reminders where the workflow logically supports a single owner. Bulk Dossier remains puppy-oriented because its purpose is one event applied to multiple puppies.
+Mother scope is expected on Dossier, Quick Log, Attention, Report/export and Recurring Reminders where the workflow logically supports a single owner. Bulk Dossier remains puppy-oriented because its purpose is one event applied to multiple puppies.
 
 The Temperature surface is a focused temperature workflow. It reads structured
 `temperature` dossier records, supports litter, mother and puppy scope, offers
@@ -1285,7 +1309,7 @@ Milestone projection is derived presentation data. The per-litter `milestone_pro
 
 ### Configurable initial workspace scope
 
-Dossier, Timeline, Temperature and Quick Log receive a presentation-only
+Dossier, Temperature and Quick Log receive a presentation-only
 `default_selected` workspace option with
 the values `all`, `litter`, `mother` and `puppy`. The option controls the scope
 used during the initial load; the interactive scope selector remains available
@@ -1319,7 +1343,7 @@ user-facing fields.
 
 ### Shared category filtering and list presentation
 
-The Timeline, Today and Attention surfaces use type/category chips as a presentation
+Dossier, Today and Attention surfaces use type/category chips as a presentation
 filter over the already-derived backend data. The filter is inclusive: selecting
 `All` selects every type currently available on that surface, and clearing every
 type is a valid state that renders no matching items. The filter must not delete,
@@ -1328,10 +1352,11 @@ age-based care types must be offered when present, so they cannot disappear mere
 because they are not part of an older static type list.
 
 Attention keeps its item list internally scrollable with a maximum height of
-`60vh`. Today caps its combined activity area at 520px. Timeline retains its
-category filters even when timeline items are configured
-to start hidden; `show_timeline_items` controls the initial presentation only and
-does not remove the control or change the underlying data.
+`60vh`. Today caps its combined activity area at 520px. Dossier's `max_height`
+defaults to 520px. Its history starts visible; `show_history` can start it
+collapsed without removing the toggle. Advanced category/date/deleted-version
+filters are inside the history under Filters. These presentation choices never
+change saved data or completion state.
 
 ## Export philosophy
 

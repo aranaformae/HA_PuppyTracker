@@ -14,25 +14,25 @@ Every dossier record belongs to exactly one owner scope within its litter:
 | `mother` | The persistent mother-dog profile linked to the litter |
 | `puppy` | One specific puppy |
 
-The Dossier, Quick Log, Timeline and Temperature surfaces use these same scopes.
+The Dossier, Quick Log and Temperature surfaces use these same scopes.
 Reminder completion also matches the exact scope: a mother's temperature record
 does not complete a whole-litter or puppy reminder.
 
-The Dossier and Timeline surfaces can show **All** as an aggregate view. Existing
+Dossier can show **All** as an aggregate view. Existing
 records remain editable there because their source owner remains known. To add
-a new record, first select the intended litter, mother or puppy owner.
+from All, use New entry and choose the exact litter, mother or puppy in the dialog.
 
 ### One editing workflow
 
 Administrators see a pencil beside each active saved dossier item in Dossier,
-Timeline, Today's activity list (including the mobile Workspace), Temperature
+Today's activity list (including the mobile Workspace), Temperature
 history and Behavior history. There is no separate
 **Edit items** mode. Every pencil opens the same dialog with the complete saved
 item and its original owner, independent of the current category/search filters.
 The cards remain readable without write controls for non-administrators.
 
 Dossier's three-dot item menu contains **Change owner** and **Delete**. Both open
-an explicit dialog; deleted items in Dossier and Timeline history offer
+an explicit dialog; deleted items in Dossier history offer
 **Restore**, not editing. Changing owner
 uses a named destination selector rather than a numbered prompt.
 
@@ -222,14 +222,15 @@ be changed in the shared item editor from any surface displaying that result.
 Internal program, revision, occurrence and source identifiers are preserved but
 are not shown as user-facing fields.
 
-The dossier list scrolls after 520 px. `show_timeline_items` controls whether it
-starts expanded; the visible toggle and matching item count remain available.
-Both Dossier and Timeline have a search field for titles, notes and results,
-including care-program results. Search ignores capitalization and accents;
-multiple words must all occur somewhere in those fields. It is combined with
-the selected owner, categories and (in Timeline) dates/history settings.
-Clearing the search leaves those other filters unchanged. Timeline searches
-the complete loaded scope before applying its display limit.
+Dossier has one combined history with optional weight events, dates, categories,
+search and deleted/corrected history. Entries start compact; expand Details for
+the complete note and structured fields. The profile note starts collapsed.
+The list scrolls after its configured `max_height` (default 520 px).
+`show_history` controls initial visibility; `show_weights` and `show_details`
+control weight inclusion and initial entry expansion. `max_items` is the display
+batch; Show more reveals older results. Search runs over the full loaded history
+before that batch limit and ignores capitalization and accents. Clearing search
+leaves other filters unchanged. See [Dossier history](DOSSIER_HISTORY.md).
 
 Search also applies to editable results, including the combined **All** scope.
 A matching item is edited under its original owner. The modal editor does not

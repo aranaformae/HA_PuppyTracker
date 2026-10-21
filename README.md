@@ -112,15 +112,14 @@ Dossier and care data always belongs to the **whole litter**, the linked
 **mother dog** or one **puppy**. Choosing the correct owner matters because
 filters, reminders, reports and completion matching use that ownership.
 
-The Dossier and Timeline cards can open in an aggregate **All** view. Existing
-items remain editable there, but a specific owner must be selected before a new
-item can be added. This prevents a new entry from being stored under an
-unexpected owner.
+Dossier combines care entries and optional weights in one history. Existing
+items remain editable in All. **New entry** asks for an explicit owner when
+opened from All, so a new observation is never assigned to the litter by default.
 
 Use the pencil beside an existing item to open the shared editor, including
 from Today on mobile, Temperature and Behavior history. Weight items open a
 correction instead. Quick Log keeps your chosen owner after saving or changing
-category. See [Dossier editing](docs/puppy-dossiers.md#one-editing-workflow).
+category. See [Dossier history](docs/DOSSIER_HISTORY.md) for filters, details and editing.
 Quick Log defaults to **Log only**, without completing reminders. Select an
 open reminder explicitly to save a new entry and complete only that reminder.
 

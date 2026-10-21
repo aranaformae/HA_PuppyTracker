@@ -9,7 +9,6 @@ WORKSPACE_CARD = "puppy-tracker-workspace-card.js"
 OVERVIEW_CARD = "puppy-tracker-overview-card.js"
 OVERVIEW_REGISTRY_REFRESH = "puppy-tracker-overview-registry-refresh.js"
 DOSSIER_CARD = "puppy-tracker-dossier-card.js"
-TIMELINE_CARD = "puppy-tracker-timeline-card.js"
 ATTENTION_CARD = "puppy-tracker-attention-card.js"
 LITTER_CARD = "puppy-tracker-litter-card.js"
 
@@ -129,7 +128,6 @@ def test_workspace_owns_shared_litter_context_and_pauses_hidden_surfaces() -> No
         "puppy-tracker-litter-card.js",
         "puppy-tracker-quick-log-card.js",
         "puppy-tracker-dossier-card.js",
-        "puppy-tracker-timeline-card.js",
         "puppy-tracker-temperature-card.js",
         "puppy-tracker-calculator-card.js",
         "puppy-tracker-care-execution-card.js",
@@ -265,15 +263,6 @@ def test_cards_own_their_localization() -> None:
     assert 'this._sessionPresentation(sessionState?.state)' in weighing
 
 
-def test_timeline_visibility_is_configurable_per_card() -> None:
-    """Both dossier and timeline cards expose the timeline item default as config."""
-    frontend = Path(__file__).parents[1] / "custom_components" / "puppy_tracker" / "frontend"
-
-    for filename in (DOSSIER_CARD, TIMELINE_CARD):
-        source = (frontend / filename).read_text(encoding="utf-8")
-        assert "show_timeline_items: false" in source
-        assert '{ name: "show_timeline_items", selector: { boolean: {} } }' in source
-
 
 def test_attention_today_filter_is_configurable() -> None:
     """The attention card can limit care-program rows to today's items."""
@@ -290,21 +279,6 @@ def test_attention_today_filter_is_configurable() -> None:
     assert '{ name: "max_items"' in source
     assert '{ name: "compact"' in source
 
-
-def test_dossier_and_timeline_expose_configurable_default_scopes() -> None:
-    """Dossier and timeline cards support the same persisted scope choices."""
-    frontend = Path(__file__).parents[1] / "custom_components" / "puppy_tracker" / "frontend"
-    dossier = (frontend / DOSSIER_CARD).read_text(encoding="utf-8")
-    timeline = (frontend / TIMELINE_CARD).read_text(encoding="utf-8")
-
-    for source in (dossier, timeline):
-        assert 'name: "default_selected"' in source
-        assert 'config.default_selected' in source
-        assert 'config.default_scope' not in source
-    assert '{ value: "all", label: "Alles" }' in dossier
-    assert '{ value: "mother", label: "Moederhond" }' in dossier
-    assert '{ value: "all", label: "Alles" }' in timeline
-    assert '{ value: "mother", label: "Moederhond" }' in timeline
 
 
 def test_logging_surfaces_share_the_dossier_record_type_contract() -> None:
@@ -361,3 +335,16 @@ def test_overview_renders_litter_weight_comparison() -> None:
     assert "milestone_projection" in source
     assert "Onregelmatig meetinterval" in source
     assert "milestone-projection-band" in chart
+
+
+def test_unified_dossier_replaces_timeline_and_exposes_history_options() -> None:
+    frontend = Path(__file__).parents[1] / "custom_components" / "puppy_tracker" / "frontend"
+    source = (frontend / DOSSIER_CARD).read_text(encoding="utf-8")
+    assert not (frontend / "puppy-tracker-timeline-card.js").exists()
+    assert "puppy-tracker-timeline-card.js" not in CARD_FILES
+    assert "puppy-tracker-dossier-history.js" in CARD_FILES
+    for option in ("show_history", "show_details", "show_weights", "max_height", "max_items", "default_selected"):
+        assert f'name: "{option}"' in source
+    workspace = (frontend / "puppy-tracker-workspace-card.js").read_text(encoding="utf-8")
+    assert 'journal: { tabs: ["dossier", "quickLog", "behavior", "temperature"] }' in workspace
+    assert 'timeline:' not in workspace

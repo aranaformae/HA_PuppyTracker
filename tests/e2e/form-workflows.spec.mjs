@@ -210,6 +210,7 @@ for (const [tag, config, open, note, save, cancel] of [
 ]) {
   test(`${tag} retains new or profile-note drafts after a failed save and cancelled discard`, { tag: ["@cross-browser", "@tablet"] }, async ({ page }) => {
     const card = await mount(page, tag, config);
+    if (tag === "puppy-tracker-dossier-card") await card.locator(".profile-panel > summary").click();
     await card.locator(open).click();
     await card.locator(note).fill("Do not lose this observation");
     if (tag.includes("temperature")) await card.locator("#temperature-value").fill("38.4");

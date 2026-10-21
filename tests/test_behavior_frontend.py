@@ -22,7 +22,7 @@ def test_behavior_surface_is_loaded_before_workspace_and_not_public() -> None:
     assert 'customElements.define("puppy-tracker-behavior-card"' in source
     assert 'type: "puppy-tracker-behavior-card"' not in source
     assert 'behavior: { tag: "puppy-tracker-behavior-card"' in workspace
-    assert 'journal: { tabs: ["quickLog", "dossier", "behavior"' in workspace
+    assert 'journal: { tabs: ["dossier", "quickLog", "behavior"' in workspace
     assert 'mobile: { tabs: ["weighing", "calculator", "quickLog", "today", "care", "behavior"]' in workspace
 
 

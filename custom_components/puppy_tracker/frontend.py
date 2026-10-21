@@ -40,7 +40,7 @@ CARD_FILES = (
     "puppy-tracker-dossier-card.js",
     "puppy-tracker-quick-log-card.js",
     "puppy-tracker-bulk-dossier-card.js",
-    "puppy-tracker-timeline-card.js",
+    "puppy-tracker-dossier-history.js",
     "puppy-tracker-temperature-card.js",
     "puppy-tracker-behavior-card.js",
     "puppy-tracker-calculator-card.js",

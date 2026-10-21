@@ -339,6 +339,8 @@ class PuppyTrackerRecordEditor extends HTMLElement {
 
   _capture() {
     if (!this._draft) return;
+    const owner = this.shadowRoot.getElementById("record-new-owner");
+    if (owner) this._draft.newOwner = owner.value;
     for (const [key, id] of Object.entries({ title: "record-title", note: "record-note", occurred_at: "record-occurred" })) {
       const input = this.shadowRoot.getElementById(id);
       if (input) this._draft[key] = input.value;
@@ -402,7 +404,7 @@ class PuppyTrackerRecordEditor extends HTMLElement {
       ...(data?.litter?.mother ? [{ scope: "mother", puppyId: null, name: `${localize(this._hass, "mother")} · ${data.litter.mother}` }] : []),
       ...(data?.puppies || []).map((puppy) => ({ scope: "puppy", puppyId: puppy.id, name: `${localize(this._hass, "puppy")} · ${puppySelectorLabel(puppy, localize(this._hass, "puppy"))}` })),
     ].filter((owner) => (this._record?.type !== "behavior_observation" || owner.scope === "puppy")
-      && (owner.scope !== this._context.scope || owner.puppyId !== (this._context.puppyId || null)));
+      && (this._options.chooseOwner || owner.scope !== this._context.scope || owner.puppyId !== (this._context.puppyId || null)));
   }
 
   _renderForm() {
@@ -413,7 +415,9 @@ class PuppyTrackerRecordEditor extends HTMLElement {
     const label = execution ? copy(this._hass, "Uitvoering opslaan", "Save completion") : this._mode === "move" ? localize(this._hass, "changeOwner") : this._mode === "restore" ? localize(this._hass, "restore") : this._mode === "delete" ? localize(this._hass, "delete") : this._mode === "add" ? localize(this._hass, "add") : localize(this._hass, "saveChanges");
     const scheduled = this._mode === "reminder" ? formatDateTime(this._options.reminder.next_due_at, "", this._hass) : this._options.dueDate;
     const followupContext = execution ? `<div class="context">${this._mode === "reminder" ? `<strong>${escape(this._options.reminder.title)}</strong>` : ""}${escape(copy(this._hass, "Geplande datum", "Scheduled date"))}: ${escape(scheduled)}</div>` : "";
-    body.innerHTML = `<form novalidate>${followupContext}${isEdit ? `<div class="grid"><label>${escape(localize(this._hass, "type"))}<select id="record-type" ${lockedType ? "disabled" : ""}>${recordTypeOptions(this._hass, this._draft.record_type)}</select></label><label>${escape(localize(this._hass, "dateAndTime"))}<input type="datetime-local" step="1" id="record-occurred" value="${escape(this._draft.occurred_at)}" required></label></div><label>${escape(localize(this._hass, "title"))}<input id="record-title" maxlength="160" value="${escape(this._draft.title)}"></label><label>${escape(localize(this._hass, "note"))}<textarea id="record-note" rows="4">${escape(this._draft.note)}</textarea></label><div class="grid">${this._fields()}</div>${this._careFields()}${this._behaviorFields()}`
+    const chooseOwner = this._mode === "add" && this._options.chooseOwner
+      ? `<label>${escape(copy(this._hass, "Voor wie?", "For whom?"))}<select id="record-new-owner" required><option value="">${escape(copy(this._hass, "Kies een eigenaar", "Choose an owner"))}</option>${this._owners().map((owner) => { const key = `${owner.scope}:${owner.puppyId || ""}`; return `<option value="${escape(key)}" ${key === this._draft.newOwner ? "selected" : ""}>${escape(owner.name)}</option>`; }).join("")}</select></label>` : "";
+    body.innerHTML = `<form novalidate>${chooseOwner}${followupContext}${isEdit ? `<div class="grid"><label>${escape(localize(this._hass, "type"))}<select id="record-type" ${lockedType ? "disabled" : ""}>${recordTypeOptions(this._hass, this._draft.record_type)}</select></label><label>${escape(localize(this._hass, "dateAndTime"))}<input type="datetime-local" step="1" id="record-occurred" value="${escape(this._draft.occurred_at)}" required></label></div><label>${escape(localize(this._hass, "title"))}<input id="record-title" maxlength="160" value="${escape(this._draft.title)}"></label><label>${escape(localize(this._hass, "note"))}<textarea id="record-note" rows="4">${escape(this._draft.note)}</textarea></label><div class="grid">${this._fields()}</div>${this._careFields()}${this._behaviorFields()}`
       : this._mode === "move" ? `<label>${escape(localize(this._hass, "changeOwner"))}<select id="record-owner">${this._owners().map((owner, index) => `<option value="${index}">${escape(owner.name)}</option>`).join("")}</select></label>`
         : `<div class="context">${escape(this._record.title || recordTypeLabel(this._hass, this._record.type))}</div><p>${escape(this._mode === "restore" ? copy(this._hass, "Dit verwijderde item herstellen?", "Restore this deleted item?") : localize(this._hass, "confirmDeleteRecord", { title: this._record.title || recordTypeLabel(this._hass, this._record.type) }))}</p>`}
       <div class="error" role="alert" hidden></div><div class="actions"><button type="button" id="record-cancel">${escape(localize(this._hass, "cancel"))}</button><button type="submit" class="primary" id="record-save">${escape(label)}</button></div></form>`;
@@ -433,6 +437,12 @@ class PuppyTrackerRecordEditor extends HTMLElement {
     if (this._mode !== "measurement") this._capture();
     try {
       if (!(this._mode === "measurement" ? canCorrectMeasurements(this._card) : canEditRecords(this._card))) throw new Error(copy(this._hass, "Je mag dit item niet aanpassen.", "You cannot edit this item."));
+      if (this._mode === "add" && this._options.chooseOwner) {
+        if (this._card._selectedLitterId !== this._context.litterId) throw new Error(copy(this._hass, "Het nest is gewijzigd. Open Nieuw item opnieuw.", "The litter has changed. Open New entry again."));
+        const target = this._owners().find((owner) => `${owner.scope}:${owner.puppyId || ""}` === this._draft.newOwner);
+        if (!target) { this._formState.error("#record-new-owner", localize(this._hass, "invalidOwner")); throw new Error(localize(this._hass, "invalidOwner")); }
+        Object.assign(this._context, { scope: target.scope, puppyId: target.puppyId, ownerName: target.name });
+      }
       const { litterId, scope, puppyId, recordId } = this._context;
       const data = structuredClone(this._draft.data || {});
       const occurred = new Date(this._draft.occurred_at);

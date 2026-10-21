@@ -2,7 +2,7 @@
 
 The Temperature surface in the Journal workspace displays and records
 structured temperature data. It uses the same Puppy Tracker dossier data as
-Quick Log, Dossier and Timeline, so a measurement entered in one surface is
+Quick Log and Dossier, so a measurement entered in one surface is
 available in the others after the normal live update.
 
 ## Add the card

@@ -250,7 +250,7 @@ async function mountDossier(page, { compact = false, production = false } = {}) 
 
     const constructor = customElements.get("puppy-tracker-dossier-card");
     const card = document.createElement("puppy-tracker-dossier-card");
-    card.setConfig(constructor.getStubConfig());
+    card.setConfig({ ...constructor.getStubConfig(), show_details: true });
     document.querySelector("#cards").appendChild(card);
     card.hass = hass;
   });
@@ -259,7 +259,9 @@ async function mountDossier(page, { compact = false, production = false } = {}) 
   await expect(card.locator("#owner-select")).toBeVisible();
   await card.locator("#owner-select").selectOption("p1");
   await expect(card.locator("#add-record")).toBeVisible();
-  if (!compact) await card.locator("#toggle-timeline-items").click();
+  if (compact) await card.locator("#toggle-timeline-items").click();
+  if (!compact) await card.locator(".history-filters > summary").click();
+  await card.locator(".profile-panel > summary").click();
   return card;
 }
 

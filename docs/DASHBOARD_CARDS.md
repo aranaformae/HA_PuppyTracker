@@ -25,7 +25,7 @@ movement.
 | --- | --- | --- |
 | `home` | Today, Attention, Puppies | Current status and exceptions; includes Summary by default |
 | `growth` | Weigh, Analysis | Weighing sessions, collar-colour charts and growth analysis |
-| `journal` | Quick log, Dossier, Behavior, Timeline, Temperature | All observation and dossier workflows |
+| `journal` | Dossier, Quick log, Behavior, Temperature | All observation and dossier workflows |
 | `care` | Execute, Calculator, Programs, Reminders | Complete and manage scheduled care or calculate per-kilogram amounts |
 | `mobile` | Weigh, Calculator, Quick log, Today, Execute, Behavior | Touch-first daily workflow without leaving the card |
 
@@ -55,7 +55,7 @@ focused:
 | Home | Workspace `home` plus camera, climate or other Home Assistant cards | Separate Summary, Today, Attention and Puppies cards |
 | Mobile | Workspace `mobile` | The former Mobile Controls card |
 | Growth | Workspace `growth` | Separate Weighing and Growth pages |
-| Journal | Workspace `journal` | Quick Log, Dossier, Behavior, Timeline, Temperature and Bulk Dossier workflows |
+| Journal | Workspace `journal` | Dossier, Quick Log, Behavior, Temperature and Bulk Dossier workflows |
 | Care | Workspace `care` | Care Execution, per-kilogram Calculator, Programs and Reminders cards |
 | Management | Owners and Report | No change |
 
@@ -69,6 +69,17 @@ Assistant cards, is available in
 [`examples/puppy-tracker-dashboard.yaml`](examples/puppy-tracker-dashboard.yaml).
 Its non-Puppy Tracker entities are installation-specific and can be replaced or
 removed.
+
+## Unified Dossier (breaking change)
+
+The Journal preset now starts with Dossier and has four tabs: Dossier, Quick
+Log, Behavior and Temperature. The former Timeline tab and internal
+`puppy-tracker-timeline-card` element are removed, not aliased. Remove
+`timeline` from explicit `tabs`, use `default_tab: dossier`, and move relevant
+settings from `tab_config.timeline` into `tab_config.dossier`. Replace Dossier's
+former `show_timeline_items` option with `show_history`. Remove
+`show_history_toggle`; advanced history is now under Filters. No saved care or
+weight data is migrated. See [Dossier history](DOSSIER_HISTORY.md).
 
 ## Workspace options
 
@@ -90,21 +101,21 @@ removed.
 
 Only tabs belonging to the chosen preset are accepted. The available keys are
 `today`, `attention`, `puppies`, `weighing`, `analysis`, `quickLog`, `dossier`,
-`behavior`, `timeline`, `temperature`, `care`, `calculator`, `programs` and
+`behavior`, `temperature`, `care`, `calculator`, `programs` and
 `reminders`.
 
-Aggregate scope `all` is supported by Dossier and Timeline. Quick Log and
+Aggregate scope `all` is supported by Dossier. Quick Log and
 Temperature require one exact owner and therefore fall back to `litter` when
 the workspace default is `all`. Existing dossier items remain editable in the
-aggregate view; select a specific owner before adding a new item.
+aggregate view. New entry asks for an explicit owner when opened from All.
 Puppy selectors consistently show `Name (collar colour)`, including owner
 linking/preferences, reminders, bulk selection and the Change owner dialog.
 Without a collar colour they show only the name; a colour already used as the
 complete name is not repeated. Cross-litter choices retain their litter prefix.
 This affects display labels only, not puppy IDs, saved selections or CSV values.
-Both Dossier and Timeline provide title/note/result search within the current
+Dossier provides title/note/result search within the current
 scope and filters. The query is retained after editing. Administrators can use each
-saved item's pencil directly, without a card-level edit mode. Dossier, Timeline,
+saved item's pencil directly, without a card-level edit mode. Dossier,
 Today's activity list (also in Mobile), Temperature
 and Behavior history share one item editor. Planned care keeps its execution
 dialog; weight entries open a correction, not a dossier edit. Dossier's item menu
@@ -166,7 +177,7 @@ for the other initial scopes. YAML remains available for uncommon options that
 are not part of the visual editor.
 
 `show_litter_selector: false` is inherited by Today, Attention, Puppies,
-Weighing, Analysis, Quick Log, Dossier, Timeline, Temperature, Bulk, Execute,
+Weighing, Analysis, Quick Log, Dossier, Temperature, Bulk, Execute,
 Calculator, Programs and Reminders. It only hides the nest control; owner,
 puppy, metric, period and day controls remain available. The Home Summary has
 no separate nest selector because it follows the Workspace's shared nest
@@ -250,9 +261,8 @@ Useful surface-specific options include:
 
 - `weighing`: `show_puppies`, `show_details`;
 - `analysis`: `default_range`, `default_metric`, summary, analysis and milestone switches;
-- `dossier`: `show_profile_note`, `show_timeline_items`;
+- `dossier`: `show_profile_note`, `show_history`, `show_weights`, `show_details`, `max_items`, `max_height`;
 - `behavior`: `show_profile`, `show_history`, `max_items`;
-- `timeline`: `max_items`, `show_history_toggle`, `show_timeline_items`;
 - `temperature`: range, chart, thresholds, history and editor options documented in [Temperature](temperature-card.md);
 - `care`: `show_day_selector`, `days_ahead`, `max_items`;
 - `calculator`: `active_only`, `stale_after_hours`, `max_height`, `default_unit`, `default_mode` (`per_kg` or `feeding`);
@@ -458,7 +468,7 @@ longer supported. Replace old types as follows:
 | --- | --- |
 | Summary, Today, Attention, Litter | Workspace with `preset: home` |
 | Weighing Station, Growth Overview | Workspace with `preset: growth` |
-| Quick Log, Dossier, Behavior, Timeline, Temperature, Bulk Dossier | Workspace with `preset: journal` |
+| Dossier, Quick Log, Behavior, Temperature, Bulk Dossier | Workspace with `preset: journal` |
 | Care Execution, Care Programs, Recurring Reminders | Workspace with `preset: care` |
 | Mobile Controls | Workspace with `preset: mobile` |
 | Owners | No change |

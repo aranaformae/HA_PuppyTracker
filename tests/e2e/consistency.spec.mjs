@@ -34,7 +34,7 @@ async function mount(page, tag, config = {}, overrides = {}) {
       },
     };
     const card = document.createElement(tag);
-    card.setConfig({ show_timeline_items: true, default_range: "all", ...config });
+    card.setConfig({ show_history: true, default_range: "all", ...config });
     document.querySelector("#cards").append(card);
     card.hass = hass;
     window.card = card;
@@ -199,17 +199,18 @@ for (const language of ["nl", "en"]) {
   });
 }
 
-test("production timeline keeps no categories selected for mother and all scopes", async ({ page }) => {
-  const card = await mount(page, "puppy-tracker-timeline-card", { default_selected: "mother" });
-  await expect(card.locator('[data-filter-type="feeding"]')).toBeVisible();
-  await expect(card.locator('.timeline-item[data-event-type="feeding"]')).toHaveCount(1);
-  await card.locator('[data-filter-type="__all__"]').click();
-  await expect(card.locator(".timeline-item")).toHaveCount(0);
-  await expect(card.locator('[data-filter-type="temperature"]')).not.toHaveClass(/active/);
-  await card.locator("#scope-select").selectOption("__all__");
-  await expect(card.locator(".timeline-item")).toHaveCount(0);
-  await card.locator('[data-filter-type="feeding"]').click();
-  await expect(card.locator('.timeline-item[data-event-type="feeding"]')).toHaveCount(3);
+test("production dossier keeps no categories selected for mother and all scopes", async ({ page }) => {
+  const card = await mount(page, "puppy-tracker-dossier-card", { default_selected: "mother" });
+  await card.locator(".history-filters > summary").click();
+  await expect(card.locator('[data-dossier-category="feeding"]')).toBeVisible();
+  await expect(card.locator('.record[data-event-type="feeding"]')).toHaveCount(1);
+  await card.locator('[data-dossier-category="__all__"]').click();
+  await expect(card.locator(".record")).toHaveCount(0);
+  await expect(card.locator('[data-dossier-category="temperature"]')).not.toHaveClass(/active/);
+  await card.locator("#owner-select").selectOption("__all__");
+  await expect(card.locator(".record")).toHaveCount(0);
+  await card.locator('[data-dossier-category="feeding"]').click();
+  await expect(card.locator('.record[data-event-type="feeding"]')).toHaveCount(3);
 });
 
 test("mother Quick Log saves feeding under the feeding category", async ({ page }) => {

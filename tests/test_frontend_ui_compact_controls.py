@@ -5,7 +5,6 @@ from custom_components.puppy_tracker.frontend import CARD_FILES
 
 ROOT = Path(__file__).resolve().parents[1]
 DOSSIER = ROOT / "custom_components" / "puppy_tracker" / "frontend" / "puppy-tracker-dossier-card.js"
-TIMELINE = ROOT / "custom_components" / "puppy_tracker" / "frontend" / "puppy-tracker-timeline-card.js"
 OVERVIEW = ROOT / "custom_components" / "puppy_tracker" / "frontend" / "puppy-tracker-overview-card.js"
 
 
@@ -17,30 +16,14 @@ def test_compact_behavior_is_owned_by_affected_cards() -> None:
     assert "puppy-tracker-ui-compact.js" not in CARD_FILES
 
 
-def test_timeline_toggle_is_large_footer_button_and_timeline_scrolls():
-    text = source(TIMELINE)
-    assert 'class="timeline-toggle-footer"' in text
-    assert 'width:100%; min-height:48px' in text
-    assert 'background:var(--primary-color)' in text
-    assert 'max-height:520px; overflow-y:auto' in text
-    assert 'class="timeline timeline-scroll"' in text
-    assert 'this._timelineItemsVisible = this._config.show_timeline_items === true' in text
-
 
 def test_dossier_uses_shared_item_editor_without_card_level_edit_mode():
     text = source(DOSSIER)
     assert 'id="toggle-dossier-manage"' not in text
-    assert "openRecordEditor(this, recordContext(this, record), { trigger })" in text
+    assert "measurementId: record.measurement_id" in text
     assert "recordEditButton(this, recordKey)" in text
     assert 'class="record-menu"' in text
 
-
-def test_dossier_timeline_toggle_matches_timeline_card_button():
-    text = source(DOSSIER)
-    assert 'class="dossier-timeline-toggle-footer"' in text
-    assert '.dossier-timeline-toggle-footer button{width:100%;min-height:48px' in text
-    assert 'visibleRecords.length' in text
-    assert 'mdi:chevron-${this._timelineItemsVisible ? "up" : "down"}' in text
 
 
 def test_attention_list_has_bounded_scroll_area():

@@ -45,17 +45,3 @@ def test_quick_log_supports_mother_records_including_temperature() -> None:
     assert 'if (preset.recordType === "temperature") normalizedData.temperature_c = temperature;' in source
     assert "this.__motherSelected = value === MOTHER_OWNER" in source
     assert ".prototype" not in extension
-
-
-def test_timeline_supports_mother_scope_and_current_litter_records() -> None:
-    source = (FRONTEND / "puppy-tracker-timeline-card.js").read_text(encoding="utf-8")
-    extension = (FRONTEND / "puppy-tracker-mother-surfaces.js").read_text(encoding="utf-8")
-
-    assert 'const MOTHER_VALUE = "__mother__"' in source
-    assert 'value === MOTHER_VALUE' in source
-    assert 'this._scope = "mother"' in source
-    assert 'type: `${DOMAIN}/mother/records`' in source
-    assert 'history_scope: "current"' in source
-    assert 'include_deleted: Boolean(this._showHistory && this._canManageHistory)' in source
-    assert 'scope: "mother"' in source
-    assert "__puppyTrackerMotherTimelinePatched" not in extension

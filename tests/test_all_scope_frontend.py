@@ -9,18 +9,6 @@ def _read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
 
 
-def test_timeline_all_scope_combines_mother_with_litter_and_puppies() -> None:
-    source = _read("custom_components/puppy_tracker/frontend/puppy-tracker-timeline-card.js")
-
-    assert 'const ALL_VALUE = "__all__"' in source
-    assert 'this._scope = "all"' in source
-    assert 'scope: this._scope === "all" ? "litter" : this._scope' in source
-    assert 'type: `${DOMAIN}/mother/records`' in source
-    assert 'history_scope: "current"' in source
-    assert "motherRecordEvent" in source
-    assert 'sortTimelineEvents([...events, ...motherEvents])' in source
-    assert '"Alles (incl. moeder)"' in source
-
 
 def test_dossier_all_scope_keeps_owner_context_for_crud() -> None:
     dossier = _read("custom_components/puppy_tracker/frontend/puppy-tracker-dossier-card.js")
@@ -33,14 +21,13 @@ def test_dossier_all_scope_keeps_owner_context_for_crud() -> None:
     assert 'decorateRecord(record, "puppy"' in dossier
     assert "__aggregate_owner_puppy_id" in dossier
     assert "__aggregate_record_key" in dossier
-    assert "canManageRecords" in dossier
-    assert "openRecordEditor(this, recordContext(this, record), { trigger })" in dossier
+    assert "measurementId: record.measurement_id" in dossier
     editor = _read("custom_components/puppy_tracker/frontend/puppy-tracker-record-editor.js")
     assert "updateMotherDossierRecord" in editor
     assert "deleteMotherDossierRecord" in editor
     assert "restoreMotherDossierRecord" in editor
     assert "__aggregate_owner_puppy_id" in editor
-    assert "this._canManage && !this.__allSelected" in dossier
+    assert "chooseOwner: this.__allSelected" in dossier
     assert "this.__allSelected" in dossier
     assert '"Alles (nest + moeder + pups)"' in dossier
 

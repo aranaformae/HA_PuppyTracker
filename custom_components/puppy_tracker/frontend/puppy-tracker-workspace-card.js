@@ -18,7 +18,6 @@ const SURFACES = {
   analysis: { tag: "puppy-tracker-overview-card", icon: "mdi:chart-line" },
   quickLog: { tag: "puppy-tracker-quick-log-card", icon: "mdi:lightning-bolt-outline" },
   dossier: { tag: "puppy-tracker-dossier-card", icon: "mdi:folder-text-outline" },
-  timeline: { tag: "puppy-tracker-timeline-card", icon: "mdi:timeline-clock-outline" },
   temperature: { tag: "puppy-tracker-temperature-card", icon: "mdi:thermometer" },
   behavior: { tag: "puppy-tracker-behavior-card", icon: "mdi:head-heart-outline" },
   calculator: { tag: "puppy-tracker-calculator-card", icon: "mdi:calculator-variant-outline" },
@@ -31,7 +30,7 @@ const SURFACES = {
 const PRESETS = {
   home: { tabs: ["today", "attention", "puppies"] },
   growth: { tabs: ["weighing", "analysis"] },
-  journal: { tabs: ["quickLog", "dossier", "behavior", "timeline", "temperature"] },
+  journal: { tabs: ["dossier", "quickLog", "behavior", "temperature"] },
   care: { tabs: ["care", "calculator", "programs", "reminders"] },
   mobile: { tabs: ["weighing", "calculator", "quickLog", "today", "care", "behavior"] },
 };
@@ -59,14 +58,15 @@ const EDITOR_FIELDS = {
     { name: "analysis_show_milestone_chart_annotations", surface: "analysis", key: "show_milestone_chart_annotations", default: true, selector: { boolean: {} } },
   ],
   journal: [
-    { name: "default_selected", default: "litter", selector: { select: { mode: "dropdown", options: ["all", "litter", "mother", "puppy"] } } },
+    { name: "default_selected", default: "all", selector: { select: { mode: "dropdown", options: ["all", "litter", "mother", "puppy"] } } },
     { name: "puppy_id", default: "", selector: { text: {} } },
     { name: "show_bulk_action", default: true, selector: { boolean: {} } },
     { name: "dossier_show_profile_note", surface: "dossier", key: "show_profile_note", default: true, selector: { boolean: {} } },
-    { name: "dossier_show_timeline_items", surface: "dossier", key: "show_timeline_items", default: false, selector: { boolean: {} } },
-    { name: "timeline_max_items", surface: "timeline", key: "max_items", default: 250, selector: { number: { min: 25, max: 500, step: 25, mode: "box" } } },
-    { name: "timeline_show_history_toggle", surface: "timeline", key: "show_history_toggle", default: true, selector: { boolean: {} } },
-    { name: "timeline_show_timeline_items", surface: "timeline", key: "show_timeline_items", default: false, selector: { boolean: {} } },
+    { name: "dossier_show_history", surface: "dossier", key: "show_history", default: true, selector: { boolean: {} } },
+    { name: "dossier_show_weights", surface: "dossier", key: "show_weights", default: true, selector: { boolean: {} } },
+    { name: "dossier_show_details", surface: "dossier", key: "show_details", default: false, selector: { boolean: {} } },
+    { name: "dossier_max_items", surface: "dossier", key: "max_items", default: 250, selector: { number: { min: 25, max: 500, step: 25, mode: "box" } } },
+    { name: "dossier_max_height", surface: "dossier", key: "max_height", default: 520, selector: { number: { min: 240, max: 900, step: 20, mode: "box" } } },
     { name: "temperature_default_range", surface: "temperature", key: "default_range", default: "3d", selector: { select: { mode: "dropdown", options: ["24h", "3d", "7d", "14d", "all"] } } },
     { name: "temperature_history_limit", surface: "temperature", key: "history_limit", default: 10, selector: { number: { min: 3, max: 50, step: 1, mode: "box" } } },
     { name: "temperature_max_height", surface: "temperature", key: "max_height", default: 520, selector: { number: { min: 240, max: 900, step: 20, mode: "box" } } },
@@ -129,7 +129,6 @@ const TEXT = {
     analysis: "Analyse",
     quickLog: "Snel loggen",
     dossier: "Dossier",
-    timeline: "Tijdlijn",
     temperature: "Temperatuur",
     behavior: "Gedrag",
     calculator: "Rekentool",
@@ -153,7 +152,6 @@ const TEXT = {
     analysis: "Analysis",
     quickLog: "Quick log",
     dossier: "Dossier",
-    timeline: "Timeline",
     temperature: "Temperature",
     behavior: "Behavior",
     calculator: "Calculator",
@@ -179,8 +177,9 @@ const EDITOR_LABELS = {
     analysis_show_growth_milestones: "Groeimijlpalen tonen", analysis_show_milestone_chart_annotations: "Mijlpalen in grafieken tonen",
     analysis_show_eight_week_weight: "Geschat gewicht op 8 weken tonen",
     default_selected: "Standaard eigenaar/scope", puppy_id: "Standaard pup-ID", show_bulk_action: "Actie voor meerdere pups tonen",
-    dossier_show_profile_note: "Dossierprofielnotitie tonen", dossier_show_timeline_items: "Dossiertijdlijn standaard uitklappen",
-    timeline_max_items: "Tijdlijn: maximaal aantal items", timeline_show_history_toggle: "Tijdlijnknop tonen", timeline_show_timeline_items: "Tijdlijnitems standaard tonen",
+    dossier_show_profile_note: "Profielnotitie tonen", dossier_show_history: "Historie standaard tonen",
+    dossier_show_weights: "Wegingen in historie tonen", dossier_show_details: "Itemdetails standaard uitklappen",
+    dossier_max_items: "Historie: items per stap", dossier_max_height: "Historie: maximale hoogte (px)",
     temperature_default_range: "Temperatuurperiode", temperature_history_limit: "Aantal temperatuurmetingen", temperature_max_height: "Maximale lijsthoogte",
     temperature_chart_height: "Grafiekhoogte", temperature_history_sort: "Volgorde metingen", temperature_show_selectors: "Temperatuurselectors tonen",
     temperature_show_thresholds: "Temperatuurgrenzen tonen", temperature_show_latest: "Laatste temperatuur tonen", temperature_show_chart: "Temperatuurgrafiek tonen",
@@ -205,8 +204,9 @@ const EDITOR_LABELS = {
     analysis_show_growth_milestones: "Show growth milestones", analysis_show_milestone_chart_annotations: "Show milestones in charts",
     analysis_show_eight_week_weight: "Show estimated weight at 8 weeks",
     default_selected: "Default owner/scope", puppy_id: "Default puppy ID", show_bulk_action: "Show multi-puppy action",
-    dossier_show_profile_note: "Show dossier profile note", dossier_show_timeline_items: "Expand dossier timeline by default",
-    timeline_max_items: "Timeline: maximum items", timeline_show_history_toggle: "Show timeline toggle", timeline_show_timeline_items: "Show timeline items by default",
+    dossier_show_profile_note: "Show profile note", dossier_show_history: "Show history by default",
+    dossier_show_weights: "Show weights in history", dossier_show_details: "Expand entry details by default",
+    dossier_max_items: "History: entries per step", dossier_max_height: "History: maximum height (px)",
     temperature_default_range: "Temperature range", temperature_history_limit: "Number of temperature readings", temperature_max_height: "Maximum list height",
     temperature_chart_height: "Chart height", temperature_history_sort: "Reading order", temperature_show_selectors: "Show temperature selectors",
     temperature_show_thresholds: "Show temperature thresholds", temperature_show_latest: "Show latest temperature", temperature_show_chart: "Show temperature chart",
@@ -277,7 +277,7 @@ class PuppyTrackerWorkspaceCard extends HTMLElement {
 
   setConfig(config) {
     const requestedPreset = Object.hasOwn(PRESETS, config.preset) ? config.preset : "home";
-    const defaults = { ...PuppyTrackerWorkspaceCard.getStubConfig(), ...PRESETS[requestedPreset] };
+    const defaults = { ...PuppyTrackerWorkspaceCard.getStubConfig(), default_selected: requestedPreset === "journal" ? "all" : "litter", ...PRESETS[requestedPreset] };
     this._config = { ...defaults, ...config, preset: requestedPreset };
     this._preset = requestedPreset;
     this._litterId = config.litter_id || "";
@@ -338,11 +338,11 @@ class PuppyTrackerWorkspaceCard extends HTMLElement {
   _surfaceConfig(key) {
     const common = {};
     if (this._litterId) common.litter_id = this._litterId;
-    if (["quickLog", "dossier", "timeline"].includes(key)) {
+    if (["quickLog", "dossier"].includes(key)) {
       common.state_key = `${this._storageIdentity}.${key}`;
     }
     const showLitter = this._config.show_litter_selector !== false;
-    const selected = this._config.default_selected || "litter";
+    const selected = this._config.default_selected || (this._preset === "journal" ? "all" : "litter");
     const selectedPuppyId = selected === "puppy" ? (this._config.puppy_id || "") : "";
     const tabConfig = this._config.tab_config?.[key] || {};
     const configs = {
@@ -354,7 +354,6 @@ class PuppyTrackerWorkspaceCard extends HTMLElement {
       analysis: { show_litter_selector: showLitter },
       quickLog: { show_litter_selector: showLitter, default_selected: selected === "all" ? "litter" : selected, puppy_id: selectedPuppyId },
       dossier: { show_litter_selector: showLitter, default_selected: selected, puppy_id: selectedPuppyId },
-      timeline: { show_litter_selector: showLitter, default_selected: selected, puppy_id: selectedPuppyId },
       temperature: { show_litter_selector: showLitter, default_selected: selected === "all" ? "litter" : selected, puppy_id: selectedPuppyId },
       behavior: { show_litter_selector: showLitter, puppy_id: selectedPuppyId },
       calculator: { show_litter_selector: showLitter, active_only: true, stale_after_hours: 24 },

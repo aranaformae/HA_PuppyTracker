@@ -30,15 +30,6 @@ def test_bulk_log_adds_temperature_type() -> None:
     assert "RECORD_TYPES," in bulk
 
 
-def test_timeline_promotes_temperature_and_displays_value() -> None:
-    source = (FRONTEND / "puppy-tracker-timeline-card.js").read_text(encoding="utf-8")
-    schema = SCHEMA.read_text(encoding="utf-8")
-    assert 'event?.raw_type !== "temperature"' in source
-    assert 'type: "temperature"' in source
-    assert '`${formatted} °C`' in source
-    assert "recordTypeIcon(event.type)" in source
-    assert '["temperature", "temperature", "mdi:thermometer"]' in schema
-
 
 def test_temperature_labels_are_localized() -> None:
     source = QUICK_LOG.read_text(encoding="utf-8")

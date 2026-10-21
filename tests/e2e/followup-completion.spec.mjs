@@ -52,7 +52,7 @@ async function mount(page, surface, scope, recordType = "deworming") {
       },
     };
     const card = document.createElement(`puppy-tracker-${surface}-card`);
-    card.setConfig({ litter_id: "l1", default_selected: scope, puppy_id: scope === "puppy" ? "p1" : undefined, show_timeline_items: true, show_litter_selector: false });
+    card.setConfig({ litter_id: "l1", default_selected: scope, puppy_id: scope === "puppy" ? "p1" : undefined, show_history: true, show_litter_selector: false });
     document.querySelector("#cards").append(card);
     card.hass = hass;
   }, { surface, scope, recordType });

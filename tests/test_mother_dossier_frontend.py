@@ -11,7 +11,7 @@ def test_mother_owner_and_history_filter_are_available() -> None:
     assert '"Huidig nest", "Current litter"' in source
     assert '"Alle nesten", "All litters"' in source
     assert 'type: "puppy_tracker/mother/records"' in source
-    assert 'history_scope: historyScope' in source
+    assert 'history_scope: scope' in source
 
 
 def test_mother_dossier_crud_uses_dedicated_api() -> None:

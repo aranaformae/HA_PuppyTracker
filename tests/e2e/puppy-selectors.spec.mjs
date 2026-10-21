@@ -27,9 +27,9 @@ for (const language of ["nl", "en"]) {
           throw new Error(`Unexpected command: ${message.type}`);
         },
       };
-      for (const surface of ["dossier", "timeline", "quick-log", "temperature", "behavior", "report", "bulk-dossier", "owner", "recurring-reminder"]) {
+      for (const surface of ["dossier", "quick-log", "temperature", "behavior", "report", "bulk-dossier", "owner", "recurring-reminder"]) {
         const card = document.createElement(`puppy-tracker-${surface}-card`);
-        card.setConfig({ litter_id: "l1", default_selected: "puppy", puppy_id: "p1", show_timeline_items: true });
+        card.setConfig({ litter_id: "l1", default_selected: "puppy", puppy_id: "p1", show_history: true });
         document.querySelector("#cards").append(card);
         card.hass = hass;
       }
@@ -37,7 +37,7 @@ for (const language of ["nl", "en"]) {
 
     const labels = ["Alice (Red)", "Alice (Blue)", "Bob", "Red", `${language === "nl" ? "Pup" : "Puppy"} (Green)`];
     for (const [surface, selector] of [
-      ["dossier", "#owner-select"], ["timeline", "#scope-select"], ["quick-log", "#owner-select"],
+      ["dossier", "#owner-select"], ["quick-log", "#owner-select"],
       ["temperature", "#puppy-select"], ["behavior", "#behavior-puppy"], ["report", "#puppy"],
       ["owner", "#link-puppy"],
     ]) {

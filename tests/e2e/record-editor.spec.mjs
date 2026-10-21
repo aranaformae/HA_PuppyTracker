@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-async function mount(page, { surface = "timeline", scope = "puppy", language = "nl", admin = true } = {}) {
+async function mount(page, { surface = "dossier", scope = "puppy", language = "nl", admin = true } = {}) {
   await page.goto("/tests/e2e/cards.html?production");
   await page.waitForFunction(() => window.__puppyTrackerReady === true);
   await page.evaluate(({ surface, scope, language, admin }) => {
@@ -57,13 +57,14 @@ async function mount(page, { surface = "timeline", scope = "puppy", language = "
     window.__editorHass = hass;
     const tag = surface === "mobile" ? "puppy-tracker-workspace-card" : `puppy-tracker-${surface}-card`;
     const card = document.createElement(tag);
-    card.setConfig({ preset: "mobile", default_tab: "today", show_summary: false, litter_id: "l1", default_selected: scope, puppy_id: scope === "puppy" ? "p1" : undefined, show_timeline_items: true, default_range: "all", show_litter_selector: false });
+    card.setConfig({ preset: "mobile", default_tab: "today", show_summary: false, litter_id: "l1", default_selected: scope, puppy_id: scope === "puppy" ? "p1" : undefined, show_history: true, show_details: true, default_range: "all", show_litter_selector: false });
     document.querySelector("#cards").append(card);
     card.hass = hass;
     window.__editorCard = card;
   }, { surface, scope, language, admin });
   const card = page.locator(surface === "mobile" ? "puppy-tracker-workspace-card puppy-tracker-today-card" : `puppy-tracker-${surface}-card`);
   await expect(card.locator(surface === "behavior" ? "[data-edit]" : ".record-edit-button").first()).toBeVisible();
+  if (surface === "dossier") await card.locator(".history-filters > summary").click();
   return card;
 }
 
@@ -82,7 +83,7 @@ test("behavior history shares the editor and supports partial criterion changes 
   expect(update.data.scores).not.toHaveProperty("calm");
 });
 
-for (const surface of ["dossier", "timeline", "today", "attention", "temperature", "behavior", "mobile"]) {
+for (const surface of ["dossier", "today", "attention", "temperature", "behavior", "mobile"]) {
   test(`${surface} removes saved-item write controls for non-admins @cross-browser @tablet`, async ({ page }) => {
     const card = await mount(page, { surface });
     await card.evaluate((element) => { element._hass.user.is_admin = false; element._render(); });
@@ -91,10 +92,10 @@ for (const surface of ["dossier", "timeline", "today", "attention", "temperature
   });
 }
 
-for (const surface of ["dossier", "timeline", "today", "attention", "temperature", "mobile"]) {
+for (const surface of ["dossier", "today", "attention", "temperature", "mobile"]) {
   test(`${surface} opens the common editor with canonical data @cross-browser @tablet`, async ({ page }) => {
     const card = await mount(page, { surface });
-    const button = ["timeline", "today", "mobile"].includes(surface)
+    const button = ["today", "mobile"].includes(surface)
       ? card.locator('[data-edit-item="record:puppy:puppy-record"]')
       : surface === "attention" ? card.locator("[data-edit-item]").first() : card.locator('[data-edit-item="puppy-record"]');
     await button.click();
@@ -111,11 +112,11 @@ for (const surface of ["dossier", "timeline", "today", "attention", "temperature
   });
 }
 
-for (const surface of ["timeline", "temperature", "attention"]) {
+for (const surface of ["dossier", "temperature", "attention"]) {
 for (const scope of ["litter", "mother"]) {
   test(`${surface} edits the ${scope} source, not the selected puppy @cross-browser @tablet`, async ({ page }) => {
     const card = await mount(page, { surface, scope });
-    const button = surface === "timeline" ? card.locator(`[data-edit-item="${scope === "mother" ? "mother:mother-record" : "record:litter:litter-record"}"]`)
+    const button = surface === "dossier" ? card.locator(`[data-edit-item="${scope === "mother" ? "mother-record" : "litter-record"}"]`)
       : surface === "attention" ? card.locator(scope === "mother" ? ".mother-action [data-edit-item]" : '[data-attention-id="dossier:litter-record:next_due_date"] [data-edit-item]')
         : card.locator(`[data-edit-item="${scope}-record"]`);
     await button.click();
@@ -140,7 +141,7 @@ test("canonical permission denial is shown without an editable form @cross-brows
       return message.type === "puppy_tracker/records" ? { ...result, can_manage_records: false } : result;
     };
   });
-  await card.locator('[data-edit-item="record:puppy:puppy-record"]').click();
+  await card.locator('[data-edit-item="puppy-record"]').click();
   const editor = page.locator("puppy-tracker-record-editor");
   await expect(editor.getByRole("alert")).toContainText("mag dit item niet");
   await expect(editor.locator("#record-save")).toHaveCount(0);
@@ -148,7 +149,7 @@ test("canonical permission denial is shown without an editable form @cross-brows
 
 test("submitting twice sends one write and prevents closing during the request @cross-browser @tablet", async ({ page }) => {
   const card = await mount(page);
-  await card.locator('[data-edit-item="record:puppy:puppy-record"]').click();
+  await card.locator('[data-edit-item="puppy-record"]').click();
   const editor = page.locator("puppy-tracker-record-editor");
   await editor.locator("#record-note").fill("One submission");
   await page.evaluate(() => {
@@ -170,19 +171,19 @@ test("submitting twice sends one write and prevents closing during the request @
 test("deleted timeline records offer restore before edit @cross-browser @tablet", async ({ page }) => {
   const card = await mount(page);
   await page.evaluate(() => { window.__editorRecords.find((record) => record.id === "puppy-record").deleted = true; });
-  await card.locator("#history-toggle").check();
-  await expect(card.locator('[data-edit-item="record:puppy:puppy-record"]')).toHaveCount(0);
-  await card.locator('[data-restore-item="record:puppy:puppy-record"]').click();
+  await card.locator("#show-deleted").check();
+  await expect(card.locator('[data-edit-item="puppy-record"]')).toHaveCount(0);
+  await card.locator('.restore-record[data-record-key="puppy-record"]').click();
   const editor = page.locator("puppy-tracker-record-editor");
   await expect(editor.locator("#record-note")).toHaveCount(0);
   await editor.locator("#record-save").click();
   await expect(editor).toHaveCount(0);
-  await expect(card.locator('[data-edit-item="record:puppy:puppy-record"]')).toBeVisible();
+  await expect(card.locator('[data-edit-item="puppy-record"]')).toBeVisible();
 });
 
 test("draft survives failed saves and card rerenders; closing confirms discard @cross-browser @tablet", async ({ page }) => {
   const card = await mount(page);
-  await card.locator('[data-edit-item="record:puppy:puppy-record"]').click();
+  await card.locator('[data-edit-item="puppy-record"]').click();
   const editor = page.locator("puppy-tracker-record-editor");
   await editor.locator("#record-note").fill("Keep my draft");
   await page.evaluate(async () => { window.__editorFail = true; await window.__editorCard._queueRefresh(); });
@@ -220,7 +221,7 @@ test("editing a saved care result changes its dossier fact without executing car
     });
     await window.__editorCard._queueRefresh();
   });
-  await card.locator('[data-edit-item="record:puppy:puppy-record"]').click();
+  await card.locator('[data-edit-item="puppy-record"]').click();
   const editor = page.locator("puppy-tracker-record-editor");
   await expect(editor.locator("#record-type")).toBeDisabled();
   await expect(editor.getByText("Geur voor vandaag: gras", { exact: true })).toBeVisible();
@@ -231,13 +232,13 @@ test("editing a saved care result changes its dossier fact without executing car
   const calls = await page.evaluate(() => window.__editorCalls);
   expect(calls.find((call) => call.type.endsWith("record/update"))).toMatchObject({ record_id: "puppy-record", data: { care_program_id: "esi", care_program_revision: 2, care_occurrence_id: "esi:p1:3", care_result: "Nieuwsgierig", care_data: { scent: "gras" } } });
   expect(calls.some((call) => call.type === "puppy_tracker/care_occurrence/record")).toBe(false);
-  await expect(card.locator(".timeline-scroll").getByText("Nieuwsgierig", { exact: true })).toBeVisible();
+  await expect(card.locator(".dossier-timeline-scroll").getByText("Nieuwsgierig", { exact: true })).toBeVisible();
 });
 
 test("deleted records are not edited from a stale card @cross-browser @tablet", async ({ page }) => {
   const card = await mount(page);
   await page.evaluate(() => { window.__editorRecords.find((record) => record.id === "puppy-record").deleted = true; });
-  await card.locator('[data-edit-item="record:puppy:puppy-record"]').click();
+  await card.locator('[data-edit-item="puppy-record"]').click();
   const editor = page.locator("puppy-tracker-record-editor");
   await expect(editor.getByRole("alert")).toContainText("verwijderd");
   await expect(editor.locator("#record-save")).toHaveCount(0);
@@ -263,21 +264,21 @@ test("saving an item preserves the timeline list scroll position @cross-browser 
     for (let index = 0; index < 24; index += 1) window.__editorRecords.push({ ...structuredClone(source), id: `extra-${index}`, title: `Extra ${index}` });
     await window.__editorCard._queueRefresh();
   });
-  const button = card.locator('[data-edit-item^="record:puppy:"]').nth(15);
+  const button = card.locator('[data-edit-item]').nth(15);
   await button.scrollIntoViewIfNeeded();
-  const offset = await card.locator(".timeline-scroll").evaluate((list) => list.scrollTop);
+  const offset = await card.locator(".dossier-timeline-scroll").evaluate((list) => list.scrollTop);
   expect(offset).toBeGreaterThan(0);
   await button.click();
   const editor = page.locator("puppy-tracker-record-editor");
   await editor.locator("#record-note").fill("Updated note");
   await editor.locator("#record-save").click();
   await expect(editor).toHaveCount(0);
-  await expect.poll(() => card.locator(".timeline-scroll").evaluate((list) => list.scrollTop)).toBeCloseTo(offset, 0);
+  await expect.poll(() => card.locator(".dossier-timeline-scroll").evaluate((list) => list.scrollTop)).toBeCloseTo(offset, 0);
 });
 
 test("role loss prevents saving; detaching the source cleans up the dialog @cross-browser @tablet", async ({ page }) => {
   const card = await mount(page);
-  await card.locator('[data-edit-item="record:puppy:puppy-record"]').click();
+  await card.locator('[data-edit-item="puppy-record"]').click();
   const editor = page.locator("puppy-tracker-record-editor");
   await editor.locator("#record-note").fill("Unauthorized draft");
   await page.evaluate(() => { window.__editorHass.user.is_admin = false; });
@@ -288,7 +289,7 @@ test("role loss prevents saving; detaching the source cleans up the dialog @cros
   await expect(editor).toHaveCount(0);
 });
 
-for (const surface of ["dossier", "timeline"]) {
+for (const surface of ["dossier"]) {
   test(`${surface} updates filters and visibility while search retains focus @cross-browser @tablet`, async ({ page }) => {
     const card = await mount(page, { surface });
     const search = card.locator("#record-search");
@@ -301,7 +302,7 @@ for (const surface of ["dossier", "timeline"]) {
     await expect(card.locator(".record-edit-button").filter({ visible: true })).toHaveCount(surface === "dossier" ? 1 : 0);
     await card.locator(selector).evaluate((button) => button.click());
     await expect(card.locator(selector)).toHaveClass(/active/);
-    const content = card.locator(surface === "dossier" ? ".timeline-items-content" : ".timeline-scroll");
+    const content = card.locator(".timeline-items-content");
     await card.locator("#toggle-timeline-items").evaluate((button) => button.click());
     await expect(content).toBeHidden();
     await expect(card.locator("#toggle-timeline-items")).toHaveAttribute("aria-expanded", "false");
@@ -321,7 +322,7 @@ for (const language of ["nl", "en"]) {
         for (const [key, value] of Object.entries({ "card-background-color": "#222327", "primary-text-color": "#f0f0f0", "secondary-text-color": "#b3b3b3", "secondary-background-color": "#303136", "primary-color": "#007f99", "divider-color": "#5a5a5a" })) window.__editorCard.style.setProperty(`--${key}`, value);
       }
     }, language);
-    const button = card.locator('[data-edit-item="record:puppy:puppy-record"]');
+    const button = card.locator('[data-edit-item="puppy-record"]');
     await button.scrollIntoViewIfNeeded();
     const scroll = await page.evaluate(() => window.scrollY);
     await button.click();
