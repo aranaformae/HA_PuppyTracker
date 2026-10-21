@@ -1,11 +1,17 @@
 import { expect, test } from "@playwright/test";
 
+test.use({ timezoneId: "Europe/Amsterdam" });
+
 for (const language of ["nl", "en"]) {
   test(`puppy item names include collars without duplicate colour names (${language}) @cross-browser @tablet`, async ({ page }) => {
+    // Exercise local midnight, when the UTC date is still the previous day.
+    await page.clock.install({ time: new Date("2026-10-21T22:30:00Z") });
     await page.goto("/tests/e2e/cards.html?production", { waitUntil: "domcontentloaded" });
     await page.waitForFunction(() => window.__puppyTrackerReady);
     await page.evaluate((language) => {
-      const now = new Date().toISOString();
+      const date = new Date();
+      const now = date.toISOString();
+      const today = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
       const puppies = [
         { id: "p1", name: "Nova", collar_color: "paars" },
         { id: "p2", name: "Paars", collar_color: "paars" },
@@ -18,7 +24,7 @@ for (const language of ["nl", "en"]) {
       }));
       const occurrences = puppies.map((p) => ({ id: `care:${p.id}`, puppy_id: p.id, puppy_name: p.name,
         collar_color: p.collar_color, program_id: "program", title: "ENS", status: "due_today", age_days: 3,
-        scheduled_at: now, scheduled_date: now.slice(0, 10), days_until_due: 0, counts_for_attention: true }));
+        scheduled_at: now, scheduled_date: today, days_until_due: 0, counts_for_attention: true }));
       const data = { can_manage_records: true, can_manage_measurements: true,
         litter: { id: "l1", name: "Nest", records: [], summary: {} }, puppies };
       const calls = window.identityCalls = [];
