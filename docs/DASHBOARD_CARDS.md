@@ -108,10 +108,12 @@ Aggregate scope `all` is supported by Dossier. Quick Log and
 Temperature require one exact owner and therefore fall back to `litter` when
 the workspace default is `all`. Existing dossier items remain editable in the
 aggregate view. New entry asks for an explicit owner when opened from All.
-Puppy selectors consistently show `Name (collar colour)`, including owner
-linking/preferences, reminders, bulk selection and the Change owner dialog.
+Puppy names consistently show `Name (collar colour)` in lists, dossier/activity
+items, weighing feedback, chart labels, care actions and reminders, as well as
+selectors, owner linking/preferences, bulk selection and the Change owner dialog.
 Without a collar colour they show only the name; a colour already used as the
-complete name is not repeated. Cross-litter choices retain their litter prefix.
+complete name is not repeated (case-insensitive), so `Nova (paars)` and `Paars`
+remain distinct without displaying `Paars (paars)`. Cross-litter choices retain their litter prefix.
 This affects display labels only, not puppy IDs, saved selections or CSV values.
 Dossier provides title/note/result search within the current
 scope and filters. The query is retained after editing. Administrators can use each

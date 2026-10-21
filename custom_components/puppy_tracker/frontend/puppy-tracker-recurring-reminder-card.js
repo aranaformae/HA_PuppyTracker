@@ -1,6 +1,7 @@
 import { FormState, appendEditAction } from "./puppy-tracker-form-state.js";
 import {
   puppySelectorLabel,
+  puppyDisplayLabel,
   escapeHtml,
   fetchLitterData,
   fetchLitters,
@@ -319,7 +320,7 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
     const list = this._items.length ? `<div class="list">${this._items.map((item) => `
       <div class="item ${escapeHtml(item.status || "")}">
         <div class="ico"><ha-icon icon="${item.record_type === "temperature" ? "mdi:thermometer" : "mdi:bell-ring-outline"}"></ha-icon></div>
-        <div class="main"><strong>${escapeHtml(item.title)}</strong><div>${escapeHtml(item.owner_name || "")} · ${escapeHtml(scheduleText(this, item))}${item.notification_lead_minutes != null ? ` · ${escapeHtml(t(this, `${item.notification_lead_minutes} min vooraf`, `${item.notification_lead_minutes} min before`))}` : ""}</div><div class="due">${escapeHtml(statusText(this, item))}</div>${lastExecutionDetails(this, item)}</div>
+        <div class="main"><strong>${escapeHtml(item.title)}</strong><div>${escapeHtml(item.owner_scope === "puppy" ? puppyDisplayLabel(this, item.owner_id, item.owner_name || t(this, "Pup", "Puppy")) : item.owner_name || "")} · ${escapeHtml(scheduleText(this, item))}${item.notification_lead_minutes != null ? ` · ${escapeHtml(t(this, `${item.notification_lead_minutes} min vooraf`, `${item.notification_lead_minutes} min before`))}` : ""}</div><div class="due">${escapeHtml(statusText(this, item))}</div>${lastExecutionDetails(this, item)}</div>
         <div class="item-actions">${reminderCompleteButton(this, item)}${reminderPostponeButton(this, item)}<button class="icon-button edit" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t(this, "Herinnering aanpassen", "Edit reminder"))}" aria-label="${escapeHtml(t(this, "Herinnering aanpassen", "Edit reminder"))}"><ha-icon icon="mdi:pencil-outline"></ha-icon></button></div>
       </div>`).join("")}</div>` : `<div class="empty">${escapeHtml(t(this, "Nog geen terugkerende herinneringen.", "No recurring reminders yet."))}</div>`;
 

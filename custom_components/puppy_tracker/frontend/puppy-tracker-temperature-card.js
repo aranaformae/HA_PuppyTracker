@@ -388,7 +388,7 @@ class PuppyTrackerTemperatureCard extends HTMLElement {
     const filtered = this._filteredRecords();
     const latest = [...filtered].sort((left, right) => (dateValue(right.occurred_at)?.getTime() || 0) - (dateValue(left.occurred_at)?.getTime() || 0))[0] || this._records[0] || null;
     const limit = this._historyExpanded ? filtered.length : Math.max(3, Math.min(50, Number(this._config.history_limit) || 10));
-    const ownerName = this._scope === "puppy" ? puppies.find((puppy) => puppy.id === this._selectedPuppyId)?.name : litter?.mother;
+    const ownerName = this._scope === "puppy" ? puppySelectorLabel(puppies.find((puppy) => puppy.id === this._selectedPuppyId), text(this, "puppy")) : litter?.mother;
     const litterOptions = this._litters.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === this._selectedLitterId ? "selected" : ""}>${escapeHtml(item.name || text(this, "litter"))}</option>`).join("");
     const puppyOptions = puppies.map((puppy) => `<option value="${escapeHtml(puppy.id)}" ${puppy.id === this._selectedPuppyId ? "selected" : ""}>${escapeHtml(puppySelectorLabel(puppy, text(this, "puppy")))}</option>`).join("");
     const history = filtered.slice(0, limit).map((record) => `<div class="history-row"><strong>${escapeHtml(record.value.toLocaleString(languageForHass(this._hass) === "en" ? "en-US" : "nl-NL", { maximumFractionDigits: 1 }))} °C</strong><div><span>${escapeHtml(formatDateTime(record.occurred_at, "—", this._hass))}</span>${record.method ? `<small>${escapeHtml(record.method)}</small>` : ""}${record.observation ? `<p>${escapeHtml(record.observation)}</p>` : ""}</div></div>`).join("");

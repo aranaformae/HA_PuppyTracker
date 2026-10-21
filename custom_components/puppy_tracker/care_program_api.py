@@ -160,6 +160,7 @@ async def websocket_list_care_occurrences(hass, connection, msg) -> None:
                     "program_id": str(program.get("id") or ""),
                     "puppy_id": str(puppy.get("id") or ""),
                     "puppy_name": str(puppy.get("name") or puppy.get("id") or "Pup"),
+                    "collar_color": str(puppy.get("collar_color") or ""),
                     "reason_code": _skip_reason_code(reason),
                     "reason": reason,
                 })

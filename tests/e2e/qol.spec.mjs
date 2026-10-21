@@ -35,8 +35,8 @@ test("overview chart uses each puppy collar color for line point and legend", as
     card._metricConfig = () => ({ unit: "g" });
     card._metricPoints = () => [{ time: Date.now(), value: 400 }];
     const rows = [
-      { puppyId: "blue", name: "Blue", collar: "Blauw" },
-      { puppyId: "pink", name: "Pink", collar: "Roze" },
+      { puppyId: "blue", name: "Blue", displayName: "Blue (Blauw)", collar: "Blauw" },
+      { puppyId: "pink", name: "Pink", displayName: "Pink (Roze)", collar: "Roze" },
     ];
     const series = card._chartSeries(rows);
 
@@ -44,12 +44,14 @@ test("overview chart uses each puppy collar color for line point and legend", as
       blueSeries: series[0]?.color,
       pinkSeries: series[1]?.color,
       pinkLegend: collarColor(rows[1].collar, 1),
+      labels: series.map((item) => item.name),
     };
   });
 
   expect(result.blueSeries).toBe("#1e88e5");
   expect(result.pinkSeries).toBe("#ec407a");
   expect(result.pinkLegend).toBe("#ec407a");
+  expect(result.labels).toEqual(["Blue (Blauw)", "Pink (Roze)"]);
 });
 
 test("overview card exposes basic and advanced analysis visibility controls", async ({ page }) => {

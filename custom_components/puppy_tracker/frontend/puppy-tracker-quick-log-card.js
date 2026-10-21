@@ -311,9 +311,8 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
     if (this.__motherSelected) {
       return this._litterData?.litter?.mother || text(this._hass, "mother");
     }
-    return this._selectedPuppy?.name
-      || this._litterData?.litter?.name
-      || text(this._hass, "litterScope");
+    return this._selectedPuppy ? puppySelectorLabel(this._selectedPuppy, text(this._hass, "puppy"))
+      : this._litterData?.litter?.name || text(this._hass, "litterScope");
   }
 
   async _loadInitial() {

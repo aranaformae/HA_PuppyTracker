@@ -1,4 +1,4 @@
-import { escapeHtml, languageForHass } from "./puppy-tracker-card-common.js";
+import { escapeHtml, languageForHass, puppySelectorLabel } from "./puppy-tracker-card-common.js";
 import { recordTypeLabel } from "./puppy-tracker-dossier-schema.js";
 import { lastExecutionDetails, bindLastExecutions, bindReminderButtons } from "./puppy-tracker-recurring-surfaces.js";
 import { openRecordEditor, openFollowupEditor, reminderActionButtons, recordContext, recordEditButton, recordFollowupButton, RECORD_ACTION_STYLE } from "./puppy-tracker-record-editor.js";
@@ -15,7 +15,7 @@ function baseAttentionMeta(card) {
       result.push({
         id: `weight:${puppy.id}:${summary.status_code || "unknown"}:${summary.latest_measurement_id || "none"}`,
         type: "weight",
-        context: summary.latest_measurement_id ? { litterId: card._selectedLitterId, scope: "puppy", puppyId: puppy.id, measurementId: summary.latest_measurement_id, ownerName: puppy.name } : null,
+        context: summary.latest_measurement_id ? { litterId: card._selectedLitterId, scope: "puppy", puppyId: puppy.id, measurementId: summary.latest_measurement_id, ownerName: puppySelectorLabel(puppy) } : null,
       });
     }
     for (const action of summary.dossier_actions?.actions || []) {

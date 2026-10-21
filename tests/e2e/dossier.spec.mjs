@@ -379,7 +379,7 @@ test("dossier edits each source owner from the combined scope", async ({ page })
 
   await card.locator("#owner-select").selectOption("__all__");
   const puppyRecord = card.locator(".record").filter({ hasText: "Combined puppy check" });
-  await expect(puppyRecord.locator(".aggregate-owner-badge")).toHaveText("Puppy · Alice");
+  await expect(puppyRecord.locator(".aggregate-owner-badge")).toHaveText("Puppy · Alice (Red)");
   await puppyRecord.locator("[data-edit-item]").click();
   await page.locator("puppy-tracker-record-editor").locator("#record-title").fill("Combined puppy check updated");
   await page.locator("puppy-tracker-record-editor").locator("#record-save").click();

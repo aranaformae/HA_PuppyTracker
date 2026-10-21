@@ -4,6 +4,8 @@ import {
   fetchLitterData,
   fetchLitters,
   languageForHass,
+  puppySelectorLabel,
+  puppyDisplayLabel,
   requestLitterChange,
   selectDefaultLitter,
   subscribeUpdates,
@@ -179,7 +181,11 @@ class PuppyTrackerTodayCard extends HTMLElement {
       ? `<select id="litter-select" aria-label="${escapeHtml(text(this._hass, "litter"))}">${this._litters.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === this._selectedLitterId ? "selected" : ""}>${escapeHtml(item.name || text(this._hass, "litter"))}</option>`).join("")}</select>`
       : "";
     const remainingNames = info.active && Array.isArray(info.session?.remaining_puppies)
-      ? info.session.remaining_puppies.map((item) => typeof item === "string" ? item : item?.name).filter(Boolean)
+      ? info.session.remaining_puppies.map((item) => {
+          if (typeof item !== "string") return item ? puppyDisplayLabel(this, item.id || item.puppy_id, item.name, item.collar_color) : "";
+          const matches = (this._data?.puppies || []).filter((puppy) => puppy.id === item || puppy.name === item);
+          return matches.length === 1 ? puppySelectorLabel(matches[0]) : item;
+        }).filter(Boolean)
       : [];
     const statusText = attention
       ? text(this._hass, "needsAttention", { count: attention })

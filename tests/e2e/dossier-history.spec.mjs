@@ -136,11 +136,11 @@ for (const [owner, scope] of [["litter:", "litter"], ["mother:", "mother"], ["pu
 test("weight history retains correction semantics and no owner-change menu @cross-browser @tablet", async ({ page }) => {
   const card = await mount(page, { config: { default_selected: "puppy", puppy_id: "p1" } });
   await expect(card.locator('[data-event-type="weight"]')).toHaveCount(1);
-  await expect(card.locator(".timeline-sub")).toHaveText("Alice · 3 active items");
+  await expect(card.locator(".timeline-sub")).toHaveText("Alice (Red) · 3 active items");
   await card.locator(".history-filters > summary").click();
   await card.locator("#show-deleted").check();
   await expect(card.locator('[data-event-type="weight"]')).toHaveCount(3);
-  await expect(card.locator(".timeline-sub")).toHaveText("Alice · 3 active items");
+  await expect(card.locator(".timeline-sub")).toHaveText("Alice (Red) · 3 active items");
   await expect(card.locator('[data-record-key="weight:p1:old"] [data-edit-item]')).toHaveCount(0);
   const weight = card.locator('[data-record-key="weight:p1:weight1"]');
   await expect(weight.locator(".record-menu")).toHaveCount(0);

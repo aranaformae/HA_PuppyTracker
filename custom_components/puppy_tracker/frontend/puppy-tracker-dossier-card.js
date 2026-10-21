@@ -439,7 +439,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
         recordData = { records: sortNewestFirst([
           ...(litterRecords?.records || []).map((record) => decorateRecord(record, "litter", litterData.litter.name)),
           ...(motherRecords?.records || []).map((record) => decorateRecord(record, "mother", motherRecords?.owner?.name || litterData.litter.mother)),
-          ...puppyResponses.flatMap((response, index) => (response?.records || []).map((record) => decorateRecord(record, "puppy", puppies[index].name, puppies[index].id))),
+          ...puppyResponses.flatMap((response, index) => (response?.records || []).map((record) => decorateRecord(record, "puppy", puppySelectorLabel(puppies[index]), puppies[index].id))),
         ]), actions: { actions: [
           ...ownerActions(litterRecords, "litter", null, litterData.litter.name),
           ...ownerActions(motherRecords, "mother", null, motherRecords?.owner?.name || litterData.litter.mother),
@@ -898,7 +898,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
       ? dossierText(this._hass, "Alles", "All")
       : this.__motherSelected
         ? (this._recordData?.owner?.name || litter?.mother || localize(this._hass, "mother"))
-        : (this._selectedPuppy?.name || litter?.name || localize(this._hass, "litter"));
+        : (this._selectedPuppy ? puppySelectorLabel(this._selectedPuppy) : litter?.name || localize(this._hass, "litter"));
     const activeRecordLabel = activeRecordCount === 1
       ? localize(this._hass, "activeEntry")
       : localize(this._hass, "activeEntries");

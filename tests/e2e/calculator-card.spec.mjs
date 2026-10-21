@@ -249,9 +249,9 @@ test("late feeding refresh cannot overwrite a newer saved preference @cross-brow
 
 test("per-kg calculator updates every puppy without rebuilding the inputs", { tag: ["@cross-browser", "@tablet"] }, async ({ page }) => {
   const card = await mountCalculator(page);
-  await expect(card.getByText("Alice", { exact: true })).toBeVisible();
-  await expect(card.getByText("Bob", { exact: true })).toBeVisible();
-  await expect(card.getByText("Charlie", { exact: true })).toBeVisible();
+  await expect(card.getByText("Alice (Roze)", { exact: true })).toBeVisible();
+  await expect(card.getByText("Bob (Blauw)", { exact: true })).toBeVisible();
+  await expect(card.getByText("Charlie (Groen)", { exact: true })).toBeVisible();
   await expect(card.getByText("Inactive", { exact: true })).toHaveCount(0);
   await expect(card.getByText("Oud gewicht", { exact: true })).toBeVisible();
   await expect(card.getByText("Geen geldige weging", { exact: true })).toBeVisible();

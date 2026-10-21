@@ -595,10 +595,10 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     return this._puppies.filter((puppy) => (puppy.owner_ids || []).includes(ownerId));
   }
 
-  _puppyPreferenceLabel(puppyId) {
+  _puppyPreferenceLabel(puppyId, includeCollar = true) {
     const puppy = this._puppies.find((item) => item.id === puppyId);
     if (!puppy) return text(this, "unavailablePuppy");
-    return [puppy.litter_name, puppy.name || text(this, "puppy")].filter(Boolean).join(" · ");
+    return [puppy.litter_name, includeCollar ? puppySelectorLabel(puppy, text(this, "puppy")) : puppy.name || text(this, "puppy")].filter(Boolean).join(" · ");
   }
 
   _puppyPreferenceOptions(selectedId) {
@@ -733,7 +733,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
   _matrixPuppyHeader(puppy, index) {
     const colorName = puppy.collar_color || text(this, "noCollarColor");
     const color = collarColor(puppy.collar_color, index);
-    return `<div class="matrix-puppy"><span class="collar-swatch" style="--collar-color:${escapeHtml(color)}" title="${escapeHtml(`${text(this, "puppyCollarColor")}: ${colorName}`)}" aria-hidden="true"></span><span><strong>${escapeHtml(puppy.name || text(this, "puppy"))}</strong><small>${escapeHtml(colorName)}</small></span></div>`;
+    return `<div class="matrix-puppy"><span class="collar-swatch" style="--collar-color:${escapeHtml(color)}" title="${escapeHtml(`${text(this, "puppyCollarColor")}: ${colorName}`)}" aria-hidden="true"></span><span><strong>${escapeHtml(puppySelectorLabel(puppy, text(this, "puppy")))}</strong></span></div>`;
   }
 
   _matrixCell(owner, puppy, model) {
@@ -748,7 +748,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       conflict ? text(this, "firstChoiceConflicts") : null,
       preference?.note || null,
     ].filter(Boolean).join(" · ");
-    return `<td><button type="button" class="matrix-cell${conflict ? " conflict" : ""}${selected ? " selected" : ""}" data-matrix-owner="${escapeHtml(owner.id)}" data-matrix-puppy="${escapeHtml(puppy.id)}" aria-pressed="${selected}" aria-label="${escapeHtml(`${owner.name} · ${puppy.name || text(this, "puppy")} · ${description}`)}" title="${escapeHtml(description)}">${preference ? `<span class="rank rank-${preference.rank}">${escapeHtml(this._rankLabel(preference.rank, true))}</span>` : ""}${preference?.note ? `<ha-icon class="cell-icon" icon="mdi:note-text-outline" aria-hidden="true"></ha-icon>` : ""}${linked ? `<ha-icon class="cell-icon linked-icon" icon="mdi:link-variant" aria-hidden="true"></ha-icon>` : ""}${conflict ? `<ha-icon class="cell-icon conflict-icon" icon="mdi:alert-circle-outline" aria-hidden="true"></ha-icon>` : ""}</button></td>`;
+    return `<td><button type="button" class="matrix-cell${conflict ? " conflict" : ""}${selected ? " selected" : ""}" data-matrix-owner="${escapeHtml(owner.id)}" data-matrix-puppy="${escapeHtml(puppy.id)}" aria-pressed="${selected}" aria-label="${escapeHtml(`${owner.name} · ${puppySelectorLabel(puppy, text(this, "puppy"))} · ${description}`)}" title="${escapeHtml(description)}">${preference ? `<span class="rank rank-${preference.rank}">${escapeHtml(this._rankLabel(preference.rank, true))}</span>` : ""}${preference?.note ? `<ha-icon class="cell-icon" icon="mdi:note-text-outline" aria-hidden="true"></ha-icon>` : ""}${linked ? `<ha-icon class="cell-icon linked-icon" icon="mdi:link-variant" aria-hidden="true"></ha-icon>` : ""}${conflict ? `<ha-icon class="cell-icon conflict-icon" icon="mdi:alert-circle-outline" aria-hidden="true"></ha-icon>` : ""}</button></td>`;
   }
 
   _matrixSummary(model) {
@@ -836,7 +836,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       ["email", owner.email],
       ["phone", owner.phone],
     ];
-    return `<div class="matrix-detail-content"><div><span>${escapeHtml(text(this, "preferenceDetails"))}</span><strong>${escapeHtml(owner.name)} · ${escapeHtml(puppy.name || text(this, "puppy"))}</strong></div><dl>${fields.map(([label, value]) => `<div><dt>${escapeHtml(text(this, label))}</dt><dd>${escapeHtml(value || "—")}</dd></div>`).join("")}<div class="detail-note"><dt>${escapeHtml(text(this, "preferenceNote"))}</dt><dd>${escapeHtml(preference?.note || "—")}</dd></div></dl><button type="button" class="secondary" data-matrix-edit-owner="${escapeHtml(owner.id)}"><ha-icon icon="mdi:pencil-outline"></ha-icon>${escapeHtml(text(this, "editFromMatrix"))}</button></div>`;
+    return `<div class="matrix-detail-content"><div><span>${escapeHtml(text(this, "preferenceDetails"))}</span><strong>${escapeHtml(owner.name)} · ${escapeHtml(puppySelectorLabel(puppy, text(this, "puppy")))}</strong></div><dl>${fields.map(([label, value]) => `<div><dt>${escapeHtml(text(this, label))}</dt><dd>${escapeHtml(value || "—")}</dd></div>`).join("")}<div class="detail-note"><dt>${escapeHtml(text(this, "preferenceNote"))}</dt><dd>${escapeHtml(preference?.note || "—")}</dd></div></dl><button type="button" class="secondary" data-matrix-edit-owner="${escapeHtml(owner.id)}"><ha-icon icon="mdi:pencil-outline"></ha-icon>${escapeHtml(text(this, "editFromMatrix"))}</button></div>`;
   }
 
   _matrixView() {
@@ -899,7 +899,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       const puppyPreferences = Array.isArray(owner.puppy_preferences) ? owner.puppy_preferences.slice(0, 3) : [];
       const preferenceValues = [0, 1, 2].flatMap((index) => {
         const preference = puppyPreferences[index];
-        return preference ? [this._puppyPreferenceLabel(preference.puppy_id), preference.note] : ["", ""];
+        return preference ? [this._puppyPreferenceLabel(preference.puppy_id, false), preference.note] : ["", ""];
       });
       const ownerValues = [
         owner.name,
@@ -998,7 +998,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
   }
 
   _ownerDetails(owner) {
-    const linked = this._linkedPuppies(owner.id).map((puppy) => `${puppy.name || text(this, "puppy")} (${puppy.litter_name})`).join(", ") || text(this, "noLinkedPuppies");
+    const linked = this._linkedPuppies(owner.id).map((puppy) => `${puppySelectorLabel(puppy, text(this, "puppy"))} (${puppy.litter_name})`).join(", ") || text(this, "noLinkedPuppies");
     const history = (owner.status_history || []).map((entry) => `${optionLabel(this, entry.status, PLACEMENT_STATUS_LABELS, entry.status)} · ${formattedDate(this, entry.changed_at, true)}`).join("\n") || "—";
     const group = (key, title, fields, defaultOpen = false) => {
       const open = this._ownerGroups.get(owner.id)?.[key] ?? defaultOpen;

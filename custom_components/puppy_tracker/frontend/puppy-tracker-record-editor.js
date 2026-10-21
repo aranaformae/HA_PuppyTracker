@@ -128,9 +128,10 @@ export function recordContext(card, record = {}) {
     scope,
     puppyId,
     recordId: record.record_id || record.id,
-    ownerName: record.__aggregate_owner_name || record.puppy_name
-      || (scope === "mother" ? data?.litter?.mother : scope === "puppy"
-        ? data?.puppies?.find((puppy) => puppy.id === puppyId)?.name : data?.litter?.name),
+    ownerName: scope === "puppy"
+      ? puppySelectorLabel(data?.puppies?.find((puppy) => puppy.id === puppyId), record.__aggregate_owner_name || record.puppy_name || localize(card._hass, "puppy"))
+      : record.__aggregate_owner_name || record.puppy_name
+      || (scope === "mother" ? data?.litter?.mother : data?.litter?.name),
   };
 }
 

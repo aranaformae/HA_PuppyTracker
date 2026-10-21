@@ -4,7 +4,14 @@ export const LITTER_CHANGE_EVENT = "puppy-tracker-litter-change";
 export function puppySelectorLabel(puppy, fallback = "Puppy") {
   const name = String(puppy?.name || fallback).trim() || fallback;
   const collar = String(puppy?.collar_color || "").trim();
-  return collar && collar.toLowerCase() !== name.toLowerCase() ? `${name} (${collar})` : name;
+  const normalizedName = name.toLowerCase();
+  return collar && collar.toLowerCase() !== normalizedName && !normalizedName.endsWith(` (${collar.toLowerCase()})`) ? `${name} (${collar})` : name;
+}
+
+export function puppyDisplayLabel(card, puppyId, fallback = "Puppy", collar = "") {
+  const puppies = card?._litterData?.puppies || card?._data?.puppies || card?._history?.puppies || card?._puppies || [];
+  const puppy = puppyId ? puppies.find((item) => item.id === puppyId) : null;
+  return puppySelectorLabel(puppy || { name: fallback, collar_color: collar }, fallback);
 }
 
 const CARD_STATE_PREFIX = "puppy_tracker.card_state.";

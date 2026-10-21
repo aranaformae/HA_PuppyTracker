@@ -1,4 +1,5 @@
 import { matchesDossierSearch } from "./puppy-tracker-dossier-search.js";
+import { puppySelectorLabel } from "./puppy-tracker-card-common.js";
 
 export function historyTime(value) {
   const time = Date.parse(String(value || ""));
@@ -25,7 +26,7 @@ export function buildDossierHistory(records, puppies, { includeHistory = false, 
         title: null, note: measurement.note || "", deleted: status === "deleted", status,
         data: { weight: measurement.weight, kind: measurement.kind, correction_reason: measurement.correction_reason },
         __aggregate_owner_scope: "puppy", __aggregate_owner_puppy_id: puppy.id,
-        __aggregate_owner_name: puppy.name, __aggregate_record_key: `weight:${puppy.id}:${measurement.id}` });
+        __aggregate_owner_name: puppySelectorLabel(puppy), __aggregate_record_key: `weight:${puppy.id}:${measurement.id}` });
     }
   }
   return items.sort((left, right) => historyTime(right.occurred_at) - historyTime(left.occurred_at)

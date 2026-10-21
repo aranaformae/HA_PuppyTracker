@@ -66,8 +66,8 @@ test("selector label edge cases do not invent colours or mutate the puppy", asyn
     const { puppySelectorLabel } = await import("/custom_components/puppy_tracker/frontend/puppy-tracker-card-common.js");
     const puppy = { id: "p1", name: " Alice ", collar_color: " Red " };
     const before = JSON.stringify(puppy);
-    return { values: [puppySelectorLabel(puppy), puppySelectorLabel({ name: "Bob" }), puppySelectorLabel({ name: "Red", collar_color: "red" }), puppySelectorLabel({ collar_color: "Blue" }, "Pup"), puppySelectorLabel({ name: "<Alice>", collar_color: "A&B" })], unchanged: before === JSON.stringify(puppy) };
+    return { values: [puppySelectorLabel(puppy), puppySelectorLabel({ name: "Bob" }), puppySelectorLabel({ name: "Red", collar_color: "red" }), puppySelectorLabel({ collar_color: "Blue" }, "Pup"), puppySelectorLabel({ name: "<Alice>", collar_color: "A&B" }), puppySelectorLabel({ name: "Nova", collar_color: "paars" }), puppySelectorLabel({ name: " Paars ", collar_color: "paars" }), puppySelectorLabel({ name: "Nova (paars)", collar_color: "paars" })], unchanged: before === JSON.stringify(puppy) };
   });
-  expect(labels.values).toEqual(["Alice (Red)", "Bob", "Red", "Pup (Blue)", "<Alice> (A&B)"]);
+  expect(labels.values).toEqual(["Alice (Red)", "Bob", "Red", "Pup (Blue)", "<Alice> (A&B)", "Nova (paars)", "Paars", "Nova (paars)"]);
   expect(labels.unchanged).toBe(true);
 });

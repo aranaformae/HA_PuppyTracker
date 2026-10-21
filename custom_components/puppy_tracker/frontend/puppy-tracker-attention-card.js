@@ -8,6 +8,8 @@ import {
   fireNavigate,
   languageForHass,
   localize,
+  puppySelectorLabel,
+  puppyDisplayLabel,
   requestLitterChange,
   selectDefaultLitter,
   statusIcon,
@@ -242,7 +244,7 @@ class PuppyTrackerAttentionCard extends HTMLElement {
         entries.push({
           kind: "weight",
           puppy_id: puppy.id,
-          name: puppy.name || localize(this._hass, "puppy"),
+          name: puppySelectorLabel(puppy, localize(this._hass, "puppy")),
           collar_color: puppy.collar_color,
           tone: statusTone(summary.status_code),
           icon: statusIcon(summary.status_code),
@@ -255,7 +257,7 @@ class PuppyTrackerAttentionCard extends HTMLElement {
         entries.push({
           kind: "dossier",
           puppy_id: puppy.id,
-          name: puppy.name || localize(this._hass, "puppy"),
+          name: puppySelectorLabel(puppy, localize(this._hass, "puppy")),
           collar_color: puppy.collar_color,
           tone: actionTone(action),
           icon: `<ha-icon icon="${escapeHtml(action.icon || "mdi:calendar-alert")}"></ha-icon>`,
@@ -285,7 +287,7 @@ class PuppyTrackerAttentionCard extends HTMLElement {
         kind: "recurring",
         puppy_id: null,
         recurring_id: item.id,
-        name: item.owner_name || (languageForHass(this._hass) === "en" ? "Reminder" : "Herinnering"),
+        name: item.owner_scope === "puppy" ? puppyDisplayLabel(this, item.owner_id, item.owner_name || localize(this._hass, "puppy")) : item.owner_name || (languageForHass(this._hass) === "en" ? "Reminder" : "Herinnering"),
         collar_color: null,
         tone: item.status === "overdue" ? "danger" : "warning",
         icon: item.record_type === "temperature" ? "mdi:thermometer-alert" : "mdi:bell-ring-outline",
@@ -306,7 +308,7 @@ class PuppyTrackerAttentionCard extends HTMLElement {
         ? `<div class="list ${this._config.compact === true ? "compact" : ""}">${visibleEntries.map((entry) => `
             <div class="row ${entry.tone}" ${entry.puppy_id ? `data-puppy="${escapeHtml(entry.puppy_id)}"` : ""} ${entry.recurring_id ? `data-recurring-reminder="${escapeHtml(entry.recurring_id)}"` : ""}>
               <div class="icon ${["dossier", "recurring"].includes(entry.kind) ? "ha" : ""}">${entry.kind === "dossier" ? entry.icon : entry.kind === "recurring" ? `<ha-icon icon="${escapeHtml(entry.icon)}"></ha-icon>` : escapeHtml(entry.icon)}</div>
-              <div class="main"><div class="name">${escapeHtml(entry.name)}${entry.collar_color ? `<span class="collar">${escapeHtml(entry.collar_color)}</span>` : ""}</div><div class="reason">${escapeHtml(entry.reason)}</div></div>
+              <div class="main"><div class="name">${escapeHtml(entry.name)}</div><div class="reason">${escapeHtml(entry.reason)}</div></div>
               <div class="status">${escapeHtml(entry.status)}</div>
             </div>`).join("")}</div>`
         : `<div class="all-ok"><span>✓</span><div><strong>${escapeHtml(localize(this._hass, "allInOrder"))}</strong><div>${escapeHtml(localize(this._hass, "goodWeightAndDossier"))}</div></div></div>`;

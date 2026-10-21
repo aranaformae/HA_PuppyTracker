@@ -1072,6 +1072,15 @@ Behavior owned by one card should live in that card instead of a late prototype
 patch. Shared stateless presentation rules may remain importable utilities. The
 collar-color mapper follows that model: weighing and overview import the same
 function, while chart series receive their color during normal rendering.
+Puppy identity labels use `puppySelectorLabel` from `card-common` in selectors,
+activity/history items, chart legends and action feedback. It appends the collar
+colour unless the name already equals that colour or ends with the same colour
+suffix (case-insensitive). `puppyDisplayLabel` resolves a puppy by ID from a card's
+snapshot for occurrence/reminder owners; it does not match by name or mutate data.
+Care occurrence and skipped-puppy payloads include raw `collar_color` alongside
+`puppy_name`, allowing the standalone Care surface to render the same label
+without extra data requests. Stored names, service option values and separate
+CSV name/collar columns remain unchanged.
 The Overview card also owns its registry-refresh subscription directly, so an
 imported or newly created puppy is discovered before history is reloaded.
 Its horizontally scrollable chart navigation is an imported helper invoked by

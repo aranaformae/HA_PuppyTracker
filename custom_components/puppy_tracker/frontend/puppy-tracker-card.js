@@ -1,6 +1,6 @@
 // Puppy Tracker Card v1.3.1
 import { collarColor } from "./puppy-tracker-collar-chart-colors.js";
-import { announceLitterChange, languageForHass } from "./puppy-tracker-card-common.js";
+import { announceLitterChange, languageForHass, puppySelectorLabel } from "./puppy-tracker-card-common.js";
 
 const WEIGHING_TEXT = {
   nl: {
@@ -725,6 +725,7 @@ class PuppyTrackerCard extends HTMLElement {
           device,
           puppyId,
           name,
+          displayName: puppySelectorLabel({ name, collar_color: collar }),
           collar,
           option: matchingOption || baseOption,
           selected: (matchingOption || baseOption) === selectedOption,
@@ -844,6 +845,12 @@ class PuppyTrackerCard extends HTMLElement {
     ) || null;
   }
 
+  _puppyNameLabel(rows, value, puppyId = null) {
+    const matches = puppyId ? rows.filter((row) => row.puppyId === puppyId)
+      : rows.filter((row) => [row.name, row.displayName, row.option].includes(value));
+    return matches.length === 1 ? matches[0].displayName : this._noneDisplay(value);
+  }
+
   _nextDistinctRow(rows, remainingState, selectedRow, backendNextRow) {
     if (backendNextRow && backendNextRow !== selectedRow) return backendNextRow;
 
@@ -942,7 +949,7 @@ class PuppyTrackerCard extends HTMLElement {
         const key = JSON.stringify([litterId, puppy.puppyId, value, preview.baseline_id]);
         if (preview.anomaly && this._pendingWeightConfirmation !== key) {
           this._pendingWeightConfirmation = key;
-          this._localMessage = this._t("weightWarning", { weight: value, puppy: puppy.name, change: preview.anomaly.change_percent });
+          this._localMessage = this._t("weightWarning", { weight: value, puppy: puppy.displayName, change: preview.anomaly.change_percent });
           this._localMessageType = "warning";
           this._scheduleRender(true);
           return;
@@ -983,7 +990,7 @@ class PuppyTrackerCard extends HTMLElement {
           maximumFractionDigits
         )}`;
       };
-      const puppyName = puppy?.name || "Puppy";
+      const puppyName = puppy?.displayName || "Puppy";
       const weightText = `${formatNumber(value, 0)} g`;
       if (!Number.isFinite(previousWeight) || previousWeight <= 0) {
         this._localMessage = this._t("firstMeasurement", { puppy: puppyName, weight: weightText });
@@ -1025,7 +1032,7 @@ class PuppyTrackerCard extends HTMLElement {
   async _openLastMeasurement(station) {
     if (this._correctionBusy) return;
     const lastState = this._state(station.ids.last);
-    const label = lastState?.state || this._t("puppy");
+    const label = this._puppyNameLabel(this._puppyRows(station), lastState?.state, lastState?.attributes?.puppy_id);
     const last = lastState?.attributes || {};
     if (!last.litter_id || !last.puppy_id || !last.measurement_id) return;
     this._correctionBusy = true;
@@ -1172,7 +1179,7 @@ class PuppyTrackerCard extends HTMLElement {
       element.className = `puppy-row${row.selected ? " selected" : ""}`;
       const stateClass = this._statusClass(row.statusCode);
       element.querySelector(".status-dot").className = `status-dot ${stateClass}`;
-      element.querySelector(".puppy-name").textContent = row.name;
+      element.querySelector(".puppy-name").textContent = row.displayName;
       element.querySelector(".puppy-meta").textContent = this._ageDisplay(row.age);
       element.querySelector(".metric strong").textContent = this._weightDisplay(row);
       const growth = element.querySelector(".growth");
@@ -1221,7 +1228,7 @@ class PuppyTrackerCard extends HTMLElement {
     const bottomIndicatorRow = nextDistinctRow || selectedRow || backendNextRow;
     const bottomIndicatorMode = nextDistinctRow ? "next" : "current";
     const bottomIndicatorLabel = this._t(bottomIndicatorMode === "next" ? "nextPuppy" : "weighNow");
-    const bottomIndicatorAriaLabel = `${bottomIndicatorLabel}: ${bottomIndicatorRow?.name || ""}`;
+    const bottomIndicatorAriaLabel = `${bottomIndicatorLabel}: ${bottomIndicatorRow?.displayName || ""}`;
     const bottomIndicatorIndex = bottomIndicatorRow ? rows.indexOf(bottomIndicatorRow) : -1;
     const session = this._sessionPresentation(sessionState?.state);
     const isActive = session.code === "active";
@@ -1268,8 +1275,8 @@ class PuppyTrackerCard extends HTMLElement {
     const currentIndicator = this.shadowRoot?.querySelector("#current-puppy-indicator");
     if (currentIndicator) {
       currentIndicator.hidden = !selectedRow;
-      currentIndicator.setAttribute("aria-label", `${this._t("nowSelected")}: ${selectedRow?.name || ""}`);
-      this._setText("current-puppy-name", selectedRow?.name || "");
+      currentIndicator.setAttribute("aria-label", `${this._t("nowSelected")}: ${selectedRow?.displayName || ""}`);
+      this._setText("current-puppy-name", selectedRow?.displayName || "");
       const currentCollar = this.shadowRoot?.querySelector("#current-puppy-collar");
       if (currentCollar) currentCollar.style.backgroundColor = collarColor(selectedRow?.collar, selectedRowIndex);
     }
@@ -1278,15 +1285,15 @@ class PuppyTrackerCard extends HTMLElement {
       nextIndicator.hidden = !bottomIndicatorRow;
       nextIndicator.setAttribute("aria-label", bottomIndicatorAriaLabel);
       this._setText("next-puppy-label", bottomIndicatorLabel);
-      this._setText("next-puppy-name", bottomIndicatorRow?.name || "");
+      this._setText("next-puppy-name", bottomIndicatorRow?.displayName || "");
       const nextCollar = this.shadowRoot?.querySelector("#next-puppy-collar");
       if (nextCollar) nextCollar.style.backgroundColor = collarColor(bottomIndicatorRow?.collar, bottomIndicatorIndex);
     }
 
-    this._setText("remaining-value", this._noneDisplay(remainingState?.state));
+    this._setText("remaining-value", String(remainingState?.state || "").split(",").map((name) => this._puppyNameLabel(rows, name.trim())).join(", "));
     this._setText("next-label", bottomIndicatorLabel);
-    this._setText("next-value", bottomIndicatorRow?.name || this._noneDisplay(nextState?.state));
-    this._setText("last-value", this._noneDisplay(lastState?.state));
+    this._setText("next-value", bottomIndicatorRow?.displayName || this._noneDisplay(nextState?.state));
+    this._setText("last-value", this._puppyNameLabel(rows, lastState?.state, lastState?.attributes?.puppy_id));
     this._setText("selected-last-value", selectedRow?.lastWeighed || this._t("none"));
     this._setText("elapsed-value", this._elapsedDisplay(selectedRow?.lastWeighed));
     this._setText("selected-previous-value", `${selectedRow?.previousWeight || this._t("none")}${selectedRow?.previousWeight && selectedRow.previousWeight !== "—" ? " g" : ""}`);
@@ -1390,18 +1397,18 @@ class PuppyTrackerCard extends HTMLElement {
     const bottomIndicatorRow = nextDistinctRow || selectedRow || backendNextRow;
     const bottomIndicatorMode = nextDistinctRow ? "next" : "current";
     const bottomIndicatorLabel = this._t(bottomIndicatorMode === "next" ? "nextPuppy" : "weighNow");
-    const bottomIndicatorAriaLabel = `${bottomIndicatorLabel}: ${bottomIndicatorRow?.name || ""}`;
+    const bottomIndicatorAriaLabel = `${bottomIndicatorLabel}: ${bottomIndicatorRow?.displayName || ""}`;
     const bottomIndicatorIndex = bottomIndicatorRow ? rows.indexOf(bottomIndicatorRow) : -1;
     const currentPuppyIndicator = `
-      <div class="current-puppy" id="current-puppy-indicator" role="status" aria-label="${this._escape(this._t("nowSelected"))}: ${this._escape(selectedRow?.name || "")}" ${selectedRow ? "" : "hidden"}>
+      <div class="current-puppy" id="current-puppy-indicator" role="status" aria-label="${this._escape(this._t("nowSelected"))}: ${this._escape(selectedRow?.displayName || "")}" ${selectedRow ? "" : "hidden"}>
         <span class="current-puppy-collar" id="current-puppy-collar" style="background-color:${this._escape(collarColor(selectedRow?.collar, selectedRowIndex))}"></span>
-        <span class="current-puppy-label"><small>${this._escape(this._t("nowSelected"))}</small><strong id="current-puppy-name">${this._escape(selectedRow?.name || "")}</strong></span>
+        <span class="current-puppy-label"><small>${this._escape(this._t("nowSelected"))}</small><strong id="current-puppy-name">${this._escape(selectedRow?.displayName || "")}</strong></span>
       </div>
     `;
     const nextPuppyIndicator = `
       <div class="next-puppy" id="next-puppy-indicator" role="status" aria-label="${this._escape(bottomIndicatorAriaLabel)}" ${bottomIndicatorRow ? "" : "hidden"}>
         <span class="next-puppy-collar" id="next-puppy-collar" style="background-color:${this._escape(collarColor(bottomIndicatorRow?.collar, bottomIndicatorIndex))}"></span>
-        <span class="next-puppy-label"><small id="next-puppy-label">${this._escape(bottomIndicatorLabel)}</small><strong id="next-puppy-name">${this._escape(bottomIndicatorRow?.name || "")}</strong></span>
+        <span class="next-puppy-label"><small id="next-puppy-label">${this._escape(bottomIndicatorLabel)}</small><strong id="next-puppy-name">${this._escape(bottomIndicatorRow?.displayName || "")}</strong></span>
       </div>
     `;
     const percentage = this._progress(station);
@@ -1466,7 +1473,7 @@ class PuppyTrackerCard extends HTMLElement {
                 <button type="button" class="puppy-row ${row.selected ? "selected" : ""}" data-puppy-id="${this._escape(row.puppyId)}" data-puppy-option="${this._escape(row.option)}">
                   <span class="status-dot ${this._statusClass(row.statusCode)}"></span>
                   <span class="puppy-main">
-                    <span class="puppy-name">${this._escape(row.name)}</span>
+                    <span class="puppy-name">${this._escape(row.displayName)}</span>
                     <span class="puppy-meta">${this._escape(this._ageDisplay(row.age))}</span>
                   </span>
                   <span class="metric">
@@ -1494,15 +1501,15 @@ class PuppyTrackerCard extends HTMLElement {
         <div class="session-grid">
           <div>
             <span class="label">${this._escape(this._t("remaining"))}</span>
-            <strong id="remaining-value">${this._escape(this._noneDisplay(remainingState?.state))}</strong>
+            <strong id="remaining-value">${this._escape(String(remainingState?.state || "").split(",").map((name) => this._puppyNameLabel(rows, name.trim())).join(", "))}</strong>
           </div>
           <div>
             <span class="label" id="next-label">${this._escape(bottomIndicatorLabel)}</span>
-            <strong id="next-value">${this._escape(bottomIndicatorRow?.name || this._noneDisplay(nextState?.state))}</strong>
+            <strong id="next-value">${this._escape(bottomIndicatorRow?.displayName || this._noneDisplay(nextState?.state))}</strong>
           </div>
           <div>
             <span class="label">${this._escape(this._t("lastWeighed"))}</span>
-            <strong id="last-value">${this._escape(this._noneDisplay(lastState?.state))}</strong>
+            <strong id="last-value">${this._escape(this._puppyNameLabel(rows, lastState?.state, lastState?.attributes?.puppy_id))}</strong>
           </div>
           <div>
             <span class="label">${this._escape(this._t("latestSelected"))}</span>

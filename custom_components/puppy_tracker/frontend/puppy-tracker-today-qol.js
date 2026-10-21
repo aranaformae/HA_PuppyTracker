@@ -1,4 +1,4 @@
-import { escapeHtml, formatWeight, languageForHass } from "./puppy-tracker-card-common.js";
+import { escapeHtml, formatWeight, languageForHass, puppySelectorLabel, puppyDisplayLabel } from "./puppy-tracker-card-common.js";
 import { recordTypeIcon, recordTypeLabel } from "./puppy-tracker-dossier-schema.js";
 import { openRecordEditor, recordContext, recordEditButton, RECORD_ACTION_STYLE } from "./puppy-tracker-record-editor.js";
 
@@ -77,7 +77,7 @@ function todayTimelineEvents(card) {
       id: `record:${record.scope || (puppy ? "puppy" : "litter")}:${record.id || occurredAt}`,
       type: String(record.type || "other"),
       occurredAt,
-      owner: record.puppy_name || puppy?.name || t(card, "Nest", "Litter"),
+      owner: puppy || record.puppy_id ? puppyDisplayLabel(card, record.puppy_id || puppy.id, record.puppy_name || t(card, "Pup", "Puppy")) : record.puppy_name || t(card, "Nest", "Litter"),
       detail: recordSummary(record),
       context: recordContext(card, { ...record, scope: record.scope || (puppy ? "puppy" : "litter"), puppy_id: record.puppy_id || puppy?.id }),
     });
@@ -94,9 +94,9 @@ function todayTimelineEvents(card) {
         id: `weight:${puppy.id || "unknown"}:${measurement.id || occurredAt}`,
         type: "weight",
         occurredAt,
-        owner: puppy.name || t(card, "Pup", "Puppy"),
+        owner: puppySelectorLabel(puppy, t(card, "Pup", "Puppy")),
         detail: formatWeight(measurement.weight, "", card?._hass),
-        context: { litterId: card._selectedLitterId, scope: "puppy", puppyId: puppy.id, measurementId: measurement.id, ownerName: puppy.name },
+        context: { litterId: card._selectedLitterId, scope: "puppy", puppyId: puppy.id, measurementId: measurement.id, ownerName: puppySelectorLabel(puppy) },
       });
     }
     for (const record of puppy?.records || []) addRecord(record, puppy);

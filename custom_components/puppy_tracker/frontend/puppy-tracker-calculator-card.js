@@ -1,5 +1,6 @@
 import {
   escapeHtml,
+  puppySelectorLabel,
   fetchLitterData,
   fetchLitters,
   formatDateTime,
@@ -519,7 +520,7 @@ class PuppyTrackerCalculatorCard extends HTMLElement {
         meta.stale ? `<span class="badge warning">${escapeHtml(text(this, "staleWeight"))}</span>` : "",
       ].join("");
       return `<article class="puppy-row ${feeding ? "feeding-row" : ""} ${weight ? "" : "missing"}" data-puppy-id="${escapeHtml(puppy.id)}" data-weight-grams="${weight?.weightGrams || ""}">
-        <div class="identity"><span class="collar" style="background-color:${escapeHtml(collarColor(puppy.collar_color, index))}"></span><div><strong>${escapeHtml(puppy.name || text(this, "puppies"))}</strong><small>${escapeHtml(puppy.collar_color || "")}</small></div></div>
+        <div class="identity"><span class="collar" style="background-color:${escapeHtml(collarColor(puppy.collar_color, index))}"></span><div><strong>${escapeHtml(puppySelectorLabel(puppy, text(this, "puppies")))}</strong></div></div>
         <div class="weight"><span>${escapeHtml(text(this, "latestWeight"))}</span><strong>${escapeHtml(meta.label)}</strong><small>${escapeHtml(meta.detail)}</small></div>
         ${feeding ? this._feedingResult() : `<div class="amount"><span>${escapeHtml(text(this, "required"))}</span><strong data-calculated-amount>—</strong><small data-calculation-formula></small></div>`}
         ${badges ? `<div class="badges">${badges}</div>` : ""}

@@ -70,6 +70,17 @@ def test_occurrence_preserves_attention_opt_out() -> None:
     assert occurrence["counts_for_attention"] is False
 
 
+def test_occurrence_exposes_collar_without_changing_name_or_identity():
+    program = normalize_care_program({"id": "ens", "litter_id": "litter-1", "title": "ENS", "schedule_type": "once", "start_age_days": 3})
+    puppy = {**_puppy("pup-1", "Nova"), "collar_color": "paars"}
+    occurrence = derive_puppy_care_occurrences(program, puppy)[0]
+    assert occurrence["puppy_name"] == "Nova"
+    assert occurrence["collar_color"] == "paars"
+    assert occurrence["id"] == "ens:pup-1:3"
+    assert puppy["name"] == "Nova"
+    assert derive_puppy_care_occurrences(program, _puppy("pup-2", "Benen"))[0]["collar_color"] is None
+
+
 def test_revision_one_keeps_v017_occurrence_ids_and_later_revisions_are_isolated() -> None:
     base = normalize_care_program({
         "id": "ens",

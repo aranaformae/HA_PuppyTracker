@@ -1,5 +1,6 @@
 import {
   describeStatus,
+  puppySelectorLabel,
   escapeHtml,
   fetchLitterData,
   fetchLitters,
@@ -310,7 +311,7 @@ class PuppyTrackerLitterCard extends HTMLElement {
       const expanded = puppy.id === this._expandedPuppyId;
       return `
         <div class="puppy-row ${tone}" data-puppy="${escapeHtml(puppy.id)}">
-          <div class="identity"><span class="dot"></span><div><strong>${escapeHtml(puppy.name || text(this._hass, "puppy"))}</strong><small>${escapeHtml(puppy.collar_color || sexLabel(puppy.sex, this._hass))}</small></div></div>
+          <div class="identity"><span class="dot"></span><div><strong>${escapeHtml(puppySelectorLabel(puppy, text(this._hass, "puppy")))}</strong><small>${escapeHtml(sexLabel(puppy.sex, this._hass))}</small></div></div>
           <div class="cell weight"><b>${formatWeight(s.current_weight, "—", this._hass)}</b><small>${formatSignedWeight(s.change_grams, "—", this._hass)}</small></div>
           <div class="cell growth24"><b>${formatPercent(s.growth_24h_percent, "—", this._hass)}</b><small>24 ${languageForHass(this._hass) === "en" ? "hours" : "uur"}</small></div>
           ${detailsEnabled ? `<div class="cell total-growth"><b>${formatPercent(s.growth_birth_percent, "—", this._hass)}</b><small>${escapeHtml(text(this._hass, "sinceBirth"))}</small></div>` : ""}

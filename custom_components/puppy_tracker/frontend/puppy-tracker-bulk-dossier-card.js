@@ -482,7 +482,7 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
       <section class="review">
         <div class="section-title">${escapeHtml(text(this._hass, "reviewTitle"))}</div>
         <div class="muted">${escapeHtml(text(this._hass, "reviewHint"))}</div>
-        <div class="review-row"><span>${escapeHtml(text(this._hass, "puppies"))}</span><strong>${escapeHtml(selected.map((puppy) => puppy.name || puppy.id).join(", "))}</strong></div>
+        <div class="review-row"><span>${escapeHtml(text(this._hass, "puppies"))}</span><strong>${escapeHtml(selected.map((puppy) => puppySelectorLabel(puppy, puppy.id)).join(", "))}</strong></div>
         <div class="review-row"><span>${escapeHtml(text(this._hass, "recordType"))}</span><strong>${escapeHtml(recordTypeLabel(this._hass, this._form.record_type))}</strong></div>
         <div class="review-row"><span>${escapeHtml(localize(this._hass, "dateAndTime"))}</span><strong>${escapeHtml(this._form.occurred_at.replace("T", " "))}</strong></div>
         ${this._form.title ? `<div class="review-row"><span>${escapeHtml(localize(this._hass, "title"))}</span><strong>${escapeHtml(this._form.title)}</strong></div>` : ""}

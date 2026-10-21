@@ -102,6 +102,7 @@ def derive_puppy_care_occurrences(
             "litter_id": litter_id,
             "puppy_id": puppy_id,
             "puppy_name": puppy_name,
+            "collar_color": puppy.get("collar_color"),
             "title": str(program.get("title") or ""),
             "description": program.get("description"),
             "instructions": program.get("instructions_by_age", {}).get(str(age_days)) or program.get("instructions"),

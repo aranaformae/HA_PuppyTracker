@@ -41,7 +41,7 @@ test("rolling growth chart modes use backend points and retain collar colors", a
     element._history = { puppies: [{ id: "p1", measurements: [], summary: { growth_analysis: { rolling_growth: {
       growth48: [{ timestamp, value: 20 }], growth72: [{ timestamp, value: 30 }], weightAverage48: [{ timestamp, value: 450 }],
     } } } }] };
-    const row = { puppyId: "p1", name: "Pink", collar: "Roze", entityIds: {} };
+    const row = { puppyId: "p1", name: "Pink", displayName: "Pink (Roze)", collar: "Roze", entityIds: {} };
     return ["growth48", "growth72", "weightAverage48"].map((metric) => {
       element._metric = metric;
       element.shadowRoot.innerHTML = element._chartSvg([row]);
@@ -82,6 +82,7 @@ test("chart ranges behave as zoom levels without dropping older points", async (
     const row = {
       puppyId: "p1",
       name: "Pup 1",
+      displayName: "Pup 1 (blauw)",
       collar: "blauw",
       entityIds: {},
       statusCode: "ok",
@@ -151,7 +152,7 @@ test("chart time navigation preserves collar colors for percentage metrics", asy
       { time: Date.now() - 3600000, value: 4, measurementId: "one" },
       { time: Date.now(), value: 5, measurementId: "two" },
     ];
-    const row = { puppyId: "p1", name: "Pink", collar: "Roze", entityIds: {} };
+    const row = { puppyId: "p1", name: "Pink", displayName: "Pink (Roze)", collar: "Roze", entityIds: {} };
     const styles = {};
     for (const metric of ["growth24", "growthBirth"]) {
       element._metric = metric;
@@ -209,6 +210,7 @@ test("growth chart renders the milestone projection window around its central es
     const row = {
       puppyId: "p1",
       name: "Pup 1",
+      displayName: "Pup 1 (blauw)",
       collar: "blauw",
       entityIds: {},
       statusCode: "ok",
@@ -273,7 +275,7 @@ test("return-to-now button restores the right edge after scrolling into history"
       ],
     };
 
-    const row = { puppyId: "p1", name: "Pup 1", collar: "blauw", entityIds: {}, statusCode: "ok" };
+    const row = { puppyId: "p1", name: "Pup 1", displayName: "Pup 1 (blauw)", collar: "blauw", entityIds: {}, statusCode: "ok" };
     element.shadowRoot.innerHTML = element._chartSvg([row]);
     element._ensureChartTimeNavigationStyles();
     element._bindChartTimeNavigation();

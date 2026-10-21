@@ -126,7 +126,7 @@ test("saving a weight immediately shows gain and growth versus the previous meas
   await page.locator("puppy-tracker-card #save-weight").click();
 
   await expect(page.locator("puppy-tracker-card .message.success")).toHaveText(
-    "Alice: 428 g saved · +18 g (+4.4%) vs previous measurement of 410 g."
+    "Alice (Red): 428 g saved · +18 g (+4.4%) vs previous measurement of 410 g."
   );
 });
 
@@ -137,6 +137,6 @@ test("the first weight is identified without inventing a growth percentage", asy
   await page.locator("puppy-tracker-card #save-weight").click();
 
   await expect(page.locator("puppy-tracker-card .message.success")).toHaveText(
-    "Alice: 428 g saved · first measurement."
+    "Alice (Red): 428 g saved · first measurement."
   );
 });

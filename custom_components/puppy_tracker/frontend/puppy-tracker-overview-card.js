@@ -1,6 +1,6 @@
 // Puppy Tracker Overview Card v1.3.2
 import { collarColor } from "./puppy-tracker-collar-chart-colors.js";
-import { languageForHass } from "./puppy-tracker-card-common.js";
+import { languageForHass, puppySelectorLabel } from "./puppy-tracker-card-common.js";
 import {
   localizeOverviewRoot,
   localizeOverviewSchema,
@@ -523,6 +523,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
           device,
           puppyId,
           name,
+          displayName: puppySelectorLabel({ name, collar_color: collar }),
           collar,
           entityIds,
           status: this._stateValue(entityIds.status, "Onbekend"),
@@ -1199,7 +1200,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
         <div class="measurement-panel-header">
           <div>
             <span class="eyebrow">Meetgeschiedenis</span>
-            <h3>${this._escape(selected.name)}</h3>
+            <h3>${this._escape(selected.displayName)}</h3>
           </div>
           <div class="measurement-counts">
             <span>${Number(counts.active || 0)} actief</span>
@@ -1336,7 +1337,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
 
         return {
           puppyId: row.puppyId,
-          name: row.name,
+          name: row.displayName,
           color: collarColor(row.collar, index),
           unit: config.unit,
           index,
@@ -1654,8 +1655,8 @@ class PuppyTrackerOverviewCard extends HTMLElement {
                   <div class="puppy-head">
                     <span class="status-dot ${this._statusClass(row.statusCode)}"></span>
                     <div>
-                      <strong>${this._escape(row.name)}</strong>
-                      <span>${this._escape([row.age, row.collar].filter(Boolean).join(" · "))}</span>
+                      <strong>${this._escape(row.displayName)}</strong>
+                      <span>${this._escape(row.age || "")}</span>
                     </div>
                     <span class="status-pill ${this._statusClass(row.statusCode)}">${this._escape(
                 row.status
@@ -1716,7 +1717,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
           <div class="detail-title">
             <div>
               <span class="eyebrow">Geselecteerde pup</span>
-              <h3>${this._escape(selected.name)}</h3>
+              <h3>${this._escape(selected.displayName)}</h3>
             </div>
             <div class="detail-actions">
               <button class="mini-button" id="toggle-chart-focus">${
@@ -1867,7 +1868,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
                 row.puppyId
               )}">
                   <span class="legend-color" style="--series-index:${index};--series-color:${this._escape(collarColor(row.collar, index))}"></span>
-                  ${this._escape(row.name)}
+                  ${this._escape(row.displayName)}
                 </button>`
             )
             .join("")}
