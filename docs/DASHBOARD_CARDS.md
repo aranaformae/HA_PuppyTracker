@@ -70,7 +70,7 @@ Assistant cards, is available in
 Its non-Puppy Tracker entities are installation-specific and can be replaced or
 removed.
 
-## Unified Dossier (breaking change)
+## Unified Dossier (v0.29.0 breaking change)
 
 The Journal preset now starts with Dossier and has four tabs: Dossier, Quick
 Log, Behavior and Temperature. The former Timeline tab and internal

@@ -81,7 +81,7 @@ These controls are also available in the visual editor. `show_history` and
 `show_details` set initial expansion, not editing permission. `show_weights`
 only changes this history view, not stored measurements or reports.
 
-## Breaking change (unreleased)
+## Breaking change in v0.29.0
 
 The duplicate Timeline tab and `puppy-tracker-timeline-card` element are removed.
 Remove `timeline` from explicit tab lists, select `dossier` as the default tab,
