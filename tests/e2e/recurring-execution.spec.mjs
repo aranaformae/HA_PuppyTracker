@@ -1,9 +1,17 @@
 import { expect, test } from "@playwright/test";
 
 async function mount(page, surface = "attention", scope = "puppy", type = "medication", language = "en") {
-  await page.goto("/tests/e2e/cards.html?production");
+  await page.goto("/tests/e2e/cards.html?production", { waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => window.__puppyTrackerReady);
   await page.evaluate(({ surface, scope, type, language }) => {
+    if (!customElements.get("ha-card")) customElements.define("ha-card", class extends HTMLElement {
+      connectedCallback() { this.style.display = "block"; }
+    });
+    for (const [key, value] of Object.entries({
+      "--primary-color": "#039be5", "--text-primary-color": "#ffffff", "--primary-text-color": "#212121",
+      "--secondary-text-color": "#666666", "--card-background-color": "#ffffff",
+      "--secondary-background-color": "#f4f4f4", "--divider-color": "#dddddd", "--error-color": "#b71c1c",
+    })) document.documentElement.style.setProperty(key, value);
     const copy = (value) => structuredClone(value);
     const original = { id: "old-record", scope, type, litter_id: "l1", puppy_id: scope === "puppy" ? "p2" : null,
       occurred_at: "2026-09-01T12:00:00Z", updated_at: "old-v1", note: "Previous execution must not change", title: "Previous execution", data: { medication: "Old product", dose: "Old dose", recurring_reminder_id: "r1", recurring_due_at: "2026-09-01T11:50:00Z" } };
@@ -29,6 +37,17 @@ async function mount(page, surface = "attention", scope = "puppy", type = "medic
         if (message.type === "puppy_tracker/care_occurrences") return { occurrences: [], skipped: [] };
         if (message.type === "puppy_tracker/attention_acknowledgements") return { acknowledgements: state.ack ? { [`recurring:r1:${due}`]: {} } : {} };
         if (message.type === "puppy_tracker/attention_acknowledgement/set") { state.ack = true; return { ok: true }; }
+        if (message.type === "puppy_tracker/recurring_reminder/postpone") {
+          if (state.pausePostpone) await new Promise((resolve) => { state.resumePostpone = resolve; });
+          if (state.failPostpone) throw new Error("Temporary failure");
+          if (message.expected_updated_at !== reminder.updated_at || message.due_at !== reminder.next_due_at) throw { code: "invalid_postponement", message: "Changed" };
+          reminder.scheduled_due_at ||= reminder.next_due_at;
+          reminder.next_due_at = message.until || reminder.scheduled_due_at;
+          reminder.postponed = Boolean(message.until);
+          reminder.status = message.until ? "postponed" : "overdue";
+          reminder.updated_at += "-changed";
+          return { ok: true };
+        }
         if (message.type === "puppy_tracker/recurring_reminder/record") {
           if (state.pause) await new Promise((resolve) => { state.resume = resolve; });
           if (state.fail) throw new Error("Temporary failure");
@@ -269,6 +288,7 @@ test("Today reminder categories, today-only filtering and write permissions are 
   await card.evaluate((element) => { element._config.show_today_only = false; element._hass.user.is_admin = false; element._render(); });
   await expect(card.locator(".today-reminder-row")).toBeVisible();
   await expect(card.locator("[data-complete-reminder]")).toHaveCount(0);
+  await expect(card.locator("[data-postpone-reminder]")).toHaveCount(0);
 });
 
 test("Dutch reminder execution uses translated actions and retains a stale-definition draft @cross-browser @tablet", async ({ page }) => {
@@ -281,5 +301,73 @@ test("Dutch reminder execution uses translated actions and retains a stale-defin
   await editor.getByRole("button", { name: "Uitvoering opslaan", exact: true }).click();
   await expect(editor.locator(".error")).toContainText("This reminder has changed");
   await expect(editor.locator("#record-note")).toHaveValue("Bewaren bij een fout");
+  expect(await page.evaluate(() => window.recurringFixture.records)).toHaveLength(1);
+});
+
+for (const surface of ["attention", "today", "reminders", "mobile"]) {
+  test(`${surface} postpones one moment without logging or changing recurrence @cross-browser @tablet`, async ({ page }, testInfo) => {
+    const card = await mount(page, surface);
+    const before = await page.evaluate(() => structuredClone(window.recurringFixture.reminder));
+    await card.getByRole("button", { name: "Postpone once", exact: true }).click();
+    const editor = page.locator("puppy-tracker-record-editor");
+    await expect(editor.getByRole("heading")).toHaveText("Postpone once");
+    await expect(editor.locator(".owner")).toHaveText("Bob (Blue)");
+    await editor.getByRole("button", { name: "+30 min", exact: true }).click();
+    const value = await editor.locator("#reminder-until").inputValue();
+    await card.evaluate((element) => element._render());
+    await expect(editor.locator("#reminder-until")).toHaveValue(value);
+    expect(await editor.locator("dialog").evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+    if (surface === "mobile") await editor.locator("dialog").screenshot({ path: testInfo.outputPath("postponement-dialog.png") });
+    await editor.getByRole("button", { name: "Postpone once", exact: true }).click();
+    await expect(editor).toHaveCount(0);
+    await expect(card.locator(".recurring-postpone-feedback")).toContainText("postponed until");
+    const after = await page.evaluate(() => ({ reminder: window.recurringFixture.reminder, records: window.recurringFixture.records, calls: window.recurringFixture.calls }));
+    expect(after.records).toHaveLength(1);
+    expect(after.reminder).toMatchObject({ interval_minutes: before.interval_minutes, owner_id: before.owner_id, schedule_mode: before.schedule_mode, postponed: true });
+    expect(after.calls.filter((call) => call.type.endsWith("/postpone"))).toHaveLength(1);
+    expect(after.calls.filter((call) => call.type.endsWith("/record"))).toHaveLength(0);
+    if (surface === "attention") {
+      await expect(card.locator("[data-recurring-reminder]")).toHaveCount(0);
+    } else {
+      await expect(card.locator(surface === "reminders" ? ".item" : ".today-reminder-row")).toContainText("Postponed");
+      await card.getByRole("button", { name: "Postpone once", exact: true }).click();
+      await expect(editor.locator(".context")).toContainText("Originally");
+      await editor.getByRole("button", { name: "Cancel postponement", exact: true }).click();
+      await expect(editor).toHaveCount(0);
+      await expect(card.locator(".recurring-postpone-feedback")).toContainText("cancelled");
+      expect(await page.evaluate(() => window.recurringFixture.reminder.next_due_at)).toBe(before.next_due_at);
+    }
+  });
+}
+
+test("postpone validation, busy saves, cancellation and stale errors keep the chosen time @cross-browser @tablet", async ({ page }) => {
+  const card = await mount(page, "reminders", "mother", "temperature", "nl");
+  await card.evaluate((element) => {
+    element._items[0].postpone_before = new Date(Date.now() + 45 * 60000).toISOString();
+    element._render();
+  });
+  await card.getByRole("button", { name: "Eenmalig uitstellen", exact: true }).click();
+  const editor = page.locator("puppy-tracker-record-editor");
+  await expect(editor.getByRole("button", { name: "+60 min", exact: true })).toBeDisabled();
+  await editor.locator("#reminder-until").fill("2026-01-01T00:00");
+  await editor.getByRole("button", { name: "Eenmalig uitstellen", exact: true }).click();
+  await expect(editor.locator(".error")).toContainText("na nu");
+  await editor.getByRole("button", { name: "+15 min", exact: true }).click();
+  const value = await editor.locator("#reminder-until").inputValue();
+  page.once("dialog", (dialog) => dialog.dismiss());
+  await editor.locator("#record-cancel").click();
+  await expect(editor.locator("dialog")).toBeVisible();
+  await page.evaluate(() => { window.recurringFixture.failPostpone = true; });
+  await editor.getByRole("button", { name: "Eenmalig uitstellen", exact: true }).click();
+  await expect(editor.locator(".error")).toHaveText("Temporary failure");
+  await expect(editor.locator("#reminder-until")).toHaveValue(value);
+  await expect(editor.getByRole("button", { name: "+60 min", exact: true })).toBeDisabled();
+  await page.evaluate(() => { window.recurringFixture.failPostpone = false; window.recurringFixture.pausePostpone = true; });
+  await editor.getByRole("button", { name: "Eenmalig uitstellen", exact: true }).click();
+  await expect(editor.locator("#reminder-until")).toBeDisabled();
+  await expect(editor.locator(".close")).toBeDisabled();
+  await page.evaluate(() => { window.recurringFixture.reminder.updated_at = "stale"; window.recurringFixture.resumePostpone(); });
+  await expect(editor.locator(".error")).toContainText("Dit moment is gewijzigd");
+  await expect(editor.locator("#reminder-until")).toHaveValue(value);
   expect(await page.evaluate(() => window.recurringFixture.records)).toHaveLength(1);
 });

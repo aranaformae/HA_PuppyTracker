@@ -1,6 +1,6 @@
 import { escapeHtml, formatDateTime, languageForHass } from "./puppy-tracker-card-common.js";
 import { appendEditAction } from "./puppy-tracker-form-state.js";
-import { canEditRecords, openRecordEditor, openReminderEditor, recordContext, refreshRecordSource, reminderCompleteButton, RECORD_ACTION_STYLE } from "./puppy-tracker-record-editor.js";
+import { canEditRecords, openRecordEditor, openReminderEditor, recordContext, refreshRecordSource, reminderActionButtons, RECORD_ACTION_STYLE } from "./puppy-tracker-record-editor.js";
 import { TYPE_FIELDS, fieldLabel, recordTypeIcon } from "./puppy-tracker-dossier-schema.js";
 
 const text = (card, nl, en) => languageForHass(card._hass) === "en" ? en : nl;
@@ -24,6 +24,7 @@ export function lastExecutionDetails(card, item) {
   return `<details class="recurring-last-execution" data-last-execution="${escapeHtml(item.id)}" ${card._expandedReminderExecutions?.has(item.id) ? "open" : ""}>
     <summary>${escapeHtml(label)}: ${escapeHtml(executionTime(card, record.occurred_at))}</summary>
     <dl>${record.data?.recurring_due_at ? `<div><dt>${escapeHtml(text(card, "Gepland", "Scheduled"))}</dt><dd>${escapeHtml(executionTime(card, record.data.recurring_due_at))}</dd></div>` : ""}
+    ${record.data?.recurring_scheduled_at ? `<div><dt>${escapeHtml(text(card, "Oorspronkelijk gepland", "Originally scheduled"))}</dt><dd>${escapeHtml(executionTime(card, record.data.recurring_scheduled_at))}</dd></div>` : ""}
     <div><dt>${escapeHtml(text(card, "Uitgevoerd", "Completed"))}</dt><dd>${escapeHtml(executionTime(card, record.occurred_at))}</dd></div>${values}</dl>
     ${record.note ? `<p class="recurring-execution-note">${escapeHtml(record.note)}</p>` : ""}
     ${canEditRecords(card) ? `<button type="button" class="record-edit-button" data-edit-execution="${escapeHtml(item.id)}" title="${escapeHtml(edit)}" aria-label="${escapeHtml(edit)}"><ha-icon icon="mdi:pencil-outline"></ha-icon></button>` : ""}</details>`;
@@ -91,8 +92,8 @@ export function renderTodayReminders(card) {
   if (!items.length) return;
   const section = document.createElement("section");
   section.className = "today-reminder-section";
-  section.innerHTML = `<style>${RECORD_ACTION_STYLE}.today-reminder-section{margin-top:12px}.today-reminder-list{display:grid;gap:7px}.today-reminder-row{display:grid;grid-template-columns:24px minmax(0,1fr) 40px;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--divider-color)}.today-reminder-main{min-width:0;overflow-wrap:anywhere}.today-reminder-main strong,.today-reminder-main span{display:block}.today-reminder-main span{font-size:12px;color:var(--secondary-text-color)}.today-reminder-row.overdue strong{color:var(--error-color)}</style>
-    <div class="today-group-title">${escapeHtml(text(card, "Herinneringen", "Reminders"))}</div><div class="today-reminder-list">${items.map((item) => `<div class="today-reminder-row ${item.status === "overdue" ? "overdue" : ""}" data-today-type="${escapeHtml(item.record_type)}" data-recurring-reminder="${escapeHtml(item.id)}"><ha-icon icon="${escapeHtml(recordTypeIcon(item.record_type))}"></ha-icon><div class="today-reminder-main"><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.owner_name || "")} · ${escapeHtml(formatDateTime(item.next_due_at, "", card._hass))}</span></div>${reminderCompleteButton(card, item)}</div>`).join("")}</div>`;
+  section.innerHTML = `<style>${RECORD_ACTION_STYLE}.today-reminder-section{margin-top:12px}.today-reminder-list{display:grid;gap:7px}.today-reminder-row{display:grid;grid-template-columns:24px minmax(0,1fr) auto;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--divider-color)}.today-reminder-main{min-width:0;overflow-wrap:anywhere}.today-reminder-main strong,.today-reminder-main span{display:block}.today-reminder-main span{font-size:12px;color:var(--secondary-text-color)}.today-reminder-row.overdue strong{color:var(--error-color)}</style>
+    <div class="today-group-title">${escapeHtml(text(card, "Herinneringen", "Reminders"))}</div><div class="today-reminder-list">${items.map((item) => `<div class="today-reminder-row ${item.status === "overdue" ? "overdue" : ""}" data-today-type="${escapeHtml(item.record_type)}" data-recurring-reminder="${escapeHtml(item.id)}"><ha-icon icon="${escapeHtml(recordTypeIcon(item.record_type))}"></ha-icon><div class="today-reminder-main"><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.owner_name || "")} · ${item.postponed ? `${escapeHtml(text(card, "Uitgesteld", "Postponed"))} · ` : ""}${escapeHtml(formatDateTime(item.next_due_at, "", card._hass))}</span></div>${reminderActionButtons(card, item)}</div>`).join("")}</div>`;
   bindReminderButtons(card, section, items);
   section.querySelectorAll("[data-recurring-reminder]").forEach((row) => {
     const item = items.find((candidate) => candidate.id === row.dataset.recurringReminder);
@@ -103,6 +104,11 @@ export function renderTodayReminders(card) {
 }
 
 export function bindReminderButtons(card, root, items) {
+  root?.querySelectorAll("[data-postpone-reminder]").forEach((button) => button.addEventListener("click", (event) => {
+    event.preventDefault(); event.stopPropagation();
+    const item = items.find((candidate) => candidate.id === button.dataset.postponeReminder);
+    if (item) openReminderEditor(card, item, { mode: "postpone", trigger: button });
+  }));
   root?.querySelectorAll("[data-complete-reminder]").forEach((button) => button.addEventListener("click", (event) => {
     event.preventDefault(); event.stopPropagation();
     const item = items.find((candidate) => candidate.id === button.dataset.completeReminder);
@@ -114,6 +120,15 @@ export function renderRecurringSaveFeedback(card) {
   const root = card.shadowRoot;
   bindLastExecutions(card, root, []);
   root?.querySelector(".recurring-save-feedback")?.remove();
+  root?.querySelector(".recurring-postpone-feedback")?.remove();
+  if (card._reminderPostponeMessage && card._reminderPostponeLitterId === card._selectedLitterId) {
+    const feedback = document.createElement("div");
+    feedback.className = "recurring-postpone-feedback";
+    feedback.setAttribute("role", "status");
+    feedback.style.cssText = "margin-top:12px;overflow-wrap:anywhere";
+    feedback.textContent = card._reminderPostponeMessage;
+    root?.querySelector("ha-card")?.append(feedback);
+  }
   if (!card._reminderSaveMessage || (card._reminderFeedbackLitterId && card._reminderFeedbackLitterId !== card._selectedLitterId)) return;
   const status = document.createElement("div");
   status.className = "recurring-save-feedback";

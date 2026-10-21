@@ -4,13 +4,14 @@ import {
   escapeHtml,
   fetchLitterData,
   fetchLitters,
+  formatDateTime,
   languageForHass,
   requestLitterChange,
   selectDefaultLitter,
   subscribeUpdates,
 } from "./puppy-tracker-card-common.js";
 import { recordTypeOptions } from "./puppy-tracker-dossier-schema.js";
-import { closeRecordEditor, reminderCompleteButton, RECORD_ACTION_STYLE } from "./puppy-tracker-record-editor.js";
+import { closeRecordEditor, reminderCompleteButton, reminderPostponeButton, RECORD_ACTION_STYLE } from "./puppy-tracker-record-editor.js";
 import { bindReminderButtons, renderRecurringSaveFeedback, lastExecutionDetails, bindLastExecutions, captureLastExecutions } from "./puppy-tracker-recurring-surfaces.js";
 
 const TAG = "puppy-tracker-recurring-reminder-card";
@@ -24,6 +25,7 @@ function dtLocal(value) {
   return local.toISOString().slice(0, 16);
 }
 function statusText(card, item) {
+  if (item?.status === "postponed") return t(card, `Uitgesteld tot ${formatDateTime(item.next_due_at, "", card._hass)}`, `Postponed until ${formatDateTime(item.next_due_at, "", card._hass)}`);
   const minutes = Number(item?.minutes_until_due);
   if (item?.status === "overdue") {
     const amount = Math.abs(minutes);
@@ -318,7 +320,7 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
       <div class="item ${escapeHtml(item.status || "")}">
         <div class="ico"><ha-icon icon="${item.record_type === "temperature" ? "mdi:thermometer" : "mdi:bell-ring-outline"}"></ha-icon></div>
         <div class="main"><strong>${escapeHtml(item.title)}</strong><div>${escapeHtml(item.owner_name || "")} · ${escapeHtml(scheduleText(this, item))}${item.notification_lead_minutes != null ? ` · ${escapeHtml(t(this, `${item.notification_lead_minutes} min vooraf`, `${item.notification_lead_minutes} min before`))}` : ""}</div><div class="due">${escapeHtml(statusText(this, item))}</div>${lastExecutionDetails(this, item)}</div>
-        <div class="item-actions">${reminderCompleteButton(this, item)}<button class="icon-button edit" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t(this, "Herinnering aanpassen", "Edit reminder"))}" aria-label="${escapeHtml(t(this, "Herinnering aanpassen", "Edit reminder"))}"><ha-icon icon="mdi:pencil-outline"></ha-icon></button></div>
+        <div class="item-actions">${reminderCompleteButton(this, item)}${reminderPostponeButton(this, item)}<button class="icon-button edit" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t(this, "Herinnering aanpassen", "Edit reminder"))}" aria-label="${escapeHtml(t(this, "Herinnering aanpassen", "Edit reminder"))}"><ha-icon icon="mdi:pencil-outline"></ha-icon></button></div>
       </div>`).join("")}</div>` : `<div class="empty">${escapeHtml(t(this, "Nog geen terugkerende herinneringen.", "No recurring reminders yet."))}</div>`;
 
     const editor = this._showEditor ? `

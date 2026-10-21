@@ -215,7 +215,7 @@ class RecurringReminderNotificationManager:
             timing = f"{overdue} minuten te laat" if overdue < 60 else f"{overdue // 60} uur te laat"
         else:
             timing = "nu" if minutes <= 0 else f"over {minutes} minuten"
-        return f"**{item.get('title', 'Actie')}** voor **{owner}** is {timing}. Log het bijpassende dossieritem om de herinnering automatisch af te ronden."
+        return f"**{item.get('title', 'Actie')}** voor **{owner}** is {timing}. Kies Uitgevoerd registreren of selecteer deze herinnering bij Snel loggen om haar af te ronden."
 
     @staticmethod
     def _notification_id(reminder_id: str) -> str:

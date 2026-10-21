@@ -43,6 +43,9 @@ preferences; no migration or re-entry is needed.
   metric meanings.
 - A recurring reminder becomes `due_soon` inside its lead-time window and
   `overdue` after the deadline.
+- **Postpone once** withdraws active recurring-reminder messages and suppresses
+  advance notification until the chosen time. It does not log a completion or
+  change the recurrence. At the new time, normal notification checks resume.
 - A clocked care occurrence can become `due_soon`, then `due_today` at its
   scheduled local time, and `overdue` after it passes.
 - An unclocked age-based occurrence is due for its complete local calendar day.

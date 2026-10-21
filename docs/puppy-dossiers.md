@@ -104,6 +104,30 @@ previously saved entries remain accessible through Last execution and
 Dossier. Undo uses recoverable deletion, not permanent removal. An already-saved
 retry does not offer undo for an older execution.
 
+## Postpone one reminder moment
+
+The clock action **Postpone once** is available in Attention, Today (including
+Mobile), and Care's Reminders tab. Choose a new date/time or use a 15-, 30- or
+60-minute shortcut. Only the pending moment moves: no execution is logged and
+the recurrence definition stays unchanged. For fixed daily times, choose a time
+before the next fixed moment; postponement cannot swallow the following turn.
+If that next moment has already passed, resolve the overdue moment rather than
+postponing it across later turns.
+
+Active persistent and tagged mobile notifications are withdrawn. The reminder
+stays out of Attention until the postponed time, even within the normal advance
+notification window. Today and Reminders show **Postponed** with the new time;
+Today's date/category filters still apply. Use **Cancel postponement** in the
+same dialog to restore the original moment. The Reminders tab remains available
+when Today filters hide an item.
+
+Postponement survives restart and backup/restore. A later execution consumes the
+original moment; interval reminders still follow the actual execution time.
+Last execution shows both planned times when applicable. Undoing or deleting
+that execution reopens its postponed moment; changing the recurrence, owner or
+matching definition cancels old postponement. You can still deliberately record
+an execution early, including through Quick Log's explicit reminder choice.
+
 ## Quick Log and owner selection
 
 1. Select the intended litter and owner: the whole litter, mother or one puppy.

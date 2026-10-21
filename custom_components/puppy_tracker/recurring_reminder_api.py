@@ -259,6 +259,31 @@ async def websocket_undo_reminder(hass, connection, msg) -> None:
     connection.send_result(msg["id"], {"ok": True})
 
 
+@websocket_api.require_admin
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/recurring_reminder/postpone",
+    vol.Required("reminder_id"): str,
+    vol.Required("due_at"): str,
+    vol.Required("expected_updated_at"): str,
+    vol.Required("until"): vol.Any(str, None),
+})
+@websocket_api.async_response
+async def websocket_postpone_reminder(hass, connection, msg) -> None:
+    """Postpone only the pending moment, or cancel its postponement with null."""
+    store = _store_or_error(hass, connection, msg)
+    storage = get_runtime_storage(hass)
+    if store is None or storage is None:
+        return
+    try:
+        await store.async_postpone(storage, msg["reminder_id"], due_at=msg["due_at"],
+                                  expected_updated_at=msg["expected_updated_at"], until=msg["until"])
+    except ValueError as err:
+        connection.send_error(msg["id"], "invalid_postponement", str(err))
+        return
+    async_dispatcher_send(hass, SIGNAL_DASHBOARD_UPDATE)
+    connection.send_result(msg["id"], {"ok": True})
+
+
 @callback
 def async_setup_recurring_reminder_api(hass: HomeAssistant) -> None:
     if hass.data.get(DATA_API_REGISTERED):
@@ -270,6 +295,7 @@ def async_setup_recurring_reminder_api(hass: HomeAssistant) -> None:
         websocket_delete_reminder,
         websocket_record_reminder,
         websocket_undo_reminder,
+        websocket_postpone_reminder,
     ):
         websocket_api.async_register_command(hass, command)
     hass.data[DATA_API_REGISTERED] = True

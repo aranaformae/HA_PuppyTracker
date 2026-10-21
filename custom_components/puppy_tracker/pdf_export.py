@@ -239,7 +239,7 @@ _INTERNAL_RECORD_KEYS = frozenset({
     "care_program_id", "care_program_revision", "care_occurrence_id",
     "reference_id", "reference_type", "source_id", "source_type",
     "followup_record_id", "followup_due_date",
-    "recurring_reminder_id", "recurring_due_at", "recurring_completion",
+    "recurring_reminder_id", "recurring_due_at", "recurring_scheduled_at", "recurring_completion",
 })
 
 

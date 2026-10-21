@@ -48,6 +48,20 @@ def _iso(value: datetime | None) -> str | None:
     return value.isoformat() if value else None
 
 
+def _normalize_postponement(value: Any) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise ValueError("postponement must be an object")
+    scheduled = _validated_datetime(value.get("scheduled_at"), field="scheduled_at")
+    until = _validated_datetime(value.get("until"), field="until")
+    if scheduled is None or until is None or until <= scheduled:
+        raise ValueError("Postponement must be after the scheduled moment")
+    return {"scheduled_at": _iso(scheduled), "until": _iso(until),
+            "completed_at": _iso(_validated_datetime(value.get("completed_at"), field="completed_at")),
+            "completed_record_id": str(value.get("completed_record_id") or "") or None}
+
+
 def _normalize_times(values: Any) -> list[str]:
     if not isinstance(values, list):
         return []
@@ -148,6 +162,7 @@ def normalize_reminder(
             field="manual_completed_at")),
         "last_completed_record_id": str(data.get("last_completed_record_id") or "") or None,
         "last_completed_due_at": _iso(_validated_datetime(data.get("last_completed_due_at"), field="last_completed_due_at")),
+        "postponement": _normalize_postponement(data.get("postponement")),
         "created_at": str(data.get("created_at") or now),
         "updated_at": str(updated_at or data.get("updated_at") or now),
     }
@@ -204,8 +219,8 @@ def reminder_matches_record(reminder: dict[str, Any], record: dict[str, Any]) ->
     return True
 
 
-def next_due_at(reminder: dict[str, Any], *, now: datetime | None = None) -> datetime | None:
-    """Calculate the next due instant for one reminder."""
+def scheduled_due_at(reminder: dict[str, Any], *, now: datetime | None = None) -> datetime | None:
+    """Calculate the original schedule, independently of one-time postponement."""
     if not reminder.get("enabled", True):
         return None
     now = now or dt_util.now()
@@ -250,6 +265,31 @@ def next_due_at(reminder: dict[str, Any], *, now: datetime | None = None) -> dat
     return None
 
 
+def active_postponement(reminder: dict[str, Any], *, now: datetime | None = None) -> dict[str, Any] | None:
+    """Bind an override to its original slot and completion baseline, including undo."""
+    value = reminder.get("postponement")
+    if (isinstance(value, dict)
+        and _parse_datetime(value.get("scheduled_at")) == scheduled_due_at(reminder, now=now)
+        and value.get("completed_record_id") == reminder.get("last_completed_record_id")
+        and _parse_datetime(value.get("completed_at")) == _parse_datetime(reminder.get("last_completed_at"))):
+        return value
+    return None
+
+
+def next_due_at(reminder: dict[str, Any], *, now: datetime | None = None) -> datetime | None:
+    """Return the effective due instant without modifying the recurrence definition."""
+    postponed = active_postponement(reminder, now=now)
+    return _parse_datetime(postponed["until"]) if postponed else scheduled_due_at(reminder, now=now)
+
+
+def postpone_before(reminder: dict[str, Any], *, now: datetime | None = None) -> datetime | None:
+    """A fixed-time override must not consume or conceal the following clock slot."""
+    scheduled = scheduled_due_at(reminder, now=now)
+    if scheduled is None or reminder.get("schedule_mode") != "fixed_times":
+        return None
+    return scheduled_due_at({**reminder, "last_completed_due_at": scheduled.isoformat()}, now=now)
+
+
 def reminder_status(
     reminder: dict[str, Any],
     *,
@@ -259,10 +299,14 @@ def reminder_status(
     """Return derived due status for dashboard/API consumers."""
     now = now or dt_util.now()
     due = next_due_at(reminder, now=now)
+    postponed = active_postponement(reminder, now=now)
+    planning = {"scheduled_due_at": _iso(scheduled_due_at(reminder, now=now)),
+                "postponed": bool(postponed), "postpone_before": _iso(postpone_before(reminder, now=now))}
     if due is None:
         status = "completed" if reminder.get("schedule_mode") == "once" else "disabled"
         return {
             **deepcopy(reminder),
+            **planning,
             "next_due_at": None,
             "status": status,
             "minutes_until_due": None,
@@ -275,7 +319,9 @@ def reminder_status(
     )
     if not 0 <= lead_minutes <= 10080:
         lead_minutes = DEFAULT_NOTIFICATION_LEAD_MINUTES
-    if minutes < 0:
+    if postponed and due > now:
+        status = "postponed"
+    elif minutes < 0:
         status = "overdue"
     elif minutes <= lead_minutes:
         status = "due_soon"
@@ -283,6 +329,7 @@ def reminder_status(
         status = "upcoming"
     return {
         **deepcopy(reminder),
+        **planning,
         "next_due_at": due.isoformat(),
         "status": status,
         "minutes_until_due": minutes,
@@ -327,7 +374,7 @@ def _completion_state(reminder: dict[str, Any], records: list[dict[str, Any]], n
     data = (newest.get("data") or {}) if newest else {}
     return {**reminder, "last_completed_at": newest.get("occurred_at") if newest else _iso(manual),
             "last_completed_record_id": newest.get("id") if newest else None,
-            "last_completed_due_at": _iso(_parse_datetime(data.get("recurring_due_at"))) if isinstance(data, dict) else None}
+            "last_completed_due_at": _iso(_parse_datetime(data.get("recurring_scheduled_at") or data.get("recurring_due_at"))) if isinstance(data, dict) else None}
 
 
 class RecurringReminderStore:
@@ -423,8 +470,48 @@ class RecurringReminderStore:
                 raise ValueError("Unknown reminder")
             item = normalize_reminder({**current, **deepcopy(data)}, reminder_id=reminder_id,
                                       updated_at=dt_util.now().isoformat())
+            definition = ("enabled", "owner_scope", "owner_id", "litter_id", "record_type", "match_title",
+                          "schedule_mode", "interval_minutes", "fixed_times", "start_at", "due_at")
+            if any(item[key] != current[key] for key in definition):
+                item["postponement"] = None
             previous = deepcopy(self._data)
             self._data["reminders"][reminder_id] = item
+            try:
+                await self._store.async_save(self._data)
+            except Exception:
+                self._data = previous
+                raise
+
+    async def async_postpone(self, storage, reminder_id: str, *, due_at: str,
+                             expected_updated_at: str, until: str | None) -> None:
+        """Persist or cancel one override, serialized with execution and definition edits."""
+        async with self._lock:
+            reminder = self.get_reminder(reminder_id)
+            if reminder is None or not reminder.get("enabled", True):
+                raise ValueError("This reminder no longer exists or is disabled. Refresh the card")
+            now = dt_util.now()
+            effective = _completion_state(reminder, reminder_owner_records(storage, reminder), now)
+            due = _validated_datetime(due_at, field="due_at")
+            if (reminder.get("updated_at") != expected_updated_at or effective != reminder
+                or due is None or next_due_at(effective, now=now) != due):
+                raise ValueError("This scheduled moment has changed. Refresh the card")
+            target = _validated_datetime(until, field="until")
+            if until is not None and target is None:
+                raise ValueError("Choose a postponement time")
+            if target is not None:
+                if target <= max(now, due):
+                    raise ValueError("Choose a time after now and the current scheduled moment")
+                boundary = postpone_before(effective, now=now)
+                if boundary and target >= boundary:
+                    raise ValueError("Choose a time before the next fixed scheduled moment")
+                postponement = {"scheduled_at": _iso(scheduled_due_at(effective, now=now)),
+                                "until": _iso(target), "completed_at": effective.get("last_completed_at"),
+                                "completed_record_id": effective.get("last_completed_record_id")}
+            else:
+                postponement = None
+            previous = deepcopy(self._data)
+            self._data["reminders"][reminder_id] = {**effective, "postponement": postponement,
+                                                    "updated_at": now.isoformat()}
             try:
                 await self._store.async_save(self._data)
             except Exception:
@@ -517,6 +604,10 @@ class RecurringReminderStore:
             if required and not str(payload.get(required) or "").strip():
                 raise ValueError(f"Enter the {required} used for this execution")
             payload.update(recurring_reminder_id=reminder_id, recurring_due_at=due.isoformat())
+            if active_postponement(effective, now=now):
+                payload["recurring_scheduled_at"] = _iso(scheduled_due_at(effective, now=now))
+            else:
+                payload.pop("recurring_scheduled_at", None)
             scope, litter_id = reminder["owner_scope"], reminder["litter_id"]
             owner = {"mother_id": reminder["owner_id"]} if scope == "mother" else {"puppy_id": reminder["owner_id"]} if scope == "puppy" else {}
             record_id = await storage.async_add_record(litter_id, **owner, record_type=record_type,

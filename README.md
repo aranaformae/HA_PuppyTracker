@@ -130,6 +130,8 @@ Use a recurring reminder when the next action follows the last completion, a
 fixed daily time or one date. Use a care program when actions are tied to each
 puppy's age. Care results are saved in the puppy dossier, including configured
 result, score, note and day-specific instructions.
+Use **Postpone once** to move only the pending reminder moment, without changing
+its recurrence. You can cancel postponement from Today/Mobile or Reminders.
 
 The Care workspace is the complete checklist even when a program is not
 configured to appear in Attention. See

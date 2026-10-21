@@ -1,7 +1,7 @@
 import { escapeHtml, languageForHass } from "./puppy-tracker-card-common.js";
 import { recordTypeLabel } from "./puppy-tracker-dossier-schema.js";
-import { lastExecutionDetails, bindLastExecutions } from "./puppy-tracker-recurring-surfaces.js";
-import { openRecordEditor, openFollowupEditor, openReminderEditor, reminderCompleteButton, recordContext, recordEditButton, recordFollowupButton, RECORD_ACTION_STYLE } from "./puppy-tracker-record-editor.js";
+import { lastExecutionDetails, bindLastExecutions, bindReminderButtons } from "./puppy-tracker-recurring-surfaces.js";
+import { openRecordEditor, openFollowupEditor, reminderActionButtons, recordContext, recordEditButton, recordFollowupButton, RECORD_ACTION_STYLE } from "./puppy-tracker-record-editor.js";
 
 function t(card, nl, en) {
   return languageForHass(card?._hass) === "en" ? en : nl;
@@ -160,7 +160,7 @@ export function renderAttentionQol(card) {
   if (!root.getElementById("record-action-style")) {
     const style = document.createElement("style");
     style.id = "record-action-style";
-    style.textContent = `${RECORD_ACTION_STYLE}.list>.row.record-editable,.attention-ack-list>.row.record-editable{grid-template-columns:34px minmax(0,1fr) auto 40px 32px}@container attention-card (max-width:520px){.list>.row.record-editable,.attention-ack-list>.row.record-editable{grid-template-columns:34px minmax(0,1fr) 40px 32px}}`;
+    style.textContent = `${RECORD_ACTION_STYLE}.list>.row.record-editable,.attention-ack-list>.row.record-editable{grid-template-columns:34px minmax(0,1fr) auto auto 32px}@container attention-card (max-width:520px){.list>.row.record-editable,.attention-ack-list>.row.record-editable{grid-template-columns:34px minmax(0,1fr) auto 32px}}`;
     root.append(style);
   }
   root.querySelector(".all-ok")?.remove();
@@ -199,17 +199,18 @@ export function renderAttentionQol(card) {
     if (!matches) continue;
     if (row.__recordContext || row.__recurringReminder) {
       row.querySelector(":scope > .record-edit-button")?.remove();
+      row.querySelector(":scope > .recurring-actions")?.remove();
       const wrapper = document.createElement("span");
-      wrapper.innerHTML = row.__recurringReminder ? reminderCompleteButton(card, row.__recurringReminder)
+      wrapper.innerHTML = row.__recurringReminder ? reminderActionButtons(card, row.__recurringReminder)
         : row.__followupAction ? recordFollowupButton(card, row.dataset.attentionId, row.__followupAction)
         : recordEditButton(card, row.dataset.attentionId, { measurement: Boolean(row.__recordContext.measurementId) });
       const edit = wrapper.firstElementChild;
       if (edit) {
         row.classList.add("record-editable");
-        edit.addEventListener("click", (event) => {
+        if (row.__recurringReminder) bindReminderButtons(card, edit, [row.__recurringReminder]);
+        else edit.addEventListener("click", (event) => {
           event.stopPropagation();
-          if (row.__recurringReminder) openReminderEditor(card, row.__recurringReminder, { trigger: edit });
-          else if (row.__followupAction) openFollowupEditor(card, row.__followupAction, { trigger: edit });
+          if (row.__followupAction) openFollowupEditor(card, row.__followupAction, { trigger: edit });
           else openRecordEditor(card, row.__recordContext, { trigger: edit });
         });
         row.append(edit);

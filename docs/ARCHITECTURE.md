@@ -649,6 +649,46 @@ remains a rebuildable projection, with ordinary update signals recalculating
 planning and notifications. The UI offers undo only for a new successful save,
 not an idempotent retry; its transient confirmation is not backed up or restored.
 
+### One-time postponement
+
+The admin-only `recurring_reminder/postpone` command takes the expected revision
+and effective due instant, plus `until` (a future ISO timestamp, or `null` to
+cancel). Under the same reminder-store lock as execution and definition edits,
+it validates current owner/history and rejects stale projections or moments.
+The save rolls back in-memory state on persistence failure; it creates no dossier
+record and does not change recurrence fields or completion time.
+
+An additive, normalized `postponement` object persists the original
+`scheduled_at`, effective `until`, and completion baseline (`completed_at` and
+`completed_record_id`). `scheduled_due_at` calculates the unchanged schedule;
+`next_due_at` applies the override only when both the original slot and baseline
+still match. The list response exposes `scheduled_due_at`, `postponed` and
+`postpone_before`. Fixed-time postponement must end strictly before the next
+clock slot, including across midnight. If the next slot already passed, the
+overdue moment must be resolved instead of postponed across later turns.
+
+While an active override is in the future, derived status is `postponed`, not
+`due_soon`, regardless of notification lead time. The existing notification
+coordinator therefore withdraws both tracked delivery types and remains quiet
+until the new deadline. At/after that instant normal due/overdue delivery resumes.
+Today/Mobile and management retain the item with postponed labeling; Attention
+only includes eligible due/overdue items.
+
+An explicit execution retains its effective due instant in `recurring_due_at`
+for idempotent retries and records the original slot in `recurring_scheduled_at`.
+Reconciliation uses that original slot for `last_completed_due_at`. All internal
+keys remain hidden in generic dossier/PDF fields; Last execution labels both
+planned times. The dormant override does not affect subsequent occurrences but
+can apply again after execution undo/deletion restores its baseline. Definition
+changes to owner, matching, enabled state or schedule clear it. Title-only edits
+do not. Backup/restore and restart preserve the override without a storage-version
+increase or separate task/timer database.
+
+The shared record editor owns a focused `postpone` mode, outside card rendering,
+with the same singleton, focus, draft, busy and navigation protections as record
+editing. It does not route through dossier save validation. Shared recurring
+action helpers render clock/complete controls across the four surfaces.
+
 ### Interval schedules
 
 For `interval`, the next due time is:
@@ -681,6 +721,7 @@ Reminder status is calculated, not persisted as authoritative state:
 completed
 disabled
 upcoming
+postponed
 due_soon
 overdue
 ```

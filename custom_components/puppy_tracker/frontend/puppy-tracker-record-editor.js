@@ -65,6 +65,17 @@ export function reminderCompleteButton(card, reminder) {
   return `<button type="button" class="record-edit-button" data-complete-reminder="${escape(reminder.id)}" title="${escape(label)}" aria-label="${escape(label)}"><ha-icon icon="mdi:clipboard-check-outline"></ha-icon></button>`;
 }
 
+export function reminderPostponeButton(card, reminder) {
+  if (!reminderCompleteButton(card, reminder) || reminder.owner_available === false) return "";
+  const label = copy(card._hass, "Eenmalig uitstellen", "Postpone once");
+  return `<button type="button" class="record-edit-button" data-postpone-reminder="${escape(reminder.id)}" title="${escape(label)}" aria-label="${escape(label)}"><ha-icon icon="mdi:clock-edit-outline"></ha-icon></button>`;
+}
+
+export function reminderActionButtons(card, reminder) {
+  const complete = reminderCompleteButton(card, reminder);
+  return complete ? `<div class="recurring-actions">${complete}${reminderPostponeButton(card, reminder)}</div>` : "";
+}
+
 export function openReminderEditor(card, reminder, options = {}) {
   if (!reminder || !reminderCompleteButton(card, reminder)) return;
   const scope = reminder.owner_scope;
@@ -72,7 +83,7 @@ export function openReminderEditor(card, reminder, options = {}) {
   return openRecordEditor(card, { litterId: reminder.litter_id || card._selectedLitterId, scope,
     puppyId: scope === "puppy" ? reminder.owner_id : null,
     ownerName: puppy ? puppySelectorLabel(puppy) : reminder.owner_name },
-  { ...options, mode: "reminder", reminder: structuredClone(reminder) });
+  { ...options, mode: options.mode || "reminder", reminder: structuredClone(reminder) });
 }
 
 export function recordReminderExecution(hass, reminder, context, payload) {
@@ -97,7 +108,7 @@ export function rememberReminderExecution(card, result, context, category, remin
       litterId: context.litterId, ownerName: owner, occurredAt: result.record.occurred_at } : null;
 }
 
-export const RECORD_ACTION_STYLE = `.record-edit-button{display:inline-grid;place-items:center;flex:0 0 auto;width:40px;height:40px;min-width:40px;padding:0;border:1px solid var(--divider-color);border-radius:8px;background:var(--secondary-background-color);color:var(--primary-text-color);cursor:pointer;vertical-align:middle}.record-edit-button ha-icon{--mdc-icon-size:19px}.record-edit-button:focus-visible{outline:2px solid var(--primary-color);outline-offset:2px}`;
+export const RECORD_ACTION_STYLE = `.recurring-actions{display:flex;gap:6px}.record-edit-button{display:inline-grid;place-items:center;flex:0 0 auto;width:40px;height:40px;min-width:40px;padding:0;border:1px solid var(--divider-color);border-radius:8px;background:var(--secondary-background-color);color:var(--primary-text-color);cursor:pointer;vertical-align:middle}.record-edit-button ha-icon{--mdc-icon-size:19px}.record-edit-button:focus-visible{outline:2px solid var(--primary-color);outline-offset:2px}`;
 
 export function recordRestoreButton(card, key) {
   if (!canEditRecords(card)) return "";
@@ -198,6 +209,10 @@ class PuppyTrackerRecordEditor extends HTMLElement {
     try {
       const { litterId, scope, puppyId, recordId } = this._context;
       if (!litterId || !["litter", "mother", "puppy"].includes(scope) || (scope === "puppy" && !puppyId)) throw new Error(copy(this._hass, "Kies eerst een eigenaar.", "Select an owner first."));
+      if (this._mode === "postpone") {
+        this._renderPostponement();
+        return;
+      }
       if (this._mode === "measurement") {
         const response = await this._hass.callWS({ type: "puppy_tracker/measurements", litter_id: litterId, puppy_id: puppyId });
         if (this._closed) return;
@@ -241,6 +256,66 @@ class PuppyTrackerRecordEditor extends HTMLElement {
       this._renderForm();
     } catch (error) {
       if (!this._closed) this.shadowRoot.querySelector(".body").innerHTML = `<div class="error" role="alert">${escape(error.message)}</div>`;
+    }
+  }
+
+  _renderPostponement() {
+    const reminder = this._options.reminder;
+    const text = (nl, en) => copy(this._hass, nl, en);
+    this.shadowRoot.getElementById("record-dialog-title").textContent = text("Eenmalig uitstellen", "Postpone once");
+    const boundary = reminder.postpone_before ? new Date(reminder.postpone_before) : null;
+    const base = Math.max(Date.now(), new Date(reminder.next_due_at).getTime());
+    const defaultTime = boundary ? Math.min(base + 30 * 60000, boundary.getTime() - 60000) : base + 30 * 60000;
+    const time = (value) => formatDateTime(value, "", this._hass);
+    const body = this.shadowRoot.querySelector(".body");
+    body.innerHTML = `<form novalidate><div class="context"><strong>${escape(reminder.title)}</strong>${escape(text("Gepland", "Scheduled"))}: ${escape(time(reminder.next_due_at))}${reminder.postponed ? `<br>${escape(text("Oorspronkelijk", "Originally"))}: ${escape(time(reminder.scheduled_due_at))}` : ""}${boundary ? `<br>${escape(text("Volgend vast moment", "Next fixed moment"))}: ${escape(time(reminder.postpone_before))}` : ""}</div>
+      <label>${escape(text("Uitstellen tot", "Postpone until"))}<input id="reminder-until" type="datetime-local" step="1" required value="${escape(defaultTime > base ? localDate(defaultTime) : "")}"></label>
+      <div class="actions">${[15, 30, 60].map((minutes) => `<button type="button" data-postpone-minutes="${minutes}" ${boundary && base + minutes * 60000 >= boundary.getTime() ? "disabled" : ""}>+${minutes} min</button>`).join("")}</div>
+      <div class="error" role="alert" hidden></div><div class="actions">${reminder.postponed ? `<button type="button" id="reminder-reset">${escape(text("Uitstel opheffen", "Cancel postponement"))}</button>` : ""}<button type="button" id="record-cancel">${escape(localize(this._hass, "cancel"))}</button><button type="submit" class="primary">${escape(text("Eenmalig uitstellen", "Postpone once"))}</button></div></form>`;
+    body.querySelector("input").addEventListener("input", () => { this._dirty = true; });
+    body.querySelectorAll("[data-postpone-minutes]").forEach((button) => button.addEventListener("click", () => {
+      body.querySelector("input").value = localDate(Math.max(Date.now(), new Date(reminder.next_due_at).getTime()) + Number(button.dataset.postponeMinutes) * 60000);
+      this._dirty = true;
+    }));
+    body.querySelector("#record-cancel").addEventListener("click", () => this.requestClose());
+    body.querySelector("#reminder-reset")?.addEventListener("click", () => this._savePostponement(true));
+    body.querySelector("form").addEventListener("submit", (event) => { event.preventDefault(); this._savePostponement(false); });
+    body.querySelector("input").focus({ preventScroll: true });
+  }
+
+  async _savePostponement(reset) {
+    if (this._busy || this._closed) return;
+    const text = (nl, en) => copy(this._hass, nl, en);
+    const error = this.shadowRoot.querySelector(".error");
+    const controls = Array.from(this.shadowRoot.querySelectorAll("button,input"), (input) => [input, input.disabled]);
+    try {
+      if (!canEditRecords(this._card)) throw new Error(text("Je mag deze herinnering niet aanpassen.", "You cannot change this reminder."));
+      const reminder = this._options.reminder;
+      const until = new Date(this.shadowRoot.getElementById("reminder-until").value);
+      if (!reset) {
+        if (!Number.isFinite(until.getTime()) || until.getTime() <= Math.max(Date.now(), new Date(reminder.next_due_at).getTime())) throw new Error(text("Kies een tijdstip na nu en het huidige geplande moment.", "Choose a time after now and the current scheduled moment."));
+        if (reminder.postpone_before && until >= new Date(reminder.postpone_before)) throw new Error(text("Kies een tijdstip vóór het volgende vaste moment.", "Choose a time before the next fixed moment."));
+      }
+      this._busy = true;
+      controls.forEach(([input]) => { input.disabled = true; });
+      error.hidden = true;
+      await this._hass.callWS({ type: "puppy_tracker/recurring_reminder/postpone", reminder_id: reminder.id,
+        due_at: reminder.next_due_at, expected_updated_at: reminder.updated_at, until: reset ? null : until.toISOString() });
+      this._card._reminderPostponeMessage = reset
+        ? text(`Uitstel voor "${reminder.title}" opgeheven.`, `Postponement for "${reminder.title}" cancelled.`)
+        : text(`"${reminder.title}" uitgesteld tot ${formatDateTime(until.toISOString(), "", this._hass)}.`, `"${reminder.title}" postponed until ${formatDateTime(until.toISOString(), "", this._hass)}.`);
+      this._card._reminderPostponeLitterId = this._context.litterId;
+      this._close(true);
+      try { await refreshRecordSource(this._card); }
+      catch (_error) { this._card._error = text("Opgeslagen, maar vernieuwen mislukt. Herlaad de kaart.", "Saved, but refresh failed. Reload the card."); this._card._render?.(); }
+    } catch (err) {
+      error.textContent = err?.code === "invalid_postponement"
+        ? text("Dit moment is gewijzigd of het gekozen tijdstip past niet meer. Vernieuw de kaart en controleer de planning.", "This moment has changed or the chosen time is no longer valid. Refresh the card and check the schedule.")
+        : err?.message || text("Uitstellen mislukt. Probeer het opnieuw.", "Could not postpone. Try again.");
+      error.hidden = false;
+    } finally {
+      this._busy = false;
+      if (!this._closed) controls.forEach(([input, disabled]) => { input.disabled = disabled; });
     }
   }
 

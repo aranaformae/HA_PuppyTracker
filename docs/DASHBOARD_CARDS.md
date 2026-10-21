@@ -128,6 +128,13 @@ recalculates planning without changing older history. Undo is refused when the
 entry has changed or a newer execution exists. Read-only users can inspect the
 details but cannot edit, execute or undo. Expanded rows stay expanded through
 background refreshes of the same card.
+The clock action **Postpone once** moves only the pending reminder, without
+creating a log entry. It shares one draft-safe dialog across these surfaces,
+offers date/time and short-delay choices, and shows the next fixed-time boundary.
+Postponed reminders leave Attention until their new time but remain visible in
+Today/Mobile and Reminders, subject to date/category filters. **Cancel
+postponement** restores the original moment. See
+[Postpone one reminder moment](puppy-dossiers.md#postpone-one-reminder-moment).
 Clearing the query leaves owner and category filters unchanged. Search terms are
 not persisted or exported. See [Dossier editing](puppy-dossiers.md#one-editing-workflow).
 
