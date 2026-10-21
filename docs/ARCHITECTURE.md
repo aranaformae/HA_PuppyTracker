@@ -505,6 +505,11 @@ upcoming
 ```
 
 Mother records can participate in the same attention surface when their record type contains a supported follow-up field.
+The mother records API derives its action summary from the selected current/all
+litter record collection through `dossier_action_summary`, rather than returning
+an empty placeholder. Deleted sources and active completion records follow the
+same `upcoming.py` rules as puppy and litter dossiers, independently of whether
+deleted records are included for history inspection.
 
 Vaccination/deworming follow-ups use the common editor's `followup` mode, not
 `edit`. It fetches and checks the source, locks the category, initializes a new

@@ -107,17 +107,22 @@ for (const [owner, scope] of [["litter:", "litter"], ["mother:", "mother"], ["pu
     const card = await mount(page);
     await card.locator("#add-record").click();
     const editor = page.locator("puppy-tracker-record-editor");
+    await expect(editor.locator(".head .owner")).toHaveText("Choose an owner");
     await editor.locator("#record-title").fill("New observation");
     await editor.locator("#record-save").click();
     await expect(editor.locator("#record-new-owner")).toHaveAttribute("aria-invalid", "true");
     await editor.locator("#record-new-owner").selectOption(owner);
+    const ownerLabel = scope === "litter" ? "Whole litter" : scope === "mother" ? "Mother · Luna" : "Puppy · Bob (Blue)";
+    await expect(editor.locator(".head .owner")).toHaveText(ownerLabel);
     await editor.locator("#record-type").selectOption("feeding");
     await expect(editor.locator("#record-new-owner")).toHaveValue(owner);
+    await expect(editor.locator(".head .owner")).toHaveText(ownerLabel);
     await editor.locator("#record-note").fill("Keep this note");
     await page.evaluate(() => { window.dossierHistory.fail = true; });
     await editor.locator("#record-save").click();
     await expect(editor.locator(".error")).toHaveText("Save failed");
     await expect(editor.locator("#record-new-owner")).toHaveValue(owner);
+    await expect(editor.locator(".head .owner")).toHaveText(ownerLabel);
     await card.evaluate((node) => node._queueRefresh());
     await expect(editor.locator("#record-note")).toHaveValue("Keep this note");
     await page.evaluate(() => { window.dossierHistory.fail = false; });
@@ -131,9 +136,11 @@ for (const [owner, scope] of [["litter:", "litter"], ["mother:", "mother"], ["pu
 test("weight history retains correction semantics and no owner-change menu @cross-browser @tablet", async ({ page }) => {
   const card = await mount(page, { config: { default_selected: "puppy", puppy_id: "p1" } });
   await expect(card.locator('[data-event-type="weight"]')).toHaveCount(1);
+  await expect(card.locator(".timeline-sub")).toHaveText("Alice · 3 active items");
   await card.locator(".history-filters > summary").click();
   await card.locator("#show-deleted").check();
   await expect(card.locator('[data-event-type="weight"]')).toHaveCount(3);
+  await expect(card.locator(".timeline-sub")).toHaveText("Alice · 3 active items");
   await expect(card.locator('[data-record-key="weight:p1:old"] [data-edit-item]')).toHaveCount(0);
   const weight = card.locator('[data-record-key="weight:p1:weight1"]');
   await expect(weight.locator(".record-menu")).toHaveCount(0);
@@ -231,10 +238,32 @@ test("To do uses exact owners even when the litter API includes puppy follow-ups
   await expect(card.locator(".followup-owner")).toHaveText(["Whole litter", "Mother · Luna", "Puppy · Alice (Red)"]);
   await card.locator("#owner-select").selectOption("__litter__");
   await expect(card.locator(".followup-row")).toHaveCount(1);
+  await card.locator("#owner-select").selectOption("__mother__");
+  await expect(card.locator(".followup-row")).toHaveCount(1);
+  await expect(card.locator(".followup-row")).toContainText("Deworming");
   await card.locator("#owner-select").selectOption("__all__");
-  await card.locator('[data-complete-followup="p1-note:next_due_date"]').click();
-  await page.locator("puppy-tracker-record-editor #record-save").click();
-  await expect(page.locator("puppy-tracker-record-editor")).toHaveCount(0);
-  const entry = await page.evaluate(() => window.dossierHistory.records.at(-1));
-  expect(entry).toMatchObject({ scope: "puppy", puppy_id: "p1", type: "deworming" });
+  for (const [source, scope] of [["mother", "mother"], ["p1-note", "puppy"]]) {
+    await card.locator(`[data-complete-followup="${source}:next_due_date"]`).click();
+    await page.locator("puppy-tracker-record-editor #record-save").click();
+    await expect(page.locator("puppy-tracker-record-editor")).toHaveCount(0);
+    const entry = await page.evaluate(() => window.dossierHistory.records.at(-1));
+    expect(entry).toMatchObject({ scope, puppy_id: scope === "puppy" ? "p1" : null, type: "deworming" });
+  }
 });
+
+for (const language of ["nl", "en"]) {
+  test(`new entry owner heading follows switches and clearing (${language}) @cross-browser @tablet`, async ({ page }) => {
+    const card = await mount(page, { language });
+    await card.locator("#add-record").click();
+    const editor = page.locator("puppy-tracker-record-editor");
+    const placeholder = language === "nl" ? "Kies een eigenaar" : "Choose an owner";
+    for (const owner of ["puppy:p1", "mother:", "litter:", "puppy:p2", ""]) {
+      await editor.locator("#record-new-owner").selectOption(owner);
+      const label = await editor.locator("#record-new-owner option:checked").textContent();
+      await expect(editor.locator(".head .owner")).toHaveText(owner ? label : placeholder);
+    }
+    await editor.locator("#record-save").click();
+    await expect(editor.locator("#record-new-owner")).toHaveAttribute("aria-invalid", "true");
+    await expect(editor.locator(".head .owner")).toHaveText(placeholder);
+  });
+}

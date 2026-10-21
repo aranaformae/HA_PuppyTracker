@@ -11,6 +11,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.util import dt as dt_util
 
 from .const import API_VERSION, DOMAIN
+from .dossier_actions import dossier_action_summary
 from .mother_context import mother_context_payload
 from .mother_storage import MotherScopeStorage
 from .runtime import get_runtime_storage
@@ -86,7 +87,7 @@ def _mother_records_payload(
             "profile_note": mother.get("profile_note"),
         },
         "linked_litters": context["linked_litters"],
-        "actions": {"actions": []},
+        "actions": dossier_action_summary(context["records"]),
         "records": context["records"],
     }
 

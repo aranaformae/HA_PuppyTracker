@@ -888,7 +888,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
     const litter = this._litterData?.litter;
     const puppies = this._litterData?.puppies || [];
     const records = this._historyItems();
-    const activeRecordCount = records.filter((item) => !item.deleted).length;
+    const activeRecordCount = records.filter((item) => !item.deleted && (!item.status || item.status === "active")).length;
     const availableCategoryTypes = [...new Set(records.map((record) => record?.type || "other"))].sort((a, b) =>
       labelForRecordType(this._hass, a).localeCompare(labelForRecordType(this._hass, b))
     );

@@ -17,6 +17,8 @@ Puppy choices show name and collar color. Viewing All never changes an entry's
 stored owner. **New entry** is always available to administrators; from All it
 requires an explicit owner before saving. Changing category preserves that
 choice and the draft. A missing owner never silently becomes the whole litter.
+The owner label at the top of the editor follows the selected owner, including
+the puppy's collar color.
 
 ## Read and find entries
 
@@ -47,9 +49,11 @@ entry to change it, even in All or filtered results. The three-dot menu offers
 A weight's pencil opens **Correct measurement**, preserving the original weight
 version. Weight entries cannot be moved to another owner or edited as ordinary
 care records. Old/deleted weight versions remain read-only.
+Showing these versions does not increase the active-item count.
 
 **To do** contains follow-ups derived from saved care entries, separate from
-the completed history. Its completion action creates a new registration; it
+the completed history. It follows the owner selection, including the mother
+and her selected litter history. Its completion action creates a new registration; it
 does not rewrite the original administration. Full recurring reminders and
 age-based schedules remain in the Care workspace.
 

@@ -26,6 +26,7 @@ The current suite covers the main backend, frontend contract and browser flows.
 | `test_records.py` | Profile-note migration, dossier record CRUD, owner scopes, sorting and integrity checks |
 | `test_upcoming.py` | Derived vaccination/deworming follow-ups, due-state classification, filtering and sorting |
 | `test_followup_completion.py` | New-entry follow-up completion, owner/date validation, concurrent duplicate prevention, failed-write rollback and real WebSocket routes |
+| `test_mother_records_api.py` | Mother follow-ups in current/all-litter history, completion/undo, deleted sources, owner isolation and real WebSocket read permissions |
 | `test_recurring_execution.py` | Recurring execution ownership, schedules, retry idempotency, last-record payload, rebuildable completion, atomic undo guards; one-time postponement, fixed-slot bounds, backup/reload, cancel, notification withdrawal/resumption, rollback and real WebSocket entry points |
 | `test_runtime_selection.py` | Typed runtime selection, explicit defaults and archived-selection fallback behavior |
 | `test_recurring_reminders.py` | Recurring reminder normalization, owner matching, schedule modes, due status and notification lead-time overrides |

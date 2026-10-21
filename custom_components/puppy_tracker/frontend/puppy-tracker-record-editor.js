@@ -202,6 +202,7 @@ class PuppyTrackerRecordEditor extends HTMLElement {
       dialog{box-sizing:border-box;width:min(680px,calc(100% - 24px));max-height:calc(100dvh - 32px);padding:0;border:1px solid var(--divider-color,#ccc);border-radius:8px;background:var(--card-background-color,#fff);color:inherit;overflow:auto;overscroll-behavior:contain}dialog::backdrop{background:rgba(0,0,0,.45)}
       .head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:16px;border-bottom:1px solid var(--divider-color,#ccc)}h2{font-size:18px;margin:0;letter-spacing:0}.owner{margin-top:5px;font-size:13px;color:var(--secondary-text-color,#666);overflow-wrap:anywhere}.body{padding:16px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.wide{grid-column:1/-1}label{display:grid;gap:5px;font-size:13px;min-width:0;margin-bottom:12px}input,select,textarea{box-sizing:border-box;width:100%;min-width:0;min-height:44px;padding:9px;border:1px solid var(--divider-color,#ccc);border-radius:8px;background:var(--card-background-color,#fff);color:inherit;font:inherit;font-size:16px}textarea{resize:vertical;min-height:96px}.actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:16px}button{min-height:44px;padding:8px 14px;border:1px solid var(--divider-color,#ccc);border-radius:8px;background:var(--secondary-background-color,#eee);color:inherit;font:inherit;cursor:pointer}button:disabled{opacity:.5;cursor:default}.primary{background:var(--primary-color,#007fa3);color:var(--text-primary-color,#fff);border-color:transparent}.close{width:40px;min-height:40px;padding:0;display:grid;place-items:center}.error{color:var(--error-color,#b00020);white-space:pre-wrap;overflow-wrap:anywhere}.context{padding:10px;border-left:3px solid var(--primary-color,#007fa3);background:var(--secondary-background-color,#eee);margin-bottom:12px;font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}.context strong{display:block}.scores{border:0;padding:0;margin:12px 0}.scores legend{font-weight:600;margin-bottom:10px}.score-row{display:grid;grid-template-columns:minmax(0,1fr) 110px;gap:10px;align-items:center}.score-row select{font-size:16px}.state{padding:12px 0}.required{color:var(--error-color,#b00020)}@media(max-width:520px){.grid{grid-template-columns:1fr}.wide{grid-column:auto}.body,.head{padding:12px}}
     </style><dialog aria-labelledby="record-dialog-title"><div class="head"><div><h2 id="record-dialog-title">${escape(localize(this._hass, title))}</h2><div class="owner">${escape(this._context.ownerName || "")}</div></div><button class="close" type="button" aria-label="${escape(copy(this._hass, "Sluiten", "Close"))}"><ha-icon icon="mdi:close"></ha-icon></button></div><div class="body"><div class="state" role="status">${escape(localize(this._hass, "loading"))}</div></div></dialog>`;
+    this._updateNewOwnerLabel();
     this._dialog = this.shadowRoot.querySelector("dialog");
     this.shadowRoot.querySelector(".close").addEventListener("click", () => this.requestClose());
     this._dialog.addEventListener("cancel", (event) => { event.preventDefault(); this.requestClose(); });
@@ -407,6 +408,14 @@ class PuppyTrackerRecordEditor extends HTMLElement {
       && (this._options.chooseOwner || owner.scope !== this._context.scope || owner.puppyId !== (this._context.puppyId || null)));
   }
 
+  _updateNewOwnerLabel() {
+    if (this._mode !== "add" || !this._options.chooseOwner) return;
+    const select = this.shadowRoot.getElementById("record-new-owner");
+    this.shadowRoot.querySelector(".head .owner").textContent = select?.value
+      ? select.selectedOptions[0].textContent
+      : copy(this._hass, "Kies een eigenaar", "Choose an owner");
+  }
+
   _renderForm() {
     const body = this.shadowRoot.querySelector(".body");
     const isEdit = ["edit", "add", "followup", "reminder"].includes(this._mode);
@@ -424,6 +433,8 @@ class PuppyTrackerRecordEditor extends HTMLElement {
     body.querySelector("form").addEventListener("input", () => { this._dirty = true; });
     body.querySelector("form").addEventListener("change", () => { this._dirty = true; });
     this._formState.bind(body.querySelector("form"));
+    body.querySelector("#record-new-owner")?.addEventListener("change", () => this._updateNewOwnerLabel());
+    this._updateNewOwnerLabel();
     body.querySelector("#record-type")?.addEventListener("change", (event) => { this._capture(); this._draft.record_type = event.target.value; this._renderForm(); });
     body.querySelector("#record-cancel").addEventListener("click", () => this.requestClose());
     body.querySelector("form").addEventListener("submit", (event) => { event.preventDefault(); this._save(); });
