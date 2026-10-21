@@ -14,11 +14,11 @@ from .const import DEFAULT_NOTIFICATION_LEAD_MINUTES, DOMAIN, SIGNAL_DASHBOARD_U
 from .mother_storage import MotherScopeStorage
 from .recurring_reminders import (
     RecurringReminderStore,
-    reminder_matches_record,
     reminder_status,
+    validate_reminder_owner as _validate_owner,
 )
 from .runtime import get_runtime_data, get_runtime_storage
-from .time_utils import timestamp_sort_key
+from .updates import dispatch_dossier_update
 
 DATA_API_REGISTERED = f"{DOMAIN}_recurring_reminder_api_registered"
 
@@ -32,45 +32,6 @@ def _store_or_error(hass: HomeAssistant, connection, msg) -> RecurringReminderSt
     return store
 
 
-def _validate_owner(storage, data: dict[str, Any]) -> None:
-    litter_id = str(data.get("litter_id") or "")
-    scope = str(data.get("owner_scope") or "")
-    owner_id = str(data.get("owner_id") or "")
-    litter = storage.get_litter(litter_id)
-    if litter is None:
-        raise ValueError("Unknown litter")
-    if scope == "litter":
-        return
-    if scope == "puppy":
-        if storage.get_puppy(litter_id, owner_id) is None:
-            raise ValueError("Unknown puppy for this litter")
-        return
-    if scope == "mother":
-        if not isinstance(storage, MotherScopeStorage):
-            raise ValueError("Mother scope is not available")
-        mother = storage.get_mother_for_litter(litter_id)
-        if mother is None or str(mother.get("id")) != owner_id:
-            raise ValueError("Unknown mother for this litter")
-        return
-    raise ValueError("Unsupported reminder owner scope")
-
-
-def _owner_records(storage, reminder: dict[str, Any]) -> list[dict[str, Any]]:
-    litter_id = str(reminder.get("litter_id") or "")
-    scope = str(reminder.get("owner_scope") or "")
-    owner_id = str(reminder.get("owner_id") or "")
-    if scope == "litter":
-        return storage.get_records(litter_id, newest_first=False)
-    if scope == "puppy":
-        return storage.get_records(litter_id, owner_id, newest_first=False)
-    if scope == "mother" and isinstance(storage, MotherScopeStorage):
-        return [
-            item for item in storage.get_records(litter_id, mother_id=owner_id, newest_first=False)
-            if str(item.get("litter_id") or "") == litter_id
-        ]
-    return []
-
-
 async def async_reconcile_recurring_reminders(hass: HomeAssistant, *, litter_id: str | None = None) -> None:
     """Advance reminders from matching dossier records without owner cross-talk."""
     runtime = get_runtime_data(hass)
@@ -79,18 +40,7 @@ async def async_reconcile_recurring_reminders(hass: HomeAssistant, *, litter_id:
     if storage is None or not isinstance(store, RecurringReminderStore):
         return
 
-    for reminder in store.get_reminders(litter_id=litter_id):
-        matches = [item for item in _owner_records(storage, reminder) if reminder_matches_record(reminder, item)]
-        if not matches:
-            continue
-        matches.sort(key=lambda item: timestamp_sort_key(item.get("occurred_at") or item.get("created_at")))
-        newest = matches[-1]
-        await store.async_match_record(
-            litter_id=str(reminder["litter_id"]),
-            owner_scope=str(reminder["owner_scope"]),
-            owner_id=str(reminder["owner_id"]),
-            record=newest,
-        )
+    await store.async_reconcile_records(storage, litter_id=litter_id)
 
 
 def _owner_label(storage, reminder: dict[str, Any]) -> str:
@@ -238,6 +188,36 @@ async def websocket_delete_reminder(hass, connection, msg) -> None:
     connection.send_result(msg["id"], {"ok": True})
 
 
+@websocket_api.require_admin
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/recurring_reminder/record",
+    vol.Required("reminder_id"): str,
+    vol.Required("due_at"): str,
+    vol.Required("expected_updated_at"): str,
+    vol.Required("occurred_at"): str,
+    vol.Optional("title"): vol.Any(str, None),
+    vol.Optional("note"): vol.Any(str, None),
+    vol.Optional("data", default={}): dict,
+})
+@websocket_api.async_response
+async def websocket_record_reminder(hass, connection, msg) -> None:
+    """Create a care fact, never edit the reminder definition or an earlier fact."""
+    store = _store_or_error(hass, connection, msg)
+    storage = get_runtime_storage(hass)
+    if store is None or storage is None:
+        return
+    try:
+        result = await store.async_record_completion(storage, msg["reminder_id"],
+            due_at=msg["due_at"], expected_updated_at=msg["expected_updated_at"], occurred_at=msg["occurred_at"],
+            title=msg.get("title"), note=msg.get("note"), data=msg.get("data"))
+    except ValueError as err:
+        connection.send_error(msg["id"], "invalid_reminder", str(err))
+        return
+    record = result["record"]
+    dispatch_dossier_update(hass, record.get("puppy_id"))
+    connection.send_result(msg["id"], {"ok": True, **result})
+
+
 @callback
 def async_setup_recurring_reminder_api(hass: HomeAssistant) -> None:
     if hass.data.get(DATA_API_REGISTERED):
@@ -247,6 +227,7 @@ def async_setup_recurring_reminder_api(hass: HomeAssistant) -> None:
         websocket_create_reminder,
         websocket_update_reminder,
         websocket_delete_reminder,
+        websocket_record_reminder,
     ):
         websocket_api.async_register_command(hass, command)
     hass.data[DATA_API_REGISTERED] = True

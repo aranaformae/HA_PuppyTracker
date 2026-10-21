@@ -10,6 +10,8 @@ import {
   subscribeUpdates,
 } from "./puppy-tracker-card-common.js";
 import { recordTypeOptions } from "./puppy-tracker-dossier-schema.js";
+import { closeRecordEditor, reminderCompleteButton, RECORD_ACTION_STYLE } from "./puppy-tracker-record-editor.js";
+import { bindReminderButtons, renderRecurringSaveFeedback } from "./puppy-tracker-recurring-surfaces.js";
 
 const TAG = "puppy-tracker-recurring-reminder-card";
 
@@ -93,6 +95,7 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
     if (this._hass) this._load();
   }
   disconnectedCallback() {
+    closeRecordEditor(this);
     if (this._unsubscribe) Promise.resolve(this._unsubscribe()).catch(() => undefined);
     this._unsubscribe = null;
   }
@@ -313,9 +316,8 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
     const list = this._items.length ? `<div class="list">${this._items.map((item) => `
       <div class="item ${escapeHtml(item.status || "")}">
         <div class="ico"><ha-icon icon="${item.record_type === "temperature" ? "mdi:thermometer" : "mdi:bell-ring-outline"}"></ha-icon></div>
-        <div class="main"><strong>${escapeHtml(item.title)}</strong><div>${escapeHtml(item.owner_name || "")} · ${escapeHtml(scheduleText(this, item))}${item.notification_lead_minutes != null ? ` · ${escapeHtml(t(this, `${item.notification_lead_minutes} min vooraf`, `${item.notification_lead_minutes} min before`))}` : ""}</div></div>
-        <div class="due">${escapeHtml(statusText(this, item))}</div>
-        <button class="icon-button edit" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t(this, "Aanpassen", "Edit"))}"><ha-icon icon="mdi:pencil-outline"></ha-icon></button>
+        <div class="main"><strong>${escapeHtml(item.title)}</strong><div>${escapeHtml(item.owner_name || "")} · ${escapeHtml(scheduleText(this, item))}${item.notification_lead_minutes != null ? ` · ${escapeHtml(t(this, `${item.notification_lead_minutes} min vooraf`, `${item.notification_lead_minutes} min before`))}` : ""}</div><div class="due">${escapeHtml(statusText(this, item))}</div></div>
+        <div class="item-actions">${reminderCompleteButton(this, item)}<button class="icon-button edit" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t(this, "Herinnering aanpassen", "Edit reminder"))}" aria-label="${escapeHtml(t(this, "Herinnering aanpassen", "Edit reminder"))}"><ha-icon icon="mdi:pencil-outline"></ha-icon></button></div>
       </div>`).join("")}</div>` : `<div class="empty">${escapeHtml(t(this, "Nog geen terugkerende herinneringen.", "No recurring reminders yet."))}</div>`;
 
     const editor = this._showEditor ? `
@@ -345,13 +347,16 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
       </div>` : "";
 
     this.shadowRoot.innerHTML = `
-      <ha-card><style>
+      <ha-card><style>${RECORD_ACTION_STYLE}
         ha-card{padding:16px}.top{display:flex;align-items:center;justify-content:space-between;gap:10px}.title{font-size:18px;font-weight:600}.controls{display:flex;gap:8px;align-items:center}select,input{box-sizing:border-box;min-height:40px;border:1px solid var(--divider-color);border-radius:10px;background:var(--card-background-color);color:var(--primary-text-color);padding:0 10px}button{min-height:38px;border-radius:10px;border:1px solid var(--divider-color);background:var(--secondary-background-color);color:var(--primary-text-color);padding:0 12px;cursor:pointer}.primary{background:var(--primary-color);color:var(--text-primary-color);border-color:var(--primary-color)}.danger{color:var(--error-color)}.list{display:grid;gap:8px;margin-top:12px}.item{display:grid;grid-template-columns:34px minmax(0,1fr) auto 38px;align-items:center;gap:10px;padding:10px;border:1px solid var(--divider-color);border-radius:12px}.ico{display:grid;place-items:center}.main div{font-size:12px;color:var(--secondary-text-color);margin-top:2px}.due{font-size:12px;font-weight:600}.overdue .due{color:var(--error-color)}.due_soon .due{color:var(--warning-color,var(--primary-color))}.icon-button{padding:0;width:38px}.empty{margin-top:12px;padding:14px;border:1px dashed var(--divider-color);border-radius:12px;color:var(--secondary-text-color)}.error{color:var(--error-color);margin-top:10px}.editor{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid var(--divider-color)}.editor-title{grid-column:1/-1;font-weight:600}.editor label{display:grid;gap:5px;font-size:12px;color:var(--secondary-text-color)}.editor label input,.editor label select{width:100%;color:var(--primary-text-color)}.editor .check{display:flex;align-items:center;grid-column:1/-1}.check input{width:auto;min-height:auto}.editor-actions{grid-column:1/-1;display:grid;grid-template-columns:auto 1fr auto auto;gap:8px}.mode{display:none}.editor:has(#rem-mode option[value="interval"]:checked) .mode.interval{display:grid}.editor:has(#rem-mode option[value="fixed_times"]:checked) .mode.fixed_times{display:grid}.editor:has(#rem-mode option[value="once"]:checked) .mode.once{display:grid}@media(max-width:600px){.editor{grid-template-columns:1fr}.editor>*{grid-column:1}.item{grid-template-columns:34px minmax(0,1fr) 38px}.due{grid-column:2}.top{align-items:flex-start}.controls{flex-wrap:wrap;justify-content:flex-end}}
+        .item-actions{display:flex;gap:6px;grid-column:3/-1}.item .due{margin-top:4px}.main{overflow-wrap:anywhere;min-width:0}
+        @media(max-width:600px){.item-actions{grid-column:2/-1;justify-self:end}}
       </style>
       <div class="top"><div class="title">${escapeHtml(this._config.title || t(this,"Herinneringen","Reminders"))}</div><div class="controls">${selector}<button class="primary" id="add-reminder">+ ${escapeHtml(t(this,"Toevoegen","Add"))}</button></div></div>
       ${this._error ? `<div class="error">${escapeHtml(this._error)}</div>` : ""}${list}${editor}</ha-card>`;
 
     this._formState.bind(this.shadowRoot.querySelector(".editor"));
+    bindReminderButtons(this, this.shadowRoot, this._items);
     this.shadowRoot.getElementById("litter-select")?.addEventListener("change", async (event) => {
       if (!requestLitterChange(this, event.target.value)) { event.target.value = this._selectedLitterId; return; }
       this._selectedLitterId = event.target.value; this._editing = null; this._showEditor = false; await this._loadCurrent();
@@ -385,6 +390,7 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
       }
       this.shadowRoot.querySelector("ha-card").append(status);
     }
+    renderRecurringSaveFeedback(this);
   }
 }
 

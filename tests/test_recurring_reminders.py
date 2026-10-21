@@ -91,6 +91,7 @@ def test_fixed_times_and_one_time_schedules() -> None:
         "record_type": "note",
         "schedule_mode": "fixed_times",
         "fixed_times": ["08:00", "14:00", "20:00"],
+        "start_at": "2026-08-31T13:00:00+02:00",
     })
     due = next_due_at(fixed, now=datetime(2026, 8, 31, 13, 0, tzinfo=ZoneInfo("Europe/Amsterdam")))
     assert due is not None

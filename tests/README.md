@@ -26,6 +26,7 @@ The current suite covers the main backend, frontend contract and browser flows.
 | `test_records.py` | Profile-note migration, dossier record CRUD, owner scopes, sorting and integrity checks |
 | `test_upcoming.py` | Derived vaccination/deworming follow-ups, due-state classification, filtering and sorting |
 | `test_followup_completion.py` | New-entry follow-up completion, owner/date validation, concurrent duplicate prevention, failed-write rollback and real WebSocket routes |
+| `test_recurring_execution.py` | Recurring execution ownership, schedules, retry idempotency, rebuildable completion, rollback and real WebSocket entry point |
 | `test_runtime_selection.py` | Typed runtime selection, explicit defaults and archived-selection fallback behavior |
 | `test_recurring_reminders.py` | Recurring reminder normalization, owner matching, schedule modes, due status and notification lead-time overrides |
 | `test_care_programs.py` / `test_care_occurrences.py` / `test_care_results.py` | Age-based care program validation, deterministic occurrences, result recording and protocol locking |
@@ -43,6 +44,7 @@ The current suite covers the main backend, frontend contract and browser flows.
 | Dossier and Timeline Playwright specs | Search across full loaded scope, shared matching rules, focus retention during updates, and owner-safe editing of searched results |
 | `tests/e2e/record-editor.spec.mjs` | Shared saved-item dialogs, exact source-owner routing, aggregate views, care/behavior fields, measurement corrections, delete/move/restore, failed-save drafts and focus/scroll retention |
 | `tests/e2e/followup-completion.spec.mjs` | Deworming/vaccination check-and-complete workflows in Dossier and Attention for puppy, mother and litter, optional next date, failed-save retries and unchanged source history |
+| `tests/e2e/recurring-execution.spec.mjs` | Execute recurring care from Attention, Today, Mobile and Reminders, exact-owner form fields, seen versus performed, validation, failed saves, filters and saved-entry editing |
 | `tests/e2e/quick-log.spec.mjs` | Exact-owner logging, category drafts, manual selection over remembered owners, initial defaults that do not reset on refresh and queued live updates |
 | `tests/e2e/form-workflows.spec.mjs` | Changed versus untouched drafts, cancelled discard, failed-save retention across logging/contact/scheduler/profile forms, exact saved-item edit actions, inline validation, busy navigation and hidden drafts during litter changes |
 

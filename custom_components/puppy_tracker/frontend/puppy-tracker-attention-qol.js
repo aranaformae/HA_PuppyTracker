@@ -1,6 +1,6 @@
 import { escapeHtml, languageForHass } from "./puppy-tracker-card-common.js";
 import { recordTypeLabel } from "./puppy-tracker-dossier-schema.js";
-import { openRecordEditor, openFollowupEditor, recordContext, recordEditButton, recordFollowupButton, RECORD_ACTION_STYLE } from "./puppy-tracker-record-editor.js";
+import { openRecordEditor, openFollowupEditor, openReminderEditor, reminderCompleteButton, recordContext, recordEditButton, recordFollowupButton, RECORD_ACTION_STYLE } from "./puppy-tracker-record-editor.js";
 
 function t(card, nl, en) {
   return languageForHass(card?._hass) === "en" ? en : nl;
@@ -54,9 +54,10 @@ function decorateRows(card) {
     const recurringId = row.dataset.recurringReminder;
     const careId = row.dataset.careOccurrence;
     if (recurringId) {
-      const item = (card.__recurringReminders || []).find((candidate) => String(candidate?.id) === recurringId);
+      const item = (card._recurringReminders || []).find((candidate) => String(candidate?.id) === recurringId);
       id = `recurring:${recurringId}:${item?.next_due_at || item?.due_at || "unknown"}`;
       type = String(item?.record_type || "reminder");
+      row.__recurringReminder = item;
     } else if (careId) {
       const item = (card.__careOccurrences || []).find((candidate) => String(candidate?.id) === careId);
       id = `care:${careId}`;
@@ -192,17 +193,19 @@ export function renderAttentionQol(card) {
     row.classList.toggle("attention-filter-hidden", !matches);
     row.style.display = matches ? "" : "none";
     if (!matches) continue;
-    if (row.__recordContext) {
+    if (row.__recordContext || row.__recurringReminder) {
       row.querySelector(".record-edit-button")?.remove();
       const wrapper = document.createElement("span");
-      wrapper.innerHTML = row.__followupAction ? recordFollowupButton(card, row.dataset.attentionId, row.__followupAction)
+      wrapper.innerHTML = row.__recurringReminder ? reminderCompleteButton(card, row.__recurringReminder)
+        : row.__followupAction ? recordFollowupButton(card, row.dataset.attentionId, row.__followupAction)
         : recordEditButton(card, row.dataset.attentionId, { measurement: Boolean(row.__recordContext.measurementId) });
       const edit = wrapper.firstElementChild;
       if (edit) {
         row.classList.add("record-editable");
         edit.addEventListener("click", (event) => {
           event.stopPropagation();
-          if (row.__followupAction) openFollowupEditor(card, row.__followupAction, { trigger: edit });
+          if (row.__recurringReminder) openReminderEditor(card, row.__recurringReminder, { trigger: edit });
+          else if (row.__followupAction) openFollowupEditor(card, row.__followupAction, { trigger: edit });
           else openRecordEditor(card, row.__recordContext, { trigger: edit });
         });
         row.append(edit);
@@ -215,10 +218,10 @@ export function renderAttentionQol(card) {
     button.className = "attention-ack-button";
     button.disabled = card?._hass?.user?.is_admin === false;
     button.title = acknowledged
-      ? t(card, "Markeer als niet bevestigd", "Unacknowledge")
-      : t(card, "Bevestig melding", "Acknowledge");
+      ? t(card, "Markeer als niet gezien", "Mark as unseen")
+      : t(card, "Melding gezien", "Mark as seen");
     button.setAttribute("aria-label", button.title);
-    button.innerHTML = `<ha-icon icon="${acknowledged ? "mdi:undo-variant" : "mdi:check"}"></ha-icon>`;
+    button.innerHTML = `<ha-icon icon="${acknowledged ? "mdi:undo-variant" : "mdi:eye-check-outline"}"></ha-icon>`;
     button.addEventListener("click", async (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -246,13 +249,13 @@ export function renderAttentionQol(card) {
     const empty = document.createElement("div");
     empty.className = "attention-empty-open";
     empty.textContent = ackCount
-      ? t(card, "Geen onbevestigde meldingen voor de geselecteerde types.", "No unacknowledged alerts for the selected types.")
+      ? t(card, "Alle meldingen voor de geselecteerde types zijn gezien.", "All alerts for the selected types have been seen.")
       : t(card, "Geen meldingen voor de geselecteerde types.", "No alerts for the selected types.");
     list?.insertAdjacentElement("afterend", empty);
   }
   if (ackCount) {
     const summary = document.createElement("summary");
-    summary.textContent = `${t(card, "Bevestigd", "Acknowledged")} (${ackCount})`;
+    summary.textContent = `${t(card, "Gezien", "Seen")} (${ackCount})`;
     ackDetails.prepend(summary);
     (list || controls).insertAdjacentElement("afterend", ackDetails);
   }

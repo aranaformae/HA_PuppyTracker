@@ -191,12 +191,14 @@ export function renderTodayQol(card) {
   root.querySelector(".today-activity")?.remove();
   const careSummary = root.querySelector(".care-summary");
   const careRows = decorateCareRows(card, careSummary);
+  const reminderSection = root.querySelector(".today-reminder-section");
+  const reminderRows = Array.from(reminderSection?.querySelectorAll("[data-today-type]") || []);
   const events = todayTimelineEvents(card);
-  if (!events.length && !careRows.length) return;
+  if (!events.length && !careRows.length && !reminderRows.length) return;
 
   const timelineSection = createTimelineSection(card, events);
   const timelineRows = Array.from(timelineSection?.querySelectorAll(".today-timeline-row") || []);
-  const allRows = [...timelineRows, ...careRows];
+  const allRows = [...timelineRows, ...careRows, ...reminderRows];
   const types = [...new Set(allRows.map((row) => row.dataset.todayType).filter(Boolean))]
     .sort((a, b) => recordTypeLabel(card?._hass, a).localeCompare(recordTypeLabel(card?._hass, b)));
   const selectedTypes = selectedTypesFor(card, types);
@@ -210,6 +212,7 @@ export function renderTodayQol(card) {
 
   const scroll = activity.querySelector(".today-items-scroll");
   if (timelineSection) scroll?.append(timelineSection);
+  if (reminderSection) scroll?.append(reminderSection);
   if (careSummary) {
     scroll?.append(careSummary);
     forceSingleScrollContainer(careSummary);
@@ -232,8 +235,15 @@ export function renderTodayQol(card) {
   }
   timelineSection?.classList.toggle("today-group-hidden", visibleTimeline === 0);
   careSummary?.classList.toggle("today-group-hidden", visibleCare === 0);
+  let visibleReminders = 0;
+  for (const row of reminderRows) {
+    const visible = selectedTypes.has(row.dataset.todayType);
+    row.classList.toggle("today-filter-hidden", !visible);
+    if (visible) visibleReminders += 1;
+  }
+  reminderSection?.classList.toggle("today-group-hidden", visibleReminders === 0);
   const empty = activity.querySelector(".today-empty");
-  if (empty) empty.hidden = (visibleTimeline + visibleCare) > 0;
+  if (empty) empty.hidden = (visibleTimeline + visibleCare + visibleReminders) > 0;
 
   activity.querySelectorAll("[data-today-filter-type]").forEach((button) => {
     button.addEventListener("click", () => toggleType(card, button.dataset.todayFilterType, types));

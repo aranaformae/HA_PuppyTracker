@@ -1,4 +1,4 @@
-import { FormState } from "./puppy-tracker-form-state.js";
+import { FormState, savedOwnerLabel, savedRecordFeedback } from "./puppy-tracker-form-state.js";
 import {
   puppySelectorLabel,
   addDossierRecord, changeDossierRecordOwner, deleteDossierRecord, deleteMotherDossierRecord,
@@ -59,6 +59,22 @@ export function openFollowupEditor(card, action, options = {}) {
     ? { ...options, mode: "followup", dueDate: action.due_date || action.due_at } : options);
 }
 
+export function reminderCompleteButton(card, reminder) {
+  if (!canEditRecords(card) || reminder?.enabled === false || !reminder?.next_due_at || !reminder?.updated_at) return "";
+  const label = copy(card._hass, "Uitgevoerd registreren", "Record completion");
+  return `<button type="button" class="record-edit-button" data-complete-reminder="${escape(reminder.id)}" title="${escape(label)}" aria-label="${escape(label)}"><ha-icon icon="mdi:clipboard-check-outline"></ha-icon></button>`;
+}
+
+export function openReminderEditor(card, reminder, options = {}) {
+  if (!reminder || !reminderCompleteButton(card, reminder)) return;
+  const scope = reminder.owner_scope;
+  const puppy = (card._litterData || card._data)?.puppies?.find((item) => item.id === reminder.owner_id);
+  return openRecordEditor(card, { litterId: reminder.litter_id || card._selectedLitterId, scope,
+    puppyId: scope === "puppy" ? reminder.owner_id : null,
+    ownerName: puppy ? puppySelectorLabel(puppy) : reminder.owner_name },
+  { ...options, mode: "reminder", reminder: structuredClone(reminder) });
+}
+
 export const RECORD_ACTION_STYLE = `.record-edit-button{display:inline-grid;place-items:center;flex:0 0 auto;width:40px;height:40px;min-width:40px;padding:0;border:1px solid var(--divider-color);border-radius:8px;background:var(--secondary-background-color);color:var(--primary-text-color);cursor:pointer;vertical-align:middle}.record-edit-button ha-icon{--mdc-icon-size:19px}.record-edit-button:focus-visible{outline:2px solid var(--primary-color);outline-offset:2px}`;
 
 export function recordRestoreButton(card, key) {
@@ -99,6 +115,7 @@ async function refreshSource(card) {
   if (card._queueRefresh) await card._queueRefresh();
   else if (card._loadLitterAndRecords) { await card._loadLitterAndRecords(false); card._render(); }
   else if (card._loadData) await card._loadData();
+  else if (card._loadCurrent) await card._loadCurrent();
   for (const [selector, offsets] of positions) card.shadowRoot?.querySelectorAll(selector).forEach((node, index) => { node.scrollTop = offsets[index] || 0; });
 }
 
@@ -191,6 +208,12 @@ class PuppyTrackerRecordEditor extends HTMLElement {
           : ["vaccine", "vaccine_type", "veterinarian", "clinic"];
         this._draft = { record_type: this._record.type, occurred_at: localDate(), title: "", note: "",
           data: Object.fromEntries(reusable.filter((key) => this._record.data?.[key] != null).map((key) => [key, this._record.data[key]])) };
+        this.shadowRoot.getElementById("record-dialog-title").textContent = copy(this._hass, "Uitgevoerd registreren", "Record completion");
+      }
+      if (this._mode === "reminder") {
+        const reminder = this._options.reminder;
+        this._draft = { record_type: reminder.record_type, occurred_at: localDate(),
+          title: reminder.match_title || reminder.title || "", note: "", data: {} };
         this.shadowRoot.getElementById("record-dialog-title").textContent = copy(this._hass, "Uitgevoerd registreren", "Record completion");
       }
       this._renderForm();
@@ -287,10 +310,12 @@ class PuppyTrackerRecordEditor extends HTMLElement {
 
   _renderForm() {
     const body = this.shadowRoot.querySelector(".body");
-    const isEdit = ["edit", "add", "followup"].includes(this._mode);
-    const lockedType = this._mode === "followup" || this._draft.record_type === "behavior_observation" || this._draft.data.care_occurrence_id;
-    const label = this._mode === "followup" ? copy(this._hass, "Uitvoering opslaan", "Save completion") : this._mode === "move" ? localize(this._hass, "changeOwner") : this._mode === "restore" ? localize(this._hass, "restore") : this._mode === "delete" ? localize(this._hass, "delete") : this._mode === "add" ? localize(this._hass, "add") : localize(this._hass, "saveChanges");
-    const followupContext = this._mode === "followup" ? `<div class="context">${escape(copy(this._hass, "Geplande datum", "Scheduled date"))}: ${escape(this._options.dueDate)}</div>` : "";
+    const isEdit = ["edit", "add", "followup", "reminder"].includes(this._mode);
+    const execution = ["followup", "reminder"].includes(this._mode);
+    const lockedType = execution || this._draft.record_type === "behavior_observation" || this._draft.data.care_occurrence_id;
+    const label = execution ? copy(this._hass, "Uitvoering opslaan", "Save completion") : this._mode === "move" ? localize(this._hass, "changeOwner") : this._mode === "restore" ? localize(this._hass, "restore") : this._mode === "delete" ? localize(this._hass, "delete") : this._mode === "add" ? localize(this._hass, "add") : localize(this._hass, "saveChanges");
+    const scheduled = this._mode === "reminder" ? formatDateTime(this._options.reminder.next_due_at, "", this._hass) : this._options.dueDate;
+    const followupContext = execution ? `<div class="context">${this._mode === "reminder" ? `<strong>${escape(this._options.reminder.title)}</strong>` : ""}${escape(copy(this._hass, "Geplande datum", "Scheduled date"))}: ${escape(scheduled)}</div>` : "";
     body.innerHTML = `<form novalidate>${followupContext}${isEdit ? `<div class="grid"><label>${escape(localize(this._hass, "type"))}<select id="record-type" ${lockedType ? "disabled" : ""}>${recordTypeOptions(this._hass, this._draft.record_type)}</select></label><label>${escape(localize(this._hass, "dateAndTime"))}<input type="datetime-local" step="1" id="record-occurred" value="${escape(this._draft.occurred_at)}" required></label></div><label>${escape(localize(this._hass, "title"))}<input id="record-title" maxlength="160" value="${escape(this._draft.title)}"></label><label>${escape(localize(this._hass, "note"))}<textarea id="record-note" rows="4">${escape(this._draft.note)}</textarea></label><div class="grid">${this._fields()}</div>${this._careFields()}${this._behaviorFields()}`
       : this._mode === "move" ? `<label>${escape(localize(this._hass, "changeOwner"))}<select id="record-owner">${this._owners().map((owner, index) => `<option value="${index}">${escape(owner.name)}</option>`).join("")}</select></label>`
         : `<div class="context">${escape(this._record.title || recordTypeLabel(this._hass, this._record.type))}</div><p>${escape(this._mode === "restore" ? copy(this._hass, "Dit verwijderde item herstellen?", "Restore this deleted item?") : localize(this._hass, "confirmDeleteRecord", { title: this._record.title || recordTypeLabel(this._hass, this._record.type) }))}</p>`}
@@ -314,7 +339,7 @@ class PuppyTrackerRecordEditor extends HTMLElement {
       const { litterId, scope, puppyId, recordId } = this._context;
       const data = structuredClone(this._draft.data || {});
       const occurred = new Date(this._draft.occurred_at);
-      if (["add", "edit", "followup"].includes(this._mode)) {
+      if (["add", "edit", "followup", "reminder"].includes(this._mode)) {
         if (!Number.isFinite(occurred.getTime())) { this._formState.error("#record-occurred", localize(this._hass, "invalidDateTime")); throw new Error(localize(this._hass, "invalidDateTime")); }
         for (const key of KNOWN_DATA_KEYS) delete data[key];
         for (const field of TYPE_FIELDS[this._draft.record_type] || []) {
@@ -366,7 +391,19 @@ class PuppyTrackerRecordEditor extends HTMLElement {
           payload.followup_record_id = recordId;
           payload.followup_due_date = this._options.dueDate;
         }
-        if (["add", "followup"].includes(this._mode)) {
+        if (this._mode === "reminder") {
+          const reminder = this._options.reminder;
+          const result = await this._hass.callWS({ type: "puppy_tracker/recurring_reminder/record", reminder_id: reminder.id,
+            due_at: reminder.next_due_at, expected_updated_at: reminder.updated_at,
+            occurred_at: payload.occurred_at, title: payload.title, note: payload.note, data: payload.data });
+          this._card._reminderSaveMessage = savedRecordFeedback(this._card, result,
+            { litterId, scope, puppyId, ownerName: this._context.ownerName }, recordTypeLabel(this._hass, this._draft.record_type));
+          this._card._reminderSavedRecord = this._card._savedRecord;
+          if (result.already_completed) {
+            const owner = this._context.ownerName || savedOwnerLabel(this._card, scope, puppyId);
+            this._card._reminderSaveMessage = copy(this._hass, `Deze uitvoering was al opgeslagen voor ${owner}.`, `This execution was already saved for ${owner}.`);
+          }
+        } else if (["add", "followup"].includes(this._mode)) {
           if (scope === "mother") await this._hass.callWS({ type: "puppy_tracker/mother/record/add", litter_id: litterId, ...payload });
           else await addDossierRecord(this._hass, litterId, puppyId || null, payload);
         } else if (scope === "mother") await updateMotherDossierRecord(this._hass, litterId, recordId, payload);
@@ -376,7 +413,7 @@ class PuppyTrackerRecordEditor extends HTMLElement {
         : this._mode === "move" ? localize(this._hass, "recordOwnerChanged")
           : this._mode === "restore" ? localize(this._hass, "dossierItemRestored")
             : this._mode === "measurement" ? copy(this._hass, "Meting gecorrigeerd.", "Measurement corrected.")
-          : this._mode === "followup" ? copy(this._hass, "Uitvoering als nieuw logboekitem opgeslagen.", "Completion saved as a new log entry.")
+          : ["followup", "reminder"].includes(this._mode) ? copy(this._hass, "Uitvoering als nieuw logboekitem opgeslagen.", "Completion saved as a new log entry.")
           : this._mode === "add" ? localize(this._hass, "dossierItemAdded")
             : localize(this._hass, "dossierItemUpdated");
       this._close(true);
@@ -389,7 +426,7 @@ class PuppyTrackerRecordEditor extends HTMLElement {
       this._busy = false;
       if (!this._closed) {
         this.shadowRoot.querySelectorAll("button,input,select,textarea").forEach((input) => { input.disabled = false; });
-        if (this._mode === "followup" || this._draft.record_type === "behavior_observation" || this._draft.data?.care_occurrence_id) this.shadowRoot.getElementById("record-type")?.setAttribute("disabled", "");
+        if (["followup", "reminder"].includes(this._mode) || this._draft.record_type === "behavior_observation" || this._draft.data?.care_occurrence_id) this.shadowRoot.getElementById("record-type")?.setAttribute("disabled", "");
       }
     }
   }

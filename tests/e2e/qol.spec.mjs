@@ -285,7 +285,7 @@ test("Attention keeps unacknowledged alerts visible and acknowledged alerts coll
   expect(result.initial.openRows).toBe(1);
   expect(result.initial.acknowledgedRows).toBe(1);
   expect(result.initial.detailsOpen).toBe(false);
-  expect(result.initial.summary).toContain("Acknowledged (1)");
+  expect(result.initial.summary).toContain("Seen (1)");
   expect(result.initial.filters).toContain("Vaccination");
   expect(result.initial.filters).toContain("Deworming");
   expect(result.filtered.openRows).toBe(0);

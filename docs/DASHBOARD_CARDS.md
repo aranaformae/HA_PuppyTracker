@@ -114,6 +114,13 @@ checkmark for **Record completion**: review the proposed product/vaccine, enter
 the actual execution and optional next due date, then save a new logbook entry.
 The original administration remains unchanged. This is separate from acknowledging
 an Attention alert, which does not create a care record.
+Recurring reminders offer the same check-and-save workflow in Attention, Today
+(including Mobile), and Care's Reminders tab. Category-specific inputs create
+a new entry for the reminder's fixed owner. **Mark as seen** is a separate eye
+action, not completion. Today's reminder list shares the category filters and
+scroll container with the activity list and respects `show_today_only` in the
+Home Assistant timezone. Successful saves identify the owner and offer editing
+of the new logbook item; the reminder's pencil still edits its schedule.
 Clearing the query leaves owner and category filters unchanged. Search terms are
 not persisted or exported. See [Dossier editing](puppy-dossiers.md#one-editing-workflow).
 

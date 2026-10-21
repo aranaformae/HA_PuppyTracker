@@ -66,6 +66,28 @@ that follow-up again. An independently entered care record does not automaticall
 resolve every reminder of the same category. Backups retain the link; PDF reports
 show the actual care entries without internal linking IDs.
 
+## Execute a recurring reminder
+
+Recurring reminders have a separate **Record completion** action in Attention,
+Today's reminder list (also in Mobile), and the Reminders tab under Care. It
+opens a new entry for the reminder's exact litter, mother or puppy and category.
+The reminder's matching title is proposed; enter the actual medication, dose,
+food, temperature or notes before saving. Earlier values are not copied.
+
+Saving adds a new logbook entry and advances the reminder. Its schedule remains
+unchanged: intervals follow the actual execution time, fixed times keep their
+clock schedule, and a one-time reminder finishes. An early execution consumes
+the selected fixed-time slot; merely passing its time does not complete it.
+**Mark as seen** only acknowledges the alert and never records an execution.
+
+Failed saving retains the form. Retrying a saved execution does not duplicate
+it; the confirmation offers its exact log entry for editing. Deleting or moving
+that entry away from its owner recalculates the reminder, while restoring it
+restores completion. Ordinary Quick Log entries can still complete reminders
+by matching their owner, category and optional exact title. A direct execution
+is linked to the selected reminder and does not complete other reminders of the
+same category. Today-only and category filters also apply to the reminder list.
+
 ## Quick Log and owner selection
 
 1. Select the intended litter and owner: the whole litter, mother or one puppy.

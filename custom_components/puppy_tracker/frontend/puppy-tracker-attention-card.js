@@ -1,4 +1,5 @@
 import { closeRecordEditor } from "./puppy-tracker-record-editor.js";
+import { renderRecurringSaveFeedback } from "./puppy-tracker-recurring-surfaces.js";
 import {
   describeStatus,
   escapeHtml,
@@ -337,6 +338,7 @@ class PuppyTrackerAttentionCard extends HTMLElement {
     renderMotherAttention(this);
     renderAttentionQol(this);
     addCareDirectActionButtons(this);
+    renderRecurringSaveFeedback(this);
   }
 }
 

@@ -559,6 +559,7 @@ start_at
 due_at
 last_completed_at
 last_completed_record_id
+last_completed_due_at
 created_at
 updated_at
 ```
@@ -588,13 +589,36 @@ A dossier record completes a reminder only when all required conditions match:
 1. reminder is enabled;
 2. record is active/not deleted;
 3. record type equals `record_type`;
-4. optional `match_title` matches exactly after normalized case handling;
+4. optional `match_title` matches exactly after normalized case handling, or an explicit execution links this reminder ID;
 5. litter context matches;
 6. owner scope matches;
 7. owner ID matches;
-8. the record occurrence is newer than the previously completed occurrence.
+8. the record has a valid, non-future execution timestamp.
 
 This exact-owner rule is a critical invariant. A puppy temperature cannot complete a mother temperature reminder and neither can complete a whole-litter reminder.
+
+Reconciliation derives the latest completion from active owner history instead
+of only moving a stored cursor forward. Editing, deleting, restoring or moving
+an execution therefore recomputes the projection. Older manual completion state
+without a linked record ID is retained. Explicit `recurring_reminder_id` links
+only match that reminder, while ordinary unlinked Quick Log records retain the
+existing category/title matching behavior.
+
+The admin-only `recurring_reminder/record` command uses the shared record editor
+in `reminder` mode. The server resolves owner/category from the definition, checks
+the expected definition timestamp and due instant, validates execution time and
+required category values, and serializes execution against definition changes.
+It writes one authoritative dossier fact with `recurring_reminder_id` and
+`recurring_due_at`. There is no two-store transaction: reminder completion is a
+rebuildable projection, so projection-write failure never requires another care
+fact. Repeated requests for the same active execution return its existing ID and
+an `already_completed` flag. Failed main-store writes roll back runtime state.
+Dashboard signals trigger reconciliation and notification withdrawal as before.
+Backups preserve links and the fixed-slot cursor; PDF/detail views hide internal
+keys. `puppy-tracker-recurring-surfaces.js` shares Today/Mobile rendering, direct
+actions and exact saved-record feedback; Attention and the Reminders management
+surface use the same editor and action helper. Seen acknowledgements remain
+independent of execution.
 
 ### Interval schedules
 
@@ -609,6 +633,12 @@ This deliberately makes the schedule follow the actual completion time. A late a
 ### Fixed-time schedules
 
 `fixed_times` contains normalized `HH:MM` local-clock values. Fixed schedules preserve the timezone represented by the caller/Home Assistant local time. They must not be silently converted through an unrelated process-default timezone before constructing the wall-clock candidate.
+
+The first unconsumed slot after `start_at`, the latest execution and any explicitly
+consumed `last_completed_due_at` remains due, even after its time passes. Early
+execution consumes the selected slot rather than presenting it again. An actual
+late execution advances past missed earlier slots without creating fictitious
+logbook executions for them.
 
 ### One-time schedules
 
