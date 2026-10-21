@@ -16,7 +16,7 @@ import {
   renderCareSkippedWarning,
   renderTodayCare,
 } from "./puppy-tracker-care-surfaces.js";
-import { renderTodayQol } from "./puppy-tracker-today-qol.js";
+import { renderTodayQol, todayWeighingInfo } from "./puppy-tracker-today-qol.js";
 import { loadRecurringReminders, renderTodayReminders, renderRecurringSaveFeedback, captureLastExecutions } from "./puppy-tracker-recurring-surfaces.js";
 
 const TEXT = {
@@ -59,17 +59,6 @@ function text(hass, key, replacements = {}) {
     (value, [name, replacement]) => value.replaceAll(`{${name}}`, String(replacement ?? "")),
     template,
   );
-}
-
-function sessionInfo(data) {
-  const summary = data?.litter?.summary || {};
-  const session = summary.session || null;
-  const puppies = (data?.puppies || []).filter((puppy) => puppy.active !== false);
-  const total = Number(session?.total ?? summary.active_puppies ?? puppies.length) || 0;
-  const active = session?.status === "active";
-  const weighed = active ? Number(session?.weighed || 0) : 0;
-  const remaining = active ? Math.max(0, total - weighed) : total;
-  return { summary, session, puppies, total, active, weighed, remaining };
 }
 
 class PuppyTrackerTodayCard extends HTMLElement {
@@ -174,9 +163,9 @@ class PuppyTrackerTodayCard extends HTMLElement {
     captureLastExecutions(this);
     if (!this.shadowRoot) return;
     const litter = this._data?.litter;
-    const info = sessionInfo(this._data);
+    const info = todayWeighingInfo(this._data, this._hass);
     const attention = Number(info.summary.attention_count || 0);
-    const complete = info.active && info.total > 0 && info.remaining === 0;
+    const complete = info.total > 0 && info.remaining === 0;
     const selector = this._config.show_litter_selector !== false && this._litters.length > 1
       ? `<select id="litter-select" aria-label="${escapeHtml(text(this._hass, "litter"))}">${this._litters.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === this._selectedLitterId ? "selected" : ""}>${escapeHtml(item.name || text(this._hass, "litter"))}</option>`).join("")}</select>`
       : "";

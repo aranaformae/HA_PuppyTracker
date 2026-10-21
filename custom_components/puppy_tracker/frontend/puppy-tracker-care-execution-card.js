@@ -1,6 +1,6 @@
 import { escapeHtml, fetchLitters, languageForHass, puppyDisplayLabel, requestLitterChange, selectDefaultLitter, subscribeUpdates } from "./puppy-tracker-card-common.js";
 import { openCareResultEditor, renderCareSaveFeedback } from "./puppy-tracker-care-result-editor.js";
-import { renderCareExecutionRows } from "./puppy-tracker-care-surfaces.js";
+import { renderCareSkippedWarning } from "./puppy-tracker-care-surfaces.js";
 
 const TAG = "puppy-tracker-care-execution-card";
 function t(card, nl, en) { return languageForHass(card?._hass) === "en" ? en : nl; }
@@ -14,15 +14,16 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
     this._litters = [];
     this._selectedLitterId = null;
     this._occurrences = [];
+    this.__careSkipped = [];
     this._loading = false;
     this._error = "";
-    this._status = "";
     this._selectedDate = null;
     this._unsubscribe = null;
     this._subscriptionPending = false;
     this._refreshing = false;
     this._refreshAgain = false;
     this._refreshDeferred = false;
+    this._occurrenceRequest = 0;
   }
 
   static getStubConfig() { return { title: "", show_litter_selector: true, show_day_selector: true, max_items: 50, days_ahead: 14 }; }
@@ -35,8 +36,15 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
   ] }; }
 
   setConfig(config) {
-    this._config = { title: "", show_litter_selector: true, show_day_selector: true, max_items: 50, days_ahead: 14, ...config };
-    this._selectedLitterId = config.litter_id || this._selectedLitterId;
+    const previousDays = this._config.days_ahead;
+    const litterId = config.litter_id || this._selectedLitterId;
+    this._config = { ...PuppyTrackerCareExecutionCard.getStubConfig(), ...config };
+    if (this._hass && litterId !== this._selectedLitterId) {
+      this._selectLitter(litterId);
+      return;
+    }
+    this._selectedLitterId = litterId;
+    if (this._hass && Number(previousDays) !== Number(this._config.days_ahead)) this._queueRefresh();
     this._render();
   }
 
@@ -45,9 +53,10 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
     if (!this._litters.length) this._load();
     else {
       this._ensureSubscription();
-      this._queueRefresh();
+      if (this._renderLanguage !== languageForHass(hass) || this._renderAdmin !== (hass?.user?.is_admin !== false)) this._render();
     }
   }
+
   connectedCallback() {
     if (!this._hass) return;
     if (!this._litters.length) this._load();
@@ -56,11 +65,13 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
       this._queueRefresh();
     }
   }
+
   disconnectedCallback() {
     const unsubscribe = this._unsubscribe;
     this._unsubscribe = null;
     if (unsubscribe) Promise.resolve(unsubscribe()).catch(() => undefined);
   }
+
   getCardSize() { return 6; }
   getGridOptions() { return { columns: 12, min_columns: 6 }; }
 
@@ -73,24 +84,36 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
       this._selectedLitterId = selectDefaultLitter(this._litters, this._selectedLitterId || this._config.litter_id);
       await this._loadOccurrences();
       await this._ensureSubscription();
+      this._error = "";
     } catch (error) { this._error = error?.message || t(this, "Zorgacties konden niet worden geladen.", "Care actions could not be loaded."); }
     this._loading = false;
     this._render();
   }
 
   async _loadOccurrences() {
-    if (!this._selectedLitterId) return;
-    const response = await this._hass.callWS({ type: "puppy_tracker/care_occurrences", litter_id: this._selectedLitterId });
+    const request = ++this._occurrenceRequest;
+    const litterId = this._selectedLitterId;
+    if (!litterId) { this._occurrences = []; this.__careSkipped = []; return; }
+    const response = await this._hass.callWS({ type: "puppy_tracker/care_occurrences", litter_id: litterId });
+    if (request !== this._occurrenceRequest || litterId !== this._selectedLitterId) return;
     const maxDays = Number(this._config.days_ahead);
     this._occurrences = (response?.occurrences || [])
       .filter((item) => !["completed", "missed"].includes(item?.status))
       .filter((item) => item?.status !== "upcoming" || maxDays < 0 || Number(item.days_until_due) <= maxDays);
+    this.__careSkipped = response?.skipped || [];
     this._ensureSelectedDate();
   }
 
   async _selectLitter(id) {
     this._selectedLitterId = id;
+    this._selectedDate = null;
+    this._occurrences = [];
+    this.__careSkipped = [];
+    this._careSaveMessage = "";
+    this._savedRecord = null;
+    this._litterData = null;
     this._loading = true;
+    this._render();
     try { await this._loadOccurrences(); this._error = ""; }
     catch (error) { this._error = error?.message || t(this, "Zorgacties konden niet worden geladen.", "Care actions could not be loaded."); }
     this._loading = false;
@@ -111,14 +134,8 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
 
   async _queueRefresh() {
     if (!this._hass || !this._selectedLitterId || !this.isConnected) return;
-    if (this.__careResultEditorOpen) {
-      this._refreshDeferred = true;
-      return;
-    }
-    if (this._refreshing) {
-      this._refreshAgain = true;
-      return;
-    }
+    if (this.__careResultEditorOpen) { this._refreshDeferred = true; return; }
+    if (this._refreshing) { this._refreshAgain = true; return; }
     this._refreshing = true;
     try {
       do {
@@ -126,12 +143,11 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
         await this._loadOccurrences();
       } while (this._refreshAgain);
       this._error = "";
-      this._render();
     } catch (error) {
       this._error = error?.message || t(this, "Zorgacties konden niet worden vernieuwd.", "Care actions could not be refreshed.");
-      this._render();
     } finally {
       this._refreshing = false;
+      this._render();
     }
   }
 
@@ -140,8 +156,8 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
       initialStatus,
       onSaved: async () => {
         this._refreshDeferred = false;
-        this._status = t(this, `${item.title || "Zorgactie"} opgeslagen voor ${puppyDisplayLabel(this, item.puppy_id, item.puppy_name || "de pup", item.collar_color)}.`, `${item.title || "Care action"} saved for ${puppyDisplayLabel(this, item.puppy_id, item.puppy_name || "the puppy", item.collar_color)}.`);
-        await this._loadOccurrences();
+        try { await this._loadOccurrences(); this._error = ""; }
+        catch (error) { this._error = error?.message || t(this, "Zorgacties konden niet worden vernieuwd.", "Care actions could not be refreshed."); }
         this._render();
       },
       onClosed: ({ saved }) => {
@@ -161,67 +177,145 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
   _dateOptions() {
     const dates = new Set(this._occurrences.map((item) => String(item?.scheduled_date || "").slice(0, 10)).filter(Boolean));
     dates.add(this._today());
+    if (this._selectedDate) dates.add(this._selectedDate);
     return [...dates].sort();
   }
 
   _ensureSelectedDate() {
-    const dates = this._dateOptions();
-    if (!dates.length) return;
-    if (!this._selectedDate || !dates.includes(this._selectedDate)) {
-      this._selectedDate = dates.includes(this._today()) ? this._today() : dates[0];
-    }
+    if (!this._selectedDate) this._selectedDate = this._today();
   }
 
+  _matchingOccurrences() {
+    if (this._config.show_day_selector === false) return this._occurrences;
+    return this._occurrences.filter((item) => String(item?.scheduled_date || "").slice(0, 10) === this._selectedDate);
+  }
+
+  _pageSize() { return Math.max(5, Math.min(200, Number(this._config.max_items) || 50)); }
+
   _visibleOccurrences() {
-    if (this._config.show_day_selector === false) {
-      return this._occurrences.slice(0, Number(this._config.max_items) || 50);
-    }
-    const selectedDate = this._selectedDate;
-    const rows = selectedDate
-      ? this._occurrences.filter((item) => String(item?.scheduled_date || "").slice(0, 10) === selectedDate)
-      : this._occurrences;
-    return rows.slice(0, Number(this._config.max_items) || 50);
+    return this._matchingOccurrences().slice(0, this._visibleLimit || this._pageSize());
   }
 
   _formatDate(date) {
     const value = new Date(`${date}T12:00:00`);
-    if (!Number.isFinite(value.getTime())) return date;
-    return value.toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" });
+    return Number.isFinite(value.getTime())
+      ? value.toLocaleDateString(languageForHass(this._hass) === "en" ? "en-GB" : "nl-NL", { weekday: "short", day: "numeric", month: "short" }) : date;
+  }
+
+  _ensureView() {
+    if (this.shadowRoot.querySelector("ha-card")) return;
+    this.shadowRoot.innerHTML = `<ha-card>
+      <div class="head"><div><div class="title"></div><div class="sub"></div></div><div class="selectors"></div></div>
+      <div class="error" role="alert" hidden></div><div class="state" role="status" hidden></div>
+      <div class="rows" tabindex="-1"></div>
+      <div class="list-footer" hidden><span role="status"></span><button id="show-more" type="button"><ha-icon icon="mdi:chevron-down"></ha-icon><span></span></button></div>
+    </ha-card><style>:host{display:block}ha-card{display:block;padding:18px;container-type:inline-size;container-name:care-execution}.head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.title{font-size:1.25rem;font-weight:700}.sub,span,small{color:var(--secondary-text-color)}.selectors,.day-controls{display:flex;gap:6px;align-items:center}.selectors{justify-content:flex-end;flex-wrap:wrap}select{min-height:38px;max-width:48%;background:var(--card-background-color);color:var(--primary-text-color)}.day-controls select{max-width:145px}.day-controls button{min-width:38px;min-height:38px;border:1px solid var(--divider-color);border-radius:8px;background:var(--secondary-background-color);color:var(--primary-text-color);font-size:20px;cursor:pointer}.day-controls button:disabled{opacity:.4;cursor:default}.rows{max-height:60vh;overflow-y:auto;overscroll-behavior:contain;overflow-anchor:none;scrollbar-gutter:stable;padding-right:3px}.row{display:flex;justify-content:space-between;gap:12px;margin-top:10px;padding:12px;border:1px solid var(--divider-color);border-radius:10px}.main{min-width:0;display:grid;gap:4px}.main strong{font-size:1rem}.main span{font-size:.85rem}.main small{white-space:pre-wrap;overflow-wrap:anywhere}.danger{border-color:var(--error-color)}.warning{border-color:var(--warning-color,var(--primary-color))}.actions{display:flex;gap:6px;align-items:center}.actions button{border:0;border-radius:8px;padding:8px 10px;background:var(--primary-color);color:var(--text-primary-color,#fff);cursor:pointer}.actions .secondary{background:var(--secondary-background-color);color:var(--primary-text-color)}.empty,.state,.error{margin-top:14px}.error{color:var(--error-color)}@container care-execution (max-width:600px){.head{display:grid}.selectors{justify-content:flex-start}.selectors>select{max-width:none;width:100%}.day-controls{width:100%}.day-controls select{max-width:none;flex:1}.row{display:grid}.actions{justify-content:flex-start;flex-wrap:wrap}}.list-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;font-size:.85rem;color:var(--secondary-text-color)}.list-footer button{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:8px 12px;border:1px solid var(--divider-color);border-radius:8px;background:var(--secondary-background-color);color:var(--primary-text-color);font:inherit;cursor:pointer}[hidden]{display:none!important}</style>`;
+    this.shadowRoot.addEventListener("change", (event) => {
+      if (event.target.id === "litter-select") {
+        if (requestLitterChange(this, event.target.value)) this._selectLitter(event.target.value);
+        else event.target.value = this._selectedLitterId;
+      } else if (event.target.id === "day-select") {
+        this._selectedDate = event.target.value;
+        this._render();
+      }
+    });
+    this.shadowRoot.addEventListener("click", (event) => {
+      const button = event.target.closest("button");
+      if (button?.id === "show-more") {
+        this._visibleLimit += this._pageSize();
+        this._render();
+        if (button.hidden) this.shadowRoot.querySelector(".rows").focus({ preventScroll: true });
+        return;
+      }
+      if (["previous-day", "next-day"].includes(button?.id)) {
+        const dates = this._dateOptions();
+        const index = dates.indexOf(this._selectedDate) + (button.id === "next-day" ? 1 : -1);
+        if (dates[index]) { this._selectedDate = dates[index]; this._render(); }
+        return;
+      }
+      const row = event.target.closest(".row[data-care-occurrence]");
+      if (!row || this._hass?.user?.is_admin === false || event.target.closest(".care-result-overlay")) return;
+      const item = this._occurrences.find((candidate) => candidate.id === row.dataset.careOccurrence);
+      if (item) this._openResult(item, button?.dataset.action || "completed");
+    });
   }
 
   _render() {
-    const title = this._config.title || t(this, "Zorgprogramma uitvoeren", "Execute care program");
-    const selector = this._config.show_litter_selector !== false && this._litters.length > 1
-      ? `<select id="litter-select" aria-label="${escapeHtml(t(this, "Nest", "Litter"))}">${this._litters.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === this._selectedLitterId ? "selected" : ""}>${escapeHtml(item.name || "Litter")}</option>`).join("")}</select>` : "";
+    if (this.__careResultEditorOpen) { this._refreshDeferred = true; return; }
     this._ensureSelectedDate();
-    const dateOptions = this._dateOptions().map((date) => `<option value="${escapeHtml(date)}" ${date === this._selectedDate ? "selected" : ""}>${escapeHtml(this._formatDate(date))}</option>`).join("");
-    const selectedIndex = this._dateOptions().indexOf(this._selectedDate);
-    const rows = this._visibleOccurrences().map((item) => `<div class="row ${item.status === "overdue" ? "danger" : item.status === "due_today" ? "warning" : ""}"><div class="main"><strong>${escapeHtml(item.title || t(this, "Zorgactie", "Care action"))}</strong><span>${escapeHtml(puppyDisplayLabel(this, item.puppy_id, item.puppy_name || t(this, "Pup", "Puppy"), item.collar_color))} · ${escapeHtml(item.scheduled_date || "")} · ${escapeHtml(item.status === "overdue" ? t(this, "Te laat", "Overdue") : item.status === "due_today" ? t(this, "Vandaag", "Today") : t(this, `Over ${item.days_until_due} dagen`, `In ${item.days_until_due} days`))}</span>${item.instructions ? `<small>${escapeHtml(item.instructions)}</small>` : ""}</div><div class="actions"><button data-action="completed" data-id="${escapeHtml(item.id || "")}">${escapeHtml(t(this, "Uitgevoerd", "Completed"))}</button><button class="secondary" data-action="missed" data-id="${escapeHtml(item.id || "")}">${escapeHtml(t(this, "Gemist", "Missed"))}</button></div></div>`).join("");
-    const daySelector = this._config.show_day_selector !== false ? `<div class="day-controls"><button id="previous-day" title="${escapeHtml(t(this, "Vorige dag", "Previous day"))}" ${selectedIndex <= 0 ? "disabled" : ""}>‹</button><select id="day-select" aria-label="${escapeHtml(t(this, "Dag", "Day"))}">${dateOptions}</select><button id="next-day" title="${escapeHtml(t(this, "Volgende dag", "Next day"))}" ${selectedIndex < 0 || selectedIndex >= this._dateOptions().length - 1 ? "disabled" : ""}>›</button></div>` : "";
-    this.shadowRoot.innerHTML = `<ha-card><div class="head"><div><div class="title">${escapeHtml(title)}</div><div class="sub">${escapeHtml(t(this, "Los van Aandacht en Vandaag", "Independent of Attention and Today"))}</div></div><div class="selectors">${selector}${daySelector}</div></div>${this._error ? `<div class="error">${escapeHtml(this._error)}</div>` : ""}${this._loading ? `<div class="state">${escapeHtml(t(this, "Laden…", "Loading…"))}</div>` : `<div class="rows">${rows || `<div class="empty">${escapeHtml(t(this, "Geen openstaande zorgacties op deze dag.", "No open care actions on this day."))}</div>`}</div>`}</ha-card><style>:host{display:block}ha-card{padding:18px}.head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.title{font-size:1.25rem;font-weight:700}.sub,span,small{color:var(--secondary-text-color)}.selectors,.day-controls{display:flex;gap:6px;align-items:center}.selectors{justify-content:flex-end;flex-wrap:wrap}select{min-height:38px;max-width:48%;background:var(--card-background-color);color:var(--primary-text-color)}.day-controls select{max-width:145px}.day-controls button{min-width:38px;min-height:38px;border:1px solid var(--divider-color);border-radius:8px;background:var(--secondary-background-color);color:var(--primary-text-color);font-size:20px;cursor:pointer}.day-controls button:disabled{opacity:.4;cursor:default}.rows{max-height:60vh;overflow-y:auto;overscroll-behavior:contain;padding-right:3px}.row{display:flex;justify-content:space-between;gap:12px;margin-top:10px;padding:12px;border:1px solid var(--divider-color);border-radius:10px}.main{min-width:0;display:grid;gap:4px}.main strong{font-size:1rem}.main span{font-size:.85rem}.main small{white-space:pre-wrap;overflow-wrap:anywhere}.danger{border-color:var(--error-color)}.warning{border-color:var(--warning-color,var(--primary-color))}.actions{display:flex;gap:6px;align-items:center}.actions button{border:0;border-radius:8px;padding:8px 10px;background:var(--primary-color);color:var(--text-primary-color,#fff);cursor:pointer}.actions .secondary{background:var(--secondary-background-color);color:var(--primary-text-color)}.empty,.state,.error{margin-top:14px}.error{color:var(--error-color)}@media(max-width:600px){.head{display:grid}.selectors{justify-content:flex-start}.selectors>select{max-width:none;width:100%}.day-controls{width:100%}.day-controls select{max-width:none;flex:1}.row{display:grid}.actions{justify-content:flex-start;flex-wrap:wrap}}</style>`;
-    renderCareSaveFeedback(this);
-    if (this._status && !this._careSaveMessage) {
-      const status = document.createElement("div");
-      status.className = "status-message";
-      status.setAttribute("role", "status");
-      status.textContent = this._status;
-      status.style.cssText = "margin-top:12px;padding:9px 10px;border-radius:9px;background:var(--secondary-background-color);color:var(--primary-text-color)";
-      this.shadowRoot.querySelector("ha-card")?.prepend(status);
+    this._ensureView();
+    this._renderLanguage = languageForHass(this._hass);
+    this._renderAdmin = this._hass?.user?.is_admin !== false;
+    const root = this.shadowRoot;
+    root.querySelector(".title").textContent = this._config.title || t(this, "Zorgprogramma uitvoeren", "Execute care program");
+    root.querySelector(".sub").textContent = t(this, "Los van Aandacht en Vandaag", "Independent of Attention and Today");
+    const dates = this._dateOptions();
+    const selectedIndex = dates.indexOf(this._selectedDate);
+    const showLitter = this._config.show_litter_selector !== false && this._litters.length > 1;
+    const showDay = this._config.show_day_selector !== false;
+    const selectorsKey = JSON.stringify([this._renderLanguage, showLitter, this._litters, showDay, dates]);
+    if (selectorsKey !== this._selectorsKey) {
+      const activeId = root.activeElement?.id;
+      root.querySelector(".selectors").innerHTML = `${showLitter ? `<select id="litter-select" aria-label="${escapeHtml(t(this, "Nest", "Litter"))}">${this._litters.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name || t(this, "Nest", "Litter"))}</option>`).join("")}</select>` : ""}${showDay ? `<div class="day-controls"><button id="previous-day" type="button" title="${escapeHtml(t(this, "Vorige dag", "Previous day"))}">‹</button><select id="day-select" aria-label="${escapeHtml(t(this, "Dag", "Day"))}">${dates.map((date) => `<option value="${escapeHtml(date)}">${escapeHtml(this._formatDate(date))}</option>`).join("")}</select><button id="next-day" type="button" title="${escapeHtml(t(this, "Volgende dag", "Next day"))}">›</button></div>` : ""}`;
+      this._selectorsKey = selectorsKey;
+      if (activeId) root.getElementById(activeId)?.focus({ preventScroll: true });
     }
-    this.shadowRoot.querySelector("#litter-select")?.addEventListener("change", (event) => {
-      if (requestLitterChange(this, event.target.value)) this._selectLitter(event.target.value);
+    for (const [id, value] of [["litter-select", this._selectedLitterId], ["day-select", this._selectedDate]]) {
+      const select = root.getElementById(id);
+      if (select) { select.value = value || ""; select.disabled = this._loading; }
+    }
+    const previous = root.getElementById("previous-day");
+    const next = root.getElementById("next-day");
+    if (previous) previous.disabled = this._loading || selectedIndex <= 0;
+    if (next) next.disabled = this._loading || selectedIndex >= dates.length - 1;
+    const error = root.querySelector(".error");
+    error.textContent = this._error;
+    error.hidden = !this._error;
+    const loading = root.querySelector(".state");
+    loading.textContent = t(this, "Laden…", "Loading…");
+    loading.hidden = !this._loading;
+
+    const context = JSON.stringify([this._selectedLitterId, showDay, this._selectedDate, this._pageSize()]);
+    const list = root.querySelector(".rows");
+    const scrollTop = context === this._viewContext ? list.scrollTop : 0;
+    if (context !== this._viewContext) this._visibleLimit = this._pageSize();
+    this._viewContext = context;
+    const matching = this._matchingOccurrences();
+    const visible = this._visibleOccurrences();
+    const existing = new Map([...list.querySelectorAll(".row")].map((row) => [row.dataset.careOccurrence, row]));
+    const focused = root.activeElement;
+    const focusedIndex = [...list.children].findIndex((row) => row.contains(focused));
+    const seen = new Set();
+    visible.forEach((item, index) => {
+      const row = existing.get(item.id) || document.createElement("div");
+      row.className = `row ${item.status === "overdue" ? "danger" : item.status === "due_today" ? "warning" : ""}`;
+      row.dataset.careOccurrence = item.id;
+      const markup = `<div class="main"><strong>${escapeHtml(item.title || t(this, "Zorgactie", "Care action"))}</strong><span>${escapeHtml(puppyDisplayLabel(this, item.puppy_id, item.puppy_name || t(this, "Pup", "Puppy"), item.collar_color))} · ${escapeHtml(item.scheduled_date || "")} · ${escapeHtml(item.status === "overdue" ? t(this, "Te laat", "Overdue") : item.status === "due_today" ? t(this, "Vandaag", "Today") : t(this, `Over ${item.days_until_due} dagen`, `In ${item.days_until_due} days`))}</span>${item.instructions ? `<small>${escapeHtml(item.instructions)}</small>` : ""}</div><div class="actions"><button data-action="completed" data-id="${escapeHtml(item.id)}" ${this._renderAdmin ? "" : "disabled"}>${escapeHtml(t(this, "Uitgevoerd", "Completed"))}</button><button class="secondary" data-action="missed" data-id="${escapeHtml(item.id)}" ${this._renderAdmin ? "" : "disabled"}>${escapeHtml(t(this, "Gemist", "Missed"))}</button></div>`;
+      if (row._markup !== markup) { row.innerHTML = markup; row._markup = markup; }
+      if (list.children[index] !== row) list.insertBefore(row, list.children[index] || null);
+      seen.add(item.id);
     });
-    this.shadowRoot.querySelector("#day-select")?.addEventListener("change", (event) => { this._selectedDate = event.target.value; this._render(); });
-    this.shadowRoot.querySelector("#previous-day")?.addEventListener("click", () => { const dates = this._dateOptions(); const index = dates.indexOf(this._selectedDate); if (index > 0) { this._selectedDate = dates[index - 1]; this._render(); } });
-    this.shadowRoot.querySelector("#next-day")?.addEventListener("click", () => { const dates = this._dateOptions(); const index = dates.indexOf(this._selectedDate); if (index >= 0 && index < dates.length - 1) { this._selectedDate = dates[index + 1]; this._render(); } });
-    this.shadowRoot.querySelectorAll("button[data-action]").forEach((button) => {
-      button.disabled = this._hass?.user?.is_admin === false;
-      button.addEventListener("click", () => {
-        const item = this._occurrences.find((candidate) => candidate.id === button.dataset.id);
-        if (item) this._openResult(item, button.dataset.action);
-      });
-    });
-    renderCareExecutionRows(this);
+    for (const [id, row] of existing) if (!seen.has(id)) row.remove();
+    let empty = list.querySelector(".empty");
+    if (!visible.length && !this._loading && !this.__careSkipped.length) {
+      if (!empty) { empty = document.createElement("div"); empty.className = "empty"; list.append(empty); }
+      empty.textContent = showDay ? t(this, "Geen openstaande zorgacties op deze dag.", "No open care actions on this day.")
+        : t(this, "Geen openstaande zorgacties.", "No open care actions.");
+    } else empty?.remove();
+    list.scrollTop = scrollTop;
+    if (focusedIndex >= 0 && focused && !focused.isConnected) {
+      (list.children[Math.min(focusedIndex, list.children.length - 1)]?.querySelector("button") || list).focus({ preventScroll: true });
+    }
+    const footer = root.querySelector(".list-footer");
+    footer.hidden = !matching.length;
+    footer.querySelector("span").textContent = t(this, `${visible.length} van ${matching.length} zorgacties`, `${visible.length} of ${matching.length} care actions`);
+    const more = root.getElementById("show-more");
+    more.hidden = visible.length >= matching.length;
+    more.querySelector("span").textContent = t(this, "Meer tonen", "Show more");
+    const skippedKey = JSON.stringify([this._renderLanguage, this.__careSkipped]);
+    if (skippedKey !== this._skippedKey) { renderCareSkippedWarning(this); this._skippedKey = skippedKey; }
+    const feedbackKey = JSON.stringify([this._careSaveMessage, this._savedRecord, this._renderAdmin, this._litterData?.can_manage_records]);
+    if (feedbackKey !== this._feedbackKey) { renderCareSaveFeedback(this); this._feedbackKey = feedbackKey; }
   }
 }
 

@@ -5,10 +5,10 @@ async function openFixture(page) {
   await page.waitForFunction(() => window.__puppyTrackerReady === true);
 }
 
-async function mountWeighingStation(page) {
+async function mountWeighingStation(page, config = {}) {
   await openFixture(page);
 
-  await page.evaluate(async () => {
+  await page.evaluate(async (config) => {
     const now = new Date().toISOString();
     const makeState = (entityId, state, attributes = {}) => ({
       entity_id: entityId,
@@ -195,10 +195,10 @@ async function mountWeighingStation(page) {
     const constructor = customElements.get("puppy-tracker-card");
     const card = document.createElement("puppy-tracker-card");
     window.__weighingCard = card;
-    card.setConfig(constructor.getStubConfig());
+    card.setConfig({ ...constructor.getStubConfig(), ...config });
     document.querySelector("#cards").appendChild(card);
     card.hass = hass;
-  });
+  }, config);
 
   await expect(page.locator("puppy-tracker-card #litter-select")).toBeVisible();
   await expect(page.locator("puppy-tracker-card #puppy-select")).toBeVisible();
@@ -220,6 +220,53 @@ async function notifyHassUpdate(page, mutate = null) {
     window.__weighingCard.hass = hass;
   }, mutate);
 }
+
+test("hiding the puppy list retains selected puppy and measurement context from the first render @cross-browser @tablet", async ({ page }) => {
+  await mountWeighingStation(page, { show_puppies: false });
+  const card = page.locator("puppy-tracker-card");
+  await expect(card.locator("#puppy-list")).toBeHidden();
+  await expect(card.locator("#current-puppy-indicator")).toBeVisible();
+  await expect(card.locator("#current-puppy-name")).toHaveText("Alice (Red)");
+  await expect(card.locator("#selected-last-value")).not.toHaveText("None");
+  await expect(card.locator("#selected-previous-value")).toHaveText("398 g");
+  await expect(card.locator("#next-puppy-name")).toHaveText("Bob (Blue)");
+  await card.locator("#puppy-select").selectOption("Bob (Blue)");
+  await notifyHassUpdate(page);
+  await expect(card.locator("#current-puppy-name")).toHaveText("Bob (Blue)");
+  await expect(card.locator("#selected-previous-value")).toHaveText("390 g");
+  await expect(card.locator("#puppy-list")).toBeHidden();
+});
+
+test("weighing uses IDs when puppy names and collar colours are identical @cross-browser @tablet", async ({ page }) => {
+  await mountWeighingStation(page);
+  await page.evaluate(() => {
+    const card = window.__weighingCard;
+    for (const device of card._devices.filter((device) => ["device-puppy-1", "device-puppy-2"].includes(device.id))) device.name = "Nova";
+    const states = window.__mockHass.states;
+    for (const id of ["sensor.p1_collar", "sensor.p2_collar"]) states[id].state = "paars";
+    states["select.pt_puppy"].state = "Nova (paars)";
+    states["select.pt_puppy"].attributes = { options: ["Nova (paars)", "Nova (paars) · 2"], puppy_options: { "Nova (paars)": "p1", "Nova (paars) · 2": "p2" } };
+    states["sensor.pt_remaining"].state = "Nova (paars), Nova (paars)";
+    states["sensor.pt_remaining"].attributes = { litter_id: "l1", remaining_puppy_ids: ["p1", "p2"] };
+    states["sensor.pt_next"].state = "Nova (paars)";
+    states["sensor.pt_next"].attributes = { litter_id: "l1", puppy_id: "p1" };
+    const original = window.__mockHass.callWS;
+    window.__identityPreviewCalls = [];
+    window.__mockHass.callWS = async (msg) => { if (msg.type === "puppy_tracker/weight/preview") window.__identityPreviewCalls.push(msg); return original(msg); };
+    card.hass = window.__mockHass;
+  });
+  const card = page.locator("puppy-tracker-card");
+  await expect(card.locator('[data-puppy-id="p2"]')).toHaveAttribute("data-puppy-option", "Nova (paars) · 2");
+  expect(await card.evaluate((node) => node._weighingPuppies(node._station()).bottomIndicatorRow.puppyId)).toBe("p2");
+  await card.locator("#puppy-select").selectOption("Nova (paars) · 2");
+  await expect(card.locator('[data-puppy-id="p2"]')).toHaveClass(/selected/);
+  await expect(card.locator('[data-puppy-id="p1"]')).not.toHaveClass(/selected/);
+  await card.locator("#weight-input").fill("425");
+  await card.locator("#save-weight").click();
+  await expect.poll(() => page.evaluate(() => window.__identityPreviewCalls.at(-1)?.puppy_id)).toBe("p2");
+  await notifyHassUpdate(page, { entityId: "sensor.pt_remaining", attributes: { remaining_puppy_ids: ["p2"] } });
+  await expect(card.locator("#remaining-value")).toHaveText("Nova (paars)");
+});
 
 for (const mobile of [false, true]) {
   test(`weighing preserves entered weight and marks session puppies ${mobile ? "@mobile @tablet" : "@cross-browser"}`, async ({ page }) => {

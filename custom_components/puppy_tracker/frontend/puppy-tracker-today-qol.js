@@ -62,6 +62,25 @@ function recordSummary(record) {
   return values.slice(0, 3).join(" · ");
 }
 
+function activeMeasurement(measurement) {
+  return measurement && !measurement.deleted && !measurement.superseded_by
+    && !["deleted", "superseded"].includes(measurement.status);
+}
+
+export function todayWeighingInfo(data, hass) {
+  const summary = data?.litter?.summary || {};
+  const session = summary.session || null;
+  const puppies = (data?.puppies || []).filter((puppy) => puppy.active !== false);
+  const active = session?.status === "active";
+  const total = active ? Number(session.total) || 0 : puppies.length;
+  const timeZone = String(hass?.config?.time_zone || "");
+  const today = dateKey(Date.now(), timeZone);
+  const weighed = active ? Math.max(0, Math.min(total, Number(session.weighed) || 0))
+    : puppies.filter((puppy) => (puppy.measurements || []).some((measurement) =>
+        activeMeasurement(measurement) && dateKey(measurement.timestamp || measurement.created_at, timeZone) === today)).length;
+  return { summary, session, puppies, total, active, weighed, remaining: Math.max(0, total - weighed) };
+}
+
 function todayTimelineEvents(card) {
   const data = card?._data;
   if (!data) return [];
@@ -87,7 +106,7 @@ function todayTimelineEvents(card) {
   for (const puppy of data?.puppies || []) {
     if (puppy?.active === false) continue;
     for (const measurement of puppy?.measurements || []) {
-      if (measurement?.deleted || measurement?.superseded_by || ["deleted", "superseded"].includes(measurement?.status)) continue;
+      if (!activeMeasurement(measurement)) continue;
       const occurredAt = measurement?.timestamp || measurement?.created_at;
       if (!occurredAt || dateKey(occurredAt, timeZone) !== today) continue;
       events.push({

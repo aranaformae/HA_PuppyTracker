@@ -181,6 +181,11 @@ the same save-context information.
 The session progress sensor exposes `litter_id` and a copied
 `weighed_puppy_ids` list. The shared Weighing surface uses these IDs to decorate
 native select labels without changing option values, order or availability.
+Remaining/next sensors also expose ordered `remaining_puppy_ids` and `puppy_id`,
+and Puppy Select exposes its label-to-ID `puppy_options` map. The shared
+`_weighingPuppies` projection supplies both initial and incremental rendering;
+list visibility never removes the selected puppy's data. Legacy label fallback
+resolves only unique matches rather than choosing the first duplicate name.
 Markers are restricted to active/completed sessions for the selected litter.
 Puppy selection retains the local weight draft; saving and explicit litter
 selection keep their existing draft-reset behavior. Incremental option updates
@@ -1347,12 +1352,28 @@ log entry could store the action under the wrong owner.
 
 Today and Attention consume backend-derived age-based occurrence status. Recording a care result must refresh occurrences and render the refreshed state immediately; a completed row must not remain stale until another dashboard event.
 
+Today's weighing counters use current session progress while that session is
+active. Otherwise `todayWeighingInfo` counts active puppies with at least one
+effective measurement on the current Home Assistant calendar day, using the same
+timezone/date-key and measurement validity rules as Today's activity history.
+Duplicate weighings count once per puppy; deleted/superseded measurements and
+inactive puppies do not count. Completion, session reset and reload therefore
+retain the daily result without carrying yesterday's completed session forward.
+
 Today, Attention and Care Execution open the same care-result editor. The
 shared flow resolves the occurrence once and owns status, result, score, note
 and day-specific instruction handling, so a direct completion button cannot
 bypass fields that another surface would save. Care Execution subscribes while
 visible and coalesces updates that arrive during a load; a refresh is deferred
 while the result editor is open so typed text is not replaced.
+Its persistent frame, list container, delegated actions and occurrence-ID keyed
+rows avoid replacing unchanged controls or the complete list during refreshes.
+`max_items` is a presentation batch size with a shown/total counter and Show more;
+the selected date and expanded limit survive refreshes. Context changes reset
+the list position/limit, and completing a selected future day's last item keeps
+that date selectable. Skipped planning warnings are shared by all three surfaces.
+Normal `hass` assignments do not request data again; domain subscriptions and
+reconnection load changes. Responses from a previously selected litter are ignored.
 
 The Dossier card presents care-result records with their user-facing metadata:
 care day, scheduled time, status, result, score, resolved day-specific

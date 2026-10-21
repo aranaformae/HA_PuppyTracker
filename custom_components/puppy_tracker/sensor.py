@@ -632,7 +632,9 @@ class WeighingSessionRemainingSensor(
         return {
             "remaining": len(
                 remaining
-            )
+            ),
+            "litter_id": self.session.get("litter_id"),
+            "remaining_puppy_ids": list(remaining),
         }
 
 
@@ -666,6 +668,15 @@ class WeighingSessionNextPuppySensor(
             )
             or "Puppy"
         )
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Identify the next puppy without relying on its display name."""
+        remaining = remaining_puppy_ids(self.session)
+        return {
+            "litter_id": self.session.get("litter_id"),
+            "puppy_id": remaining[0] if remaining else None,
+        }
 
 
 class WeighingSessionLastPuppySensor(

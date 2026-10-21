@@ -64,6 +64,11 @@ Today is a Home tab and Weighing is a Growth tab. Give each Workspace a unique
 `state_key` when the same preset occurs more than once so remembered tabs and
 filters do not overlap.
 
+Today keeps the completed day's weighing counts after finishing/resetting a
+session or reloading the dashboard. Outside an active session it counts each
+active puppy once when it has a valid measurement today, in Home Assistant's
+timezone. Yesterday's completed session does not count as today's progress.
+
 A complete six-view example, including a Home view with ordinary Home
 Assistant cards, is available in
 [`examples/puppy-tracker-dashboard.yaml`](examples/puppy-tracker-dashboard.yaml).
@@ -304,6 +309,11 @@ before choosing its puppy. The dropdown marks puppies already weighed in the
 current session with **Weighed** and lighter text where the browser supports
 option styling. These puppies remain selectable for corrections; the marker
 is cleared when the session is reset and never comes from older measurements.
+`show_puppies: false` hides only the puppy list: the selected puppy, next puppy
+and enabled weighing details remain visible from the initial load. Session
+selection and next/remaining puppy indicators use backend IDs, including when
+puppies share the same name or collar colour.
+
 The session action toggles between **Start session** and **Reset session**;
 it shares one row with **Edit measurement**, including on phones. Edit opens
 the exact last saved measurement with its puppy name and weight, even if a

@@ -34,9 +34,17 @@ previous/next day buttons and shows only open occurrences for the selected
 date. The card keeps its occurrence list at a maximum height of `60vh` and
 scrolls that list internally, so a long day does not push the rest of a mobile
 dashboard out of view. `show_day_selector: false` restores one continuous list
-over the loaded date range. `max_items` still limits the number of rows shown
-for the selected day, while `days_ahead` controls which future occurrences
-are loaded.
+over the loaded date range. `max_items` sets the initial number of visible rows
+and the **Show more** batch size. A visible shown/total count and **Show more**
+keep every matching action reachable. `days_ahead` controls which future
+occurrences are loaded.
+
+Live updates retain the list, scroll position, selected day and expanded row
+limit. Completing the last action on a selected day leaves that empty day
+selected instead of jumping to today. Changing the day or litter starts a fresh
+list. Unrelated Home Assistant state updates do not reload care actions.
+Missing birth times and other skipped schedules show the same warning as Today
+and Attention, rather than appearing as an empty completed checklist.
 
 Concrete occurrences are not a second persistent task database. Results are not stored in reminder state.
 
@@ -61,7 +69,7 @@ An occurrence with a configured time remains `upcoming` earlier on the same loca
 
 ## Program revisions and per-puppy occurrence identity
 
-Occurrences are derived for active puppies with a valid `birth_time`. Missing birth time is reported/skipped rather than guessed, and Today/Attention must make that skipped state visible to the user.
+Occurrences are derived for active puppies with a valid `birth_time`. Missing birth time is reported/skipped rather than guessed, and Today, Attention and Care Execution make that skipped state visible to the user.
 
 Program definitions carry a positive integer `revision`.
 

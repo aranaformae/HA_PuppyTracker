@@ -710,9 +710,10 @@ class PuppyTrackerCard extends HTMLElement {
             ? `${name} (${collar})`
             : name;
 
-        const matchingOption = activeOptions.find(
-          (option) => option === baseOption || option.startsWith(`${baseOption} · `)
-        );
+        const optionIds = puppySelect?.attributes?.puppy_options;
+        const matchingOption = optionIds
+          ? activeOptions.find((option) => optionIds[option] === puppyId)
+          : activeOptions.find((option) => option === baseOption || option.startsWith(`${baseOption} · `));
 
         if (activeOptions.length && !matchingOption) {
           return null;
@@ -759,8 +760,11 @@ class PuppyTrackerCard extends HTMLElement {
         const attributes = state?.attributes || {};
         const visibleAttributes = {
           options: Array.isArray(attributes.options) ? attributes.options : undefined,
+          puppy_options: attributes.puppy_options,
           percentage: attributes.percentage,
           litter_id: attributes.litter_id,
+          puppy_id: attributes.puppy_id,
+          remaining_puppy_ids: attributes.remaining_puppy_ids,
           weighed_puppy_ids: attributes.weighed_puppy_ids,
           measurement_id: attributes.measurement_id,
           weight: attributes.weight,
@@ -838,11 +842,10 @@ class PuppyTrackerCard extends HTMLElement {
   _rowForLabel(rows, label) {
     const text = String(label || "").trim();
     if (!text) return null;
-    return rows.find((row) =>
-      row.name === text ||
-      row.option === text ||
-      row.option.startsWith(`${text} (`)
-    ) || null;
+    const exact = rows.filter((row) => row.option === text || row.displayName === text);
+    if (exact.length) return exact.length === 1 ? exact[0] : null;
+    const matches = rows.filter((row) => row.name === text);
+    return matches.length === 1 ? matches[0] : null;
   }
 
   _puppyNameLabel(rows, value, puppyId = null) {
@@ -854,13 +857,11 @@ class PuppyTrackerCard extends HTMLElement {
   _nextDistinctRow(rows, remainingState, selectedRow, backendNextRow) {
     if (backendNextRow && backendNextRow !== selectedRow) return backendNextRow;
 
-    const remainingLabels = String(remainingState?.state || "")
-      .split(",")
-      .map((part) => part.trim())
-      .filter(Boolean);
-    const remainingRows = remainingLabels
-      .map((label) => this._rowForLabel(rows, label))
-      .filter(Boolean);
+    const ids = remainingState?.attributes?.remaining_puppy_ids;
+    const remainingRows = Array.isArray(ids)
+      ? ids.map((id) => rows.find((row) => row.puppyId === id)).filter(Boolean)
+      : String(remainingState?.state || "").split(",")
+          .map((label) => this._rowForLabel(rows, label)).filter(Boolean);
     const selectedIndex = selectedRow ? remainingRows.indexOf(selectedRow) : -1;
 
     if (selectedIndex >= 0) {
@@ -868,6 +869,30 @@ class PuppyTrackerCard extends HTMLElement {
     }
 
     return remainingRows.find((row) => row !== selectedRow) || null;
+  }
+
+  _weighingPuppies(station) {
+    const rows = this._puppyRows(station);
+    const selectedRow = rows.find((row) => row.selected) || null;
+    const next = this._state(station.ids.next);
+    const remaining = this._state(station.ids.remaining);
+    const last = this._state(station.ids.last);
+    const backendNextRow = Object.hasOwn(next?.attributes || {}, "puppy_id")
+      ? rows.find((row) => row.puppyId === next.attributes.puppy_id) || null
+      : this._rowForLabel(rows, next?.state);
+    const nextDistinctRow = this._nextDistinctRow(rows, remaining, selectedRow, backendNextRow);
+    const bottomIndicatorRow = nextDistinctRow || selectedRow || backendNextRow;
+    const bottomIndicatorLabel = this._t(nextDistinctRow ? "nextPuppy" : "weighNow");
+    const ids = remaining?.attributes?.remaining_puppy_ids;
+    const remainingLabel = Array.isArray(ids)
+      ? ids.map((id) => rows.find((row) => row.puppyId === id)?.displayName).filter(Boolean).join(", ") || this._t("none")
+      : String(remaining?.state || "").split(",").map((name) => this._puppyNameLabel(rows, name.trim())).join(", ");
+    return {
+      rows, selectedRow, selectedRowIndex: rows.indexOf(selectedRow),
+      bottomIndicatorRow, bottomIndicatorLabel, bottomIndicatorIndex: rows.indexOf(bottomIndicatorRow),
+      bottomIndicatorAriaLabel: `${bottomIndicatorLabel}: ${bottomIndicatorRow?.displayName || ""}`,
+      remainingLabel, lastLabel: this._puppyNameLabel(rows, last?.state, last?.attributes?.puppy_id),
+    };
   }
 
   async _select(entityId, option) {
@@ -1207,7 +1232,6 @@ class PuppyTrackerCard extends HTMLElement {
     const puppyState = this._state(station.ids.puppy);
     const sessionState = this._state(station.ids.session);
     const progressState = this._state(station.ids.progress);
-    const remainingState = this._state(station.ids.remaining);
     const nextState = this._state(station.ids.next);
     const lastState = this._state(station.ids.last);
     const messageState = this._state(station.ids.message);
@@ -1220,16 +1244,8 @@ class PuppyTrackerCard extends HTMLElement {
       this._draftWeight = Number.isFinite(stateWeight) ? stateWeight : 0;
     }
 
-    const rows = this._puppyRows(station);
-    const selectedRow = rows.find((row) => row.selected) || null;
-    const selectedRowIndex = selectedRow ? rows.indexOf(selectedRow) : -1;
-    const backendNextRow = this._rowForLabel(rows, String(nextState?.state || "").trim());
-    const nextDistinctRow = this._nextDistinctRow(rows, remainingState, selectedRow, backendNextRow);
-    const bottomIndicatorRow = nextDistinctRow || selectedRow || backendNextRow;
-    const bottomIndicatorMode = nextDistinctRow ? "next" : "current";
-    const bottomIndicatorLabel = this._t(bottomIndicatorMode === "next" ? "nextPuppy" : "weighNow");
-    const bottomIndicatorAriaLabel = `${bottomIndicatorLabel}: ${bottomIndicatorRow?.displayName || ""}`;
-    const bottomIndicatorIndex = bottomIndicatorRow ? rows.indexOf(bottomIndicatorRow) : -1;
+    const { rows, selectedRow, selectedRowIndex, bottomIndicatorRow, bottomIndicatorLabel,
+      bottomIndicatorAriaLabel, bottomIndicatorIndex, remainingLabel, lastLabel } = this._weighingPuppies(station);
     const session = this._sessionPresentation(sessionState?.state);
     const isActive = session.code === "active";
     const isComplete = session.code === "complete";
@@ -1290,10 +1306,10 @@ class PuppyTrackerCard extends HTMLElement {
       if (nextCollar) nextCollar.style.backgroundColor = collarColor(bottomIndicatorRow?.collar, bottomIndicatorIndex);
     }
 
-    this._setText("remaining-value", String(remainingState?.state || "").split(",").map((name) => this._puppyNameLabel(rows, name.trim())).join(", "));
+    this._setText("remaining-value", remainingLabel);
     this._setText("next-label", bottomIndicatorLabel);
     this._setText("next-value", bottomIndicatorRow?.displayName || this._noneDisplay(nextState?.state));
-    this._setText("last-value", this._puppyNameLabel(rows, lastState?.state, lastState?.attributes?.puppy_id));
+    this._setText("last-value", lastLabel);
     this._setText("selected-last-value", selectedRow?.lastWeighed || this._t("none"));
     this._setText("elapsed-value", this._elapsedDisplay(selectedRow?.lastWeighed));
     this._setText("selected-previous-value", `${selectedRow?.previousWeight || this._t("none")}${selectedRow?.previousWeight && selectedRow.previousWeight !== "—" ? " g" : ""}`);
@@ -1370,7 +1386,6 @@ class PuppyTrackerCard extends HTMLElement {
     const puppyState = this._state(station.ids.puppy);
     const sessionState = this._state(station.ids.session);
     const progressState = this._state(station.ids.progress);
-    const remainingState = this._state(station.ids.remaining);
     const nextState = this._state(station.ids.next);
     const lastState = this._state(station.ids.last);
     const messageState = this._state(station.ids.message);
@@ -1388,17 +1403,8 @@ class PuppyTrackerCard extends HTMLElement {
       this._draftWeight = Number.isFinite(stateWeight) ? stateWeight : 0;
     }
 
-    const rows = this._config.show_puppies === false ? [] : this._puppyRows(station);
-    const selectedRow = rows.find((row) => row.selected) || null;
-    const selectedRowIndex = selectedRow ? rows.indexOf(selectedRow) : -1;
-    const nextPuppyLabel = String(nextState?.state || "").trim();
-    const backendNextRow = this._rowForLabel(rows, nextPuppyLabel);
-    const nextDistinctRow = this._nextDistinctRow(rows, remainingState, selectedRow, backendNextRow);
-    const bottomIndicatorRow = nextDistinctRow || selectedRow || backendNextRow;
-    const bottomIndicatorMode = nextDistinctRow ? "next" : "current";
-    const bottomIndicatorLabel = this._t(bottomIndicatorMode === "next" ? "nextPuppy" : "weighNow");
-    const bottomIndicatorAriaLabel = `${bottomIndicatorLabel}: ${bottomIndicatorRow?.displayName || ""}`;
-    const bottomIndicatorIndex = bottomIndicatorRow ? rows.indexOf(bottomIndicatorRow) : -1;
+    const { rows, selectedRow, selectedRowIndex, bottomIndicatorRow, bottomIndicatorLabel,
+      bottomIndicatorAriaLabel, bottomIndicatorIndex, remainingLabel, lastLabel } = this._weighingPuppies(station);
     const currentPuppyIndicator = `
       <div class="current-puppy" id="current-puppy-indicator" role="status" aria-label="${this._escape(this._t("nowSelected"))}: ${this._escape(selectedRow?.displayName || "")}" ${selectedRow ? "" : "hidden"}>
         <span class="current-puppy-collar" id="current-puppy-collar" style="background-color:${this._escape(collarColor(selectedRow?.collar, selectedRowIndex))}"></span>
@@ -1501,7 +1507,7 @@ class PuppyTrackerCard extends HTMLElement {
         <div class="session-grid">
           <div>
             <span class="label">${this._escape(this._t("remaining"))}</span>
-            <strong id="remaining-value">${this._escape(String(remainingState?.state || "").split(",").map((name) => this._puppyNameLabel(rows, name.trim())).join(", "))}</strong>
+            <strong id="remaining-value">${this._escape(remainingLabel)}</strong>
           </div>
           <div>
             <span class="label" id="next-label">${this._escape(bottomIndicatorLabel)}</span>
@@ -1509,7 +1515,7 @@ class PuppyTrackerCard extends HTMLElement {
           </div>
           <div>
             <span class="label">${this._escape(this._t("lastWeighed"))}</span>
-            <strong id="last-value">${this._escape(this._puppyNameLabel(rows, lastState?.state, lastState?.attributes?.puppy_id))}</strong>
+            <strong id="last-value">${this._escape(lastLabel)}</strong>
           </div>
           <div>
             <span class="label">${this._escape(this._t("latestSelected"))}</span>
@@ -2057,7 +2063,7 @@ class PuppyTrackerCard extends HTMLElement {
         }
         .session-actions button{min-width:0;white-space:normal;overflow-wrap:anywhere;padding:10px 6px;border-radius:8px;font-size:14px}
         #measurement-editor{margin-top:12px;padding-top:12px;border-top:1px solid var(--divider-color)}
-        #measurement-editor[hidden]{display:none}
+        [hidden]{display:none!important}
         #measurement-editor label{display:grid;gap:6px}
 
         .session-grid {

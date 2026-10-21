@@ -175,16 +175,6 @@ function wireCareRows(card) {
   });
 }
 
-export function renderCareExecutionRows(card) {
-    const root = card.shadowRoot;
-    if (!root) return;
-    root.querySelectorAll(".row").forEach((row) => {
-      const action = row.querySelector("button[data-action][data-id]");
-      if (action?.dataset.id) row.dataset.careOccurrence = action.dataset.id;
-    });
-    wireCareRows(card);
-}
-
 export function renderTodayCare(card) {
     renderCareSaveFeedback(card);
     const root = card.shadowRoot;

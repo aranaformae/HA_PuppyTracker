@@ -422,6 +422,14 @@ class PuppySelect(
         return result
 
     @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Expose the identity behind each unique selection label."""
+        return {
+            "litter_id": self.data.selected_litter_id,
+            "puppy_options": self._option_map(),
+        }
+
+    @property
     def options(
         self,
     ) -> list[str]:

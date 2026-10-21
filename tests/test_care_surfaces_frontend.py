@@ -40,7 +40,7 @@ def test_attention_today_and_execution_export_explicit_surface_functions() -> No
     assert "export async function loadCareOccurrences(card)" in source
     assert "export function renderTodayCare(card)" in source
     assert "export function renderAttentionCare(card)" in source
-    assert "export function renderCareExecutionRows(card)" in source
+    assert "export function renderCareSkippedWarning(card)" in source
     assert ".prototype" not in source
     assert "registerCardHooks" not in source
 
@@ -57,7 +57,8 @@ def test_base_cards_compose_care_surfaces_explicitly() -> None:
     assert "renderTodayCare(this);" in today
     assert "loadCareOccurrences(this)," in attention
     assert "renderAttentionCare(this);" in attention
-    assert "renderCareExecutionRows(this);" in execution
+    assert "renderCareSkippedWarning(this);" in execution
+    assert "renderCareExecutionRows" not in execution
 
 
 def test_care_extensions_do_not_patch_card_prototypes() -> None:
