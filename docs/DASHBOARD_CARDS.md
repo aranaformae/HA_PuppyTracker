@@ -162,6 +162,12 @@ Deworming, Medication, Vet visit, Milestone and Other. Their structured fields
 and required-field validation therefore stay aligned. Quick Log also keeps a
 Stool/urine shortcut that saves a titled note. Bulk Log remains puppy-only,
 while Quick Log can write to the litter, mother or one puppy.
+The **Multiple puppies** action fixes the litter, selected puppies and shared
+values when saving starts. Selection, form changes and Workspace navigation
+stay locked until that batch finishes. A partial failure keeps only the failed
+puppies selected, with the original values, so retrying does not repeat the
+successful entries. Background refreshes cannot replace an active draft or
+change a running batch.
 Quick Log keeps your chosen owner when opening another category, saving or
 refreshing data. A remembered category owner is only an initial suggestion
 before you choose an owner; an explicitly configured mother or puppy takes

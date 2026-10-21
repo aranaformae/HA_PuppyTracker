@@ -1164,6 +1164,23 @@ titled `note` record rather than a separate stored type. There is no
 temperature compatibility module and `mother-surfaces.js` exports the mother
 load/render operations invoked explicitly by Attention.
 
+Bulk Dossier owns a fixed save snapshot: the Home Assistant client, litter ID,
+selected puppy IDs/display names, category, timestamp and shared data are read
+before the first write. Both the shared FormState UI lock and action-handler
+guards prevent navigation or mutation during saving; each sequential write
+uses the snapshot rather than the current selection. Failed puppies alone
+remain selected for retry, and successful-record edit links retain their source
+litter ID. No parallel bulk record model is stored.
+Its read lifecycle separates context generations (litter changes/detach) from
+per-request ordering. Late results and errors cannot replace a newer context
+or finish its loading state. Background refreshes are coalesced and check draft,
+review and save state again after asynchronous reads, not only before them.
+Blocked reads are deferred until the card is idle; saving invalidates an older
+data read and requests a fresh pass afterwards. Litter changes clear stale
+puppy data and write permissions while loading; reconnect starts a current
+read without accepting responses from the previous lifecycle. These guards
+belong to Bulk Dossier; Behavior and Report still have separate load lifecycles.
+
 Quick Log loads recurring choices with its litter data, filtered by exact owner
 and type, without automatic selection. A draft stores a snapshot of the chosen
 definition revision and due instant. Explicit refresh never upgrades that

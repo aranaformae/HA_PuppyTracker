@@ -134,6 +134,10 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
     this._unsubscribe = null;
     this._subscriptionPending = false;
     this._refreshDeferred = false;
+    this._refreshing = false;
+    this._refreshAgain = false;
+    this._contextVersion = 0;
+    this._dataRequest = 0;
     this._form = this._emptyForm();
   }
 
@@ -156,13 +160,24 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
   }
 
   setConfig(config) {
+    const litterId = config.litter_id || this._selectedLitterId;
     this._config = {
       title: "",
       show_litter_selector: true,
       active_only: true,
       ...config,
     };
-    this._selectedLitterId = config.litter_id || this._selectedLitterId;
+    if (litterId !== this._selectedLitterId && !this._saving) {
+      if (this._hass && this.isConnected) {
+        this._selectLitter(litterId);
+        return;
+      }
+      this._invalidateLoads();
+      this._selectedLitterId = litterId;
+      this._litterData = null;
+      this._puppies = [];
+      this._selectedPuppyIds.clear();
+    }
     this._render();
   }
 
@@ -175,16 +190,36 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
   connectedCallback() {
     if (!this._hass) return;
     if (!this._litters.length && !this._loading) this._loadInitial();
-    else this._subscribe();
+    else {
+      this._subscribe();
+      this._refreshFromUpdate();
+    }
   }
 
   disconnectedCallback() {
+    this._invalidateLoads();
     if (this._unsubscribe) Promise.resolve(this._unsubscribe()).catch(() => undefined);
     this._unsubscribe = null;
   }
 
   getCardSize() { return 8; }
   getGridOptions() { return { columns: 12, min_columns: 6 }; }
+  get _hasDraft() { return this._dirty || this._review || this._formState.dirty; }
+
+  _invalidateLoads() {
+    this._contextVersion += 1;
+    this._dataRequest += 1;
+    this._loading = false;
+    this._refreshing = false;
+    this._refreshAgain = false;
+    return this._contextVersion;
+  }
+
+  _resumeRefresh() {
+    if (!this._refreshDeferred || this._loading || this._saving || this._hasDraft || !this.isConnected) return;
+    this._refreshDeferred = false;
+    this._refreshFromUpdate();
+  }
 
   _emptyForm(recordType = "deworming") {
     return {
@@ -198,23 +233,27 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
 
   async _loadInitial() {
     if (!this._hass || this._loading) return;
+    const context = this._contextVersion;
     this._loading = true;
     this._error = "";
     this._render();
     try {
       const response = await fetchLitters(this._hass);
+      if (context !== this._contextVersion) return;
       this._litters = response?.litters || [];
       this._selectedLitterId = selectDefaultLitter(
         this._litters,
         this._selectedLitterId || this._config.litter_id,
       );
-      await this._loadLitter(false);
-      await this._subscribe();
+      if (await this._loadLitter(false)) await this._subscribe();
     } catch (err) {
-      this._error = err?.message || text(this._hass, "loadFailed");
+      if (context === this._contextVersion) this._error = err?.message || text(this._hass, "loadFailed");
     } finally {
-      this._loading = false;
-      this._render();
+      if (context === this._contextVersion) {
+        this._loading = false;
+        this._render();
+        this._resumeRefresh();
+      }
     }
   }
 
@@ -231,30 +270,73 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
   }
 
   async _refreshFromUpdate() {
-    if (this._dirty || this._review || this._saving) {
+    if (!this._hass || !this.isConnected) return;
+    if (this._saving || this._loading || this._hasDraft) {
       this._refreshDeferred = true;
       return;
     }
+    if (this._refreshing) { this._refreshAgain = true; return; }
+    const context = this._contextVersion;
+    this._refreshing = true;
     try {
-      const response = await fetchLitters(this._hass);
-      this._litters = response?.litters || this._litters;
-      this._selectedLitterId = selectDefaultLitter(this._litters, this._selectedLitterId);
-      await this._loadLitter(false);
-      this._error = "";
+      do {
+        this._refreshAgain = false;
+        const response = await fetchLitters(this._hass);
+        if (context !== this._contextVersion) return;
+        if (this._saving || this._loading || this._hasDraft) {
+          this._refreshDeferred = true;
+          return;
+        }
+        this._litters = response?.litters || this._litters;
+        const litterId = selectDefaultLitter(this._litters, this._selectedLitterId);
+        if (litterId !== this._selectedLitterId) {
+          await this._selectLitter(litterId);
+          return;
+        }
+        if (await this._loadLitter(false, { background: true })) {
+          this._error = "";
+          this._render();
+        }
+      } while (this._refreshAgain && context === this._contextVersion);
     } catch (err) {
-      this._error = err?.message || text(this._hass, "refreshFailed");
+      if (context === this._contextVersion) {
+        if (this._saving || this._loading || this._hasDraft) this._refreshDeferred = true;
+        else {
+          this._error = err?.message || text(this._hass, "refreshFailed");
+          this._render();
+        }
+      }
+    } finally {
+      if (context === this._contextVersion) this._refreshing = false;
     }
-    this._render();
   }
 
-  async _loadLitter(render = true) {
+  async _loadLitter(render = true, { background = false } = {}) {
+    const request = ++this._dataRequest;
+    const context = this._contextVersion;
+    const litterId = this._selectedLitterId;
+    const hass = this._hass;
+    const current = () => request === this._dataRequest && context === this._contextVersion
+      && litterId === this._selectedLitterId && hass?.connection === this._hass?.connection;
     if (!this._hass || !this._selectedLitterId) {
       this._litterData = null;
       this._puppies = [];
       if (render) this._render();
-      return;
+      return true;
     }
-    this._litterData = await fetchLitterData(this._hass, this._selectedLitterId);
+    let data;
+    try {
+      data = await fetchLitterData(hass, litterId);
+    } catch (error) {
+      if (current()) throw error;
+      return false;
+    }
+    if (!current()) return false;
+    if (this._saving || (background && this._hasDraft)) {
+      this._refreshDeferred = true;
+      return false;
+    }
+    this._litterData = data;
     const puppies = this._litterData?.puppies || [];
     this._puppies = this._config.active_only
       ? puppies.filter((puppy) => puppy.active !== false)
@@ -269,31 +351,41 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
       );
     }
     if (render) this._render();
+    return true;
   }
 
   async _selectLitter(litterId) {
+    if (this._saving) return;
     this._captureForm();
+    const context = this._invalidateLoads();
     this._selectedLitterId = litterId;
+    this._litterData = null;
+    this._puppies = [];
     this._selectedPuppyIds.clear();
     this._review = false;
     this._dirty = false;
+    this._refreshDeferred = false;
+    this._error = "";
     this._status = "";
     this._result = null;
+    if (!this._litters.length) return this._loadInitial();
     this._loading = true;
     this._render();
     try {
-      await this._loadLitter(false);
-      this._error = "";
+      if (await this._loadLitter(false)) this._error = "";
     } catch (err) {
-      this._error = err?.message || text(this._hass, "loadFailed");
+      if (context === this._contextVersion) this._error = err?.message || text(this._hass, "loadFailed");
     } finally {
-      this._loading = false;
-      this._render();
+      if (context === this._contextVersion) {
+        this._loading = false;
+        this._render();
+        this._resumeRefresh();
+      }
     }
   }
 
   _captureForm(recordTypeOverride = null) {
-    if (!this.shadowRoot) return;
+    if (!this.shadowRoot || this._saving) return;
     const recordType = recordTypeOverride
       || this.shadowRoot.getElementById("bulk-type")?.value
       || this._form.record_type;
@@ -319,6 +411,7 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
   }
 
   _setSelection(ids) {
+    if (this._saving || this._loading) return;
     this._captureForm();
     this._selectedPuppyIds = new Set(ids);
     this._dirty = true;
@@ -328,6 +421,7 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
   }
 
   _togglePuppy(puppyId, checked) {
+    if (this._saving || this._loading) return;
     this._captureForm();
     if (checked) this._selectedPuppyIds.add(puppyId);
     else this._selectedPuppyIds.delete(puppyId);
@@ -338,6 +432,7 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
   }
 
   _changeType(value) {
+    if (this._saving || this._loading) return;
     this._captureForm(this._form.record_type);
     this._form.record_type = value;
     this._dirty = true;
@@ -346,6 +441,8 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
   }
 
   _startReview() {
+    if (this._saving || this._loading || !this._litterData?.can_manage_records
+      || this._litterData?.litter?.id !== this._selectedLitterId) return;
     this._formState.clearErrors();
     this._captureForm();
     if (!this._selectedPuppyIds.size) {
@@ -377,8 +474,13 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
   }
 
   async _saveBulk() {
-    if (this._saving || !this._review || !this._selectedPuppyIds.size) return;
-    const selected = this._puppies.filter((puppy) => this._selectedPuppyIds.has(puppy.id));
+    if (this._saving || this._loading || !this._review || !this._selectedPuppyIds.size
+      || !this._litterData?.can_manage_records || this._litterData?.litter?.id !== this._selectedLitterId) return;
+    const litterId = this._selectedLitterId;
+    const hass = this._hass;
+    const selected = this._puppies.filter((puppy) => this._selectedPuppyIds.has(puppy.id))
+      .map((puppy) => ({ id: puppy.id, name: puppySelectorLabel(puppy, puppy.id) }));
+    if (!selected.length) return;
     const occurredAt = toIsoTimestamp(this._form.occurred_at);
     if (!occurredAt) {
       this._error = localize(this._hass, "invalidDateTime");
@@ -396,6 +498,8 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
     };
 
     this._saving = true;
+    if (this._refreshing) this._refreshDeferred = true;
+    this._dataRequest += 1;
     this._error = "";
     this._status = text(this._hass, "saving");
     this._result = null;
@@ -406,26 +510,26 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
     for (const puppy of selected) {
       try {
         const result = await addDossierRecord(
-          this._hass,
-          this._selectedLitterId,
+          hass,
+          litterId,
           puppy.id,
           payload,
         );
         successes.push({
           puppy_id: puppy.id,
-          puppy_name: puppySelectorLabel(puppy, puppy.id),
+          puppy_name: puppy.name,
           record_id: result?.record_id || result?.record?.id || null,
         });
       } catch (err) {
         failures.push({
           puppy_id: puppy.id,
-          puppy_name: puppySelectorLabel(puppy, puppy.id),
+          puppy_name: puppy.name,
           error: err?.message || text(this._hass, "saveFailed"),
         });
       }
     }
 
-    this._result = { successes, failures, total: selected.length };
+    this._result = { litter_id: litterId, successes, failures, total: selected.length };
     this._saving = false;
     this._review = false;
 
@@ -439,8 +543,7 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
     } else {
       this._status = bulkCountText(this._hass, "allSaved", successes.length);
       this._formState.reset();
-      const recordType = this._form.record_type;
-      this._form = this._emptyForm(recordType);
+      this._form = this._emptyForm(payload.record_type);
       this._dirty = false;
     }
 
@@ -550,11 +653,11 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
           .actions button,.selection-actions button { flex:1 1 auto; }
         }
       </style>
-      <ha-card>
+      <ha-card aria-busy="${this._saving || this._loading}">
         <div class="head"><div><div class="title">${escapeHtml(title)}</div><div class="muted">${escapeHtml(text(this._hass, "description"))}</div></div></div>
         ${this._config.show_litter_selector ? `<div class="selectors"><label class="field">${escapeHtml(localize(this._hass, "litter"))}<select id="bulk-litter">${litterOptions}</select></label></div>` : ""}
         ${this._error ? `<div class="message error">${escapeHtml(this._error)}</div>` : ""}
-        ${this._status ? `<div class="message">${escapeHtml(this._status)}</div>` : ""}
+        ${this._status ? `<div class="message" role="status" aria-live="polite">${escapeHtml(this._status)}</div>` : ""}
         ${this._result?.failures?.length ? `<div class="message error"><strong>${escapeHtml(text(this._hass, "failedPuppies"))}</strong><ul class="result-list">${this._result.failures.map((failure) => `<li>${escapeHtml(failure.puppy_name)}: ${escapeHtml(failure.error)}</li>`).join("")}</ul></div>` : ""}
         <section class="section">
           <div class="selection-head">
@@ -585,7 +688,13 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
 
     this.shadowRoot.getElementById("bulk-litter")?.setAttribute("data-draft-ignore", "");
     this._formState.bind(this.shadowRoot.querySelector("ha-card"));
-    this.shadowRoot.querySelector("ha-card")?.addEventListener("input", () => this._captureForm());
+    if (this._loading) this.shadowRoot.querySelectorAll("input,select,textarea,button").forEach((control) => {
+      if (control.id !== "bulk-litter") control.disabled = true;
+    });
+    for (const type of ["input", "change"]) {
+      this.shadowRoot.querySelector("ha-card")?.addEventListener(type, () => this._captureForm());
+    }
+    const resultLitterId = this._result?.litter_id;
     for (const saved of (canManage ? this._result?.successes : []) || []) {
       if (!saved.record_id) continue;
       const button = document.createElement("button");
@@ -594,7 +703,7 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
       button.textContent = saved.puppy_name;
       button.title = localize(this._hass, "editDossierItem");
       button.insertAdjacentHTML("afterbegin", '<ha-icon icon="mdi:pencil-outline"></ha-icon> ');
-      button.addEventListener("click", (event) => openRecordEditor(this, { litterId: this._selectedLitterId, scope: "puppy", puppyId: saved.puppy_id, recordId: saved.record_id }, { trigger: event.currentTarget }));
+      button.addEventListener("click", (event) => openRecordEditor(this, { litterId: resultLitterId, scope: "puppy", puppyId: saved.puppy_id, recordId: saved.record_id }, { trigger: event.currentTarget }));
       this.shadowRoot.querySelector("ha-card").append(button);
     }
     this.shadowRoot.getElementById("bulk-litter")?.addEventListener("change", (event) => {
@@ -614,7 +723,11 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
       this.shadowRoot.getElementById(`bulk-data-${field.key}`)?.addEventListener("input", () => { this._dirty = true; });
     }
     this.shadowRoot.getElementById("bulk-review")?.addEventListener("click", () => this._startReview());
-    this.shadowRoot.getElementById("bulk-back")?.addEventListener("click", () => { this._review = false; this._render(); });
+    this.shadowRoot.getElementById("bulk-back")?.addEventListener("click", () => {
+      if (this._saving || this._loading) return;
+      this._review = false;
+      this._render();
+    });
     this.shadowRoot.getElementById("bulk-confirm")?.addEventListener("click", () => this._saveBulk());
   }
 }
