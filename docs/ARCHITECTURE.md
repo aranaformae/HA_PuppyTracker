@@ -1412,8 +1412,15 @@ change saved data or completion state.
   report sections; internal reference IDs are not printed. Dossier source
   and category filters apply only to that section; an empty list selects none.
   PDF static labels use the selected Dutch/English language while user data is
-  preserved verbatim. Long table cells continue across pages with repeated
-  headers, and single chart measurements render as points.
+  preserved verbatim. The dependency-free layout queues headings and short
+  section introductions until the next paragraph or table can be measured.
+  Nested puppy/section headings stay with the first content; compact identity
+  tables can explicitly request whole-block placement. Tables reserve a header
+  plus the first row and move ordinary rows intact to the next page. Oversized
+  rows still continue without truncation, with repeated headers. Weight charts
+  use regular rounded gram ticks, horizontal/vertical gridlines and local date
+  labels (plus times for periods shorter than two days). Plot and legend space
+  is measured before placement; single chart measurements render as points.
 - The first in-period weight difference uses the most recent earlier effective
   measurement, while that earlier row remains outside the report period.
 - PDF section switches are independent except that contact details require

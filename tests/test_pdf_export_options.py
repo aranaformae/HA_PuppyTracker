@@ -662,3 +662,190 @@ def test_long_table_row_continues_on_new_pages_without_clipping() -> None:
     assert b"fragment1499" in document
     assert all(b"(Date)" in bytes(page.operations) for page in report.pages)
     assert report.y <= pdf_export.PAGE_HEIGHT - pdf_export.MARGIN
+
+
+def test_nested_headings_stay_with_compact_identity_table() -> None:
+    report = pdf_export._PdfReport()
+    report.paragraph("Previous section")
+    report.y = pdf_export.PAGE_HEIGHT - pdf_export.MARGIN - 80
+    report.heading("Nova", level=2)
+    report.heading("Identity details", level=3)
+    report.table(
+        ["Field", "Value"],
+        [["Name", "Nova"], ["Chip", "123456789012345"], ["Collar", "Purple"]],
+        [130, 351],
+        keep_together=True,
+    )
+    assert len(report.pages) == 2
+    assert b"Nova" not in report.pages[0].operations
+    for marker in (b"Nova", b"Identity details", b"Field", b"Chip", b"Purple"):
+        assert marker in report.pages[1].operations
+
+
+def test_dossier_heading_source_and_first_record_stay_together() -> None:
+    report = pdf_export._PdfReport()
+    report.paragraph("Previous section")
+    report.y = pdf_export.PAGE_HEIGHT - pdf_export.MARGIN - 55
+    report.heading("Dossier items", level=2)
+    report.paragraph("Source: Nova", size=8, keep_with_next=True)
+    report.table(["Date", "Note"], [["2026-10-22", "First record"]], [90, 391])
+    assert len(report.pages) == 2
+    for marker in (b"Dossier items", b"Source: Nova", b"First record"):
+        assert marker not in report.pages[0].operations
+        assert marker in report.pages[1].operations
+
+
+def test_normal_multiline_record_moves_intact_to_next_page() -> None:
+    report = pdf_export._PdfReport()
+    bottom = pdf_export.PAGE_HEIGHT - pdf_export.MARGIN
+    report.y = bottom - 80
+    note = " ".join(f"recordfragment{index:02d}" for index in range(40))
+    report.table(["Date", "Note"], [["First", "Short"], ["Second", note]], [90, 391])
+    assert len(report.pages) == 2
+    assert b"First" in report.pages[0].operations
+    assert b"recordfragment" not in report.pages[0].operations
+    assert b"Second" in report.pages[1].operations
+    assert b"recordfragment39" in report.pages[1].operations
+    assert all(b"(Date)" in page.operations for page in report.pages)
+
+
+def test_long_first_record_keeps_heading_and_header_with_initial_chunk() -> None:
+    report = pdf_export._PdfReport()
+    report.paragraph("Previous section")
+    report.y = pdf_export.PAGE_HEIGHT - pdf_export.MARGIN - 40
+    report.heading("Long record", level=2)
+    note = " ".join(f"fragment{index:04d}" for index in range(1500))
+    report.table(["Date", "Note"], [["2026-10-22", note]], [90, 391], keep_together=True)
+    assert b"Long record" not in report.pages[0].operations
+    assert b"Long record" in report.pages[1].operations
+    assert b"fragment0000" in report.pages[1].operations
+    assert b"fragment1499" in report.build()
+    assert all(b"(Date)" in page.operations for page in report.pages[1:])
+
+
+def test_wrapped_heading_and_empty_state_do_not_leave_an_orphan() -> None:
+    report = pdf_export._PdfReport()
+    report.paragraph("Previous section")
+    report.y = pdf_export.PAGE_HEIGHT - pdf_export.MARGIN - 45
+    report.heading("Long puppy name " * 8, level=2)
+    report.paragraph("No records available.")
+    assert b"Long puppy" not in report.pages[0].operations
+    assert b"No records available." in report.pages[-1].operations
+    assert report.y <= pdf_export.PAGE_HEIGHT - pdf_export.MARGIN
+
+
+def test_litter_only_dossier_does_not_emit_empty_puppy_headings(storage, install_litter) -> None:
+    litter_id, _puppy_id = install_litter(puppy_overrides={"name": "Puppy without printed sections"})
+    document = _pdf_bytes(
+        storage, litter_id, sections=_sections("dossier"), dossier_scopes=["litter"],
+    )
+    assert b"Puppy without printed sections" not in document
+    assert b"Dossieritems" in document
+
+
+@pytest.mark.parametrize("language", ["nl", "en"])
+def test_chart_has_regular_weight_ticks_date_grid_and_collar_color(monkeypatch, language) -> None:
+    _freeze_time(monkeypatch)
+    report = pdf_export._PdfReport()
+    color = pdf_export._collar_rgb("paars", 0)
+    assert report.chart([("Nova", [
+        {"timestamp": "2026-08-31T12:00:00Z", "weight": 360},
+        {"timestamp": "2026-10-22T12:00:00Z", "weight": 4130},
+    ], color)], language)
+    document = report.build()
+    for value in range(0, 5001, 1000):
+        assert f"({value} g)".encode() in document
+    assert document.count(b"0.880 G 0.40 w") == 6
+    assert document.count(b"0.920 G 0.40 w") == 5
+    assert (b"31-08-2026" if language == "nl" else b"2026-08-31") in document
+    assert (b"22-10-2026" if language == "nl" else b"2026-10-22") in document
+    assert f"{color[0]:.3f} {color[1]:.3f} {color[2]:.3f} RG".encode() in document
+
+
+def test_single_point_chart_has_one_time_tick_and_ignores_invalid_points(monkeypatch) -> None:
+    _freeze_time(monkeypatch)
+    report = pdf_export._PdfReport()
+    assert report.chart([("Nova", [
+        {"timestamp": "invalid", "weight": 400},
+        {"timestamp": NOW.isoformat(), "weight": float("nan")},
+        {"timestamp": NOW.isoformat(), "weight": 410},
+    ], (0.5, 0.2, 0.6))])
+    document = report.build()
+    assert document.count(b"0.920 G 0.40 w") == 1
+    assert b"12:00" in document
+    assert b"4 4 re f" in document
+    assert b"nan" not in document and b"inf" not in document
+    assert len(report.pages) == 1
+
+
+def test_chart_and_wrapped_legend_move_together_to_next_page() -> None:
+    report = pdf_export._PdfReport()
+    report.paragraph("Previous section")
+    report.y = pdf_export.PAGE_HEIGHT - pdf_export.MARGIN - 100
+    report.chart([
+        (f"Puppy {index} with a long registered name", [{"timestamp": NOW.isoformat(), "weight": 410 + index}], (0.2, 0.3, 0.4))
+        for index in range(12)
+    ])
+    assert len(report.pages) == 2
+    assert b"Gewichtsontwikkeling" not in report.pages[0].operations
+    assert b"Gewichtsontwikkeling" in report.pages[1].operations
+    assert b"Puppy 11" in report.pages[1].operations
+    assert report.y <= pdf_export.PAGE_HEIGHT - pdf_export.MARGIN
+
+
+@pytest.mark.parametrize("language", ["nl", "en"])
+async def test_full_pdf_layout_with_care_instructions(
+    monkeypatch, storage, install_litter, make_measurement, tmp_path, language,
+) -> None:
+    end = datetime(2026, 10, 22, 12, tzinfo=UTC)
+    monkeypatch.setattr(pdf_export.dt_util, "now", lambda: end)
+    monkeypatch.setattr(pdf_export.dt_util, "as_local", lambda value: value)
+    start = end - timedelta(days=52)
+    litter_id, puppy_id = install_litter(
+        measurements=[
+            make_measurement(str(day), 360 + day * 72.5, (start + timedelta(days=day)).isoformat())
+            for day in range(53)
+        ],
+        puppy_overrides={
+            "name": "Nova", "collar_color": "paars", "registered_name": "Milky Way Nova",
+            "coat_color": "Bruin", "chip_number": "123456789012345", "owner_ids": ["owner-1"],
+            "birth_time": start.isoformat(), "birth_weight": 360,
+        },
+        litter_overrides={"birth_date": start.date().isoformat()},
+    )
+    for day in range(3, 18):
+        for program in ("ENS", "ESI"):
+            await storage.async_add_record(
+                litter_id, puppy_id=puppy_id, record_type="test", title=program,
+                occurred_at=(start + timedelta(days=day, hours=1 if program == "ENS" else 2)).isoformat(),
+                data={
+                    "care_occurrence_id": f"{program}:{day}", "care_status": "completed",
+                    "care_age_days": day, "care_result": "Rustig, herstelt snel",
+                    "care_instruction": "Observeer de reactie en geef daarna rust. " * (8 if program == "ENS" else 1),
+                },
+                note=f"Observatie dag {day}: snuffelt en zoekt daarna contact.",
+            )
+    await storage.async_add_record(litter_id, record_type="milestone", occurred_at=end.isoformat(), note="Alle pups boven 1 kg.")
+    await storage.async_add_record(litter_id, puppy_id=puppy_id, record_type="note", occurred_at=end.isoformat(), note="Einde van het pupdossier.")
+    report = pdf_export._PdfReport
+    captured = []
+
+    def capture(*args, **kwargs):
+        instance = report(*args, **kwargs)
+        captured.append(instance)
+        return instance
+
+    monkeypatch.setattr(pdf_export, "_PdfReport", capture)
+    document = _pdf_bytes(
+        storage, litter_id, puppy_id=puppy_id, language=language,
+        sections=_sections("identity", "summary", "chart", "care", "dossier", "owners", "owner_contact", "brand_logo", "breeder_name"),
+        branding={"name": "Voorbeeldfokker"},
+        owner_records=[{"id": "owner-1", "name": "Voorbeeldbaasje", "email": "example@example.com"}],
+    )
+    (tmp_path / f"puppy-layout-{language}.pdf").write_bytes(document)
+    pages = [bytes(page.operations) for page in captured[0].pages]
+    identity = b"Identiteitsgegevens" if language == "nl" else b"Identity details"
+    page = next(page for page in pages if identity in page)
+    assert b"(Nova)" in page and b"123456789012345" in page
+    assert b"Einde van het pupdossier." in document
+    assert len(pages) >= 3

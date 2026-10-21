@@ -69,6 +69,13 @@ the document title and section headings still identify the report subject.
 When an enabled section has no matching data, the PDF contains a clear empty
 state instead of silently omitting the section.
 
+Names and section headings stay with the information that follows. Compact
+identity tables stay together, and ordinary records move to the next page
+instead of being cut in half. Exceptionally long records can continue across
+pages, with the table header repeated. The weight chart has light gridlines,
+regular weight-axis values and date labels; short periods also show times.
+The growth lines retain each puppy's collar colour.
+
 ## PDF profiles
 
 | Profile | Sections |

@@ -9,7 +9,7 @@ import math
 import re
 import unicodedata
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -579,6 +579,20 @@ def _wrap(text: str, size: float, width: float, bold: bool = False) -> list[str]
 
 
 @dataclass
+class _TextBlock:
+    lines: list[str]
+    size: float
+    spacing: float
+    bold: bool = False
+    indent: float = 0
+    gray: float = 0
+
+    @property
+    def height(self) -> float:
+        return len(self.lines) * (self.size + self.spacing)
+
+
+@dataclass
 class _Page:
     operations: bytearray = field(default_factory=bytearray)
 
@@ -597,6 +611,7 @@ class _PdfReport:
         self.pages.append(self.page)
         self.y = MARGIN
         self.logo = logo
+        self._pending_text: list[_TextBlock] = []
 
     def brand_logo(self) -> None:
         """Place a bounded logo without distorting its aspect ratio."""
@@ -647,21 +662,36 @@ class _PdfReport:
         ops.append("S 0 G")
         self.page.add(" ".join(ops))
 
-    def paragraph(self, text: str, *, size: float = 9.5, bold: bool = False, indent: float = 0, gray: float = 0, spacing: float = 3) -> None:
-        lines = _wrap(text, size, CONTENT_WIDTH - indent, bold)
-        for line in lines:
-            self.ensure(size + spacing)
-            self.text(MARGIN + indent, self.y, line, size=size, bold=bold, gray=gray)
-            self.y += size + spacing
+    def _draw_text_block(self, block: _TextBlock) -> None:
+        for line in block.lines:
+            self.ensure(block.size + block.spacing)
+            self.text(MARGIN + block.indent, self.y, line, size=block.size, bold=block.bold, gray=block.gray)
+            self.y += block.size + block.spacing
+
+    def _flush_pending(self, following_height: float) -> None:
+        # Delay headings until the first content is measured, including nested headings.
+        pending, self._pending_text = self._pending_text, []
+        if not pending and not following_height:
+            return
+        height = sum(block.height for block in pending) + following_height
+        self.ensure(min(height, PAGE_HEIGHT - 2 * MARGIN))
+        for block in pending:
+            self._draw_text_block(block)
+
+    def paragraph(self, text: str, *, size: float = 9.5, bold: bool = False, indent: float = 0, gray: float = 0, spacing: float = 3, keep_with_next: bool = False) -> None:
+        block = _TextBlock(_wrap(text, size, CONTENT_WIDTH - indent, bold), size, spacing, bold, indent, gray)
+        if keep_with_next:
+            self._pending_text.append(block)
+            return
+        self._flush_pending(min(block.height, 2 * (size + spacing)))
+        self._draw_text_block(block)
 
     def heading(self, text: str, *, level: int = 1) -> None:
         size = 20 if level == 1 else 14
         gap = 8 if level == 1 else 6
-        self.ensure(size + gap + 6)
-        self.text(MARGIN, self.y, text, size=size, bold=True)
-        self.y += size + gap
+        self._pending_text.append(_TextBlock(_wrap(text, size, CONTENT_WIDTH, True), size, gap, bold=True))
 
-    def table(self, headers: list[str], rows: list[list[str]], widths: list[float], *, font_size: float = 7.8) -> None:
+    def table(self, headers: list[str], rows: list[list[str]], widths: list[float], *, font_size: float = 7.8, keep_together: bool = False) -> None:
         row_padding = 4.0
         line_height = font_size + 2.2
         header_lines = [
@@ -683,14 +713,32 @@ class _PdfReport:
             self.line(MARGIN, self.y + height, MARGIN + sum(widths), self.y + height, gray=0.82)
             self.y += height
 
-        header_height = max(map(len, header_lines), default=1) * line_height + 2 * row_padding
-        self.ensure(header_height)
+        def wrap_row(row: list[str]) -> list[list[str]]:
+            return [_wrap(cell, font_size, width - 2 * row_padding) for cell, width in zip(row, widths)]
+
+        def row_height(row: list[list[str]]) -> float:
+            return max(map(len, row), default=1) * line_height + 2 * row_padding
+
+        header_height = row_height(header_lines)
+        pending_height = sum(block.height for block in self._pending_text)
+        first_row = wrap_row(rows[0]) if rows else []
+        fresh_capacity = PAGE_HEIGHT - 2 * MARGIN - header_height
+        initial_capacity = max(line_height + 2 * row_padding, fresh_capacity - pending_height)
+        reserve = header_height + (min(row_height(first_row), initial_capacity) if rows else 0)
+        if keep_together:
+            table_height = header_height + sum(row_height(wrap_row(row)) for row in rows)
+            if table_height + pending_height <= PAGE_HEIGHT - 2 * MARGIN:
+                reserve = table_height
+        self._flush_pending(reserve)
         draw_chunk(header_lines, header=True)
-        for row in rows:
-            remaining = [
-                _wrap(cell, font_size, width - 2 * row_padding)
-                for cell, width in zip(row, widths)
-            ]
+        for index, row in enumerate(rows):
+            remaining = first_row if index == 0 else wrap_row(row)
+            height = row_height(remaining)
+            capacity = initial_capacity if index == 0 else fresh_capacity
+            # Keep ordinary rows intact; oversized records can continue across pages.
+            if height <= capacity and self.y + height > PAGE_HEIGHT - MARGIN:
+                self.new_page()
+                draw_chunk(header_lines, header=True)
             while any(remaining):
                 available = int((PAGE_HEIGHT - MARGIN - self.y - 2 * row_padding) // line_height)
                 if available < 1:
@@ -703,65 +751,98 @@ class _PdfReport:
         self.y += 8
 
     def chart(self, series: list[tuple[str, list[dict[str, Any]], tuple[float, float, float]]], language: str = "nl") -> bool:
+        plot_series = []
         points_all: list[tuple[float, float]] = []
-        for _, rows, _ in series:
+        for name, rows, color in series:
+            points = []
             for row in rows:
                 try:
-                    points_all.append((timestamp_sort_key(row.get("timestamp")), float(row.get("weight"))))
+                    point = (timestamp_sort_key(row.get("timestamp")), float(row.get("weight")))
                 except (TypeError, ValueError):
                     continue
+                if all(math.isfinite(value) for value in point):
+                    points.append(point)
+            if points:
+                plot_series.append((name, sorted(points), color))
+                points_all.extend(points)
         if not points_all:
             return False
-        self.ensure(205)
-        chart_top = self.y + 8
         chart_height = 150
-        chart_left = MARGIN + 38
-        chart_width = CONTENT_WIDTH - 50
         min_t = min(t for t, _ in points_all)
         max_t = max(t for t, _ in points_all)
         min_w_raw = min(w for _, w in points_all)
         max_w_raw = max(w for _, w in points_all)
         pad = max(10.0, (max_w_raw - min_w_raw) * 0.1)
-        min_w = max(0.0, min_w_raw - pad)
-        max_w = max_w_raw + pad
+        lower = max(0.0, min_w_raw - pad)
+        upper = max_w_raw + pad
+        target_step = (upper - lower) / 5
+        magnitude = 10 ** math.floor(math.log10(target_step))
+        step = next(value * magnitude for value in (1, 2, 2.5, 5, 10) if value * magnitude >= target_step)
+        min_w = math.floor(lower / step) * step
+        max_w = math.ceil(upper / step) * step
+        weight_ticks = [min_w + index * step for index in range(round((max_w - min_w) / step) + 1)]
+        label_width = max(_estimate_width(_format_weight(value, language), 7.5) for value in weight_ticks)
+        chart_left = MARGIN + label_width + 10
+        chart_width = PAGE_WIDTH - MARGIN - chart_left
+
+        legend_rows: list[list[tuple[list[str], tuple[float, float, float], float]]] = [[]]
+        for name, _, color in plot_series:
+            width = min(CONTENT_WIDTH, _estimate_width(name, 8) + 34)
+            if sum(entry[2] for entry in legend_rows[-1]) + width > CONTENT_WIDTH:
+                legend_rows.append([])
+            legend_rows[-1].append((_wrap(name, 8, width - 20), color, width))
+        legend_heights = [max(len(entry[0]) for entry in row) * 10 + 4 for row in legend_rows]
+        self._flush_pending(16 + chart_height + 32 + sum(legend_heights) + 8)
 
         self.text(MARGIN, self.y, _pdf_text(language, "weight_chart"), size=11, bold=True)
         self.y += 16
         chart_top = self.y
+        for value in weight_ticks:
+            top = chart_top + (1 - (value - min_w) / (max_w - min_w)) * chart_height
+            self.line(chart_left, top, chart_left + chart_width, top, gray=0.88, width=0.4)
+            label = _format_weight(value, language)
+            self.text(chart_left - 10 - _estimate_width(label, 7.5), top - 4, label, size=7.5, gray=0.35)
+
+        for index in range(5) if max_t > min_t else (2,):
+            fraction = index / 4
+            x = chart_left + fraction * chart_width
+            self.line(x, chart_top, x, chart_top + chart_height, gray=0.92, width=0.4)
+            stamp = min_t + fraction * (max_t - min_t)
+            local = dt_util.as_local(datetime.fromtimestamp(stamp, UTC))
+            label = local.strftime("%Y-%m-%d" if language == "en" else "%d-%m-%Y")
+            width = _estimate_width(label, 7)
+            label_x = min(PAGE_WIDTH - MARGIN - width, max(chart_left, x - width / 2))
+            self.text(label_x, chart_top + chart_height + 5, label, size=7, gray=0.35)
+            if max_t - min_t < 2 * 86400:
+                self.text(label_x, chart_top + chart_height + 15, local.strftime("%H:%M"), size=7, gray=0.35)
         self.line(chart_left, chart_top, chart_left, chart_top + chart_height, gray=0.65)
         self.line(chart_left, chart_top + chart_height, chart_left + chart_width, chart_top + chart_height, gray=0.65)
-        self.text(MARGIN, chart_top - 1, _format_weight(max_w, language), size=7.5, gray=0.35)
-        self.text(MARGIN, chart_top + chart_height - 8, _format_weight(min_w, language), size=7.5, gray=0.35)
 
-        for index, (name, rows, color) in enumerate(series):
+        for _, points, color in plot_series:
             chart_points: list[tuple[float, float]] = []
-            for row in rows:
-                try:
-                    ts = timestamp_sort_key(row.get("timestamp"))
-                    weight = float(row.get("weight"))
-                except (TypeError, ValueError):
-                    continue
+            for ts, weight in points:
                 x = chart_left + (0.5 if max_t == min_t else (ts - min_t) / (max_t - min_t)) * chart_width
-                top = chart_top + (1 - (weight - min_w) / max(1.0, max_w - min_w)) * chart_height
+                top = chart_top + (1 - (weight - min_w) / (max_w - min_w)) * chart_height
                 chart_points.append((x, top))
             self.colored_line(chart_points, color)
             for x, top in chart_points:
                 self.page.add(f"{color[0]:.3f} {color[1]:.3f} {color[2]:.3f} rg {x - 2:.2f} {self._py(top + 2):.2f} 4 4 re f 0 g")
 
-        self.y = chart_top + chart_height + 12
-        legend_x = MARGIN
-        for index, (name, _, color) in enumerate(series):
-            if legend_x + _estimate_width(name, 8) + 24 > PAGE_WIDTH - MARGIN:
-                self.y += 12
-                legend_x = MARGIN
-            self.ensure(12)
-            self.page.add(f"{color[0]:.3f} {color[1]:.3f} {color[2]:.3f} rg {legend_x:.2f} {self._py(self.y + 7):.2f} 10 3 re f 0 g")
-            self.text(legend_x + 14, self.y, name, size=8)
-            legend_x += _estimate_width(name, 8) + 34
-        self.y += 20
+        self.y = chart_top + chart_height + 32
+        for row, height in zip(legend_rows, legend_heights):
+            self.ensure(height)
+            legend_x = MARGIN
+            for lines, color, width in row:
+                self.page.add(f"{color[0]:.3f} {color[1]:.3f} {color[2]:.3f} rg {legend_x:.2f} {self._py(self.y + 7):.2f} 10 3 re f 0 g")
+                for index, line in enumerate(lines):
+                    self.text(legend_x + 14, self.y + index * 10, line, size=8)
+                legend_x += width
+            self.y += height
+        self.y += 8
         return True
 
     def build(self) -> bytes:
+        self._flush_pending(0)
         objects: list[bytes] = []
 
         def add_object(data: bytes) -> int:
@@ -902,6 +983,7 @@ def build_pdf_export(
             ],
             [40, 78, 55, 65, 88, 70, 85],
             font_size=7.1,
+            keep_together=True,
         )
 
     if visible["owners"]:
@@ -1038,6 +1120,7 @@ def build_pdf_export(
             summary_rows,
             [76, 55, 42, 58, 55, 60, 55, 80] if visible["attention"] else [98, 65, 50, 65, 65, 68, 70],
             font_size=7.4,
+            keep_together=True,
         )
     if visible["chart"]:
         if not report.chart(chart_series, language):
@@ -1059,7 +1142,7 @@ def build_pdf_export(
                 _record_data_text(record, language),
                 str(record.get("note") or ""),
             ])
-        report.paragraph(f"{t('source')}: {source}", size=8, gray=0.35)
+        report.paragraph(f"{t('source')}: {source}", size=8, gray=0.35, keep_with_next=True)
         report.table([t("date_time"), t("type"), t("details"), t("result"), t("note")], dossier_rows, [72, 58, 95, 137, 119], font_size=7)
 
     if visible["dossier"] and "litter" in dossier_scopes:
@@ -1071,7 +1154,7 @@ def build_pdf_export(
         render_dossier_records([], t("litter_source"))
 
     for current_id, puppy in puppies:
-        if any(visible[key] for key in ("identity", "measurements", "care", "behavior", "dossier")):
+        if any(visible[key] for key in ("identity", "measurements", "care", "behavior")) or (visible["dossier"] and "puppy" in dossier_scopes):
             report.heading(str(puppy.get("name") or t("puppy")), level=2)
         if visible["identity"]:
             report.heading(t("identity_details"), level=3)
@@ -1090,6 +1173,7 @@ def build_pdf_export(
                 ],
                 [130, 351],
                 font_size=8,
+                keep_together=True,
             )
             if visible["profile_note"] and puppy.get("profile_note"):
                 report.heading(t("profile_note"), level=3)
@@ -1199,6 +1283,7 @@ def build_pdf_export(
                             f"{group_title} - {t('behavior_average')}: {_format_care_score(group_average, language)}/5",
                             size=8.5,
                             bold=True,
+                            keep_with_next=True,
                         )
                         report.table(
                             [t("details"), t("behavior_average"), t("behavior_latest"), t("behavior_count")],
