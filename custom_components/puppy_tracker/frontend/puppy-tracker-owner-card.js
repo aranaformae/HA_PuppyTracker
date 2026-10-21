@@ -112,6 +112,7 @@ const COPY = {
     paymentBalance: "Werkelijk openstaand bedrag",
     paymentMethod: "Betaalmethode",
     paymentDate: "Datum slotbetaling",
+    markPaidInFull: "Volledig betaald registreren",
     contactPreference: "Voorkeurscontact",
     notes: "Notities",
     owners: "Baasjes",
@@ -236,6 +237,7 @@ const COPY = {
     paymentBalance: "Actual outstanding amount",
     paymentMethod: "Payment method",
     paymentDate: "Final payment date",
+    markPaidInFull: "Record payment in full",
     contactPreference: "Preferred contact",
     notes: "Notes",
     owners: "Owners",
@@ -974,8 +976,9 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     if (error) error.textContent = "";
   }
 
-  _openEditor(ownerId = null) {
+  _openEditor(ownerId = null, { paidInFull = false } = {}) {
     if (!this._formState.discard()) return;
+    this._paymentBeforeFull = null;
     this._lastSavedOwnerId = null;
     this._activeView = "owners";
     this._editing = ownerId;
@@ -983,7 +986,11 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     this._status = "";
     this._error = "";
     this._render();
-    queueMicrotask(() => this.querySelector('input[name="name"]')?.focus({ preventScroll: true }));
+    if (paidInFull) {
+      this.querySelector('[name="payment_status"]').value = "full";
+      this._syncPaymentStatus(true);
+    }
+    queueMicrotask(() => this.querySelector(paidInFull ? '[name="payment_date"]' : 'input[name="name"]')?.focus({ preventScroll: true }));
   }
 
   _detail(label, value, className = "") {
@@ -1027,6 +1034,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       ${this._detail(text(this, "paymentMethod"), optionLabel(this, owner.payment_method, PAYMENT_METHOD_LABELS, "none"))}
       ${this._detail(text(this, "paymentBalance"), owner.payment_balance ?? "—")}
       ${this._detail(text(this, "paymentDate"), formattedDate(this, owner.payment_date))}
+      ${owner.payment_status !== "full" ? `<div class="wide"><button type="button" class="secondary" data-mark-paid="${escapeHtml(owner.id)}" ${this._busy ? "disabled" : ""}><ha-icon icon="mdi:cash-check"></ha-icon>${escapeHtml(text(this, "markPaidInFull"))}</button></div>` : ""}
       `)}
       ${group("notes", "notes", this._detail(text(this, "notes"), owner.notes || "—", "wide notes preformatted"), true)}
       ${group("history", "statusHistory", this._detail(text(this, "statusHistory"), history, "wide preformatted"))}
@@ -1091,6 +1099,29 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     output.textContent = finalPaymentAmount(Object.fromEntries(new FormData(form).entries())) || "—";
   }
 
+  _syncPaymentStatus(markPaid = false) {
+    const form = this.querySelector(".owner-editor form");
+    if (!form) return;
+    const paid = form.elements.payment_status.value === "full";
+    const balance = form.elements.payment_balance;
+    const date = form.elements.payment_date;
+    if (paid && markPaid && !balance.readOnly) this._paymentBeforeFull = { balance: balance.value, date: date.value };
+    if (paid) {
+      balance.value = "0";
+      if (markPaid && !date.value) {
+        const now = new Date();
+        date.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+        if (this._paymentBeforeFull) this._paymentBeforeFull.automaticDate = date.value;
+      }
+    } else if (this._paymentBeforeFull) {
+      balance.value = this._paymentBeforeFull.balance;
+      if (date.value === this._paymentBeforeFull.automaticDate) date.value = this._paymentBeforeFull.date;
+      this._paymentBeforeFull = null;
+    }
+    balance.readOnly = paid;
+    this._formState.capture();
+  }
+
   _render() {
     if (!this._config) return;
     this._formState.capture();
@@ -1141,6 +1172,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       .form label,.link-form label{display:grid;gap:4px;color:var(--secondary-text-color);font-size:.78rem}
       .form input,.form select,.form textarea,.form output,.link-form select{box-sizing:border-box;width:100%;min-height:42px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color);padding:9px;font:inherit}
       .form output{display:flex;align-items:center;background:var(--secondary-background-color)}
+      .form input[readonly]{background:var(--secondary-background-color)}
       .form textarea{min-height:112px;resize:vertical}
       .wide,.checks{grid-column:1/-1}
       .preferences{display:grid;gap:8px}
@@ -1285,6 +1317,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     </style>`;
 
     this._formState.bind(this.querySelector(".owner-editor form"));
+    this._syncPaymentStatus();
     this._linkFormState.bind(this.querySelector(".link-form .checks"));
     this._updateFinalPaymentPreview();
     const savedStatus = this.querySelector("#owner-status");
@@ -1305,6 +1338,8 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       this._ownerGroups.set(group.dataset.groupOwner, state);
     }));
     this.querySelectorAll("[data-edit]").forEach((button) => button.addEventListener("click", () => this._openEditor(button.dataset.edit)));
+    this.querySelectorAll("[data-mark-paid]").forEach((button) => button.addEventListener("click", () => this._openEditor(button.dataset.markPaid, { paidInFull: true })));
+    this.querySelector('[name="payment_status"]')?.addEventListener("change", () => this._syncPaymentStatus(true));
     this.querySelectorAll("[data-delete]").forEach((button) => button.addEventListener("click", () => this._delete(button.dataset.delete)));
     this.querySelectorAll('input[name="payment_amount"], input[name="registration_fee_amount"], input[name="deposit_amount"]').forEach((input) => input.addEventListener("input", () => this._updateFinalPaymentPreview()));
     this.querySelector("#link-litter")?.addEventListener("change", (event) => { if (!this._linkFormState.discard()) { event.target.value = this._selectedLitter; return; } this._selectedLitter = event.target.value; this._selectedPuppy = ""; this._matrixSelectedPuppy = ""; this._matrixSelection = null; this._render(); });

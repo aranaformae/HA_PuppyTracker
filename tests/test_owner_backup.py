@@ -179,6 +179,57 @@ def test_final_payment_requires_valid_total() -> None:
     assert final_payment_amount({"payment_amount": "NaN"}) is None
 
 
+@pytest.mark.parametrize("balance", [None, "", "1750", "0", 0])
+def test_paid_in_full_always_has_zero_outstanding_without_changing_schedule(balance):
+    owner = _normalize({
+        "name": "Alex", "payment_amount": "2500", "registration_fee_amount": "250",
+        "deposit_amount": "500", "payment_balance": balance,
+        "payment_status": "full", "payment_date": "2026-10-21",
+    })
+    assert owner["payment_balance"] == "0"
+    assert owner["payment_date"] == "2026-10-21"
+    assert final_payment_amount(owner) == "1750"
+    assert normalize_owner_backup_data({"owners": {owner["id"]: owner}})["owners"][owner["id"]] == owner
+
+
+@pytest.mark.parametrize("status", ["none", "registration_fee", "deposit"])
+def test_partial_payment_balances_remain_manually_editable(status):
+    owner = _normalize({"name": "Alex", "payment_status": status, "payment_balance": "1400"})
+    assert owner["payment_balance"] == "1400"
+
+
+def test_paid_in_full_legacy_data_does_not_invent_a_payment_date():
+    owner = _normalize({"name": "Alex", "payment_status": "full", "payment_balance": "500"})
+    assert owner["payment_balance"] == "0"
+    assert owner["payment_date"] is None
+
+
+async def test_final_payment_survives_owner_store_backup_reload_and_can_be_corrected(hass):
+    store = OwnerStore(hass)
+    store._store.async_save = AsyncMock()
+    owner = await store.async_upsert({"name": "Alex", "payment_status": "deposit", "payment_balance": "1750"})
+    paid = await store.async_upsert({"payment_status": "full", "payment_date": "2026-10-21"}, owner["id"])
+    assert paid["payment_balance"] == "0"
+    restored = OwnerStore(hass)
+    restored._store.async_save = AsyncMock()
+    await restored.async_restore_backup_data(store.get_backup_data())
+    restored._store.async_load = AsyncMock(return_value=restored.get_backup_data())
+    await restored.async_load()
+    assert restored.get(owner["id"]) == paid
+    corrected = await restored.async_upsert({"payment_status": "deposit", "payment_balance": "100"}, owner["id"])
+    assert corrected["payment_balance"] == "100"
+
+
+async def test_failed_final_payment_save_retains_the_previous_balance(hass):
+    store = OwnerStore(hass)
+    store._store.async_save = AsyncMock()
+    owner = await store.async_upsert({"name": "Alex", "payment_status": "deposit", "payment_balance": "1750"})
+    store._store.async_save.side_effect = OSError("disk full")
+    with pytest.raises(OSError, match="disk full"):
+        await store.async_upsert({"payment_status": "full", "payment_date": "2026-10-21"}, owner["id"])
+    assert store.get(owner["id"]) == owner
+
+
 def test_owner_status_change_is_added_to_history() -> None:
     owner = _normalize(
         {"name": "Alex", "placement_status": "reserved"},

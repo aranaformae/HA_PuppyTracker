@@ -872,6 +872,12 @@ persisted as a second source of truth. Monetary values are normalized as
 non-negative decimal strings; registration fee plus deposit cannot exceed a
 known total.
 
+`payment_status: full` canonically forces `payment_balance: "0"` during
+save/load/restore normalization. The agreed final-payment calculation is
+unchanged; partial-payment balances remain explicit. Normalization never
+invents a historical payment date. The Owners financial shortcut only prepares
+an editable draft; the normal owner save and rollback path remains authoritative.
+
 The Owners detail view groups the same fields into native `details` disclosures
 for contact, address, placement, puppy preferences, finance, notes and history.
 Disclosure choices are card-local per owner, not stored in `OwnerStore` or backups.

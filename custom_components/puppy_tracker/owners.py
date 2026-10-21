@@ -194,6 +194,8 @@ def _normalize(data: dict[str, Any], *, owner_id: str | None = None, existing: d
     paid_before_final = Decimal(amounts["registration_fee_amount"] or 0) + Decimal(amounts["deposit_amount"] or 0)
     if total is not None and paid_before_final > total:
         raise ValueError("registration fee and deposit cannot exceed total amount")
+    if payment_status == "full":
+        amounts["payment_balance"] = "0"
     now = _now()
     return {
         "id": owner_id or str(source.get("id") or uuid4()),

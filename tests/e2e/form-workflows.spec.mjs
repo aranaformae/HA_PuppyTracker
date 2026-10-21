@@ -113,6 +113,63 @@ test("Owners retain raw form values through rendering, failed saving and cancell
   await expect(card.locator('[name="notes"]')).toHaveValue("Long private note that must not disappear.");
 });
 
+for (const language of ["nl", "en"]) {
+  test(`Owners can record final payment without changing the agreed amounts (${language}) @cross-browser @tablet`, async ({ page }) => {
+    const card = await mount(page, "puppy-tracker-owner-card");
+    await card.evaluate((node, language) => { node._hass.language = language; node._hass.locale.language = language; node._render(); }, language);
+    await card.locator('[data-edit="o1"]').click();
+    await card.locator('[name="payment_amount"]').fill("2500");
+    await card.locator('[name="registration_fee_amount"]').fill("250");
+    await card.locator('[name="deposit_amount"]').fill("500");
+    await card.locator('[name="payment_balance"]').fill("1750");
+    await card.locator('[name="payment_status"]').selectOption("deposit");
+    await card.locator('.owner-editor button[type="submit"]').click();
+    await expect(card.locator(".owner-editor")).toHaveCount(0);
+    await card.locator('[data-toggle-owner="o1"]').click();
+    const financial = card.locator('[data-group-owner="o1"][data-owner-group="financial"]');
+    await financial.locator("summary").click();
+    const markPaid = card.locator('[data-mark-paid="o1"]');
+    await expect(markPaid).toHaveText(language === "nl" ? "Volledig betaald registreren" : "Record payment in full");
+    await markPaid.click();
+    await expect(card.locator('[name="payment_status"]')).toHaveValue("full");
+    await expect(card.locator('[name="payment_balance"]')).toHaveValue("0");
+    await expect(card.locator('[name="payment_balance"]')).toHaveJSProperty("readOnly", true);
+    await expect(card.locator('[name="payment_date"]')).not.toHaveValue("");
+    expect(await page.evaluate(() => window.formFixture.calls.filter((c) => c.type === "puppy_tracker/owners/save"))).toHaveLength(1);
+    page.once("dialog", (dialog) => dialog.accept());
+    await card.locator("#cancel-owner").click();
+    await expect(card.locator(".owner-editor")).toHaveCount(0);
+    await expect(financial).toContainText("1750");
+    await markPaid.click();
+    await card.locator('[name="payment_status"]').selectOption("deposit");
+    await expect(card.locator('[name="payment_balance"]')).toHaveValue("1750");
+    await expect(card.locator('[name="payment_balance"]')).toHaveJSProperty("readOnly", false);
+    await expect(card.locator('[name="payment_date"]')).toHaveValue("");
+    await card.locator('[name="payment_balance"]').fill("1400");
+    await card.locator('[name="payment_status"]').selectOption("full");
+    await card.locator('[name="payment_date"]').fill("2026-10-20");
+    await card.locator('[name="payment_method"]').selectOption("bank_transfer");
+    await page.evaluate(() => { window.formFixture.failNext = true; });
+    await card.locator('.owner-editor button[type="submit"]').click();
+    await expect(card.locator("#owner-error")).toContainText("Temporary save failure");
+    await expect(card.locator('[name="payment_balance"]')).toHaveValue("0");
+    await expect(card.locator('[name="payment_date"]')).toHaveValue("2026-10-20");
+    await expect(card.locator("#final-payment-amount")).toHaveText("1750");
+    await card.locator('.owner-editor button[type="submit"]').click();
+    await expect(card.locator(".owner-editor")).toHaveCount(0);
+    const saved = await page.evaluate(() => window.formFixture.calls.filter((c) => c.type === "puppy_tracker/owners/save").at(-1));
+    expect(saved).toMatchObject({ owner_id: "o1", payment_status: "full", payment_balance: "0", payment_date: "2026-10-20", payment_method: "bank_transfer", payment_amount: "2500", registration_fee_amount: "250", deposit_amount: "500" });
+    await expect(markPaid).toHaveCount(0);
+    expect(await card.evaluate((node) => node._ownerCsvContent())).toContain('"1750","0"');
+    expect(await card.locator("ha-card").evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+    await card.screenshot({ path: test.info().outputPath(`owner-final-payment-${language}.png`) });
+    await card.locator('[data-edit="o1"]').click();
+    await expect(card.locator('[name="payment_status"]')).toHaveValue("full");
+    await expect(card.locator('[name="payment_balance"]')).toHaveValue("0");
+    await expect(card.locator('[name="payment_date"]')).toHaveValue("2026-10-20");
+  });
+}
+
 for (const [surface, tag, title, lead, save, cancel] of [
   ["programs", "puppy-tracker-care-program-card", "#care-title", "#care-lead-minutes", "#save-program", "#cancel-program"],
   ["reminders", "puppy-tracker-recurring-reminder-card", "#rem-title", "#rem-lead-minutes", "#save-reminder", "#cancel-reminder"],

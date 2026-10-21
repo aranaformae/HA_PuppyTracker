@@ -359,6 +359,20 @@ separate editable value, so partial or additional payments after the deposit can
 be represented without changing the agreed payment schedule. The registration
 fee plus deposit cannot exceed the configured total amount.
 
+In an owner's expanded **Financial** section, select **Record payment in full**
+to open the contact editor with payment status **Paid in full**, outstanding
+amount **0** and today's date proposed when no final-payment date is present.
+Check or adjust the date and payment method, then save. The shortcut itself
+does not write data, and cancelling leaves the saved payment unchanged.
+Selecting **Paid in full** directly in the editor has the same effect. While
+that status is selected, the outstanding amount stays read-only at zero;
+choose another status to enter an outstanding amount again. Reverting an
+unsaved status change restores the previous balance. The agreed total,
+registration fee, deposit and calculated final-payment amount are unchanged.
+Existing fully-paid contacts are normalized to zero outstanding without
+inventing a missing historical payment date. The saved status, date and zero
+balance are included in backups, CSV export and owner-enabled PDF reports.
+
 Use **CSV exporteren** in the Owners card to download the complete visible
 contact list for Word, Nextcloud or another mail-merge tool. The UTF-8 file
 contains localized column headings and one row per owner-puppy link. Choose
