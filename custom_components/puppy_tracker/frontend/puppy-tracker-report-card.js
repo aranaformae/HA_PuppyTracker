@@ -157,6 +157,8 @@ class PuppyTrackerReportCard extends HTMLElement {
     this._subscriptionPending = false;
     this._refreshing = false;
     this._refreshAgain = false;
+    this._contextVersion = 0;
+    this._dataRequest = 0;
     this._state = loadCardState(this, { range: "all", puppyId: "all" });
     this._range = this._state.range || "all";
     this._selectedPuppyId = !this._state.puppyId || this._state.puppyId === "all" ? LITTER_VALUE : this._state.puppyId;
@@ -200,7 +202,9 @@ class PuppyTrackerReportCard extends HTMLElement {
   }
 
   setConfig(config) {
+    const changed = config.litter_id && config.litter_id !== this._selectedLitterId;
     this._config = { title: null, default_range: "all", default_profile: "full", ...config };
+    if (changed) { this._invalidateLoads(); this._data = null; this._status = ""; }
     this._selectedLitterId = config.litter_id || this._selectedLitterId;
     this._range = Object.hasOwn(config, "default_range") ? (config.default_range || "all") : (this._state.range || this._range);
     if (!this._state.reportProfile && REPORT_PROFILES[this._config.default_profile]) {
@@ -208,6 +212,7 @@ class PuppyTrackerReportCard extends HTMLElement {
       this._sectionState = normalizeSections(REPORT_PROFILES[this._reportProfile].sections);
     }
     this._render();
+    if (changed && this._hass) this._loadInitial();
   }
 
   set hass(hass) {
@@ -232,10 +237,12 @@ class PuppyTrackerReportCard extends HTMLElement {
       this._loadInitial();
     } else {
       this._ensureSubscription();
+      this._queueRefresh();
     }
   }
 
   disconnectedCallback() {
+    this._invalidateLoads();
     if (this._unsubscribe) Promise.resolve(this._unsubscribe()).catch(() => undefined);
     this._unsubscribe = null;
   }
@@ -243,21 +250,35 @@ class PuppyTrackerReportCard extends HTMLElement {
   getCardSize() { return 5; }
   getGridOptions() { return { columns: 12, min_columns: 6 }; }
 
+  _invalidateLoads() {
+    this._contextVersion += 1;
+    this._dataRequest += 1;
+    this._loading = false;
+    this._refreshing = false;
+    this._refreshAgain = false;
+  }
+
+  _isCurrent(context, connection) {
+    return context === this._contextVersion && connection === this._hass?.connection && this._hass?.user?.is_admin !== false;
+  }
+
   async _loadInitial() {
     if (!this._hass || this._hass.user?.is_admin === false || this._loading) return;
+    const context = this._contextVersion;
+    const hass = this._hass;
     this._loading = true;
     try {
-      const response = await fetchLitters(this._hass);
-      if (this._hass?.user?.is_admin === false) return;
+      const response = await fetchLitters(hass);
+      if (!this._isCurrent(context, hass.connection)) return;
       this._litters = response?.litters || [];
       this._selectedLitterId = selectDefaultLitter(this._litters, this._selectedLitterId || this._config.litter_id);
-      await this._loadData(false);
+      if (!await this._loadData(false)) return;
+      this._error = "";
       await this._ensureSubscription();
     } catch (err) {
-      this._error = err?.message || reportText(this._hass, "loadFailed");
+      if (this._isCurrent(context, hass.connection)) this._error = err?.message || reportText(this._hass, "loadFailed");
     } finally {
-      this._loading = false;
-      this._render();
+      if (this._isCurrent(context, hass.connection)) { this._loading = false; this._render(); }
     }
   }
 
@@ -276,37 +297,50 @@ class PuppyTrackerReportCard extends HTMLElement {
   }
 
   async _queueRefresh() {
-    if (!this._hass || this._hass.user?.is_admin === false) return;
+    if (!this._hass || this._hass.user?.is_admin === false || this._loading) return;
     if (this._refreshing) {
       this._refreshAgain = true;
       return;
     }
+    const context = this._contextVersion;
+    const hass = this._hass;
+    let applied = false;
     this._refreshing = true;
     try {
       do {
         this._refreshAgain = false;
-        const response = await fetchLitters(this._hass);
+        const response = await fetchLitters(hass);
+        if (!this._isCurrent(context, hass.connection)) return;
         this._litters = response?.litters || this._litters;
-        this._selectedLitterId = selectDefaultLitter(
+        const litterId = selectDefaultLitter(
           this._litters,
           this._selectedLitterId || this._config.litter_id
         );
-        await this._loadData(false);
-      } while (this._refreshAgain);
-      this._error = "";
+        if (litterId !== this._selectedLitterId) {
+          await this._changeLitter(litterId);
+          return;
+        }
+        applied = await this._loadData(false);
+      } while (applied && this._isCurrent(context, hass.connection) && this._refreshAgain);
+      if (applied && this._isCurrent(context, hass.connection)) this._error = "";
     } catch (err) {
-      this._error = err?.message || reportText(this._hass, "refreshFailed");
+      if (this._isCurrent(context, hass.connection)) { this._error = err?.message || reportText(this._hass, "refreshFailed"); applied = true; }
     } finally {
-      this._refreshing = false;
-      this._render();
+      if (this._isCurrent(context, hass.connection)) { this._refreshing = false; if (applied) this._render(); }
     }
   }
 
   async _loadData(render = true) {
-    if (!this._hass || this._hass.user?.is_admin === false || !this._selectedLitterId) return;
+    if (!this._hass || this._hass.user?.is_admin === false) return false;
+    if (!this._selectedLitterId) { this._data = null; return true; }
+    const request = ++this._dataRequest;
+    const context = this._contextVersion;
+    const hass = this._hass;
+    const litterId = this._selectedLitterId;
+    const current = () => this._isCurrent(context, hass.connection) && request === this._dataRequest && litterId === this._selectedLitterId;
     try {
-      const data = await fetchLitterData(this._hass, this._selectedLitterId);
-      if (this._hass?.user?.is_admin === false) return;
+      const data = await fetchLitterData(hass, litterId);
+      if (!current()) return false;
       this._data = data;
       const specialScopes = new Set([LITTER_VALUE, MOTHER_VALUE]);
       if (!specialScopes.has(this._selectedPuppyId) && !(this._data.puppies || []).some((p) => p.id === this._selectedPuppyId)) {
@@ -314,9 +348,28 @@ class PuppyTrackerReportCard extends HTMLElement {
       }
       this._error = "";
     } catch (err) {
-      this._error = err?.message || reportText(this._hass, "dataFailed");
+      if (!current()) return false;
+      throw err;
     }
     if (render) this._render();
+    return true;
+  }
+
+  async _changeLitter(litterId) {
+    this._invalidateLoads();
+    const context = this._contextVersion;
+    const connection = this._hass?.connection;
+    this._selectedLitterId = litterId;
+    this._selectedPuppyId = LITTER_VALUE;
+    this._data = null;
+    this._error = "";
+    this._status = "";
+    if (!this._litters.length) { await this._loadInitial(); return; }
+    this._loading = true;
+    this._render();
+    try { await this._loadData(false); }
+    catch (err) { if (this._isCurrent(context, connection)) this._error = err?.message || reportText(this._hass, "dataFailed"); }
+    finally { if (this._isCurrent(context, connection)) { this._loading = false; this._render(); } }
   }
 
   _selectedPuppies() {
@@ -377,7 +430,7 @@ class PuppyTrackerReportCard extends HTMLElement {
   }
 
   async _export(format) {
-    if (!this._hass || this._hass.user?.is_admin === false || !this._selectedLitterId) return;
+    if (!this._hass || this._hass.user?.is_admin === false || !this._selectedLitterId || this._loading || !this._data) return;
     if (this._selectedPuppyId === MOTHER_VALUE) {
       await this._exportMother(format);
       return;
@@ -487,15 +540,17 @@ class PuppyTrackerReportCard extends HTMLElement {
         @container report-card (max-width:380px){ha-card{padding:13px}.actions{display:grid;grid-template-columns:1fr}.actions button{width:100%}}
       </style>
       <div class="title">${escapeHtml(this._config.title ?? reportText(this._hass, "title"))}</div><div class="sub">${escapeHtml(reportText(this._hass, "subtitle"))}</div>
-      ${this._error ? `<div class="error">${escapeHtml(this._error)}</div>` : `
+      ${this._error ? `<div class="error" role="alert">${escapeHtml(this._error)}</div>` : ""}
       <div class="controls"><div class="field"><label>${escapeHtml(reportText(this._hass, "litter"))}</label><select id="litter">${litterOptions}</select></div><div class="field"><label>${escapeHtml(reportText(this._hass, "selection"))}</label><select id="puppy">${puppyOptions}</select></div>${motherSelected ? motherScopeField : `<div class="field"><label>${escapeHtml(reportText(this._hass, "period"))}</label><select id="range"><option value="24h" ${this._range === "24h" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "hours24"))}</option><option value="3d" ${this._range === "3d" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "days3"))}</option><option value="7d" ${this._range === "7d" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "days7"))}</option><option value="14d" ${this._range === "14d" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "days14"))}</option><option value="30d" ${this._range === "30d" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "days30"))}</option><option value="all" ${this._range === "all" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "all"))}</option></select></div><div class="field"><label>${escapeHtml(reportText(this._hass, "profile"))}</label><select id="profile">${profileOptions}</select></div><div class="field"><label>${escapeHtml(reportText(this._hass, "pdfLanguage"))}</label><select id="pdf-language"><option value="auto" ${this._pdfLanguage === "auto" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "automaticLanguage"))}</option><option value="nl" ${this._pdfLanguage === "nl" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "dutchLanguage"))}</option><option value="en" ${this._pdfLanguage === "en" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "englishLanguage"))}</option></select></div>`}</div>
       ${motherSelected ? "" : `<div class="pdf-sections"><strong>${escapeHtml(reportText(this._hass, "pdfSections"))}</strong>${sectionControls}<button class="small-button" id="save-profile" type="button">${escapeHtml(reportText(this._hass, "saveProfile"))}</button></div>${dossierControls}
       <div class="preview"><div class="preview-summary"><strong>${escapeHtml(reportText(this._hass, "preview"))}</strong><span>${escapeHtml(selectedScope)} · ${escapeHtml(reportText(this._hass, periodLabel))} · ${escapeHtml(languageLabel)}</span><span>${escapeHtml(reportText(this._hass, "selectedSections"))}: ${escapeHtml(selectedSectionNames)}</span></div><div class="preview-counts"><div class="box"><span>${escapeHtml(reportText(this._hass, "puppies"))}</span><b>${selected.length}</b></div><div class="box"><span>${escapeHtml(reportText(this._hass, measurementLabel))}</span><b>${measurementCount}</b></div><div class="box"><span>${escapeHtml(reportText(this._hass, "careCount"))}</span><b>${careCount}</b></div><div class="box"><span>${escapeHtml(reportText(this._hass, "behaviorCount"))}</span><b>${behaviorCount}</b></div><div class="box"><span>${escapeHtml(reportText(this._hass, "dossierCount"))}</span><b>${dossierCount}</b></div><div class="box"><span>${escapeHtml(reportText(this._hass, "attention"))}</span><b>${warnings}</b></div></div></div>`}
       <div class="actions">${motherSelected ? "" : `<button id="pdf">${escapeHtml(reportText(this._hass, "pdf"))}</button><button class="secondary" id="csv">${escapeHtml(reportText(this._hass, "csv"))}</button>`}<button class="secondary" id="json">${escapeHtml(reportText(this._hass, motherSelected ? "motherJson" : "json"))}</button></div>
-      <div class="status">${escapeHtml(this._status)}</div><div class="note">${escapeHtml(reportText(this._hass, motherSelected ? "motherNote" : "note"))}</div>`}
+      <div class="status" role="status">${escapeHtml(this._status)}</div><div class="note">${escapeHtml(reportText(this._hass, motherSelected ? "motherNote" : "note"))}</div>
       </ha-card>`;
 
-    this.shadowRoot.getElementById("litter")?.addEventListener("change", async (e) => { this._selectedLitterId = e.target.value; this._selectedPuppyId = LITTER_VALUE; await this._loadData(); });
+    this.shadowRoot.querySelector("ha-card")?.setAttribute("aria-busy", String(this._loading));
+    this.shadowRoot.querySelectorAll("#puppy,#pdf,#csv,#json").forEach((control) => { control.disabled = this._loading || !this._data; });
+    this.shadowRoot.getElementById("litter")?.addEventListener("change", (e) => this._changeLitter(e.target.value));
     this.shadowRoot.getElementById("puppy")?.addEventListener("change", (e) => { this._selectedPuppyId = e.target.value; this._persistState(); this._render(); });
     this.shadowRoot.getElementById("mother-export-scope")?.addEventListener("change", (e) => { this._motherExportScope = e.target.value; this._persistState(); });
     this.shadowRoot.getElementById("range")?.addEventListener("change", (e) => { this._range = e.target.value; this._persistState(); this._render(); });

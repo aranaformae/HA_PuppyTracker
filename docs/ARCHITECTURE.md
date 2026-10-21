@@ -1179,7 +1179,11 @@ Blocked reads are deferred until the card is idle; saving invalidates an older
 data read and requests a fresh pass afterwards. Litter changes clear stale
 puppy data and write permissions while loading; reconnect starts a current
 read without accepting responses from the previous lifecycle. These guards
-belong to Bulk Dossier; Behavior and Report still have separate load lifecycles.
+also apply to Behavior and Report through their own explicit load lifecycles.
+Both discard stale successes and failures, clear old owner data on litter changes,
+and retain a usable litter selector after a failed read. Behavior rechecks editor
+state after background reads and defers replacement while a draft is open. Report
+also invalidates outstanding responses when administrator access is revoked.
 
 Quick Log loads recurring choices with its litter data, filtered by exact owner
 and type, without automatic selection. A draft stores a snapshot of the chosen

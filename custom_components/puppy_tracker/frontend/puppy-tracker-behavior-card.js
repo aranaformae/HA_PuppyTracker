@@ -77,15 +77,20 @@ class PuppyTrackerBehaviorCard extends HTMLElement {
     this._refreshing = false;
     this._refreshAgain = false;
     this._refreshDeferred = false;
+    this._contextVersion = 0;
+    this._dataRequest = 0;
   }
 
   static getStubConfig() { return { show_litter_selector: true, show_profile: true, show_history: true, max_items: 20 }; }
 
   setConfig(config) {
+    const changed = config.litter_id && config.litter_id !== this._selectedLitterId;
     this._config = { ...PuppyTrackerBehaviorCard.getStubConfig(), ...config };
+    if (changed) { this._invalidateLoads(); this._data = null; this._editing = null; this._status = ""; this._savedRecord = null; this._formState.reset(); }
     this._selectedLitterId = config.litter_id || this._selectedLitterId;
     this._selectedPuppyId = config.puppy_id || this._selectedPuppyId;
     this._render();
+    if (changed && this._hass) this._loadInitial();
   }
 
   set hass(hass) {
@@ -97,10 +102,11 @@ class PuppyTrackerBehaviorCard extends HTMLElement {
   connectedCallback() {
     if (!this._hass) return;
     if (!this._litters.length && !this._loading) this._loadInitial();
-    else this._subscribe();
+    else { this._subscribe(); this._queueRefresh(); }
   }
 
   disconnectedCallback() {
+    this._invalidateLoads();
     closeRecordEditor(this);
     if (this._unsubscribe) Promise.resolve(this._unsubscribe()).catch(() => undefined);
     this._unsubscribe = null;
@@ -109,19 +115,35 @@ class PuppyTrackerBehaviorCard extends HTMLElement {
   getCardSize() { return 8; }
   getGridOptions() { return { columns: 12, min_columns: 6 }; }
 
+  _invalidateLoads() {
+    this._contextVersion += 1;
+    this._dataRequest += 1;
+    this._loading = false;
+    this._refreshing = false;
+    this._refreshAgain = false;
+  }
+
+  _isCurrent(context, connection) {
+    return context === this._contextVersion && connection === this._hass?.connection;
+  }
+
   async _loadInitial() {
+    if (!this._hass || this._loading) return;
+    const context = this._contextVersion;
+    const hass = this._hass;
     this._loading = true;
     try {
-      const response = await fetchLitters(this._hass);
+      const response = await fetchLitters(hass);
+      if (!this._isCurrent(context, hass.connection)) return;
       this._litters = response?.litters || [];
       this._selectedLitterId = selectDefaultLitter(this._litters, this._selectedLitterId);
-      await this._loadData(false);
+      if (!await this._loadData(false)) return;
+      this._error = "";
       await this._subscribe();
     } catch (error) {
-      this._error = error?.message || text(this, "loadFailed");
+      if (this._isCurrent(context, hass.connection)) this._error = error?.message || text(this, "loadFailed");
     } finally {
-      this._loading = false;
-      this._render();
+      if (this._isCurrent(context, hass.connection)) { this._loading = false; this._render(); }
     }
   }
 
@@ -134,36 +156,54 @@ class PuppyTrackerBehaviorCard extends HTMLElement {
   }
 
   async _queueRefresh() {
-    if (this._editing || this._saving) { this._refreshDeferred = true; return; }
+    if (!this._hass) return;
+    if (this._editing || this._saving || this._loading) { this._refreshDeferred = true; return; }
     if (this._refreshing) { this._refreshAgain = true; return; }
+    const context = this._contextVersion;
+    const connection = this._hass.connection;
+    let applied = false;
     this._refreshing = true;
     try {
       do {
         this._refreshAgain = false;
-        await this._loadData(false);
-      } while (this._refreshAgain);
-      this._error = "";
+        applied = await this._loadData(false, true);
+      } while (applied && this._isCurrent(context, connection) && this._refreshAgain);
+      if (applied && this._isCurrent(context, connection)) this._error = "";
     } catch (error) {
-      this._error = error?.message || text(this, "loadFailed");
+      if (this._isCurrent(context, connection)) { this._error = error?.message || text(this, "loadFailed"); applied = true; }
     } finally {
-      this._refreshing = false;
-      this._render();
+      if (this._isCurrent(context, connection)) { this._refreshing = false; if (applied) this._render(); }
     }
   }
 
-  async _loadData(render = true) {
-    if (!this._selectedLitterId) { this._data = null; if (render) this._render(); return; }
-    this._data = await fetchLitterData(this._hass, this._selectedLitterId);
+  async _loadData(render = true, background = false) {
+    if (!this._selectedLitterId) { this._data = null; if (render) this._render(); return true; }
+    const request = ++this._dataRequest;
+    const context = this._contextVersion;
+    const hass = this._hass;
+    const litterId = this._selectedLitterId;
+    const current = () => this._isCurrent(context, hass.connection) && request === this._dataRequest && litterId === this._selectedLitterId;
+    let data;
+    try { data = await fetchLitterData(hass, litterId); }
+    catch (error) {
+      if (!current()) return false;
+      if (background && (this._editing || this._saving)) { this._refreshDeferred = true; return false; }
+      throw error;
+    }
+    if (!current()) return false;
+    if (background && (this._editing || this._saving)) { this._refreshDeferred = true; return false; }
+    this._data = data;
     const puppies = this._data?.puppies || [];
     if (!puppies.some((puppy) => puppy.id === this._selectedPuppyId)) this._selectedPuppyId = puppies.find((puppy) => puppy.active !== false)?.id || puppies[0]?.id || null;
     if (render) this._render();
+    return true;
   }
 
   _selectedPuppy() { return (this._data?.puppies || []).find((puppy) => puppy.id === this._selectedPuppyId) || null; }
 
   _startEditor() {
     const puppy = this._selectedPuppy();
-    if (!puppy || !canEditRecords(this)) return;
+    if (this._loading || this._saving || !puppy || !canEditRecords(this)) return;
     this._editing = {
       occurred_at: nowInputValue(),
       observer: "",
@@ -188,25 +228,37 @@ class PuppyTrackerBehaviorCard extends HTMLElement {
   }
 
   async _changeLitter(litterId) {
+    if (this._saving) return;
     if (!requestLitterChange(this, litterId)) {
       const select = this.shadowRoot.getElementById("behavior-litter");
       if (select) select.value = this._selectedLitterId;
       return;
     }
+    this._invalidateLoads();
+    const context = this._contextVersion;
+    const connection = this._hass?.connection;
     this._selectedLitterId = litterId;
+    this._data = null;
+    this._status = "";
+    this._savedRecord = null;
+    this._error = "";
     this._selectedPuppyId = null;
     this._editing = null;
     this._refreshDeferred = false;
+    if (!this._litters.length) { await this._loadInitial(); return; }
+    this._loading = true;
+    this._render();
     try {
-      await this._loadData();
-      this._error = "";
+      if (await this._loadData(false)) this._error = "";
     } catch (error) {
-      this._error = error?.message || text(this, "loadFailed");
-      this._render();
+      if (this._isCurrent(context, connection)) this._error = error?.message || text(this, "loadFailed");
+    } finally {
+      if (this._isCurrent(context, connection)) { this._loading = false; this._render(); }
     }
   }
 
   async _changePuppy(puppyId) {
+    if (this._loading || this._saving) return;
     if (!this._formState.discard()) { this.shadowRoot.getElementById("behavior-puppy").value = this._selectedPuppyId || ""; return; }
     this._selectedPuppyId = puppyId || null;
     this._editing = null;
@@ -314,7 +366,8 @@ class PuppyTrackerBehaviorCard extends HTMLElement {
     const status = this.shadowRoot.querySelector(".status");
     if (status) { status.setAttribute("role", "status"); status.insertAdjacentHTML("beforeend", savedEditButton(this)); }
     status?.querySelector("[data-edit-saved]")?.addEventListener("click", (event) => openRecordEditor(this, this._savedRecord, { trigger: event.currentTarget }));
-    this.shadowRoot.querySelectorAll("#behavior-litter,#behavior-puppy").forEach((select) => { select.disabled = this._saving; });
+    this.shadowRoot.querySelectorAll("#behavior-litter,#behavior-puppy").forEach((select) => { select.disabled = this._saving || (select.id === "behavior-puppy" && (this._loading || !puppyOptions)); });
+    this.shadowRoot.querySelector("ha-card")?.setAttribute("aria-busy", String(this._loading || this._saving));
     this.shadowRoot.getElementById("behavior-puppy")?.addEventListener("change", (event) => this._changePuppy(event.target.value));
     this.shadowRoot.getElementById("behavior-add")?.addEventListener("click", () => this._startEditor());
     this.shadowRoot.getElementById("behavior-cancel")?.addEventListener("click", () => this._cancelEditor());
