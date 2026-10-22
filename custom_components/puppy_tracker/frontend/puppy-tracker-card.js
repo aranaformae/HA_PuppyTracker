@@ -5,6 +5,14 @@ import { announceLitterChange, languageForHass, puppySelectorLabel } from "./pup
 const WEIGHING_TEXT = {
   nl: {
     actionFailed: "De actie kon niet worden uitgevoerd.",
+    interrupted: "Onderbroken",
+    recoveryTitle: "Onderbroken weegsessie",
+    recoveryDetail: "{progress} pups gewogen. Opgeslagen gewichten blijven bewaard.",
+    resumeSession: "Hervatten",
+    discardSession: "Sessie afsluiten",
+    discardConfirm: "Deze sessie afsluiten? Alle opgeslagen gewichten blijven bewaard.",
+    sessionResolved: "Sessie bijgewerkt.",
+    adminRecovery: "Een beheerder kan de sessie hervatten of afsluiten.",
     completed: "Voltooid",
     weighed: "Gewogen",
     weightWarning: "Controleer {weight} g voor {puppy}: {change}% verschil met de vorige meting. Druk nogmaals op Gewicht opslaan om te bevestigen.",
@@ -67,6 +75,14 @@ const WEIGHING_TEXT = {
   },
   en: {
     actionFailed: "The action could not be completed.",
+    interrupted: "Interrupted",
+    recoveryTitle: "Interrupted weighing session",
+    recoveryDetail: "{progress} puppies weighed. Saved weights are kept.",
+    resumeSession: "Resume",
+    discardSession: "Close session",
+    discardConfirm: "Close this session? All saved weights are kept.",
+    sessionResolved: "Session updated.",
+    adminRecovery: "An administrator can resume or close the session.",
     completed: "Completed",
     weighed: "Weighed",
     weightWarning: "Check {weight} g for {puppy}: {change}% change from the previous measurement. Press Save weight again to confirm.",
@@ -143,6 +159,11 @@ function configHass() {
 }
 
 const WEIGHING_ERRORS_EN = new Map([
+  ["De weegsessie is gewijzigd. Vernieuw de kaart en probeer opnieuw.", "The weighing session changed. Refresh the card and try again."],
+  ["Hervat de onderbroken weegsessie of sluit deze eerst af.", "Resume or close the interrupted weighing session first."],
+  ["Er zijn geen pups meer te wegen. Sluit de onderbroken sessie af.", "No puppies remain to be weighed. Close the interrupted session."],
+  ["Dit nest bevat geen actieve puppy's.", "This litter has no active puppies."],
+  ["De geselecteerde puppy of het nest is gearchiveerd.", "The selected puppy or litter is archived."],
   ["Er is al een actieve weegsessie. Rond deze af of reset hem eerst.", "A weighing session is already active. Complete or reset it first."],
   ["Er zijn geen actieve nesten.", "There are no active litters."],
   ["Selecteer eerst een nest.", "Select a litter first."],
@@ -371,6 +392,9 @@ class PuppyTrackerCard extends HTMLElement {
 
   _sessionPresentation(value) {
     const normalized = String(value || "").trim().toLowerCase();
+    if (["onderbroken", "interrupted"].includes(normalized)) {
+      return { code: "interrupted", label: this._t("interrupted") };
+    }
     if (["bezig", "in progress", "active"].includes(normalized)) {
       return { code: "active", label: this._t("inProgress") };
     }
@@ -415,6 +439,8 @@ class PuppyTrackerCard extends HTMLElement {
     if (languageForHass(this._hass) !== "en") return original;
     if (original === "Nog geen weegsessie gestart") return "No weighing session started yet";
     if (original === "Weegsessie gestart") return "Weighing session started";
+    if (original === "Weegsessie hervat") return "Weighing session resumed";
+    if (original === "Onderbroken weegsessie: hervat of sluit af.") return "Interrupted weighing session: resume or close it.";
     if (original === "Geen melding") return "No message";
     let match = original.match(/^(.+): ([\d.,]+) g opgeslagen$/);
     if (match) return `${match[1]}: ${match[2]} g saved`;
@@ -950,7 +976,8 @@ class PuppyTrackerCard extends HTMLElement {
   }
 
   async _saveWeight(station) {
-    if (!this._hass || !station?.ids?.save || this._weightSaveBusy) return;
+    if (!this._hass || !station?.ids?.save || this._weightSaveBusy || this._sessionActionBusy
+      || this._sessionPresentation(this._state(station.ids.session)?.state).code === "interrupted") return;
 
     const input = this.shadowRoot?.querySelector("#weight-input");
     const value = Number(input?.value ?? this._draftWeight ?? 0);
@@ -1128,7 +1155,7 @@ class PuppyTrackerCard extends HTMLElement {
 
   _weighedOptions(station) {
     const session = this._sessionPresentation(this._state(station.ids.session)?.state);
-    if (!["active", "complete"].includes(session.code)) return new Set();
+    if (!["active", "complete", "interrupted"].includes(session.code)) return new Set();
     const progress = this._state(station.ids.progress)?.attributes || {};
     const litterId = this._deviceIdentifier(this._selectedLitterDevice(station), "litter_")?.slice("litter_".length);
     if (!litterId || progress.litter_id !== litterId) return new Set();
@@ -1338,6 +1365,66 @@ class PuppyTrackerCard extends HTMLElement {
     if (edit) edit.disabled = !lastState?.attributes?.measurement_id || this._hass?.user?.is_admin === false;
     this._updatePuppyRows(rows, station);
     if (this._weightSaveBusy) this.shadowRoot.querySelectorAll("#weight-input, #save-weight, #toggle-session, #puppy-select, #litter-select, [data-puppy-option]").forEach((element) => { element.disabled = true; });
+    this._updateSessionControls(station);
+  }
+
+  _updateSessionControls(station) {
+    const state = this._state(station.ids.session);
+    const interrupted = this._sessionPresentation(state?.state).code === "interrupted";
+    const busy = this._sessionActionBusy || this._weightSaveBusy;
+    const admin = this._hass?.user?.is_admin !== false;
+    this._setHidden("session-recovery", !interrupted);
+    this._setText("recovery-detail", this._t("recoveryDetail", { progress: this._state(station.ids.progress)?.state || "0 / 0" }));
+    this._setHidden("recovery-admin", admin);
+    for (const id of ["resume-session", "discard-session"]) {
+      this._setHidden(id, !admin);
+      const button = this.shadowRoot?.getElementById(id);
+      if (button) button.disabled = Boolean(busy || !state?.attributes?.session_id);
+    }
+    const blocked = Boolean(interrupted || busy);
+    const active = this._sessionPresentation(state?.state).code === "active";
+    const complete = this._sessionPresentation(state?.state).code === "complete";
+    const disabled = {
+      "weight-input": blocked || !station.ids.weight,
+      "save-weight": blocked || !station.ids.save,
+      "toggle-session": blocked || !(active || complete ? station.ids.reset : station.ids.start),
+      "puppy-select": blocked || !station.ids.puppy,
+      "litter-select": blocked || active || !station.ids.litter,
+      "edit-last-measurement": blocked || !admin || !this._state(station.ids.last)?.attributes?.measurement_id,
+    };
+    for (const [id, value] of Object.entries(disabled)) {
+      const element = this.shadowRoot.getElementById(id);
+      if (element) element.disabled = Boolean(value);
+    }
+    this.shadowRoot.querySelectorAll("[data-puppy-option]").forEach((element) => { element.disabled = blocked; });
+  }
+
+  async _resolveSession(station, action) {
+    if (this._sessionActionBusy || this._weightSaveBusy) return;
+    const hass = this._hass;
+    const connection = hass?.connection;
+    const user = hass?.user?.id;
+    const current = () => this._hass?.connection === connection && this._hass?.user?.id === user
+      && this._hass?.user?.is_admin !== false && this.isConnected;
+    const state = this._state(station.ids.session);
+    if (hass?.user?.is_admin === false || this._sessionPresentation(state?.state).code !== "interrupted" || !state?.attributes?.session_id) return;
+    if (action === "discard" && !window.confirm(this._t("discardConfirm"))) return;
+    this._sessionActionBusy = true;
+    this._updateSessionControls(station);
+    try {
+      await hass.callWS({ type: "puppy_tracker/weighing_session/resolve", action,
+        session_id: state.attributes.session_id, revision: state.attributes.revision });
+      if (!current()) return;
+      this._draftWeight = null;
+      this._pendingWeightConfirmation = null;
+      this._localMessage = this._t("sessionResolved");
+      this._localMessageType = "success";
+    } catch (error) {
+      if (current()) this._setError(error);
+    } finally {
+      this._sessionActionBusy = false;
+      this._scheduleRender(true);
+    }
   }
 
   _render() {
@@ -1586,6 +1673,16 @@ class PuppyTrackerCard extends HTMLElement {
         </button>
       </div>
 
+      <section class="message warning" id="session-recovery" hidden aria-labelledby="recovery-title">
+        <strong id="recovery-title">${this._escape(this._t("recoveryTitle"))}</strong>
+        <p id="recovery-detail"></p>
+        <p id="recovery-admin" hidden>${this._escape(this._t("adminRecovery"))}</p>
+        <div class="session-actions">
+          <button class="primary" id="resume-session">${this._escape(this._t("resumeSession"))}</button>
+          <button class="secondary" id="discard-session">${this._escape(this._t("discardSession"))}</button>
+        </div>
+      </section>
+
       <div class="session-actions">
         <button class="secondary${isActive || isComplete ? " danger-outline" : ""}" id="toggle-session" ${!(isActive || isComplete ? station.ids.reset : station.ids.start) ? "disabled" : ""}>${this._escape(this._t(isActive || isComplete ? "resetSession" : "startSession"))}</button>
         <button class="secondary" id="edit-last-measurement" ${!lastState?.attributes?.measurement_id || this._hass?.user?.is_admin === false ? "disabled" : ""}>${this._escape(this._t("editMeasurement"))}</button>
@@ -1612,6 +1709,7 @@ class PuppyTrackerCard extends HTMLElement {
 
     this._viewStructureKey = this._structureKey(station);
     this._bindEvents(station);
+    this._updateSessionControls(station);
   }
 
   _bindRediscover() {
@@ -1630,6 +1728,8 @@ class PuppyTrackerCard extends HTMLElement {
     const weightInput = this.shadowRoot?.querySelector("#weight-input");
     const save = this.shadowRoot?.querySelector("#save-weight");
     const toggle = this.shadowRoot?.querySelector("#toggle-session");
+    this.shadowRoot?.querySelector("#resume-session")?.addEventListener("click", () => this._resolveSession(station, "resume"));
+    this.shadowRoot?.querySelector("#discard-session")?.addEventListener("click", () => this._resolveSession(station, "discard"));
 
     // Guard every interactive control, not just the weight field. Without this,
     // an incoming HA state update can recreate the DOM after pointerdown but

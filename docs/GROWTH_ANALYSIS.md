@@ -35,6 +35,10 @@ explicitly resumed or closed; saved weights are never entered again and an
 unfinished input is not restored. Closing the session keeps all saved weights.
 The native Start session button resumes a pending session; Reset closes it.
 Session recovery is local to this installation, not included in JSON transfers.
+The ordinary and Mobile Weigh tabs show an inline **Resume / Close session**
+choice with saved progress after interruption. Closing asks for confirmation;
+weight entry stays disabled until the choice is resolved. Dashboard recovery
+actions require an administrator, and stale choices cannot change a newer session.
 
 ## Metric meanings
 

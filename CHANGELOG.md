@@ -14,6 +14,8 @@ they have not been reconstructed as a complete historical changelog.
 
 - Durable weighing-session checkpoints with explicit restart recovery. Weight,
   progress and completion summary commit together; discarding keeps saved history.
+- Shared ordinary/mobile recovery controls with saved progress, explicit
+  resume/close, confirmation, permission checks and stable input elements.
 
 ### Changed
 

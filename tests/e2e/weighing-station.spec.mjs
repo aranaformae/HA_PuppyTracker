@@ -221,6 +221,85 @@ async function notifyHassUpdate(page, mutate = null) {
   }, mutate);
 }
 
+async function interruptSession(page) {
+  await notifyHassUpdate(page, { entityId: "sensor.pt_session", state: "Onderbroken",
+    attributes: { session_id: "session-1", revision: 2 } });
+}
+
+test("interrupted weighing offers explicit resume and retains the stable input node @cross-browser @tablet", async ({ page }) => {
+  await mountWeighingStation(page);
+  await interruptSession(page);
+  const card = page.locator("puppy-tracker-card");
+  await expect(card.locator("#session-recovery")).toBeVisible();
+  await expect(card.locator("#recovery-title")).toHaveText("Interrupted weighing session");
+  await expect(card.locator("#save-weight")).toBeDisabled();
+  await expect(card.locator("#toggle-session")).toBeDisabled();
+  await page.evaluate(() => {
+    window.__oldWeightNode = window.__weighingCard.shadowRoot.querySelector("#weight-input");
+    const hass = window.__mockHass;
+    const original = hass.callWS;
+    hass.callWS = async (message) => {
+      if (message.type !== "puppy_tracker/weighing_session/resolve") return original(message);
+      window.__recoveryRequest = message;
+      hass.states["sensor.pt_session"].state = "Bezig";
+      hass.states["sensor.pt_session"].attributes.revision = 3;
+      hass.states["sensor.pt_session"].last_updated = new Date().toISOString();
+      window.__weighingCard.hass = { ...hass };
+      return { ok: true };
+    };
+  });
+  await card.locator("#resume-session").click();
+  await expect(card.locator("#session-recovery")).toBeHidden();
+  await expect(card.locator("#weight-input")).toBeEnabled();
+  await expect(card.locator("#save-weight")).toBeEnabled();
+  await expect.poll(() => page.evaluate(() => window.__recoveryRequest)).toEqual({
+    type: "puppy_tracker/weighing_session/resolve", action: "resume", session_id: "session-1", revision: 2,
+  });
+  expect(await page.evaluate(() => window.__oldWeightNode === window.__weighingCard.shadowRoot.querySelector("#weight-input"))).toBe(true);
+});
+
+test("interrupted weighing keeps the recovery choice on failure and ignores double taps", async ({ page }) => {
+  await mountWeighingStation(page);
+  await interruptSession(page);
+  await page.evaluate(() => {
+    const original = window.__mockHass.callWS;
+    window.__recoveryRequests = 0;
+    window.__mockHass.callWS = (message) => {
+      if (message.type !== "puppy_tracker/weighing_session/resolve") return original(message);
+      window.__recoveryRequests++;
+      return new Promise((resolve, reject) => { window.__rejectRecovery = reject; });
+    };
+    window.__weighingCard._resolveSession(window.__weighingCard._station(), "resume");
+    window.__weighingCard._resolveSession(window.__weighingCard._station(), "resume");
+  });
+  const card = page.locator("puppy-tracker-card");
+  await expect(card.locator("#resume-session")).toBeDisabled();
+  expect(await page.evaluate(() => window.__recoveryRequests)).toBe(1);
+  await page.evaluate(() => window.__rejectRecovery(new Error("De weegsessie is gewijzigd. Vernieuw de kaart en probeer opnieuw.")));
+  await expect(card.locator("#local-message")).toContainText("The weighing session changed");
+  await expect(card.locator("#session-recovery")).toBeVisible();
+  await expect(card.locator("#resume-session")).toBeEnabled();
+  await expect(card.locator("#save-weight")).toBeDisabled();
+});
+
+test("interrupted weighing discard is confirmed and reader accounts cannot resolve it", async ({ page }) => {
+  await mountWeighingStation(page);
+  await interruptSession(page);
+  let dialogs = 0;
+  page.on("dialog", (dialog) => { dialogs++; dialog.dismiss(); });
+  await page.locator("puppy-tracker-card #discard-session").click();
+  expect(dialogs).toBe(1);
+  await expect(page.locator("puppy-tracker-card #session-recovery")).toBeVisible();
+  await page.evaluate(() => {
+    window.__mockHass.user = { id: "reader", is_admin: false };
+    window.__weighingCard.hass = window.__mockHass;
+    window.__weighingCard._render();
+  });
+  await expect(page.locator("puppy-tracker-card #resume-session")).toBeHidden();
+  await expect(page.locator("puppy-tracker-card #discard-session")).toBeHidden();
+  await expect(page.locator("puppy-tracker-card #recovery-admin")).toBeVisible();
+});
+
 test("hiding the puppy list retains selected puppy and measurement context from the first render @cross-browser @tablet", async ({ page }) => {
   await mountWeighingStation(page, { show_puppies: false });
   const card = page.locator("puppy-tracker-card");

@@ -1,8 +1,9 @@
 """Durable station checkpoints, explicit recovery and atomic measurement saves."""
 
 import asyncio
+from inspect import unwrap
 from copy import deepcopy
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -12,6 +13,7 @@ from custom_components.puppy_tracker.const import DOMAIN
 from custom_components.puppy_tracker.runtime import PuppyTrackerRuntimeData
 from custom_components.puppy_tracker.storage import PuppyTrackerStorage
 from custom_components.puppy_tracker.backup import build_export_document, prepare_import
+from custom_components.puppy_tracker import api
 from custom_components.puppy_tracker.session import (
     async_record_station_weight, async_resolve_session, recover_session,
 )
@@ -158,3 +160,20 @@ async def test_portable_backup_neither_exports_nor_restores_a_live_checkpoint(st
     document["data"]["weighing_session"] = deepcopy(runtime.weighing_session)
     plan = prepare_import(runtime.storage, document, mode="replace_all")
     assert "weighing_session" not in plan["candidate"]
+
+
+async def test_recovery_websocket_routes_exact_checkpoint_and_reports_stale_requests(hass, station, monkeypatch):
+    runtime, _, _, _, _, _ = station
+    runtime.weighing_session = recover_session(runtime.storage)
+    session = deepcopy(runtime.weighing_session)
+    monkeypatch.setattr(api, "get_runtime_data", lambda _: runtime)
+    connection = Mock()
+    msg = {"id": 1, "session_id": session["id"], "revision": session["revision"], "action": "resume"}
+    await unwrap(api.websocket_resolve_weighing_session)(hass, connection, msg)
+    connection.send_result.assert_called_once_with(1, {"ok": True})
+    assert runtime.weighing_session["status"] == "active"
+    connection.reset_mock()
+    await unwrap(api.websocket_resolve_weighing_session)(hass, connection, {**msg, "action": "discard"})
+    connection.send_error.assert_called_once()
+    connection.send_result.assert_not_called()
+    assert runtime.weighing_session["status"] == "active"

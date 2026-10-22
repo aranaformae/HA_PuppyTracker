@@ -1060,6 +1060,11 @@ never restored. Native Start resumes an interrupted session, while Reset
 discards its checkpoint without deleting measurements. JSON backups omit this
 local operational state, and imported candidates strip it; a full replacement
 also clears the live station. Completed summaries remain portable litter data.
+The shared weighing surface updates an inline recovery region in place, without
+replacing the input DOM or automatically opening a dialog. Its admin-only
+`weighing_session/resolve` WebSocket action checks the displayed session ID and
+revision. Failed/stale requests retain the choice; busy controls prevent double
+submissions. Native HA Start/Reset remain governed by HA entity-control rights.
 
 Global one-time registration flags may live in `hass.data` when they represent Home Assistant instance state rather than entry-owned domain data. Ephemeral notification-delivery deduplication may also live in runtime/instance state but must not be mistaken for persistent scheduling data.
 

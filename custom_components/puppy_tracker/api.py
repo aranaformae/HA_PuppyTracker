@@ -23,7 +23,7 @@ from .measurements import measurement_status, puppy_measurements
 from .metrics import calculate_puppy_metrics, preview_weight
 from .pdf_export import build_pdf_export
 from .runtime import get_runtime_data, get_runtime_storage
-from .session import get_session, remaining_puppy_ids
+from .session import async_resolve_session, get_session, remaining_puppy_ids
 from .storage import PuppyTrackerStorage
 from .time_utils import timestamp_sort_key
 from .updates import dispatch_dossier_update, dispatch_measurement_update
@@ -1478,4 +1478,29 @@ def async_setup_api(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, websocket_report_logo)
     websocket_api.async_register_command(hass, websocket_update_feeding_settings)
     websocket_api.async_register_command(hass, websocket_subscribe_updates)
+    websocket_api.async_register_command(hass, websocket_resolve_weighing_session)
     hass.data[DATA_API_REGISTERED] = True
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/weighing_session/resolve",
+    vol.Required("session_id"): str,
+    vol.Required("revision"): vol.All(int, vol.Range(min=0)),
+    vol.Required("action"): vol.In(("resume", "discard")),
+})
+@websocket_api.async_response
+async def websocket_resolve_weighing_session(hass, connection, msg):
+    """Resolve exactly the interrupted session the administrator reviewed."""
+    runtime = get_runtime_data(hass)
+    if runtime is None:
+        connection.send_error(msg["id"], "not_loaded", "Puppy Tracker is not loaded")
+        return
+    try:
+        await async_resolve_session(runtime, resume=msg["action"] == "resume",
+                                    session_id=msg["session_id"], revision=msg["revision"])
+    except ValueError as err:
+        connection.send_error(msg["id"], "session_changed", str(err))
+        return
+    async_dispatcher_send(hass, SIGNAL_DASHBOARD_UPDATE)
+    connection.send_result(msg["id"], {"ok": True})
