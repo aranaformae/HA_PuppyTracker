@@ -1412,6 +1412,16 @@ def websocket_export_data(
         },
     )
 
+    runtime = get_runtime_data(hass)
+    if msg["format"] == "json" and runtime and runtime.onboarding:
+        litter_id = msg["litter_id"]
+
+        async def record_backup_progress() -> None:
+            await runtime.onboarding.async_record_backup([litter_id])
+            async_dispatcher_send(hass, SIGNAL_DASHBOARD_UPDATE)
+
+        hass.async_create_task(record_backup_progress())
+
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/subscribe"})
 @callback

@@ -17,6 +17,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 import custom_components.puppy_tracker as integration
 from custom_components.puppy_tracker import api, owner_api, mother_api, mother_dashboard_api
 from custom_components.puppy_tracker import care_program_api, recurring_reminder_api, attention_acknowledgement_api
+from custom_components.puppy_tracker import onboarding_api
 from custom_components.puppy_tracker.backup_http import async_setup_backup_http
 from custom_components.puppy_tracker.mother_backup_http import async_setup_mother_backup_http
 from custom_components.puppy_tracker.diagnostics import async_get_config_entry_diagnostics
@@ -39,7 +40,8 @@ def register_api(hass):
                   mother_dashboard_api.async_setup_mother_dashboard_api,
                   care_program_api.async_setup_care_program_api,
                   recurring_reminder_api.async_setup_recurring_reminder_api,
-                  attention_acknowledgement_api.async_setup_attention_acknowledgement_api):
+                  attention_acknowledgement_api.async_setup_attention_acknowledgement_api,
+                  onboarding_api.async_setup_onboarding_api):
         setup(hass)
 
 
@@ -290,6 +292,7 @@ async def test_file_backup_still_works_for_admin_and_automation(hass, service_ru
     }, blocking=True, context=Context(user_id=user.id if user else None))
     assert (tmp_path / "backups/test.json").is_file()
     assert service_runtime.last_backup_status == "ok"
+    assert (await service_runtime.onboarding.async_status(service_runtime.storage, "admin"))["steps"]["backup"] is True
 
 
 @pytest.mark.parametrize("path", ["www/private.json", "../escape.json", "linked/private.json"])
@@ -303,6 +306,7 @@ async def test_file_backups_cannot_escape_config_or_use_public_storage(hass, ser
         }, blocking=True)
     assert list((tmp_path / "www").iterdir()) == []
     assert service_runtime.last_backup_error == "backup_failed"
+    assert service_runtime.onboarding._data["backups"] == {}
 
 
 async def test_file_backup_rejects_the_real_target_of_a_public_www_symlink(hass, service_runtime, tmp_path):

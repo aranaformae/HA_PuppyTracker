@@ -1040,6 +1040,7 @@ puppy_tracker_recurring_reminders  (Store version 1)
 puppy_tracker_care_programs        (Store version 1)
 puppy_tracker_care_program_templates (Store version 1)
 puppy_tracker_owners               (Store version 1)
+puppy_tracker_onboarding           (Store version 1, non-portable UI preferences)
 ```
 
 The main `PuppyTrackerStorage` remains authoritative for profiles, litters, measurements, dossier records and settings.
@@ -1200,6 +1201,29 @@ mutations/double exports; configuration changes and background refreshes defer
 until completion. Export failures are separate from read failures so a successful
 background read cannot erase them. Download side effects recheck lifecycle and
 administrator access after awaits. JSON retains its complete-backup semantics.
+
+Workspace composes `WorkspaceSetup` in Home and Mobile without registering a
+fourth public card or changing preset tabs. Its administrator-only
+`puppy_tracker/onboarding` command derives the five step states from current
+storage and accepts only an optional litter ID and visibility preference. User
+identity always comes from the authenticated connection. Existing litters are
+opt-in; a new empty installation's automatic preference survives setup until
+completion. Manual reopening remains possible after completion.
+
+`OnboardingStore` stores user visibility and per-litter timestamps of generated
+full/litter JSON backups separately from breeding data. It is not included in
+portable backups or diagnostics. `async_backup_export` is shared by existing
+authenticated HTTP downloads and `puppy_tracker/onboarding/backup`; signed-link
+creation alone never records evidence. Successful file writes and report JSON
+exports also record evidence. A metadata-save failure cannot fail an already
+successful backup, and progress is not a backup-health or browser-save guarantee.
+
+The frontend owns context generations, coalesced refreshes and subscriptions only
+while visible. Background progress renders only its own stable region and never
+remounts the Workspace. The native dialog reuses the existing weighing element,
+retains its draft between closes and refuses closing during weight writes. A
+pending backup download is ignored after context, user, connection or lifecycle
+changes. No global dashboard paths or private HA frontend dialog imports are used.
 
 Quick Log loads recurring choices with its litter data, filtered by exact owner
 and type, without automatic selection. A draft stores a snapshot of the chosen

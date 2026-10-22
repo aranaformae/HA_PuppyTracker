@@ -44,6 +44,36 @@ show_today_only: true
 default_selected: litter
 ```
 
+## Getting started
+
+Home and Mobile include a small administrator-only setup checklist. It opens
+automatically only when that administrator first uses it without any litters.
+Existing litters do not trigger it. The checklist icon in the navigation bar
+opens it manually; the close button hides it. That preference is stored per HA
+user, shared across devices, independently of dashboard YAML.
+
+Steps follow the selected litter: create a litter, link its mother, add puppies,
+record the first non-birth weighing and export a backup. Steps are derived from
+stored data, not editable checkboxes. Deleted or superseded measurement versions
+and a birth weight alone do not count; an active correction does. The automatically opened
+checklist closes when all steps are complete; a manually opened checklist stays
+available until closed.
+
+Setup actions open the existing Puppy Tracker integration page, where **Configure**
+offers litter and puppy management. Mobile uses its Weigh tab when available;
+otherwise the existing weighing surface opens in a bounded dialog. No dashboard
+URL or extra card is needed. The backup action creates the same complete JSON
+export as integration data management, including external stores and managed files.
+
+Full/litter JSON exports and successful full/litter file backups can complete the
+backup step. Merely generating a signed download link, a puppy-only export, PDF,
+CSV or a failed backup cannot. This tracks an exported backup, not proof that the
+browser saved the file or that an off-device backup is current. New evidence is
+remembered across HA restarts; older exports cannot be reconstructed retrospectively.
+
+Checklist updates replace only the checklist region, not active forms or tabs.
+Hidden checklists keep no additional update subscription.
+
 ## Recommended dashboard structure
 
 A compact dashboard normally needs only one Workspace instance per workflow.

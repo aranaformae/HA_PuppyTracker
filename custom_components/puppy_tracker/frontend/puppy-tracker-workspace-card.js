@@ -6,6 +6,7 @@ import {
 } from "./puppy-tracker-card-common.js";
 import { confirmDiscardForms } from "./puppy-tracker-form-state.js";
 import { requestCloseRecordEditor } from "./puppy-tracker-record-editor.js";
+import { WorkspaceSetup } from "./puppy-tracker-workspace-setup.js";
 const TAG = "puppy-tracker-workspace-card";
 const EDITOR_TAG = "puppy-tracker-workspace-card-editor";
 
@@ -255,6 +256,7 @@ class PuppyTrackerWorkspaceCard extends HTMLElement {
     this._language = null;
     this._litterId = "";
     this._storageIdentity = "home";
+    this._setup = new WorkspaceSetup(this);
     this.addEventListener(LITTER_CHANGE_EVENT, (event) => this._handleLitterChange(event));
   }
 
@@ -305,13 +307,17 @@ class PuppyTrackerWorkspaceCard extends HTMLElement {
       if (child) child.hass = hass;
     }
     if (previousLanguage !== this._language) this._updateLabels();
+    this._setup.update();
   }
 
   connectedCallback() {
     if (!this.shadowRoot?.firstChild) {
       this._render();
     }
+    this._setup.update();
   }
+
+  disconnectedCallback() { this._setup.disconnect(); }
 
   getCardSize() {
     return this._preset === "home" && this._config.show_summary !== false ? 9 : 7;
@@ -402,6 +408,11 @@ class PuppyTrackerWorkspaceCard extends HTMLElement {
   }
 
   _selectTab(tab) {
+    if (this._setup.busy) {
+      const select = this.shadowRoot.getElementById("workspace-tab-select");
+      if (select) select.value = this._tab;
+      return;
+    }
     if (!this._tabs.includes(tab) && tab !== "bulk") return;
     const current = this._children.get(this._tab);
     if (tab !== this._tab && (current?._saving || current?._busy || current?._careFormState?.busy() || !requestCloseRecordEditor(current))) {
@@ -467,6 +478,7 @@ class PuppyTrackerWorkspaceCard extends HTMLElement {
     const litterId = String(event?.detail?.litterId || "").trim();
     if (!litterId) return;
     if (event.cancelable) event.preventDefault();
+    if (this._setup.busy && event.cancelable) return;
     const path = event.composedPath?.() || [];
     const sourceKey = [...this._children.entries()].find(([, child]) => path.includes(child))?.[0] || null;
     if (litterId === this._litterId && (!event.cancelable || this._children.get(sourceKey)?._selectedLitterId === litterId)) return;
@@ -487,6 +499,7 @@ class PuppyTrackerWorkspaceCard extends HTMLElement {
         this._replaceSurface(key);
       }
     });
+    this._setup.update();
   }
 
   _handleTabKeydown(event) {
@@ -509,11 +522,14 @@ class PuppyTrackerWorkspaceCard extends HTMLElement {
     const bulk = this._preset === "journal" && this._config.show_bulk_action !== false ? `<button type="button" class="utility" id="bulk-action"><ha-icon icon="${SURFACES.bulk.icon}"></ha-icon>${escapeHtml(text(this, "bulk"))}</button>` : "";
     const surfaces = [...this._tabs, ...(bulk ? ["bulk"] : [])].map((key) => `<div class="workspace-surface" data-surface="${key}" id="workspace-surface-${key}" role="tabpanel" ${this._tabs.includes(key) ? `aria-labelledby="workspace-tab-${key}"` : ""} ${key === this._tab ? "" : "hidden"}></div>`).join("");
     const heading = this._config.title ? `<h2 class="workspace-title">${escapeHtml(this._config.title)}</h2>` : "";
+    const setupAction = ["home", "mobile"].includes(this._preset) ? `<button type="button" class="utility" id="workspace-setup-open" hidden><ha-icon icon="mdi:clipboard-check-outline"></ha-icon></button>` : "";
 
     this.shadowRoot.innerHTML = `<style>
       :host{display:block;overflow-anchor:none}.workspace{display:grid;gap:10px}.workspace-title{margin:0;padding:0 4px;font-size:1.25rem;line-height:1.3;letter-spacing:0}.workspace-nav{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color)}.tabs{display:flex;gap:6px;min-width:0;overflow-x:auto;scrollbar-width:thin}.workspace-tab,.utility{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:42px;border:1px solid var(--divider-color);border-radius:8px;padding:0 12px;background:var(--secondary-background-color);color:var(--primary-text-color);font:inherit;font-weight:600;white-space:nowrap;cursor:pointer;touch-action:manipulation}.workspace-tab ha-icon,.utility ha-icon{--mdc-icon-size:19px}.workspace-tab.active{background:var(--primary-color);border-color:var(--primary-color);color:var(--text-primary-color,#fff)}.utility{flex:0 0 auto;background:transparent}.mobile-select{display:none;min-height:44px;width:100%;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color);padding:0 10px;font:inherit}.workspace-surface[hidden],.summary-surface[hidden]{display:none}.workspace-surface>*,.summary-surface>*{display:block}@media(max-width:600px){.workspace-nav{display:grid}.tabs{display:none}.mobile-select{display:block}.utility{width:100%}}
-    </style><div class="workspace">${heading}${summary}<div class="workspace-nav"><div class="tabs" role="tablist">${tabButtons}</div><select id="workspace-tab-select" class="mobile-select" aria-label="${escapeHtml(text(this, "chooseView"))}">${tabOptions}</select>${bulk}</div>${surfaces}</div>`;
+      #workspace-setup[hidden],#workspace-setup-open[hidden]{display:none}#workspace-setup-open{width:44px;height:44px;padding:0}@media(max-width:600px){.workspace-nav.has-setup-action{grid-template-columns:minmax(0,1fr)44px}}
+    </style><div class="workspace">${heading}<div id="workspace-setup"></div>${summary}<div class="workspace-nav"><div class="tabs" role="tablist">${tabButtons}</div><select id="workspace-tab-select" class="mobile-select" aria-label="${escapeHtml(text(this, "chooseView"))}">${tabOptions}</select>${bulk}${setupAction}</div>${surfaces}</div>`;
     this._mountSurfaces();
+    this._setup.attach(this.shadowRoot.getElementById("workspace-setup"));
     this.shadowRoot.querySelectorAll("[data-tab]").forEach((button) => {
       button.addEventListener("click", () => this._selectTab(button.dataset.tab));
       button.addEventListener("keydown", (event) => this._handleTabKeydown(event));

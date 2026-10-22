@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from .care_reminders import CareReminderStore
     from .notifications import PuppyNotificationManager
     from .owners import OwnerStore
+    from .onboarding import OnboardingStore
     from .recurring_notifications import RecurringReminderNotificationManager
     from .recurring_reminders import RecurringReminderStore
 
@@ -34,6 +35,7 @@ class PuppyTrackerRuntimeData:
     care_templates: CareProgramTemplateStore | None = None
     attention_acknowledgements: AttentionAcknowledgementStore | None = None
     owners: OwnerStore | None = None
+    onboarding: OnboardingStore | None = None
     selected_litter_id: str | None = None
     selected_puppy_id: str | None = None
     weight_input: float = 0.0

@@ -20,13 +20,13 @@ DATA_BACKUP_HTTP_REGISTERED = f"{DOMAIN}_backup_http_registered"
 DOWNLOAD_TTL = timedelta(minutes=10)
 
 
-async def _download_response(
+async def async_backup_export(
     runtime: PuppyTrackerRuntimeData,
     *,
     scope: str,
     litter_id: str | None = None,
     puppy_id: str | None = None,
-) -> web.Response:
+) -> dict:
     care_reminder_settings = None
     scheduler_data = None
     if scope == "full":
@@ -47,7 +47,7 @@ async def _download_response(
             "care_templates": care_templates.get_backup_data(),
         }
 
-    filename, _mime, content = serialize_export(
+    filename, mime, content = serialize_export(
         runtime.storage,
         scope=scope,
         litter_id=litter_id,
@@ -61,12 +61,21 @@ async def _download_response(
         ),
         file_data=await runtime.storage.async_export_managed_files() if scope == "full" else None,
     )
+    onboarding = getattr(runtime, "onboarding", None)
+    if onboarding is not None and scope in ("full", "litter"):
+        litter_ids = list(runtime.storage.get_litters()) if scope == "full" else [litter_id]
+        await onboarding.async_record_backup(litter_ids)
+    return {"filename": filename, "mime_type": mime, "content": content, "encoding": "text"}
+
+
+async def _download_response(runtime, *, scope, litter_id=None, puppy_id=None) -> web.Response:
+    result = await async_backup_export(runtime, scope=scope, litter_id=litter_id, puppy_id=puppy_id)
     return web.Response(
-        text=content,
+        text=result["content"],
         content_type="application/json",
         charset="utf-8",
         headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Disposition": f'attachment; filename="{result["filename"]}"',
             "Cache-Control": "no-store, max-age=0",
             "X-Content-Type-Options": "nosniff",
         },

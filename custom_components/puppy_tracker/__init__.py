@@ -36,6 +36,8 @@ from .const import (
 from .devices import async_sync_devices
 from .dog_identity import DEFAULT_DOG_BREED
 from .frontend import async_setup_frontend, async_unload_frontend
+from .onboarding import OnboardingStore
+from .onboarding_api import async_setup_onboarding_api
 from .mother_api import async_setup_mother_api
 from .mother_storage_integrity import MotherScopeIntegrityStorage
 from .notifications import PuppyNotificationManager
@@ -176,6 +178,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await attention_acknowledgements.async_load()
     owners = OwnerStore(hass)
     await owners.async_load()
+    onboarding = OnboardingStore(hass)
+    await onboarding.async_load()
 
     runtime = PuppyTrackerRuntimeData(
         storage=storage,
@@ -185,6 +189,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         care_templates=care_templates,
         attention_acknowledgements=attention_acknowledgements,
         owners=owners,
+        onboarding=onboarding,
     )
     reconcile_dashboard_selection(runtime)
     entry.runtime_data = runtime
@@ -196,6 +201,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async_setup_care_program_api(hass)
     async_setup_attention_acknowledgement_api(hass)
     async_setup_owner_api(hass)
+    async_setup_onboarding_api(hass)
     await async_setup_frontend(hass)
 
     async_sync_devices(hass, entry, storage.get_data())
@@ -338,6 +344,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             file_data=await storage.async_export_managed_files() if scope == "full" else None,
         )
         target.parent.mkdir(parents=True, exist_ok=True)
+        backup_litter_ids = list(storage.get_litters()) if scope == "full" else [call.data.get("litter_id")]
 
         def write_backup() -> None:
             with NamedTemporaryFile("w", encoding="utf-8", dir=target.parent, delete=False) as temp:
@@ -363,6 +370,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         runtime.last_backup_path = str(target)
         runtime.last_backup_scope = scope
         runtime.last_backup_count = len(list(target.parent.glob(f"{target.stem.rsplit('-', 2)[0]}-*.json"))) if call.data["include_timestamp"] else 1
+        if runtime.onboarding is not None and scope in ("full", "litter"):
+            await runtime.onboarding.async_record_backup(backup_litter_ids)
         async_dispatcher_send(hass, SIGNAL_DASHBOARD_UPDATE)
         _LOGGER.info("Wrote Puppy Tracker %s backup to %s", scope, target)
 

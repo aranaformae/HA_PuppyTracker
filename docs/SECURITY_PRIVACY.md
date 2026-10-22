@@ -24,6 +24,7 @@ notes: their free text is not automatically classified or redacted.
 | WebSocket dossier/measurement mutations, care completion, acknowledgement changes, feeding settings, program/template/reminder and owner management | Denied | Denied | Allowed |
 | Raw editable measurement history, integrity checks and repair | Denied | Denied | Allowed |
 | Integration configuration, file upload and backup import | Denied by HA | Denied by HA | Allowed through HA configuration flows |
+| Setup checklist preferences/progress and its full-backup download | Denied | Denied | Allowed; user identity comes from the HA connection |
 | Custom `puppy_tracker.*` actions: create litter, add puppy, record weight, backup to file | Denied by HA | Denied | Allowed |
 
 **Native HA entity controls are a separate interface.** Weight input, selection,

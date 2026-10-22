@@ -75,6 +75,10 @@ Companion App when a dashboard still shows an older card.
 5. Add recurring reminders or care programs when scheduled actions are needed.
 6. Create a full JSON backup after the initial setup.
 
+Administrators starting without a litter see a **Getting started** checklist in
+the Home and Mobile Workspace. It follows the actual setup progress and can be
+hidden or reopened with the checklist icon. Existing litters remain opt-in.
+
 ## Dashboard Cards
 
 The integration serves and registers its cards automatically. The Workspace
