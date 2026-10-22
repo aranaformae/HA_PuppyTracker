@@ -157,4 +157,7 @@ Run these in the supported local test environment and CI before releasing this
 hardening. Revisit this policy whenever a WebSocket command, custom action,
 export, public route or attachment type is added. This completes the scoped
 permission/privacy review workstream; the repository-hygiene tasks in issue #21
-remain separate and are not automatically marked complete by this document.
+are separate from that review. Contributor guidance, issue forms and release
+procedures are documented in [CONTRIBUTING.md](../CONTRIBUTING.md) and
+[Commit and release conventions](RELEASING.md). These procedures do not extend
+the security review to future attachment types or new API boundaries.

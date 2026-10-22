@@ -1,0 +1,69 @@
+name: Bug report
+description: Report unexpected behavior in Puppy Tracker (Dutch or English).
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Search existing issues first. Dutch and English reports are welcome.
+        Use anonymized examples only: no owner/contact details, payments, full
+        backups, tokens or signed download links. Redact screenshots and logs.
+        Do not post security vulnerabilities here; see the
+        [contributing guide](https://github.com/aranaformae/HA_PuppyTracker/blob/main/CONTRIBUTING.md)
+        for private reporting guidance.
+  - type: input
+    id: puppy_tracker_version
+    attributes:
+      label: Puppy Tracker version
+      description: Exact installed version, not just "latest".
+      placeholder: "0.29.6"
+    validations:
+      required: true
+  - type: input
+    id: home_assistant_version
+    attributes:
+      label: Home Assistant version
+      description: Exact Home Assistant Core version.
+    validations:
+      required: true
+  - type: textarea
+    id: location
+    attributes:
+      label: Affected workflow and environment
+      description: |
+        Name the card, Workspace preset/tab, integration setting or automation.
+        For UI bugs include browser/Companion App, device and OS; for ownership
+        bugs say whether litter, mother or puppy was selected. Use fake names.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Smallest sequence that demonstrates the problem.
+      placeholder: |
+        1. Open ...
+        2. Select ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include the error text and whether the problem is repeatable.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Optional anonymized evidence
+      description: |
+        Relevant log excerpt, screenshot or minimal dashboard/action YAML.
+        Review diagnostics before sharing; never attach a real backup.

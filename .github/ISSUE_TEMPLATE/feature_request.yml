@@ -1,0 +1,42 @@
+name: Feature request
+description: Suggest a practical improvement (Dutch or English).
+title: "[Feature]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Search existing issues first. Dutch and English suggestions are welcome.
+        Describe the real workflow, not only a new button. Do not share personal
+        owner data, full backups, tokens or signed download links.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or practical need
+      description: Who encounters this, when, and what is difficult today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Desired behavior
+      description: What should the user be able to do and what result should they see?
+    validations:
+      required: true
+  - type: textarea
+    id: workflow
+    attributes:
+      label: Affected workflow and alternatives
+      description: |
+        Which existing card/tab, setting, report or automation should this fit?
+        Does it need to work on phone, tablet or desktop? Describe any current
+        workaround or simpler alternative.
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: How could we tell it works?
+      description: Concrete examples, edge cases, privacy or export requirements.
+  - type: textarea
+    id: context
+    attributes:
+      label: Optional context
+      description: Related issues and anonymized examples or mockups.

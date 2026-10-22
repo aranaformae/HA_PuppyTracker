@@ -189,6 +189,8 @@ moving data.
 ## Documentation
 
 The [documentation index](docs/README.md) links the user and technical guides.
+See the [changelog](CHANGELOG.md) for recent changes and
+[contributing guide](CONTRIBUTING.md) for reporting problems or sharing improvements.
 The most useful starting points are:
 
 - [Dashboard cards](docs/DASHBOARD_CARDS.md)

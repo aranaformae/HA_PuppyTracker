@@ -28,6 +28,9 @@ feature overview.
 | Guide | Contents |
 | --- | --- |
 | [Architecture](ARCHITECTURE.md) | Data ownership, stores, APIs, frontend contracts and extension rules |
+| [Contributing](../CONTRIBUTING.md) | Bug reports, feature requests, local setup and contribution expectations |
+| [Commit and release conventions](RELEASING.md) | Versioning, changelog maintenance, gated publication and failure handling |
+| [Changelog](../CHANGELOG.md) | Curated recent release changes and links to earlier releases |
 | [Security and privacy](SECURITY_PRIVACY.md) | Role policy, private exports, signed URLs, file boundaries and review evidence |
 | [Storage migrations](storage-migrations.md) | Supported schema path and migration invariants |
 | [Standalone feeding calculator](FEEDING_CALCULATOR_STANDALONE.md) | Data model and calculation contract for a separate owner-facing web tool |
