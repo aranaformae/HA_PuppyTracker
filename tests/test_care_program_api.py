@@ -1,10 +1,50 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import AsyncMock
 
-from custom_components.puppy_tracker.care_program_api import _program_has_active_results
+import pytest
+from homeassistant.util import dt as dt_util
+from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+from custom_components.puppy_tracker.care_program_api import _program_has_active_results, async_setup_care_program_api
+from custom_components.puppy_tracker.care_programs import AgeBasedCareProgramStore, normalize_care_program
+from custom_components.puppy_tracker.const import DOMAIN
+from custom_components.puppy_tracker.runtime import PuppyTrackerRuntimeData
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+@pytest.mark.parametrize("enabled,active", [(None, True), (False, True), (True, False), (True, True)])
+async def test_occurrence_context_distinguishes_missing_disabled_and_empty_programs(
+    hass, storage, install_litter, hass_ws_client, enabled, active,
+):
+    litter_id, puppy_id = install_litter(puppy_overrides={"active": active})
+    store = AgeBasedCareProgramStore(hass)
+    store._store.async_save = AsyncMock()
+    if enabled is not None:
+        program = normalize_care_program({"litter_id": litter_id, "title": "ENS", "record_type": "test", "schedule_type": "once", "start_age_days": 3, "enabled": enabled}, program_id="ens")
+        store._data = {"programs": {"ens": program}}
+        storage._data["litters"][litter_id]["puppies"][puppy_id]["records"] = [{
+            "id": "result", "type": "test", "occurred_at": "2026-08-31T12:00:00Z", "deleted": False,
+            "data": {"care_occurrence_id": f"ens:{puppy_id}:3", "care_status": "completed"},
+        }]
+    entry = MockConfigEntry(domain=DOMAIN, data={})
+    entry.runtime_data = PuppyTrackerRuntimeData(storage=storage, care_programs=store)
+    entry.add_to_hass(hass)
+    async_setup_care_program_api(hass)
+    client = await hass_ws_client(hass)
+    await client.send_json_auto_id({"type": f"{DOMAIN}/care_occurrences", "litter_id": litter_id})
+    response = await client.receive_json()
+    assert response["success"] is True
+    result = response["result"]
+    assert result["context"] == {"program_count": int(enabled is not None), "enabled_program_count": int(enabled is True), "active_puppy_count": int(active), "today": dt_util.now().date().isoformat()}
+    assert result["skipped"] == []
+    if enabled and active:
+        assert len(result["occurrences"]) == 1
+        assert result["occurrences"][0]["status"] == "completed"
+    else:
+        assert result["occurrences"] == []
 
 
 class _ResultStorage:

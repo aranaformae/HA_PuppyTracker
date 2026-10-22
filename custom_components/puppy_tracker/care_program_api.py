@@ -9,6 +9,7 @@ import voluptuous as vol
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_send
+from homeassistant.util import dt as dt_util
 
 from .care_occurrences import derive_litter_care_occurrences
 from .care_programs import (
@@ -165,7 +166,16 @@ async def websocket_list_care_occurrences(hass, connection, msg) -> None:
                     "reason": reason,
                 })
     occurrences.sort(key=lambda item: (item["scheduled_at"], item["puppy_id"], item["program_id"]))
-    connection.send_result(msg["id"], {"occurrences": occurrences, "skipped": skipped})
+    connection.send_result(msg["id"], {
+        "occurrences": occurrences,
+        "skipped": skipped,
+        "context": {
+            "program_count": len(programs),
+            "enabled_program_count": sum(bool(program.get("enabled", True)) for program in programs),
+            "active_puppy_count": sum(puppy.get("active", True) is not False for puppy in puppies),
+            "today": dt_util.now().date().isoformat(),
+        },
+    })
 
 
 @websocket_api.require_admin

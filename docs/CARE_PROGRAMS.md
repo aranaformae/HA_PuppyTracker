@@ -46,6 +46,21 @@ list. Unrelated Home Assistant state updates do not reload care actions.
 Missing birth times and other skipped schedules show the same warning as Today
 and Attention, rather than appearing as an empty completed checklist.
 
+Empty execution lists distinguish no configured programs, disabled programs,
+no active puppies, an unscheduled day and fully completed care. Missed actions
+are named separately and never described as completed. A load error suppresses
+the empty-state success message. Where the Workspace includes program management,
+administrators can open it directly from the empty list; litter/puppy setup uses
+the existing integration-settings action. A day without care can link to a day
+with pending actions in the loaded range. Mobile does not gain hidden management
+tabs. The selected day stays stable when its final action is completed.
+
+The occurrence response includes aggregate `context` counts for total/enabled
+programs and active puppies plus the Home Assistant local `today` date. These
+are derived on read, not persisted task state. The execution surface retains
+terminal occurrences for empty-state classification while only open actions
+are offered for execution.
+
 Concrete occurrences are not a second persistent task database. Results are not stored in reminder state.
 
 ## Schedule modes

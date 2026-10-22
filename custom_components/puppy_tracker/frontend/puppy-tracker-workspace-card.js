@@ -401,11 +401,20 @@ class PuppyTrackerWorkspaceCard extends HTMLElement {
       const slot = this.shadowRoot?.querySelector(`[data-surface="${key}"]`);
       const definition = SURFACES[key];
       if (!slot || !definition) continue;
-      const child = document.createElement(definition.tag);
-      child.setConfig?.(this._surfaceConfig(key));
+      const child = this._createSurface(key);
       this._children.set(key, child);
     }
     this._updateVisibility();
+  }
+
+  _createSurface(key) {
+    const child = document.createElement(SURFACES[key].tag);
+    if (key === "care") child.workspaceActions = {
+      settings: () => this._openLitterSettings(),
+      ...(this._tabs.includes("programs") ? { programs: () => this._selectTab("programs") } : {}),
+    };
+    child.setConfig?.(this._surfaceConfig(key));
+    return child;
   }
 
   _replaceSurface(key) {
@@ -413,8 +422,7 @@ class PuppyTrackerWorkspaceCard extends HTMLElement {
     const definition = SURFACES[key];
     if (!slot || !definition) return;
     this._children.get(key)?.remove();
-    const child = document.createElement(definition.tag);
-    child.setConfig?.(this._surfaceConfig(key));
+    const child = this._createSurface(key);
     this._children.set(key, child);
     const active = key === "summary" || key === this._tab;
     if (active) {
