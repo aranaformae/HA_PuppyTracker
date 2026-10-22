@@ -44,7 +44,8 @@ def test_report_card_can_export_full_or_current_mother_history() -> None:
 
     assert 'const MOTHER_VALUE = "__mother__"' in source
     assert 'type: "puppy_tracker/mother/export_url"' in source
-    assert "history_scope: this._motherExportScope" in source
+    assert "motherScope: this._motherExportScope" in source
+    assert "history_scope: snapshot.motherScope" in source
     assert 'anchor.download = "puppy-tracker-mother.json"' in source
     assert 'value="current"' in source
     assert 'motherJson: "Moeder JSON"' in source

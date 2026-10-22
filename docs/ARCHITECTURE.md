@@ -1192,6 +1192,15 @@ a read-only retry. A true write failure retains the draft and shows no success.
 Retry results are scoped to the originating owner/lifecycle and cannot replace
 a new draft. The helper stores transient UI state only; it adds no write retries.
 
+Report has one export lifecycle for PDF, CSV, litter JSON and mother JSON. Before
+the first await it snapshots the client, context, litter/subject, range, language,
+normalized sections and copies of source/category arrays. Logo loading cannot
+read a later selection. The busy guard disables controls and rejects handler
+mutations/double exports; configuration changes and background refreshes defer
+until completion. Export failures are separate from read failures so a successful
+background read cannot erase them. Download side effects recheck lifecycle and
+administrator access after awaits. JSON retains its complete-backup semantics.
+
 Quick Log loads recurring choices with its litter data, filtered by exact owner
 and type, without automatic selection. A draft stores a snapshot of the chosen
 definition revision and due instant. Explicit refresh never upgrades that

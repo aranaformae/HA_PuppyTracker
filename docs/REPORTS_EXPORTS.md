@@ -33,6 +33,13 @@ Select a litter first, then choose one of these subjects:
 The preview immediately shows the selected subject and matching counts before
 the PDF is downloaded.
 
+While an export is being prepared, its choices and download buttons are locked.
+The download uses the litter, subject, period, language and PDF options selected
+when it started, even if fetching the logo takes longer. Background updates wait
+until it finishes. A failed export unlocks the controls so you can retry; it does
+not start a second download automatically. Removing the card or losing
+administrator access cancels the pending download.
+
 ## PDF sections
 
 Every main section can be enabled or disabled independently.
