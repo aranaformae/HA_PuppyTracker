@@ -1272,6 +1272,17 @@ top-level and `tab_config` structure consumed by YAML; changing presets must
 remove invalid tabs and defaults instead of preserving inaccessible surface
 configuration as active navigation.
 
+Care navigation partitions the enabled tabs into Daily (`care`, `calculator`)
+and Management (`programs`, `reminders`), omitting empty groups. Groups share a
+single tablist and the same retained surface lifecycle; they are not new routes
+or surfaces. The mobile select uses native optgroups. Enabled tabs are normalized
+to daily-first order, preserving configured order within each group, so focus,
+remembered selection and panel order agree. Translations update navigation nodes
+in place; grouping does not remount forms. Existing YAML tab keys remain intact.
+The administrator-only litter-settings shortcut reuses native `hass-navigate`
+to the integration page, checks rights at click time and protects pending writes
+and unsaved forms. It does not duplicate integration configuration in the card.
+
 The Workspace owns the shared litter context. Internal surfaces request a
 litter change through one composed event; the Workspace updates the other
 surface configurations instead of allowing each tab to drift independently.

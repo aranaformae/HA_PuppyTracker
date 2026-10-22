@@ -247,7 +247,7 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
     this._renderLanguage = languageForHass(this._hass);
     this._renderAdmin = this._hass?.user?.is_admin !== false;
     const root = this.shadowRoot;
-    root.querySelector(".title").textContent = this._config.title || t(this, "Zorgprogramma uitvoeren", "Execute care program");
+    root.querySelector(".title").textContent = this._config.title || t(this, "Zorg uitvoeren", "Carry out care");
     root.querySelector(".sub").textContent = t(this, "Los van Aandacht en Vandaag", "Independent of Attention and Today");
     const dates = this._dateOptions();
     const selectedIndex = dates.indexOf(this._selectedDate);

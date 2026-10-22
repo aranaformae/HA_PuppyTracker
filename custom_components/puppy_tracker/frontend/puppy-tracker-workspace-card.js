@@ -1,5 +1,6 @@
 import {
   escapeHtml,
+  fireNavigate,
   languageForHass,
   LITTER_CHANGE_EVENT,
   preserveScrollPosition,
@@ -35,6 +36,14 @@ const PRESETS = {
   care: { tabs: ["care", "calculator", "programs", "reminders"] },
   mobile: { tabs: ["weighing", "calculator", "quickLog", "today", "care", "behavior"] },
 };
+
+function navigationGroups(preset, tabs) {
+  if (preset !== "care") return [{ tabs }];
+  return [
+    { label: "daily", tabs: tabs.filter((key) => ["care", "calculator"].includes(key)) },
+    { label: "management", tabs: tabs.filter((key) => ["programs", "reminders"].includes(key)) },
+  ].filter((group) => group.tabs.length);
+}
 
 const EDITOR_FIELDS = {
   home: [
@@ -133,9 +142,12 @@ const TEXT = {
     temperature: "Temperatuur",
     behavior: "Gedrag",
     calculator: "Rekentool",
-    care: "Uitvoeren",
-    programs: "Programma's",
+    care: "Zorg uitvoeren",
+    programs: "Zorgprogramma's",
     reminders: "Herinneringen",
+    daily: "Dagelijks",
+    management: "Beheer",
+    litterSettings: "Nestgegevens beheren",
     bulk: "Meerdere pups",
     closeBulk: "Terug naar logboek",
     chooseView: "Weergave kiezen",
@@ -156,9 +168,12 @@ const TEXT = {
     temperature: "Temperature",
     behavior: "Behavior",
     calculator: "Calculator",
-    care: "Execute",
-    programs: "Programs",
+    care: "Carry out care",
+    programs: "Care programs",
     reminders: "Reminders",
+    daily: "Daily",
+    management: "Management",
+    litterSettings: "Manage litter details",
     bulk: "Multiple puppies",
     closeBulk: "Back to journal",
     chooseView: "Choose view",
@@ -186,7 +201,7 @@ const EDITOR_LABELS = {
     temperature_show_thresholds: "Temperatuurgrenzen tonen", temperature_show_latest: "Laatste temperatuur tonen", temperature_show_chart: "Temperatuurgrafiek tonen",
     temperature_show_history: "Temperatuurlogboek tonen", temperature_show_editor: "Temperatuurinvoer tonen",
     behavior_show_profile: "Gedragsprofiel tonen", behavior_show_history: "Gedragshistorie tonen", behavior_max_items: "Gedrag: maximaal aantal observaties",
-    care_show_day_selector: "Dagselector tonen", care_days_ahead: "Aantal dagen vooruit", care_max_items: "Uitvoeren: maximaal aantal items",
+    care_show_day_selector: "Dagselector tonen", care_days_ahead: "Aantal dagen vooruit", care_max_items: "Zorg uitvoeren: maximaal aantal items",
     calculator_active_only: "Rekentool: alleen actieve pups", calculator_stale_after_hours: "Gewicht als oud markeren na (uur)",
     calculator_max_height: "Rekentool: maximale lijsthoogte", calculator_default_unit: "Rekentool: standaard eenheid",
     calculator_default_mode: "Rekentool: standaard variant",
@@ -213,7 +228,7 @@ const EDITOR_LABELS = {
     temperature_show_thresholds: "Show temperature thresholds", temperature_show_latest: "Show latest temperature", temperature_show_chart: "Show temperature chart",
     temperature_show_history: "Show temperature history", temperature_show_editor: "Show temperature input",
     behavior_show_profile: "Show behavior profile", behavior_show_history: "Show behavior history", behavior_max_items: "Behavior: maximum observations",
-    care_show_day_selector: "Show day selector", care_days_ahead: "Days ahead", care_max_items: "Execution: maximum items",
+    care_show_day_selector: "Show day selector", care_days_ahead: "Days ahead", care_max_items: "Carry out care: maximum items",
     calculator_active_only: "Calculator: active puppies only", calculator_stale_after_hours: "Mark weight as old after (hours)",
     calculator_max_height: "Calculator: maximum list height", calculator_default_unit: "Calculator: default unit",
     calculator_default_mode: "Calculator: default mode",
@@ -287,6 +302,7 @@ class PuppyTrackerWorkspaceCard extends HTMLElement {
     const requestedTabs = Array.isArray(config.tabs) ? config.tabs : allowedTabs;
     this._tabs = requestedTabs.filter((tab, index) => allowedTabs.includes(tab) && requestedTabs.indexOf(tab) === index);
     if (!this._tabs.length) this._tabs = [...allowedTabs];
+    this._tabs = navigationGroups(requestedPreset, this._tabs).flatMap((group) => group.tabs);
     this._storageIdentity = config.state_key || `${requestedPreset}.${this._tabs.join("-")}.${config.litter_id || "auto"}`;
 
     const storedTab = this._loadTab();
@@ -307,6 +323,7 @@ class PuppyTrackerWorkspaceCard extends HTMLElement {
       if (child) child.hass = hass;
     }
     if (previousLanguage !== this._language) this._updateLabels();
+    this._updateManagementAction();
     this._setup.update();
   }
 
@@ -472,6 +489,30 @@ class PuppyTrackerWorkspaceCard extends HTMLElement {
     for (const option of select?.options || []) {
       option.textContent = text(this, option.value);
     }
+    select?.setAttribute("aria-label", text(this, "chooseView"));
+    for (const label of this.shadowRoot?.querySelectorAll("[data-nav-label]") || []) {
+      if (label.tagName === "OPTGROUP") label.label = text(this, label.dataset.navLabel);
+      else label.textContent = text(this, label.dataset.navLabel);
+    }
+  }
+
+  _updateManagementAction() {
+    const button = this.shadowRoot?.getElementById("workspace-litter-settings");
+    if (!button) return;
+    const visible = this._hass?.user?.is_admin === true;
+    button.hidden = !visible;
+    button.title = text(this, "litterSettings");
+    button.setAttribute("aria-label", button.title);
+    this.shadowRoot.querySelector(".workspace-nav")?.classList.toggle("has-management-action", visible);
+  }
+
+  _openLitterSettings() {
+    if (this._hass?.user?.is_admin !== true || this._setup.busy) return;
+    const children = [...this._children.values()];
+    if (children.some((child) => child._saving || child._busy)
+      || !confirmDiscardForms(children, this._hass)
+      || !requestCloseRecordEditor(this._children.get(this._tab))) return;
+    fireNavigate(this, "/config/integrations/integration/puppy_tracker");
   }
 
   _handleLitterChange(event) {
@@ -516,19 +557,29 @@ class PuppyTrackerWorkspaceCard extends HTMLElement {
 
   _render() {
     if (!this.shadowRoot || !this._config.preset) return;
-    const tabButtons = this._tabs.map((key) => `<button type="button" role="tab" class="workspace-tab ${key === this._tab ? "active" : ""}" data-tab="${key}" id="workspace-tab-${key}" aria-controls="workspace-surface-${key}" aria-selected="${key === this._tab ? "true" : "false"}"><ha-icon icon="${SURFACES[key].icon}"></ha-icon><span>${escapeHtml(text(this, key))}</span></button>`).join("");
-    const tabOptions = this._tabs.map((key) => `<option value="${key}" ${key === this._tab ? "selected" : ""}>${escapeHtml(text(this, key))}</option>`).join("");
+    const groups = navigationGroups(this._preset, this._tabs);
+    const tabButtons = groups.map((group) => {
+      const buttons = group.tabs.map((key) => `<button type="button" role="tab" class="workspace-tab ${key === this._tab ? "active" : ""}" data-tab="${key}" id="workspace-tab-${key}" aria-controls="workspace-surface-${key}" ${group.label ? `aria-describedby="workspace-group-${group.label}"` : ""} aria-selected="${key === this._tab ? "true" : "false"}"><ha-icon icon="${SURFACES[key].icon}"></ha-icon><span>${escapeHtml(text(this, key))}</span></button>`).join("");
+      return group.label ? `<div class="tab-group" role="presentation"><span class="tab-group-label" id="workspace-group-${group.label}" data-nav-label="${group.label}">${escapeHtml(text(this, group.label))}</span><div class="tab-group-buttons" role="presentation">${buttons}</div></div>` : buttons;
+    }).join("");
+    const tabOptions = groups.map((group) => {
+      const options = group.tabs.map((key) => `<option value="${key}" ${key === this._tab ? "selected" : ""}>${escapeHtml(text(this, key))}</option>`).join("");
+      return group.label ? `<optgroup data-nav-label="${group.label}" label="${escapeHtml(text(this, group.label))}">${options}</optgroup>` : options;
+    }).join("");
     const summary = this._preset === "home" && this._config.show_summary !== false ? `<div class="summary-surface" data-surface="summary"></div>` : "";
     const bulk = this._preset === "journal" && this._config.show_bulk_action !== false ? `<button type="button" class="utility" id="bulk-action"><ha-icon icon="${SURFACES.bulk.icon}"></ha-icon>${escapeHtml(text(this, "bulk"))}</button>` : "";
     const surfaces = [...this._tabs, ...(bulk ? ["bulk"] : [])].map((key) => `<div class="workspace-surface" data-surface="${key}" id="workspace-surface-${key}" role="tabpanel" ${this._tabs.includes(key) ? `aria-labelledby="workspace-tab-${key}"` : ""} ${key === this._tab ? "" : "hidden"}></div>`).join("");
     const heading = this._config.title ? `<h2 class="workspace-title">${escapeHtml(this._config.title)}</h2>` : "";
     const setupAction = ["home", "mobile"].includes(this._preset) ? `<button type="button" class="utility" id="workspace-setup-open" hidden><ha-icon icon="mdi:clipboard-check-outline"></ha-icon></button>` : "";
+    const managementAction = this._preset === "care" ? `<button type="button" class="utility" id="workspace-litter-settings" hidden><ha-icon icon="mdi:cog-outline"></ha-icon></button>` : "";
 
     this.shadowRoot.innerHTML = `<style>
       :host{display:block;overflow-anchor:none}.workspace{display:grid;gap:10px}.workspace-title{margin:0;padding:0 4px;font-size:1.25rem;line-height:1.3;letter-spacing:0}.workspace-nav{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color)}.tabs{display:flex;gap:6px;min-width:0;overflow-x:auto;scrollbar-width:thin}.workspace-tab,.utility{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:42px;border:1px solid var(--divider-color);border-radius:8px;padding:0 12px;background:var(--secondary-background-color);color:var(--primary-text-color);font:inherit;font-weight:600;white-space:nowrap;cursor:pointer;touch-action:manipulation}.workspace-tab ha-icon,.utility ha-icon{--mdc-icon-size:19px}.workspace-tab.active{background:var(--primary-color);border-color:var(--primary-color);color:var(--text-primary-color,#fff)}.utility{flex:0 0 auto;background:transparent}.mobile-select{display:none;min-height:44px;width:100%;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color);padding:0 10px;font:inherit}.workspace-surface[hidden],.summary-surface[hidden]{display:none}.workspace-surface>*,.summary-surface>*{display:block}@media(max-width:600px){.workspace-nav{display:grid}.tabs{display:none}.mobile-select{display:block}.utility{width:100%}}
-      #workspace-setup[hidden],#workspace-setup-open[hidden]{display:none}#workspace-setup-open{width:44px;height:44px;padding:0}@media(max-width:600px){.workspace-nav.has-setup-action{grid-template-columns:minmax(0,1fr)44px}}
-    </style><div class="workspace">${heading}<div id="workspace-setup"></div>${summary}<div class="workspace-nav"><div class="tabs" role="tablist">${tabButtons}</div><select id="workspace-tab-select" class="mobile-select" aria-label="${escapeHtml(text(this, "chooseView"))}">${tabOptions}</select>${bulk}${setupAction}</div>${surfaces}</div>`;
+      .tab-group{display:grid;gap:6px;flex:0 0 auto}.tab-group+.tab-group{border-left:1px solid var(--divider-color);padding-left:12px;margin-left:6px}.tab-group-label{font-size:12px;line-height:1.4;color:var(--secondary-text-color)}.tab-group-buttons{display:flex;gap:6px}.workspace-tab:focus-visible,.utility:focus-visible{outline:2px solid var(--primary-color);outline-offset:-3px}
+      #workspace-setup[hidden],.workspace-nav [hidden]{display:none}#workspace-setup-open,#workspace-litter-settings{width:44px;height:44px;padding:0}@media(max-width:600px){.workspace-nav.has-setup-action,.workspace-nav.has-management-action{grid-template-columns:minmax(0,1fr)44px}}
+    </style><div class="workspace">${heading}<div id="workspace-setup"></div>${summary}<div class="workspace-nav"><div class="tabs" role="tablist">${tabButtons}</div><select id="workspace-tab-select" class="mobile-select" aria-label="${escapeHtml(text(this, "chooseView"))}">${tabOptions}</select>${bulk}${setupAction}${managementAction}</div>${surfaces}</div>`;
     this._mountSurfaces();
+    this._updateManagementAction();
     this._setup.attach(this.shadowRoot.getElementById("workspace-setup"));
     this.shadowRoot.querySelectorAll("[data-tab]").forEach((button) => {
       button.addEventListener("click", () => this._selectTab(button.dataset.tab));
@@ -536,6 +587,7 @@ class PuppyTrackerWorkspaceCard extends HTMLElement {
     });
     this.shadowRoot.getElementById("workspace-tab-select")?.addEventListener("change", (event) => this._selectTab(event.target.value));
     this.shadowRoot.getElementById("bulk-action")?.addEventListener("click", () => this._selectTab(this._tab === "bulk" ? this._previousTab : "bulk"));
+    this.shadowRoot.getElementById("workspace-litter-settings")?.addEventListener("click", () => this._openLitterSettings());
   }
 }
 

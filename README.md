@@ -136,7 +136,10 @@ result, score, note and day-specific instructions.
 Use **Postpone once** to move only the pending reminder moment, without changing
 its recurrence. You can cancel postponement from Today/Mobile or Reminders.
 
-The Care workspace is the complete checklist even when a program is not
+In the Care workspace, **Daily** contains **Carry out care** and Calculator;
+**Management** contains Care programs and Reminders. Administrators can use
+the settings icon to open the integration's litter settings.
+Carry out care is the complete checklist even when a program is not
 configured to appear in Attention. See
 [Age-based care programs](docs/CARE_PROGRAMS.md) and
 [Notifications](docs/NOTIFICATIONS.md).

@@ -26,8 +26,26 @@ movement.
 | `home` | Today, Attention, Puppies | Current status and exceptions; includes Summary by default |
 | `growth` | Weigh, Analysis | Weighing sessions, collar-colour charts and growth analysis |
 | `journal` | Dossier, Quick log, Behavior, Temperature | All observation and dossier workflows |
-| `care` | Execute, Calculator, Programs, Reminders | Complete and manage scheduled care or calculate per-kilogram amounts |
-| `mobile` | Weigh, Calculator, Quick log, Today, Execute, Behavior | Touch-first daily workflow without leaving the card |
+| `care` | Carry out care, Calculator / Care programs, Reminders | Daily care and calculations, separated from schedule management |
+| `mobile` | Weigh, Calculator, Quick log, Today, Carry out care, Behavior | Touch-first daily workflow without leaving the card |
+
+Care navigation is grouped into **Daily** (Carry out care, Calculator) and
+**Management** (Care programs, Reminders). Dutch labels are **Dagelijks**,
+**Zorg uitvoeren**, **Rekentool**, **Beheer**, **Zorgprogramma's** and
+**Herinneringen**. Daily work records what happened; management changes the
+schedule or instructions. On phones the same groups appear in the view selector.
+No extra navigation step or dashboard card is needed. Mobile keeps daily tasks
+only, using the same **Carry out care** label.
+
+With custom `tabs`, empty groups disappear. Daily tabs precede management tabs;
+the configured order within each group is retained. Keyboard navigation follows
+that visible order. The YAML keys (`care`, `calculator`, `programs`, `reminders`),
+tab options and saved data do not change.
+
+Administrators also have a settings icon beside Care navigation, labelled
+**Manage litter details**. It opens the Puppy Tracker integration page; choose
+**Configure** there for litter and puppy details. Existing inline drafts are
+protected by the usual discard confirmation and saves block navigation.
 
 Basic examples:
 
