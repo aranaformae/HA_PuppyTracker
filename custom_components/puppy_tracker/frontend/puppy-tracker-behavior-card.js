@@ -95,7 +95,14 @@ class PuppyTrackerBehaviorCard extends HTMLElement {
   }
 
   set hass(hass) {
+    const reconnected = this._hass && this._hass.connection !== hass?.connection;
+    if (reconnected) this.disconnectedCallback();
     this._hass = hass;
+    if (reconnected) {
+      if (this._editing || this._saving) { this._refreshDeferred = true; this._subscribe(); }
+      else this._loadInitial();
+      return;
+    }
     if (!this._litters.length && !this._loading) this._loadInitial();
     else if (this.isConnected) this._subscribe();
   }

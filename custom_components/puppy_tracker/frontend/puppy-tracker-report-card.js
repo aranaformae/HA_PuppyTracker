@@ -221,12 +221,19 @@ class PuppyTrackerReportCard extends HTMLElement {
   }
 
   set hass(hass) {
+    const reconnected = this._hass && this._hass.connection !== hass?.connection;
+    if (reconnected) this.disconnectedCallback();
     this._hass = hass;
     if (hass?.user?.is_admin === false) {
       this._data = null;
       this._litters = [];
       this.disconnectedCallback();
       this._render();
+      return;
+    }
+    if (reconnected) {
+      if (this._exporting) { this._refreshDeferred = true; this._ensureSubscription(); }
+      else this._loadInitial();
       return;
     }
     if (!this._litters.length && !this._loading) {

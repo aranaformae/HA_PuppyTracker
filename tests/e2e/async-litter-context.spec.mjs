@@ -59,6 +59,18 @@ for (const kind of ["behavior", "report"]) {
     await expect(card.locator(`${puppy} option[value='a1']`)).toHaveCount(1);
   });
 
+  test(`${kind}: replacing the HA connection restarts an interrupted initial load`, async ({ page }) => {
+    const card = await mountAsyncCard(page, kind, { hold: [LITTERS] });
+    await card.evaluate((el) => { el.hass = { ...el._hass, connection: { ...el._hass.connection } }; });
+    await expect.poll(() => pendingCount(page, LITTERS)).toBe(2);
+    await release(page, LITTERS, { error: "Previous connection closed" });
+    await expect.poll(() => card.evaluate((el) => el._loading)).toBe(true);
+    await release(page, LITTERS);
+    await expect(card.locator(`${puppy} option[value='a1']`)).toHaveCount(1);
+    await expect(card.locator(puppy)).toBeEnabled();
+    await expect(card.locator(".error")).toHaveCount(0);
+  });
+
   test(`${kind}: an older success arriving last cannot replace the current puppy list`, async ({ page }) => {
     const card = await mountAsyncCard(page, kind);
     await page.evaluate(() => { window.__async.hold.add("puppy_tracker/data"); window.__async.card._queueRefresh(); });
