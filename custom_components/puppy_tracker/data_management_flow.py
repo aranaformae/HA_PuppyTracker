@@ -402,6 +402,9 @@ class PuppyTrackerDataManagementMixin:
                 self._sync_after_import(before, after)
 
                 if isinstance(runtime, PuppyTrackerRuntimeData):
+                    if summary.get("replaces_all"):
+                        from .session import reset_weighing_session
+                        reset_weighing_session(runtime)
                     reconcile_dashboard_selection(runtime)
 
                 async_dispatcher_send(self.hass, SIGNAL_DASHBOARD_UPDATE)

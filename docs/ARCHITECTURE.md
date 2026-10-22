@@ -1045,6 +1045,22 @@ puppy_tracker_onboarding           (Store version 1, non-portable UI preferences
 
 The main `PuppyTrackerStorage` remains authoritative for profiles, litters, measurements, dossier records and settings.
 
+The optional main-store `weighing_session` checkpoint is versioned operational
+state, not a new measurement history or a separate store. A station save commits
+the measurement, checkpoint and (on completion) summary in one storage write,
+with in-memory rollback on failure. Station transitions are serialized and
+check session ID/revision under the storage lock. Old databases need no new
+required field or schema migration. Both native station buttons and the public
+record-weight action use this path.
+
+On load, an active checkpoint becomes `interrupted`: saved IDs are reconciled
+against current active puppies and effective measurement chains. It requires
+explicit resume or discard; the input weight and duplicate confirmation are
+never restored. Native Start resumes an interrupted session, while Reset
+discards its checkpoint without deleting measurements. JSON backups omit this
+local operational state, and imported candidates strip it; a full replacement
+also clears the live station. Completed summaries remain portable litter data.
+
 Global one-time registration flags may live in `hass.data` when they represent Home Assistant instance state rather than entry-owned domain data. Ephemeral notification-delivery deduplication may also live in runtime/instance state but must not be mistaken for persistent scheduling data.
 
 ## Metrics layer

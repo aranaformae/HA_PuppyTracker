@@ -29,6 +29,13 @@ Corrections never overwrite history. Editing a measurement creates a new
 effective version and preserves the corrected version in the audit chain.
 Delete and restore use the same non-destructive model.
 
+An active weighing session is saved with each measurement and survives an
+integration reload or Home Assistant restart. After interruption it must be
+explicitly resumed or closed; saved weights are never entered again and an
+unfinished input is not restored. Closing the session keeps all saved weights.
+The native Start session button resumes a pending session; Reset closes it.
+Session recovery is local to this installation, not included in JSON transfers.
+
 ## Metric meanings
 
 | Metric | Meaning |

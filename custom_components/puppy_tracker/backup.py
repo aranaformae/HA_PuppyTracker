@@ -276,6 +276,8 @@ def build_export_document(
         raise ValueError(f"Unsupported export scope: {scope}")
 
     data = storage.get_data()
+    # Checkpoints are local operational state, not portable litter history.
+    data.pop("weighing_session", None)
     try:
         schema_version = int(data.get("schema_version"))
     except (TypeError, ValueError) as err:
@@ -852,6 +854,7 @@ def prepare_import(
 
     if scope == "full":
         source_data = deepcopy(document["data"])
+        source_data.pop("weighing_session", None)
         if not isinstance(source_data.get("settings", {}), dict):
             raise BackupValidationError("invalid_backup", "Full backup settings must be an object")
         if source_export_version < 6 and ("file_data" in document or source_data.get("settings", {}).get("files")):

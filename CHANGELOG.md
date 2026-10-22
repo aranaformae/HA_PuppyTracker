@@ -12,6 +12,9 @@ they have not been reconstructed as a complete historical changelog.
 
 ### Added
 
+- Durable weighing-session checkpoints with explicit restart recovery. Weight,
+  progress and completion summary commit together; discarding keeps saved history.
+
 ### Changed
 
 ### Fixed

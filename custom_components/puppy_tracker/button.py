@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from copy import deepcopy
 import logging
 from typing import Any
 
@@ -27,8 +28,10 @@ from .const import (
 from .runtime import PuppyTrackerRuntimeData
 from .session import (
     SESSION_ACTIVE,
+    SESSION_INTERRUPTED,
+    async_record_station_weight,
+    async_resolve_session,
     get_session,
-    mark_weight_recorded,
     reset_weighing_session,
     start_weighing_session,
 )
@@ -134,6 +137,17 @@ class PuppyStartSessionButton(
     async def async_press(
         self,
     ) -> None:
+        session = get_session(self.data)
+        if session.get("status") == SESSION_INTERRUPTED:
+            await async_resolve_session(self.data, resume=True, session_id=session["id"], revision=session["revision"])
+        else:
+            async with self.data.weighing_lock:
+                await self._async_start()
+        async_dispatcher_send(self.hass, SIGNAL_DASHBOARD_UPDATE)
+
+    async def _async_start(
+        self,
+    ) -> None:
         """Start weighing session."""
 
         session = get_session(
@@ -195,11 +209,21 @@ class PuppyStartSessionButton(
                 "Dit nest bevat geen actieve puppy's."
             )
 
+        before = deepcopy(session)
+        selection = (self.data.selected_litter_id, self.data.selected_puppy_id, self.data.weight_input)
         start_weighing_session(
             self.data,
             litter_id,
             puppy_ids,
         )
+        staged = self.data.weighing_session
+        self.data.weighing_session = before
+        try:
+            await self.storage.async_set_weighing_session(staged, expected=before)
+        except Exception:
+            self.data.selected_litter_id, self.data.selected_puppy_id, self.data.weight_input = selection
+            raise
+        self.data.weighing_session = staged
 
         async_dispatcher_send(
             self.hass,
@@ -464,28 +488,14 @@ class PuppySaveWeightButton(
                 )
 
         measurement_id = (
-            await self.storage.async_record_weight(
+            await async_record_station_weight(
+                self.data,
                 litter_id=litter_id,
                 puppy_id=puppy_id,
                 weight=weight,
                 note="Dashboardweging",
             )
         )
-
-        session_completed = mark_weight_recorded(
-            self.data,
-            litter_id=litter_id,
-            puppy_id=puppy_id,
-            puppy_name=puppy_name,
-            weight=weight,
-            measurement_id=measurement_id,
-        )
-
-        if session_completed:
-            await self.storage.async_record_completed_weighing_session(
-                litter_id,
-                get_session(self.data),
-            )
 
         # Clear input to prevent accidentally reusing
         # the previous puppy's weight.
@@ -527,9 +537,9 @@ class PuppyResetSessionButton(
     ) -> None:
         """Reset session."""
 
-        reset_weighing_session(
-            self.data
-        )
+        async with self.data.weighing_lock:
+            await self.storage.async_set_weighing_session(None, expected=get_session(self.data))
+            reset_weighing_session(self.data)
 
         async_dispatcher_send(
             self.hass,

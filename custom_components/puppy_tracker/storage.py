@@ -48,6 +48,7 @@ from .records import (
     validate_record_type,
 )
 from .time_utils import normalize_timestamp
+from .session import SESSION_ACTIVE, SESSION_COMPLETED, SESSION_INTERRUPTED, session_after_weight
 from .upcoming import followup_record_data
 from .breeder import normalize_breeder
 from .feeding import normalize_feeding_settings
@@ -1640,50 +1641,6 @@ class PuppyTrackerStorage:
 
             return removed
 
-    async def async_record_completed_weighing_session(
-        self,
-        litter_id: str,
-        session: dict[str, Any],
-    ) -> None:
-        """Persist metadata for a fully completed weighing session."""
-
-        completed_at = session.get("completed_at")
-        if not completed_at:
-            return
-
-        async with self._lock:
-            litter = self._require_litter(litter_id)
-
-            existing = litter.get("last_completed_session")
-            if (
-                isinstance(existing, dict)
-                and existing.get("completed_at") == completed_at
-            ):
-                return
-
-            puppy_ids = list(session.get("puppy_ids", []))
-            weighed_ids = list(session.get("weighed_puppy_ids", []))
-
-            summary = {
-                "started_at": session.get("started_at"),
-                "completed_at": completed_at,
-                "puppy_ids": puppy_ids,
-                "weighed_puppy_ids": weighed_ids,
-                "total_puppies": len(puppy_ids),
-                "weighed_puppies": len(weighed_ids),
-            }
-
-            litter["last_completed_session"] = summary
-            litter["updated_at"] = _now_iso()
-
-            self._add_audit_entry(
-                action="complete_weighing_session",
-                litter_id=litter_id,
-                details=deepcopy(summary),
-            )
-
-            await self.async_save()
-
     async def async_record_weight(
         self,
         litter_id: str,
@@ -1691,6 +1648,8 @@ class PuppyTrackerStorage:
         weight: float,
         timestamp: str | None = None,
         note: str | None = None,
+        *,
+        weighing_session: dict[str, Any] | None = None,
     ) -> str:
         """Record a new puppy weight."""
 
@@ -1700,6 +1659,14 @@ class PuppyTrackerStorage:
             )
 
         async with self._lock:
+            before = deepcopy(self._data)
+            if weighing_session is not None:
+                self._check_weighing_checkpoint(weighing_session)
+                if weighing_session.get("status") == SESSION_INTERRUPTED:
+                    raise ValueError("Hervat de onderbroken weegsessie of sluit deze eerst af.")
+                if (not self._require_litter(litter_id).get("active", True)
+                    or not self._require_puppy(litter_id, puppy_id).get("active", True)):
+                    raise ValueError("De geselecteerde puppy of het nest is gearchiveerd.")
             puppy = self._require_puppy(
                 litter_id,
                 puppy_id,
@@ -1753,9 +1720,60 @@ class PuppyTrackerStorage:
                 },
             )
 
-            await self.async_save()
+            if weighing_session is not None and weighing_session.get("id"):
+                checkpoint = session_after_weight(
+                    weighing_session, litter_id=litter_id, puppy_id=puppy_id,
+                    puppy_name=puppy.get("name", "Puppy"), weight=weight,
+                    measurement_id=measurement_id,
+                )
+                self._data["weighing_session"] = checkpoint
+                if checkpoint["status"] == SESSION_COMPLETED and weighing_session["status"] == SESSION_ACTIVE:
+                    summary = {key: deepcopy(checkpoint.get(key)) for key in (
+                        "started_at", "completed_at", "puppy_ids", "weighed_puppy_ids",
+                    )}
+                    summary.update(total_puppies=len(checkpoint["puppy_ids"]),
+                                   weighed_puppies=len(checkpoint["weighed_puppy_ids"]))
+                    self._require_litter(litter_id)["last_completed_session"] = summary
+                    self._add_audit_entry(action="complete_weighing_session", litter_id=litter_id, details=deepcopy(summary))
+            try:
+                await self.async_save()
+            except Exception:
+                self._data = before
+                raise
 
             return measurement_id
+
+    def _check_weighing_checkpoint(self, expected: dict[str, Any]) -> None:
+        """Reject a stale session, including after replacing the database."""
+        current = self._data.get("weighing_session") or {}
+        if (current.get("id") != expected.get("id")
+            or (expected.get("id") and current.get("revision", 0) != expected.get("revision", 0))):
+            raise ValueError("De weegsessie is gewijzigd. Vernieuw de kaart en probeer opnieuw.")
+
+    def get_weighing_session(self) -> dict[str, Any] | None:
+        """Read the small checkpoint without copying the complete dossier database."""
+        return deepcopy(self._data.get("weighing_session"))
+
+    async def async_set_weighing_session(
+        self, session: dict[str, Any] | None, *, expected: dict[str, Any],
+    ) -> None:
+        """Commit a checkpoint transition or discard without touching weight history."""
+        async with self._lock:
+            self._check_weighing_checkpoint(expected)
+            before = deepcopy(self._data)
+            if session is not None:
+                litter = self._require_litter(session["litter_id"])
+                if not litter.get("active", True) or not session["puppy_ids"]:
+                    raise ValueError("Dit nest bevat geen actieve puppy's.")
+                if any(not self._require_puppy(session["litter_id"], puppy_id).get("active", True)
+                       for puppy_id in session["puppy_ids"]):
+                    raise ValueError("De geselecteerde puppy is gearchiveerd.")
+            self._data["weighing_session"] = deepcopy(session)
+            try:
+                await self.async_save()
+            except Exception:
+                self._data = before
+                raise
 
     async def async_correct_measurement(
         self,

@@ -44,6 +44,7 @@ from .runtime import PuppyTrackerRuntimeData
 from .session import (
     SESSION_ACTIVE,
     SESSION_COMPLETED,
+    SESSION_INTERRUPTED,
     get_session,
     remaining_puppy_ids,
 )
@@ -479,6 +480,8 @@ class WeighingSessionStatusSensor(
 
         if status == SESSION_COMPLETED:
             return "Voltooid"
+        if status == SESSION_INTERRUPTED:
+            return "Onderbroken"
 
         return "Niet gestart"
 
@@ -489,6 +492,8 @@ class WeighingSessionStatusSensor(
         """Return session metadata."""
 
         return {
+            "session_id": self.session.get("id"),
+            "revision": self.session.get("revision", 0),
             "started_at": self.session.get(
                 "started_at"
             ),

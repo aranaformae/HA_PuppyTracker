@@ -51,8 +51,9 @@ from .runtime import (
     reconcile_dashboard_selection,
 )
 from .session import (
-    get_session,
-    mark_weight_recorded,
+    async_record_station_weight,
+    recover_session,
+    remaining_puppy_ids,
 )
 
 
@@ -191,6 +192,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         owners=owners,
         onboarding=onboarding,
     )
+    runtime.weighing_session = recover_session(storage)
+    runtime.selected_litter_id = runtime.weighing_session.get("litter_id")
+    runtime.selected_puppy_id = (remaining_puppy_ids(runtime.weighing_session) or [None])[0]
     reconcile_dashboard_selection(runtime)
     entry.runtime_data = runtime
 
@@ -272,23 +276,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if puppy is None:
             raise ValueError("The specified puppy does not exist in this litter")
 
-        measurement_id = await storage.async_record_weight(
+        measurement_id = await async_record_station_weight(
+            runtime,
             litter_id=litter_id,
             puppy_id=puppy_id,
             weight=weight,
             timestamp=call.data.get("timestamp"),
             note=call.data.get("note"),
         )
-        session_completed = mark_weight_recorded(
-            runtime,
-            litter_id=litter_id,
-            puppy_id=puppy_id,
-            puppy_name=puppy.get("name", "Puppy"),
-            weight=weight,
-            measurement_id=measurement_id,
-        )
-        if session_completed:
-            await storage.async_record_completed_weighing_session(litter_id, get_session(runtime))
         async_dispatcher_send(hass, SIGNAL_UPDATE, puppy_id)
         async_dispatcher_send(hass, SIGNAL_DASHBOARD_UPDATE)
         _LOGGER.info(
