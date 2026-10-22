@@ -99,8 +99,13 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
     const response = await this._hass.callWS({ type: "puppy_tracker/care_occurrences", litter_id: litterId });
     if (request !== this._occurrenceRequest || litterId !== this._selectedLitterId) return;
     const maxDays = Number(this._config.days_ahead);
+    const today = response?.context?.today || this._today();
+    const end = new Date(`${today}T12:00:00Z`);
+    end.setUTCDate(end.getUTCDate() + maxDays);
+    const horizon = maxDays >= 0 && Number.isFinite(end.getTime()) ? end.toISOString().slice(0, 10) : null;
     this._scheduledOccurrences = (response?.occurrences || [])
-      .filter((item) => item?.status !== "upcoming" || maxDays < 0 || Number(item.days_until_due) <= maxDays);
+      .filter((item) => item?.scheduled_date && horizon ? item.scheduled_date <= horizon
+        : item?.status !== "upcoming" || maxDays < 0 || Number(item.days_until_due) <= maxDays);
     this._careContext = response?.context || null;
     this.__careSkipped = response?.skipped || [];
     this._ensureSelectedDate();
@@ -235,14 +240,52 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
       ? value.toLocaleDateString(languageForHass(this._hass) === "en" ? "en-GB" : "nl-NL", { weekday: "short", day: "numeric", month: "short" }) : date;
   }
 
+  _renderProgress() {
+    const root = this.shadowRoot;
+    const region = root.querySelector(".care-progress");
+    const date = this._config.show_day_selector === false ? this._today() : this._selectedDate;
+    const groups = new Map();
+    for (const item of this._scheduledOccurrences) {
+      if (item.scheduled_date !== date) continue;
+      const key = String(item.program_id || item.id);
+      if (!groups.has(key)) groups.set(key, { title: item.title || t(this, "Zorgprogramma", "Care program"), total: 0, completed: 0, missed: 0 });
+      const group = groups.get(key);
+      group.total += 1;
+      if (item.status === "completed") group.completed += 1;
+      if (item.status === "missed") group.missed += 1;
+    }
+    region.hidden = !groups.size || Boolean(this._error) || this._loading;
+    const heading = t(this, `Dagvoortgang · ${this._formatDate(date)}`, `Daily progress · ${this._formatDate(date)}`);
+    if (region.querySelector("summary").textContent !== heading) region.querySelector("summary").textContent = heading;
+    const list = region.querySelector(".progress-list");
+    const scrollTop = list.scrollTop;
+    const existing = new Map([...list.children].map((row) => [row.dataset.careProgress, row]));
+    let index = 0;
+    for (const [key, group] of groups) {
+      const row = existing.get(key) || document.createElement("div");
+      row.className = "program-progress";
+      row.dataset.careProgress = key;
+      const completed = t(this, `${group.completed} van ${group.total} pups uitgevoerd`, `${group.completed} of ${group.total} puppies completed`);
+      const pending = group.total - group.completed - group.missed;
+      const state = [t(this, `${pending} open`, `${pending} pending`), ...(group.missed ? [t(this, `${group.missed} gemist`, `${group.missed} missed`)] : [])].join(" · ");
+      const markup = `<strong>${escapeHtml(group.title)}</strong><span class="progress-count">${escapeHtml(completed)}</span><progress max="${group.total}" value="${group.completed}" aria-label="${escapeHtml(`${group.title}: ${completed}`)}"></progress><span class="progress-state">${escapeHtml(state)}</span>`;
+      if (row._markup !== markup) { row.innerHTML = markup; row._markup = markup; }
+      if (list.children[index] !== row) list.insertBefore(row, list.children[index] || null);
+      index += 1;
+    }
+    for (const [key, row] of existing) if (!groups.has(key)) row.remove();
+    list.scrollTop = scrollTop;
+  }
+
   _ensureView() {
     if (this.shadowRoot.querySelector("ha-card")) return;
     this.shadowRoot.innerHTML = `<ha-card>
       <div class="head"><div><div class="title"></div><div class="sub"></div></div><div class="selectors"></div></div>
       <div class="error" role="alert" hidden></div><div class="state" role="status" hidden></div>
+      <details class="care-progress" open hidden><summary></summary><div class="progress-list"></div></details>
       <div class="rows" tabindex="-1"></div>
       <div class="list-footer" hidden><span role="status"></span><button id="show-more" type="button"><ha-icon icon="mdi:chevron-down"></ha-icon><span></span></button></div>
-    </ha-card><style>:host{display:block}ha-card{display:block;padding:18px;container-type:inline-size;container-name:care-execution}.head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.title{font-size:1.25rem;font-weight:700}.sub,span,small{color:var(--secondary-text-color)}.selectors,.day-controls{display:flex;gap:6px;align-items:center}.selectors{justify-content:flex-end;flex-wrap:wrap}select{min-height:38px;max-width:48%;background:var(--card-background-color);color:var(--primary-text-color)}.day-controls select{max-width:145px}.day-controls button{min-width:38px;min-height:38px;border:1px solid var(--divider-color);border-radius:8px;background:var(--secondary-background-color);color:var(--primary-text-color);font-size:20px;cursor:pointer}.day-controls button:disabled{opacity:.4;cursor:default}.rows{max-height:60vh;overflow-y:auto;overscroll-behavior:contain;overflow-anchor:none;scrollbar-gutter:stable;padding-right:3px}.row{display:flex;justify-content:space-between;gap:12px;margin-top:10px;padding:12px;border:1px solid var(--divider-color);border-radius:10px}.main{min-width:0;display:grid;gap:4px}.main strong{font-size:1rem}.main span{font-size:.85rem}.main small{white-space:pre-wrap;overflow-wrap:anywhere}.danger{border-color:var(--error-color)}.warning{border-color:var(--warning-color,var(--primary-color))}.actions{display:flex;gap:6px;align-items:center}.actions button{border:0;border-radius:8px;padding:8px 10px;background:var(--primary-color);color:var(--text-primary-color,#fff);cursor:pointer}.actions .secondary{background:var(--secondary-background-color);color:var(--primary-text-color)}.empty,.state,.error{margin-top:14px}.error{color:var(--error-color)}@container care-execution (max-width:600px){.head{display:grid}.selectors{justify-content:flex-start}.selectors>select{max-width:none;width:100%}.day-controls{width:100%}.day-controls select{max-width:none;flex:1}.row{display:grid}.actions{justify-content:flex-start;flex-wrap:wrap}}.list-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;font-size:.85rem;color:var(--secondary-text-color)}.list-footer button{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:8px 12px;border:1px solid var(--divider-color);border-radius:8px;background:var(--secondary-background-color);color:var(--primary-text-color);font:inherit;cursor:pointer}[hidden]{display:none!important}.empty p{margin:0 0 10px}.empty button{min-height:44px;padding:8px 12px;border:1px solid var(--divider-color);border-radius:8px;background:var(--secondary-background-color);color:var(--primary-text-color);font:inherit;cursor:pointer}</style>`;
+    </ha-card><style>:host{display:block}ha-card{display:block;padding:18px;container-type:inline-size;container-name:care-execution}.head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.title{font-size:1.25rem;font-weight:700}.sub,span,small{color:var(--secondary-text-color)}.selectors,.day-controls{display:flex;gap:6px;align-items:center}.selectors{justify-content:flex-end;flex-wrap:wrap}select{min-height:38px;max-width:48%;background:var(--card-background-color);color:var(--primary-text-color)}.day-controls select{max-width:145px}.day-controls button{min-width:38px;min-height:38px;border:1px solid var(--divider-color);border-radius:8px;background:var(--secondary-background-color);color:var(--primary-text-color);font-size:20px;cursor:pointer}.day-controls button:disabled{opacity:.4;cursor:default}.rows{max-height:60vh;overflow-y:auto;overscroll-behavior:contain;overflow-anchor:none;scrollbar-gutter:stable;padding-right:3px}.row{display:flex;justify-content:space-between;gap:12px;margin-top:10px;padding:12px;border:1px solid var(--divider-color);border-radius:10px}.main{min-width:0;display:grid;gap:4px}.main strong{font-size:1rem}.main span{font-size:.85rem}.main small{white-space:pre-wrap;overflow-wrap:anywhere}.danger{border-color:var(--error-color)}.warning{border-color:var(--warning-color,var(--primary-color))}.actions{display:flex;gap:6px;align-items:center}.actions button{border:0;border-radius:8px;padding:8px 10px;background:var(--primary-color);color:var(--text-primary-color,#fff);cursor:pointer}.actions .secondary{background:var(--secondary-background-color);color:var(--primary-text-color)}.empty,.state,.error{margin-top:14px}.error{color:var(--error-color)}@container care-execution (max-width:600px){.head{display:grid}.selectors{justify-content:flex-start}.selectors>select{max-width:none;width:100%}.day-controls{width:100%}.day-controls select{max-width:none;flex:1}.row{display:grid}.actions{justify-content:flex-start;flex-wrap:wrap}}.list-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;font-size:.85rem;color:var(--secondary-text-color)}.list-footer button{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:8px 12px;border:1px solid var(--divider-color);border-radius:8px;background:var(--secondary-background-color);color:var(--primary-text-color);font:inherit;cursor:pointer}[hidden]{display:none!important}.empty p{margin:0 0 10px}.empty button{min-height:44px;padding:8px 12px;border:1px solid var(--divider-color);border-radius:8px;background:var(--secondary-background-color);color:var(--primary-text-color);font:inherit;cursor:pointer}.care-progress{margin-top:14px;border-block:1px solid var(--divider-color);padding:10px 0}.care-progress summary{min-height:32px;cursor:pointer;font-size:.9rem;font-weight:600}.progress-list{max-height:220px;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable}.program-progress{display:grid;grid-template-columns:minmax(0,1fr)auto;gap:6px 12px;padding:10px 0;min-width:0;font-size:.85rem}.program-progress strong,.progress-count{overflow-wrap:anywhere}.program-progress progress{grid-column:1/-1;width:100%;height:8px;accent-color:var(--success-color,#26834a)}.progress-state{grid-column:1/-1;font-size:.8rem}@container care-execution (max-width:430px){.program-progress{grid-template-columns:minmax(0,1fr)}.progress-count{grid-column:1}}</style>`;
     this.shadowRoot.addEventListener("change", (event) => {
       if (event.target.id === "litter-select") {
         if (requestLitterChange(this, event.target.value)) this._selectLitter(event.target.value);
@@ -314,6 +357,7 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
     const loading = root.querySelector(".state");
     loading.textContent = t(this, "Laden…", "Loading…");
     loading.hidden = !this._loading;
+    this._renderProgress();
 
     const context = JSON.stringify([this._selectedLitterId, showDay, this._selectedDate, this._pageSize()]);
     const list = root.querySelector(".rows");

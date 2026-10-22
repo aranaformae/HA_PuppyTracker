@@ -61,6 +61,28 @@ are derived on read, not persisted task state. The execution surface retains
 terminal occurrences for empty-state classification while only open actions
 are offered for execution.
 
+### Daily execution progress
+
+An initially expanded, collapsible **Daily progress** section groups the selected
+day's scheduled occurrences by care program. Each program shows completed/total
+puppies, pending actions and a separate missed count. The progress bar measures
+only completed actions: marking an action missed does not fill it. With the day
+selector hidden (including Mobile defaults), progress is always for today in
+Home Assistant's timezone, even when the action list includes overdue work.
+With a visible day selector, the progress follows the selected date instead.
+
+Completion, edits/deletions of result records and external updates rederive these
+counts through the existing occurrence API. No progress counter is stored or
+incremented separately. Skipped schedules remain visible as warnings; counts
+cover only occurrences that could actually be derived, not an assumed litter
+size. The progress list has a bounded height and retains its scroll/collapse
+state during updates. Fully completed programs remain visible after their final
+open row disappears. Loading failures hide progress rather than showing stale
+totals as a current success.
+The configured future range applies to completed/missed occurrences as well as
+pending ones, so completing a distant action early cannot expose a partial
+future day as if its entire program had been completed.
+
 Concrete occurrences are not a second persistent task database. Results are not stored in reminder state.
 
 ## Schedule modes
