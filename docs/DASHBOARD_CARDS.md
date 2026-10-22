@@ -377,8 +377,14 @@ it shares one row with **Edit measurement**, including on phones. Edit opens
 the exact last saved measurement with its puppy name and weight, even if a
 different puppy is now selected. Saving creates a historical correction,
 preserves the original measurement time, and does not add a new session count.
-This action requires administrator access and is unavailable until a weight
-has been saved in the current runtime. A failed correction keeps the form open.
+This action requires administrator access and an available last saved measurement.
+A failed correction keeps the form open.
+An interrupted session shows **Resume / Close session** with saved progress;
+the shared ordinary/mobile surface blocks new weights until it is resolved.
+**Undo** names the exact saved puppy and weight and is available for two minutes.
+It restores session progress without erasing history, including after automatic
+advance or completion. After expiry it stays disabled without shrinking the card.
+See [Weighing workflow](GROWTH_ANALYSIS.md#weighing-workflow) for recovery and limits.
 Unusual weight jumps receive a backend pre-save check and require a second
 press of Save weight for the unchanged pup/value/baseline. Ordinary weights
 need no extra confirmation. Analysis adds `growth48`, `growth72` and the

@@ -13,6 +13,10 @@ const WEIGHING_TEXT = {
     discardConfirm: "Deze sessie afsluiten? Alle opgeslagen gewichten blijven bewaard.",
     sessionResolved: "Sessie bijgewerkt.",
     adminRecovery: "Een beheerder kan de sessie hervatten of afsluiten.",
+    undoWeight: "Ongedaan maken: {puppy} · {weight} g",
+    undoWindow: "Tot twee minuten na opslaan. Daarna kun je de meting aanpassen.",
+    undoDraftConfirm: "De nog niet opgeslagen invoer wordt gewist. De laatste weging ongedaan maken?",
+    undoSaved: "Weging ongedaan gemaakt. De historie blijft bewaard.",
     completed: "Voltooid",
     weighed: "Gewogen",
     weightWarning: "Controleer {weight} g voor {puppy}: {change}% verschil met de vorige meting. Druk nogmaals op Gewicht opslaan om te bevestigen.",
@@ -83,6 +87,10 @@ const WEIGHING_TEXT = {
     discardConfirm: "Close this session? All saved weights are kept.",
     sessionResolved: "Session updated.",
     adminRecovery: "An administrator can resume or close the session.",
+    undoWeight: "Undo: {puppy} · {weight} g",
+    undoWindow: "Available for two minutes after saving. You can edit the measurement afterward.",
+    undoDraftConfirm: "The unsaved input will be cleared. Undo the last weighing?",
+    undoSaved: "Weighing undone. History is retained.",
     completed: "Completed",
     weighed: "Weighed",
     weightWarning: "Check {weight} g for {puppy}: {change}% change from the previous measurement. Press Save weight again to confirm.",
@@ -159,6 +167,7 @@ function configHass() {
 }
 
 const WEIGHING_ERRORS_EN = new Map([
+  ["Deze weging kan niet meer ongedaan worden gemaakt.", "This weighing can no longer be undone."],
   ["De weegsessie is gewijzigd. Vernieuw de kaart en probeer opnieuw.", "The weighing session changed. Refresh the card and try again."],
   ["Hervat de onderbroken weegsessie of sluit deze eerst af.", "Resume or close the interrupted weighing session first."],
   ["Er zijn geen pups meer te wegen. Sluit de onderbroken sessie af.", "No puppies remain to be weighed. Close the interrupted session."],
@@ -261,6 +270,9 @@ class PuppyTrackerCard extends HTMLElement {
       capture: true,
       passive: true,
     });
+    if (this._registryLoaded && this.shadowRoot?.querySelector(".card")) {
+      this._updateSessionControls(this._station());
+    }
   }
 
   disconnectedCallback() {
@@ -270,6 +282,9 @@ class PuppyTrackerCard extends HTMLElement {
     }
     if (this._scrollReleaseTimer) window.clearTimeout(this._scrollReleaseTimer);
     this._scrollReleaseTimer = null;
+    if (this._undoExpiryTimer) window.clearTimeout(this._undoExpiryTimer);
+    this._undoExpiryTimer = null;
+    this._undoExpiryKey = null;
   }
 
   set hass(hass) {
@@ -301,11 +316,22 @@ class PuppyTrackerCard extends HTMLElement {
     const signature = this._currentStateSignature(station);
     const stateChanged = signature && signature !== this._lastStateSignature;
     if (stateChanged) this._lastStateSignature = signature;
+    const sessionState = this._state(station?.ids?.session);
+    const lastState = this._state(station?.ids?.last);
+    const controlsKey = JSON.stringify([sessionState?.state, sessionState?.attributes?.session_id,
+      sessionState?.attributes?.revision, lastState?.state, lastState?.attributes,
+      hass?.user?.id, hass?.user?.is_admin]);
+    if (station && this.shadowRoot?.querySelector(".card") && controlsKey !== this._lastSessionControlsKey) {
+      this._lastSessionControlsKey = controlsKey;
+      // Safety/action metadata can change during typing without rebuilding inputs.
+      this._updateSessionControls(station);
+    }
 
     // Ignore unrelated Home Assistant state traffic. This significantly
     // reduces full shadow-DOM replacements and keeps native iOS controls
     // stable while a user is tapping, selecting or typing.
-    if (stateChanged || optimisticChanged || !this.shadowRoot?.querySelector("ha-card")) {
+    if (stateChanged || optimisticChanged || !this.shadowRoot?.querySelector(".card")
+      || (station && this._viewStructureKey !== this._structureKey(station))) {
       this._scheduleRender();
     }
   }
@@ -440,6 +466,7 @@ class PuppyTrackerCard extends HTMLElement {
     if (original === "Nog geen weegsessie gestart") return "No weighing session started yet";
     if (original === "Weegsessie gestart") return "Weighing session started";
     if (original === "Weegsessie hervat") return "Weighing session resumed";
+    if (original === "Laatste weging ongedaan gemaakt") return "Last weighing undone";
     if (original === "Onderbroken weegsessie: hervat of sluit af.") return "Interrupted weighing session: resume or close it.";
     if (original === "Geen melding") return "No message";
     let match = original.match(/^(.+): ([\d.,]+) g opgeslagen$/);
@@ -793,6 +820,10 @@ class PuppyTrackerCard extends HTMLElement {
           remaining_puppy_ids: attributes.remaining_puppy_ids,
           weighed_puppy_ids: attributes.weighed_puppy_ids,
           measurement_id: attributes.measurement_id,
+          session_id: attributes.session_id,
+          revision: attributes.revision,
+          undo_id: attributes.undo_id,
+          undo_expires_at: attributes.undo_expires_at,
           weight: attributes.weight,
           status_code: attributes.status_code,
         };
@@ -1097,9 +1128,12 @@ class PuppyTrackerCard extends HTMLElement {
       editor.hidden = false;
       editor.innerHTML = `<form><label><span>${this._escape(label)} · ${this._escape(this._t("weight"))}</span><input name="weight" type="number" min="1" max="10000" step="1" inputmode="numeric" required value="${this._escape(measurement.weight)}"></label><div class="session-actions"><button type="submit" class="primary">${this._escape(this._t("saveCorrection"))}</button><button type="button" class="secondary" id="cancel-correction">${this._escape(this._t("cancelCorrection"))}</button></div><div class="message error" role="alert" id="correction-error"></div></form>`;
       editor.querySelector("form").addEventListener("submit", (event) => { event.preventDefault(); this._saveCorrection(event.currentTarget); });
-      editor.querySelector("#cancel-correction").addEventListener("click", () => { this._correction = null; editor.hidden = true; editor.innerHTML = ""; });
+      editor.querySelector("#cancel-correction").addEventListener("click", () => {
+        this._correction = null; editor.hidden = true; editor.innerHTML = "";
+        this._updateSessionControls(station);
+      });
     } catch (err) { this._setError(err); this._updateView(station); }
-    finally { this._correctionBusy = false; }
+    finally { this._correctionBusy = false; this._updateSessionControls(station); }
   }
 
   async _saveCorrection(form) {
@@ -1121,6 +1155,7 @@ class PuppyTrackerCard extends HTMLElement {
     finally {
       this._correctionBusy = false;
       form.querySelectorAll("button").forEach((button) => { button.disabled = false; });
+      this._updateSessionControls(this._station());
     }
   }
 
@@ -1369,6 +1404,7 @@ class PuppyTrackerCard extends HTMLElement {
   }
 
   _updateSessionControls(station) {
+    if (!station?.ids || !this.shadowRoot) return;
     const state = this._state(station.ids.session);
     const interrupted = this._sessionPresentation(state?.state).code === "interrupted";
     const busy = this._sessionActionBusy || this._weightSaveBusy;
@@ -1397,27 +1433,67 @@ class PuppyTrackerCard extends HTMLElement {
       if (element) element.disabled = Boolean(value);
     }
     this.shadowRoot.querySelectorAll("[data-puppy-option]").forEach((element) => { element.disabled = blocked; });
+    const lastState = this._state(station.ids.last);
+    const last = lastState?.attributes || {};
+    const undo = this.shadowRoot.getElementById("undo-last-weight");
+    const expiry = Date.parse(last.undo_expires_at || "");
+    if (undo) {
+      undo.hidden = !admin || interrupted || !last.undo_id || this._consumedUndoId === last.undo_id;
+      undo.disabled = Boolean(busy || this._correctionBusy || this._correction || !Number.isFinite(expiry) || expiry <= Date.now());
+      undo.title = this._t("undoWindow");
+      this._setText("undo-weight-label", this._t("undoWeight", {
+        puppy: this._puppyNameLabel(this._puppyRows(station), lastState?.state, last.puppy_id),
+        weight: last.weight ?? "—",
+      }));
+    }
+    const expiryKey = `${last.undo_id || ""}:${last.undo_expires_at || ""}`;
+    if (this._undoExpiryKey !== expiryKey) {
+      if (this._undoExpiryTimer) window.clearTimeout(this._undoExpiryTimer);
+      this._undoExpiryTimer = null;
+      this._undoExpiryKey = expiryKey;
+      if (expiry > Date.now()) this._undoExpiryTimer = window.setTimeout(() => {
+        this._undoExpiryTimer = null;
+        if (this.isConnected) this._scheduleRender(true);
+      }, Math.min(expiry - Date.now() + 1, 2_147_483_647));
+    }
   }
 
   async _resolveSession(station, action) {
+    if (this._sessionActionBusy || this._weightSaveBusy) return;
+    const hass = this._hass;
+    const state = this._state(station.ids.session);
+    if (hass?.user?.is_admin === false || this._sessionPresentation(state?.state).code !== "interrupted" || !state?.attributes?.session_id) return;
+    if (action === "discard" && !window.confirm(this._t("discardConfirm"))) return;
+    await this._runSessionCommand(station, { type: "puppy_tracker/weighing_session/resolve", action,
+      session_id: state.attributes.session_id, revision: state.attributes.revision }, "sessionResolved");
+  }
+
+  async _undoWeight(station) {
+    if (this._sessionActionBusy || this._weightSaveBusy || this._correctionBusy || this._correction || this._hass?.user?.is_admin === false) return;
+    const last = this._state(station.ids.last)?.attributes || {};
+    if (!last.undo_id || last.undo_id === this._consumedUndoId || !(Date.parse(last.undo_expires_at) > Date.now())) return;
+    if (String(this.shadowRoot.querySelector("#weight-input")?.value || "").trim()
+      && !window.confirm(this._t("undoDraftConfirm"))) return;
+    await this._runSessionCommand(station, { type: "puppy_tracker/weighing_session/undo",
+      undo_id: last.undo_id, measurement_id: last.measurement_id }, "undoSaved");
+  }
+
+  async _runSessionCommand(station, request, successKey) {
     if (this._sessionActionBusy || this._weightSaveBusy) return;
     const hass = this._hass;
     const connection = hass?.connection;
     const user = hass?.user?.id;
     const current = () => this._hass?.connection === connection && this._hass?.user?.id === user
       && this._hass?.user?.is_admin !== false && this.isConnected;
-    const state = this._state(station.ids.session);
-    if (hass?.user?.is_admin === false || this._sessionPresentation(state?.state).code !== "interrupted" || !state?.attributes?.session_id) return;
-    if (action === "discard" && !window.confirm(this._t("discardConfirm"))) return;
     this._sessionActionBusy = true;
     this._updateSessionControls(station);
     try {
-      await hass.callWS({ type: "puppy_tracker/weighing_session/resolve", action,
-        session_id: state.attributes.session_id, revision: state.attributes.revision });
+      await hass.callWS(request);
       if (!current()) return;
       this._draftWeight = null;
       this._pendingWeightConfirmation = null;
-      this._localMessage = this._t("sessionResolved");
+      if (request.undo_id) this._consumedUndoId = request.undo_id;
+      this._localMessage = this._t(successKey);
       this._localMessageType = "success";
     } catch (error) {
       if (current()) this._setError(error);
@@ -1688,6 +1764,9 @@ class PuppyTrackerCard extends HTMLElement {
         <button class="secondary" id="edit-last-measurement" ${!lastState?.attributes?.measurement_id || this._hass?.user?.is_admin === false ? "disabled" : ""}>${this._escape(this._t("editMeasurement"))}</button>
       </div>
       <section id="measurement-editor" hidden></section>
+      <button class="secondary undo-weight" id="undo-last-weight" hidden>
+        <ha-icon icon="mdi:undo" aria-hidden="true"></ha-icon><span id="undo-weight-label"></span>
+      </button>
 
       ${details}
 
@@ -1730,6 +1809,7 @@ class PuppyTrackerCard extends HTMLElement {
     const toggle = this.shadowRoot?.querySelector("#toggle-session");
     this.shadowRoot?.querySelector("#resume-session")?.addEventListener("click", () => this._resolveSession(station, "resume"));
     this.shadowRoot?.querySelector("#discard-session")?.addEventListener("click", () => this._resolveSession(station, "discard"));
+    this.shadowRoot?.querySelector("#undo-last-weight")?.addEventListener("click", () => this._undoWeight(station));
 
     // Guard every interactive control, not just the weight field. Without this,
     // an incoming HA state update can recreate the DOM after pointerdown but
@@ -2164,6 +2244,8 @@ class PuppyTrackerCard extends HTMLElement {
         .session-actions button{min-width:0;white-space:normal;overflow-wrap:anywhere;padding:10px 6px;border-radius:8px;font-size:14px}
         #measurement-editor{margin-top:12px;padding-top:12px;border-top:1px solid var(--divider-color)}
         [hidden]{display:none!important}
+        .undo-weight{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:44px;margin-top:8px;white-space:normal;overflow-wrap:anywhere}
+        .undo-weight ha-icon{--mdc-icon-size:20px;flex:none}
         #measurement-editor label{display:grid;gap:6px}
 
         .session-grid {

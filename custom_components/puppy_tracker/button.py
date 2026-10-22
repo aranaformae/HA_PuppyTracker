@@ -224,6 +224,7 @@ class PuppyStartSessionButton(
             self.data.selected_litter_id, self.data.selected_puppy_id, self.data.weight_input = selection
             raise
         self.data.weighing_session = staged
+        self.data.weighing_undo = None
 
         async_dispatcher_send(
             self.hass,

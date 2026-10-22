@@ -2,6 +2,13 @@
 
 Puppy Tracker provides authoritative JSON backup and restore from the integration configuration in Home Assistant.
 
+An interrupted weighing-session checkpoint and its short-lived Undo action are
+local operational state, not transferable history. JSON backups omit the live
+checkpoint; a full restore clears the current session rather than replaying it.
+Saved measurements, correction history and completed-session summaries remain
+part of their normal litter/puppy exports. A normal restart on the same
+installation can still recover the locally persisted active session.
+
 > **Pre-1.0 backup contract:** new exports use backup format **v6**. The restore workflow also accepts production backup formats **v4/v5** for backward compatibility. Earlier experimental v2/v3 backups are intentionally rejected because backup/restore was not yet considered production-stable when those formats existed.
 
 ## Open Data management

@@ -29,6 +29,7 @@ The current suite covers the main backend, frontend contract and browser flows.
 | `test_mother_records_api.py` | Mother follow-ups in current/all-litter history, completion/undo, deleted sources, owner isolation and real WebSocket read permissions |
 | `test_recurring_execution.py` | Recurring execution ownership, schedules, retry idempotency, last-record payload, rebuildable completion, atomic undo guards; one-time postponement, fixed-slot bounds, backup/reload, cancel, notification withdrawal/resumption, rollback and real WebSocket entry points |
 | `test_runtime_selection.py` | Typed runtime selection, explicit defaults and archived-selection fallback behavior |
+| `test_weighing_recovery.py` / weighing-station Playwright specs | Atomic session checkpoints, restart/resume/discard, non-portable operational state, guarded short-lived Undo, progress/summary rollback, concurrency, exact source IDs and stable shared mobile controls |
 | `test_recurring_reminders.py` | Recurring reminder normalization, owner matching, schedule modes, due status and notification lead-time overrides |
 | `test_care_programs.py` / `test_care_occurrences.py` / `test_care_results.py` | Age-based care program validation, deterministic occurrences, result recording and protocol locking |
 | `test_care_templates.py` / `test_care_program_frontend.py` | Built-in and user template validation, day-specific instructions, JSON import/export and atomic batch saves |

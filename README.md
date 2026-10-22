@@ -16,7 +16,7 @@ longitudinal behavior observations, reports and backups.
 
 - Manage multiple litters, mother dogs and puppies.
 - Record weights with collar-colour charts, correction history and growth
-  monitoring.
+  monitoring, interrupted-session recovery and Undo for the last saved weighing.
 - Keep separate dossiers for the whole litter, the mother and every puppy.
 - Quickly log feeding, temperature, medication, tests, vaccination,
   deworming, veterinary visits, milestones and notes.

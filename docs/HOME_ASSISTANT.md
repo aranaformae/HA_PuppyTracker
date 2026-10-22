@@ -21,8 +21,11 @@ The **Puppy weighing station** device provides:
 - the next and last weighed puppy;
 - a user-facing session message.
 
-The temporary input and active session are runtime controls. Recorded weights
-are persisted only after the save action succeeds.
+The temporary input is runtime-only. Active-session checkpoints are persisted
+with saved measurements and require explicit resume or close after a restart.
+Native Start resumes an interrupted session; Reset closes it without deleting
+saved weights. Dashboard administrators also have a two-minute Undo action for
+the last station save. See [Weighing workflow](GROWTH_ANALYSIS.md#weighing-workflow).
 
 ### Litter devices
 

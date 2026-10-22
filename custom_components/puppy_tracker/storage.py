@@ -47,7 +47,7 @@ from .records import (
     sorted_records,
     validate_record_type,
 )
-from .time_utils import normalize_timestamp
+from .time_utils import normalize_timestamp, parse_timestamp
 from .session import SESSION_ACTIVE, SESSION_COMPLETED, SESSION_INTERRUPTED, session_after_weight
 from .upcoming import followup_record_data
 from .breeder import normalize_breeder
@@ -1754,6 +1754,10 @@ class PuppyTrackerStorage:
         """Read the small checkpoint without copying the complete dossier database."""
         return deepcopy(self._data.get("weighing_session"))
 
+    def get_completed_weighing_summary(self, litter_id: str) -> dict[str, Any] | None:
+        """Read summary metadata without copying every puppy's dossier history."""
+        return deepcopy(self._require_litter(litter_id).get("last_completed_session"))
+
     async def async_set_weighing_session(
         self, session: dict[str, Any] | None, *, expected: dict[str, Any],
     ) -> None:
@@ -1874,11 +1878,25 @@ class PuppyTrackerStorage:
         puppy_id: str,
         measurement_id: str,
         reason: str | None = None,
+        *,
+        weighing_undo: dict[str, Any] | None = None,
     ) -> None:
         """Soft-delete a current measurement and reactivate its predecessor."""
         async with self._lock:
             puppy = self._require_puppy(litter_id, puppy_id)
             measurement = self._require_measurement(puppy, measurement_id)
+            before = deepcopy(self._data) if weighing_undo else None
+            if weighing_undo is not None:
+                self._check_weighing_checkpoint(weighing_undo["after_session"])
+                expires = parse_timestamp(weighing_undo.get("expires_at"))
+                if (not expires or datetime.now(timezone.utc) >= expires
+                    or measurement != weighing_undo["measurement"]
+                    or puppy["measurements"][-1]["id"] != measurement_id
+                    or measurement.get("kind") != "weight"
+                    or measurement.get("source_measurement_id")
+                    or not self._require_litter(litter_id).get("active", True)
+                    or not puppy.get("active", True)):
+                    raise ValueError("Deze weging kan niet meer ongedaan worden gemaakt.")
 
             if measurement.get("deleted", False):
                 raise ValueError("Measurement is already deleted")
@@ -1937,7 +1955,19 @@ class PuppyTrackerStorage:
                 },
             )
 
-            await self.async_save()
+            if weighing_undo is not None:
+                session = deepcopy(weighing_undo["before_session"])
+                session["revision"] = weighing_undo["after_session"].get("revision", 0) + 1
+                session["duplicate_pending"] = None
+                session["message"] = "Laatste weging ongedaan gemaakt"
+                self._data["weighing_session"] = session if session.get("id") else None
+                self._require_litter(litter_id)["last_completed_session"] = deepcopy(weighing_undo["before_summary"])
+            try:
+                await self.async_save()
+            except Exception:
+                if before is not None:
+                    self._data = before
+                raise
 
     async def async_restore_weight(
         self,

@@ -23,7 +23,7 @@ from .measurements import measurement_status, puppy_measurements
 from .metrics import calculate_puppy_metrics, preview_weight
 from .pdf_export import build_pdf_export
 from .runtime import get_runtime_data, get_runtime_storage
-from .session import async_resolve_session, get_session, remaining_puppy_ids
+from .session import async_resolve_session, async_undo_station_weight, get_session, remaining_puppy_ids
 from .storage import PuppyTrackerStorage
 from .time_utils import timestamp_sort_key
 from .updates import dispatch_dossier_update, dispatch_measurement_update
@@ -1479,6 +1479,7 @@ def async_setup_api(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, websocket_update_feeding_settings)
     websocket_api.async_register_command(hass, websocket_subscribe_updates)
     websocket_api.async_register_command(hass, websocket_resolve_weighing_session)
+    websocket_api.async_register_command(hass, websocket_undo_weighing)
     hass.data[DATA_API_REGISTERED] = True
 
 
@@ -1503,4 +1504,26 @@ async def websocket_resolve_weighing_session(hass, connection, msg):
         connection.send_error(msg["id"], "session_changed", str(err))
         return
     async_dispatcher_send(hass, SIGNAL_DASHBOARD_UPDATE)
+    connection.send_result(msg["id"], {"ok": True})
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/weighing_session/undo",
+    vol.Required("undo_id"): str,
+    vol.Required("measurement_id"): str,
+})
+@websocket_api.async_response
+async def websocket_undo_weighing(hass, connection, msg):
+    """Undo only the exact recent save identified by a server-issued token."""
+    runtime = get_runtime_data(hass)
+    if runtime is None:
+        connection.send_error(msg["id"], "not_loaded", "Puppy Tracker is not loaded")
+        return
+    try:
+        puppy_id = await async_undo_station_weight(runtime, undo_id=msg["undo_id"], measurement_id=msg["measurement_id"])
+    except ValueError as err:
+        connection.send_error(msg["id"], "undo_unavailable", str(err))
+        return
+    dispatch_measurement_update(hass, puppy_id)
     connection.send_result(msg["id"], {"ok": True})

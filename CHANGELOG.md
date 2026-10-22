@@ -16,6 +16,9 @@ they have not been reconstructed as a complete historical changelog.
   progress and completion summary commit together; discarding keeps saved history.
 - Shared ordinary/mobile recovery controls with saved progress, explicit
   resume/close, confirmation, permission checks and stable input elements.
+- A two-minute Undo action for the last station weighing, including correct
+  progress after auto-advance/reweighing, completed-session reopening and tagged
+  completion-notification withdrawal. Corrections and history remain intact.
 
 ### Changed
 

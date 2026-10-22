@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import Mock
 
 from custom_components.puppy_tracker.notifications import PuppyNotificationManager
 from custom_components.puppy_tracker.recurring_notifications import (
@@ -11,6 +12,41 @@ from custom_components.puppy_tracker.recurring_notifications import (
 )
 from custom_components.puppy_tracker.recurring_reminders import RecurringReminderStore
 from custom_components.puppy_tracker.runtime import PuppyTrackerRuntimeData
+
+
+async def test_reopening_completed_weighing_clears_completion_once(hass, storage, install_litter, monkeypatch):
+    litter_id, puppy_id = install_litter()
+    runtime = PuppyTrackerRuntimeData(storage=storage)
+    manager = PuppyNotificationManager(hass, MagicMock(), storage, runtime)
+    runtime.weighing_session.update(status="completed", litter_id=litter_id, puppy_ids=[puppy_id],
+                                    weighed_puppy_ids=[puppy_id], completed_at="2026-10-23T08:00:00+00:00")
+    manager._async_send_notify_entities = AsyncMock()
+    dismiss = Mock()
+    clear = AsyncMock()
+    monkeypatch.setattr("custom_components.puppy_tracker.notifications.async_create_persistent_notification", Mock())
+    monkeypatch.setattr("custom_components.puppy_tracker.notifications.async_dismiss_persistent_notification", dismiss)
+    monkeypatch.setattr("custom_components.puppy_tracker.notifications.async_clear_notify_entities", clear)
+    await manager._process_completed_session(["notify.phone"])
+    assert manager._async_send_notify_entities.call_args.kwargs["notification_tag"] == manager._session_notification_id(litter_id)
+    runtime.weighing_session.update(status="active", completed_at=None)
+    await manager._process_completed_session(["notify.phone"])
+    await manager._process_completed_session(["notify.phone"])
+    dismiss.assert_called_once_with(hass, manager._session_notification_id(litter_id))
+    clear.assert_awaited_once_with(hass, ["notify.phone"], manager._session_notification_id(litter_id))
+    assert manager._last_session_completed_at is None
+
+
+async def test_recovered_completion_does_not_send_a_new_notification(hass, storage, install_litter, monkeypatch):
+    litter_id, _ = install_litter()
+    runtime = PuppyTrackerRuntimeData(storage=storage)
+    runtime.weighing_session.update(status="completed", litter_id=litter_id, completed_at="2026-10-23T08:00:00+00:00")
+    manager = PuppyNotificationManager(hass, MagicMock(), storage, runtime)
+    manager._async_send_notify_entities = AsyncMock()
+    create = Mock()
+    monkeypatch.setattr("custom_components.puppy_tracker.notifications.async_create_persistent_notification", create)
+    await manager._process_completed_session(["notify.phone"])
+    manager._async_send_notify_entities.assert_not_awaited()
+    create.assert_not_called()
 
 
 async def test_recurring_manager_rechecks_after_signal_during_active_check(

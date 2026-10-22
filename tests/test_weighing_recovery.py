@@ -15,7 +15,7 @@ from custom_components.puppy_tracker.storage import PuppyTrackerStorage
 from custom_components.puppy_tracker.backup import build_export_document, prepare_import
 from custom_components.puppy_tracker import api
 from custom_components.puppy_tracker.session import (
-    async_record_station_weight, async_resolve_session, recover_session,
+    async_record_station_weight, async_resolve_session, async_undo_station_weight, recover_session,
 )
 
 
@@ -177,3 +177,156 @@ async def test_recovery_websocket_routes_exact_checkpoint_and_reports_stale_requ
     connection.send_error.assert_called_once()
     connection.send_result.assert_not_called()
     assert runtime.weighing_session["status"] == "active"
+
+
+async def undo_latest(runtime):
+    undo = runtime.weighing_undo
+    return await async_undo_station_weight(runtime, undo_id=undo["id"], measurement_id=undo["measurement"]["id"])
+
+
+async def test_undo_after_auto_advance_returns_to_the_saved_puppy_and_preserves_history(station):
+    runtime, _, _, litter_id, first, second = station
+    mid = await async_record_station_weight(runtime, litter_id=litter_id, puppy_id=first, weight=450)
+    assert runtime.selected_puppy_id == second
+    await undo_latest(runtime)
+    assert runtime.selected_puppy_id == first
+    assert runtime.weighing_session["weighed_puppy_ids"] == []
+    assert runtime.weighing_session["status"] == "active"
+    assert runtime.weighing_undo is None
+    measurement = runtime.storage.get_puppy(litter_id, first)["measurements"][0]
+    assert measurement["id"] == mid and measurement["deleted"]
+    assert runtime.storage.get_data()["audit_log"][-1]["action"] == "delete_weight"
+    assert recover_session(runtime.storage)["weighed_puppy_ids"] == []
+
+
+async def test_undo_last_puppy_reopens_session_and_restores_previous_completed_summary(station):
+    runtime, _, _, litter_id, first, second = station
+    prior = {"completed_at": "2026-08-28T12:00:00+00:00"}
+    runtime.storage._data["litters"][litter_id]["last_completed_session"] = prior
+    await async_record_station_weight(runtime, litter_id=litter_id, puppy_id=first, weight=450)
+    await async_record_station_weight(runtime, litter_id=litter_id, puppy_id=second, weight=460)
+    assert runtime.weighing_session["status"] == "completed"
+    await undo_latest(runtime)
+    assert runtime.weighing_session["status"] == "active"
+    assert runtime.weighing_session["weighed_puppy_ids"] == [first]
+    assert runtime.selected_puppy_id == second
+    assert runtime.storage.get_litter(litter_id)["last_completed_session"] == prior
+
+
+async def test_undo_reweighed_puppy_keeps_its_earlier_session_completion(station):
+    runtime, _, _, litter_id, first, _ = station
+    original = await async_record_station_weight(runtime, litter_id=litter_id, puppy_id=first, weight=450)
+    await async_record_station_weight(runtime, litter_id=litter_id, puppy_id=first, weight=452)
+    await undo_latest(runtime)
+    assert runtime.weighing_session["weighed_puppy_ids"] == [first]
+    active = runtime.storage.get_active_measurements(litter_id, first)
+    assert [item["id"] for item in active] == [original]
+
+
+@pytest.mark.parametrize("change", ["expired", "corrected", "deleted", "newer", "archived", "reset", "foreign_token", "foreign_measurement"])
+async def test_undo_rejects_stale_changed_and_foreign_targets_without_writes(station, change):
+    runtime, _, reset, litter_id, first, _ = station
+    mid = await async_record_station_weight(runtime, litter_id=litter_id, puppy_id=first, weight=450)
+    undo = deepcopy(runtime.weighing_undo)
+    if change == "expired":
+        runtime.weighing_undo["expires_at"] = "2000-01-01T00:00:00+00:00"
+    elif change == "corrected":
+        await runtime.storage.async_correct_measurement(litter_id, first, mid, new_weight=460, new_timestamp=None)
+    elif change == "deleted":
+        await runtime.storage.async_delete_weight(litter_id, first, mid)
+    elif change == "newer":
+        await runtime.storage.async_record_weight(litter_id, first, 470)
+    elif change == "archived":
+        runtime.storage._data["litters"][litter_id]["puppies"][first]["active"] = False
+    elif change == "reset":
+        await reset.async_press()
+    before = runtime.storage.get_data()
+    runtime.storage.async_save.reset_mock()
+    with pytest.raises(ValueError):
+        await async_undo_station_weight(runtime, undo_id="other" if change == "foreign_token" else undo["id"],
+                                        measurement_id="other" if change == "foreign_measurement" else mid)
+    assert runtime.storage.get_data() == before
+    runtime.storage.async_save.assert_not_awaited()
+
+
+async def test_failed_undo_keeps_measurement_progress_summary_and_retry_token(station):
+    runtime, _, _, litter_id, first, _ = station
+    await async_record_station_weight(runtime, litter_id=litter_id, puppy_id=first, weight=450)
+    before = runtime.storage.get_data()
+    session = deepcopy(runtime.weighing_session)
+    token = deepcopy(runtime.weighing_undo)
+    runtime.storage.async_save = AsyncMock(side_effect=OSError("disk full"))
+    with pytest.raises(OSError):
+        await undo_latest(runtime)
+    assert runtime.storage.get_data() == before
+    assert runtime.weighing_session == session
+    assert runtime.weighing_undo == token
+    runtime.storage.async_save = AsyncMock()
+    await undo_latest(runtime)
+
+
+async def test_two_undo_requests_cannot_delete_twice(station):
+    runtime, _, _, litter_id, first, _ = station
+    mid = await async_record_station_weight(runtime, litter_id=litter_id, puppy_id=first, weight=450)
+    token = runtime.weighing_undo["id"]
+    results = await asyncio.gather(*(async_undo_station_weight(runtime, undo_id=token, measurement_id=mid) for _ in range(2)), return_exceptions=True)
+    assert sum(isinstance(value, ValueError) for value in results) == 1
+    assert len([item for item in runtime.storage.get_data()["audit_log"] if item["action"] == "delete_weight"]) == 1
+
+
+async def test_undo_single_weight_outside_session_and_cannot_reuse_token_after_restart(station):
+    runtime, _, reset, litter_id, first, _ = station
+    await reset.async_press()
+    await async_record_station_weight(runtime, litter_id=litter_id, puppy_id=first, weight=450)
+    recovered = PuppyTrackerRuntimeData(storage=runtime.storage, weighing_session=recover_session(runtime.storage))
+    undo = runtime.weighing_undo
+    with pytest.raises(ValueError):
+        await async_undo_station_weight(recovered, undo_id=undo["id"], measurement_id=undo["measurement"]["id"])
+    await undo_latest(runtime)
+    assert runtime.weighing_session["status"] == "idle"
+
+
+async def test_undo_websocket_updates_the_exact_saved_puppy(hass, station, monkeypatch):
+    runtime, _, _, litter_id, first, second = station
+    mid = await async_record_station_weight(runtime, litter_id=litter_id, puppy_id=first, weight=450)
+    assert runtime.selected_puppy_id == second
+    monkeypatch.setattr(api, "get_runtime_data", lambda _: runtime)
+    dispatch = Mock()
+    monkeypatch.setattr(api, "dispatch_measurement_update", dispatch)
+    connection = Mock()
+    await unwrap(api.websocket_undo_weighing)(hass, connection, {
+        "id": 1, "undo_id": runtime.weighing_undo["id"], "measurement_id": mid,
+    })
+    connection.send_result.assert_called_once_with(1, {"ok": True})
+    dispatch.assert_called_once_with(hass, first)
+
+
+async def test_undo_expiry_is_checked_again_after_waiting_for_storage(station):
+    runtime, _, _, litter_id, first, _ = station
+    mid = await async_record_station_weight(runtime, litter_id=litter_id, puppy_id=first, weight=450)
+    await runtime.storage._lock.acquire()
+    task = asyncio.create_task(async_undo_station_weight(runtime, undo_id=runtime.weighing_undo["id"], measurement_id=mid))
+    await asyncio.sleep(0)
+    runtime.weighing_undo["expires_at"] = "2000-01-01T00:00:00+00:00"
+    runtime.storage._lock.release()
+    with pytest.raises(ValueError):
+        await task
+    assert not runtime.storage.get_puppy(litter_id, first)["measurements"][0]["deleted"]
+
+
+async def test_later_history_deletion_does_not_resurrect_an_already_closed_session(station):
+    runtime, _, _, litter_id, first, second = station
+    mid = await async_record_station_weight(runtime, litter_id=litter_id, puppy_id=first, weight=450)
+    await async_record_station_weight(runtime, litter_id=litter_id, puppy_id=second, weight=460)
+    await runtime.storage.async_delete_weight(litter_id, first, mid)
+    assert recover_session(runtime.storage)["status"] == "completed"
+
+
+async def test_recovery_follows_correction_identity_without_counting_a_second_weighing(station):
+    runtime, _, _, litter_id, first, _ = station
+    mid = await async_record_station_weight(runtime, litter_id=litter_id, puppy_id=first, weight=450)
+    corrected = await runtime.storage.async_correct_measurement(litter_id, first, mid, new_weight=460, new_timestamp=None)
+    session = recover_session(runtime.storage)
+    assert session["weighed_puppy_ids"] == [first]
+    assert session["last_measurement_id"] == corrected
+    assert session["last_weight"] == 460

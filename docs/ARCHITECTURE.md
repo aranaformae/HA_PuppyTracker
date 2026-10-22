@@ -1066,6 +1066,21 @@ replacing the input DOM or automatically opening a dialog. Its admin-only
 revision. Failed/stale requests retain the choice; busy controls prevent double
 submissions. Native HA Start/Reset remain governed by HA entity-control rights.
 
+`weighing_undo` is a single runtime-only, server-issued two-minute token, never a
+backup field, browser preference or undo stack. It captures the exact new
+measurement, before/after checkpoint and prior completed summary. The admin-only
+`weighing_session/undo` command accepts only token and measurement IDs, not
+caller-supplied history. Under the session and storage locks it rechecks expiry,
+checkpoint revision, active ownership, unchanged measurement and latest appended
+version. It reuses `async_delete_weight` with its correction/history semantics,
+committing soft-deletion, progress and summary rollback together. Runtime state
+and token are changed only after success; a failed save leaves a retry possible.
+Successful undo consumes the token and cannot delete twice. A completed-session
+notification is tagged and cleared once when the session reopens. Restored
+completed checkpoints do not produce new notification events. The frontend
+uses one expiry timeout (cleared on disconnect); expiry disables rather than
+removes the action, preserving geometry and input nodes.
+
 Global one-time registration flags may live in `hass.data` when they represent Home Assistant instance state rather than entry-owned domain data. Ephemeral notification-delivery deduplication may also live in runtime/instance state but must not be mistaken for persistent scheduling data.
 
 ## Metrics layer

@@ -41,6 +41,7 @@ from .metrics import (
     weight_change,
 )
 from .runtime import PuppyTrackerRuntimeData
+from .dog_identity import puppy_selector_label
 from .session import (
     SESSION_ACTIVE,
     SESSION_COMPLETED,
@@ -708,20 +709,20 @@ class WeighingSessionLastPuppySensor(
         if not puppy_id:
             return "Geen"
 
-        return (
-            self._puppy_name(
-                puppy_id
-            )
-            or "Puppy"
-        )
+        puppy = self.storage.get_puppy(self.session.get("last_litter_id"), puppy_id)
+        return puppy_selector_label(puppy) if puppy else "Puppy"
 
     @property
     def extra_state_attributes(
         self,
     ) -> dict[str, Any]:
         """Return last weight."""
-
+        undo = self.runtime.weighing_undo
+        if undo and undo["measurement"]["id"] != self.session.get("last_measurement_id"):
+            undo = None
         return {
+            "undo_id": undo["id"] if undo else None,
+            "undo_expires_at": undo["expires_at"] if undo else None,
             "litter_id": self.session.get("last_litter_id"),
             "puppy_id": self.session.get("last_puppy_id"),
             "measurement_id": self.session.get("last_measurement_id"),

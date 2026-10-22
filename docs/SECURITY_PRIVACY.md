@@ -59,6 +59,11 @@ deliberately expose privileged actions through an accessible trigger or script.
   change; a late response cannot repopulate the removed information.
 - Care-result and acknowledgement controls reflect their backend write policy.
   The server remains authoritative if old frontend code still shows a button.
+- Weighing recovery and Undo WebSocket commands are admin-only. Recovery checks
+  the displayed session ID/revision; Undo accepts only a server-issued short-lived
+  token and exact measurement ID, with ownership/version checks inside the
+  storage lock. Tokens are runtime-only and are not portable backup credentials.
+  Native station Start/Reset remain subject to the separate HA entity policy.
 
 ## Download Data Flow and Signed URLs
 

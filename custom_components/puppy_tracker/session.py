@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 from copy import deepcopy
+from datetime import timedelta
 from uuid import uuid4
 
 from homeassistant.util import dt as dt_util
+from .time_utils import parse_timestamp
 
 if TYPE_CHECKING:
     from .runtime import PuppyTrackerRuntimeData
@@ -16,6 +18,7 @@ SESSION_IDLE = "idle"
 SESSION_ACTIVE = "active"
 SESSION_COMPLETED = "completed"
 SESSION_INTERRUPTED = "interrupted"
+UNDO_SECONDS = 120
 
 
 def new_session_state() -> dict[str, Any]:
@@ -108,6 +111,7 @@ def reset_weighing_session(
     """Reset current weighing session."""
 
     runtime.weighing_session = new_session_state()
+    runtime.weighing_undo = None
 
     runtime.selected_puppy_id = None
 
@@ -307,7 +311,7 @@ def recover_session(storage: Any) -> dict[str, Any]:
     last = _effective_session_measurement(last_puppy, session.get("last_measurement_id")) if last_puppy else None
     session["last_measurement_id"] = last.get("id") if last else None
     session["last_weight"] = last.get("weight") if last else None
-    if session["status"] != SESSION_COMPLETED or remaining_puppy_ids(session):
+    if session["status"] != SESSION_COMPLETED:
         session["status"] = SESSION_INTERRUPTED
         session["completed_at"] = None
         session["message"] = "Onderbroken weegsessie: hervat of sluit af."
@@ -323,6 +327,8 @@ async def async_record_station_weight(runtime: PuppyTrackerRuntimeData, **weight
             raise ValueError("De weegsessie is gewijzigd. Vernieuw de kaart en probeer opnieuw.")
         if session.get("status") == SESSION_INTERRUPTED:
             raise ValueError("Hervat de onderbroken weegsessie of sluit deze eerst af.")
+        before_session = deepcopy(session)
+        before_summary = runtime.storage.get_completed_weighing_summary(weight["litter_id"])
         measurement_id = await runtime.storage.async_record_weight(
             **weight, weighing_session=deepcopy(session),
         )
@@ -338,6 +344,13 @@ async def async_record_station_weight(runtime: PuppyTrackerRuntimeData, **weight
             remaining = remaining_puppy_ids(runtime.weighing_session)
             runtime.selected_puppy_id = remaining[0] if remaining else runtime.selected_puppy_id
         runtime.weight_input = 0.0
+        measurement = runtime.storage.get_measurement(weight["litter_id"], weight["puppy_id"], measurement_id)
+        runtime.weighing_undo = {
+            "id": str(uuid4()), "litter_id": weight["litter_id"], "puppy_id": weight["puppy_id"],
+            "measurement": deepcopy(measurement), "before_session": before_session,
+            "after_session": deepcopy(runtime.weighing_session), "before_summary": before_summary,
+            "expires_at": (dt_util.utcnow() + timedelta(seconds=UNDO_SECONDS)).isoformat(),
+        }
         return measurement_id
 
 
@@ -357,7 +370,38 @@ async def async_resolve_session(runtime: PuppyTrackerRuntimeData, *, resume: boo
             session["message"] = "Weegsessie hervat"
         await runtime.storage.async_set_weighing_session(session, expected=current)
         runtime.weighing_session = session or new_session_state()
+        runtime.weighing_undo = None
         runtime.weight_input = 0.0
         runtime.selected_puppy_id = (remaining_puppy_ids(session) or [None])[0] if session else None
         if session:
             runtime.selected_litter_id = session["litter_id"]
+
+
+async def async_undo_station_weight(runtime: PuppyTrackerRuntimeData, *, undo_id: str,
+                                    measurement_id: str) -> str:
+    """Undo exactly one recent station save; no stack, replay or hard deletion."""
+    async with runtime.weighing_lock:
+        undo = runtime.weighing_undo
+        expires = parse_timestamp(undo.get("expires_at")) if undo else None
+        session = get_session(runtime)
+        if (not undo or undo.get("id") != undo_id or not expires or dt_util.utcnow() >= expires
+            or undo["measurement"]["id"] != measurement_id
+            or session.get("last_measurement_id") != measurement_id
+            or (session.get("id"), session.get("revision")) != (
+                undo["after_session"].get("id"), undo["after_session"].get("revision"))):
+            raise ValueError("Deze weging kan niet meer ongedaan worden gemaakt.")
+        await runtime.storage.async_delete_weight(
+            undo["litter_id"], undo["puppy_id"], measurement_id,
+            reason="Weegstation: ongedaan gemaakt", weighing_undo=undo,
+        )
+        restored = deepcopy(undo["before_session"])
+        restored["revision"] = session.get("revision", 0) + 1
+        restored["duplicate_pending"] = None
+        restored["message"] = "Laatste weging ongedaan gemaakt"
+        runtime.weighing_session = restored
+        runtime.weighing_undo = None
+        if restored.get("status") != SESSION_ACTIVE or restored.get("litter_id") == undo["litter_id"]:
+            runtime.selected_litter_id = undo["litter_id"]
+            runtime.selected_puppy_id = undo["puppy_id"]
+        runtime.weight_input = 0.0
+        return undo["puppy_id"]

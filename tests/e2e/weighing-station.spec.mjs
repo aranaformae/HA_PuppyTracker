@@ -226,7 +226,125 @@ async function interruptSession(page) {
     attributes: { session_id: "session-1", revision: 2 } });
 }
 
-test("interrupted weighing offers explicit resume and retains the stable input node @cross-browser @tablet", async ({ page }) => {
+async function offerUndo(page) {
+  await notifyHassUpdate(page, { entityId: "select.pt_puppy", state: "Bob (Blue)" });
+  await notifyHassUpdate(page, { entityId: "sensor.pt_last", state: "Alice (Red)", attributes: {
+    litter_id: "l1", puppy_id: "p1", measurement_id: "saved-m1", weight: 428,
+    undo_id: "undo-1", undo_expires_at: new Date(Date.now() + 120000).toISOString(),
+  } });
+}
+
+test("undo weighing metadata arriving while typing updates only the action controls", async ({ page }) => {
+  await mountWeighingStation(page);
+  const card = page.locator("puppy-tracker-card");
+  await card.locator("#weight-input").fill("490");
+  await notifyHassUpdate(page, { entityId: "sensor.pt_last", state: "Alice (Red)", attributes: {
+    litter_id: "l1", puppy_id: "p1", measurement_id: "saved-m1", weight: 428,
+    undo_id: "undo-1", undo_expires_at: new Date(Date.now() + 120000).toISOString(),
+  } });
+  await expect(card.locator("#undo-last-weight")).toBeVisible();
+  await expect(card.locator("#weight-input")).toBeFocused();
+  await expect(card.locator("#weight-input")).toHaveValue("490");
+});
+
+test("undo weighing expiry is rearmed when the retained card reconnects", async ({ page }) => {
+  await mountWeighingStation(page);
+  await page.clock.install();
+  await offerUndo(page);
+  const button = page.locator("puppy-tracker-card #undo-last-weight");
+  await expect(button).toBeEnabled();
+  await page.evaluate(() => {
+    const card = window.__weighingCard;
+    card.remove();
+    document.getElementById("cards").append(card);
+  });
+  await page.clock.fastForward(120100);
+  await expect(button).toBeDisabled();
+});
+
+test("undo weighing identifies the saved puppy after auto advance, not the current selection @cross-browser @tablet", async ({ page }, info) => {
+  await mountWeighingStation(page);
+  await offerUndo(page);
+  const card = page.locator("puppy-tracker-card");
+  await expect(card.locator("#puppy-select")).toHaveValue("Bob (Blue)");
+  await expect(card.locator("#undo-last-weight")).toContainText("Alice (Red) · 428 g");
+  expect(await card.evaluate((node) => node.shadowRoot.querySelector(".card").scrollWidth <= node.shadowRoot.querySelector(".card").clientWidth + 1)).toBe(true);
+  await card.screenshot({ path: info.outputPath("weighing-undo.png") });
+  await page.evaluate(() => {
+    const original = window.__mockHass.callWS;
+    window.__mockHass.callWS = async (message) => {
+      if (message.type !== "puppy_tracker/weighing_session/undo") return original(message);
+      window.__undoRequest = message;
+      return { ok: true };
+    };
+  });
+  await card.locator("#undo-last-weight").click();
+  await expect(card.locator("#local-message")).toHaveText("Weighing undone. History is retained.");
+  await expect(card.locator("#undo-last-weight")).toBeHidden();
+  expect(await page.evaluate(() => window.__undoRequest)).toEqual({
+    type: "puppy_tracker/weighing_session/undo", undo_id: "undo-1", measurement_id: "saved-m1",
+  });
+  expect(await page.evaluate(() => window.__serviceCalls)).toEqual([]);
+});
+
+test("undo weighing expires without removing its row or replacing the input @cross-browser @tablet", async ({ page }) => {
+  await mountWeighingStation(page);
+  await page.clock.install();
+  await offerUndo(page);
+  const button = page.locator("puppy-tracker-card #undo-last-weight");
+  await expect(button).toBeEnabled();
+  await page.evaluate(() => { window.__undoInput = window.__weighingCard.shadowRoot.querySelector("#weight-input"); });
+  const before = await button.boundingBox();
+  await page.clock.fastForward(120010);
+  await expect(button).toBeDisabled();
+  await expect(button).toBeVisible();
+  expect((await button.boundingBox()).height).toBe(before.height);
+  expect(await page.evaluate(() => window.__undoInput === window.__weighingCard.shadowRoot.querySelector("#weight-input"))).toBe(true);
+});
+
+test("undo weighing retains the draft on rejected confirmation and on write failure", async ({ page }) => {
+  await mountWeighingStation(page);
+  await offerUndo(page);
+  const card = page.locator("puppy-tracker-card");
+  await expect(card.locator("#undo-last-weight")).toBeVisible();
+  await card.locator("#weight-input").fill("460");
+  page.once("dialog", (dialog) => dialog.dismiss());
+  await card.locator("#undo-last-weight").click();
+  await expect(card.locator("#weight-input")).toHaveValue("460");
+  await page.evaluate(() => {
+    const original = window.__mockHass.callWS;
+    window.__mockHass.callWS = async (message) => {
+      if (message.type !== "puppy_tracker/weighing_session/undo") return original(message);
+      throw new Error("Disk full");
+    };
+  });
+  page.once("dialog", (dialog) => dialog.accept());
+  await card.locator("#undo-last-weight").click();
+  await expect(card.locator("#local-message")).toHaveText("Disk full");
+  await expect(card.locator("#weight-input")).toHaveValue("460");
+  await expect(card.locator("#undo-last-weight")).toBeEnabled();
+});
+
+test("late undo weighing response cannot clear a different user's draft", async ({ page }) => {
+  await mountWeighingStation(page);
+  await offerUndo(page);
+  await page.evaluate(() => {
+    window.__mockHass.user = { id: "admin-a", is_admin: true };
+    const original = window.__mockHass.callWS;
+    window.__mockHass.callWS = (message) => message.type === "puppy_tracker/weighing_session/undo"
+      ? new Promise((resolve) => { window.__finishUndo = resolve; }) : original(message);
+  });
+  await page.locator("puppy-tracker-card #undo-last-weight").click();
+  await page.evaluate(() => {
+    window.__mockHass.user = { id: "admin-b", is_admin: true };
+    window.__weighingCard._draftWeight = "470";
+    window.__finishUndo({ ok: true });
+  });
+  await expect(page.locator("puppy-tracker-card #weight-input")).toHaveValue("470");
+  await expect(page.locator("puppy-tracker-card #local-message")).not.toHaveText("Weighing undone. History is retained.");
+});
+
+test("interrupted weighing offers explicit resume and retains the stable input node @cross-browser @tablet", async ({ page }, info) => {
   await mountWeighingStation(page);
   await interruptSession(page);
   const card = page.locator("puppy-tracker-card");
@@ -234,6 +352,7 @@ test("interrupted weighing offers explicit resume and retains the stable input n
   await expect(card.locator("#recovery-title")).toHaveText("Interrupted weighing session");
   await expect(card.locator("#save-weight")).toBeDisabled();
   await expect(card.locator("#toggle-session")).toBeDisabled();
+  await card.screenshot({ path: info.outputPath("weighing-recovery.png") });
   await page.evaluate(() => {
     window.__oldWeightNode = window.__weighingCard.shadowRoot.querySelector("#weight-input");
     const hass = window.__mockHass;

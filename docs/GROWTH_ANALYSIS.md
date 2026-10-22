@@ -40,6 +40,21 @@ choice with saved progress after interruption. Closing asks for confirmation;
 weight entry stays disabled until the choice is resolved. Dashboard recovery
 actions require an administrator, and stale choices cannot change a newer session.
 
+After saving, administrators can **Undo** the last station weighing for two
+minutes. The action names the saved puppy (including its collar colour) and
+weight, not the puppy selected after automatic advance. It soft-deletes that
+exact new measurement, restores the previous session progress and returns to
+that puppy. Undoing the final puppy reopens the session and restores the earlier
+completed-session summary; undoing a reweigh keeps its earlier session weighing.
+An unsaved input needs confirmation before it is cleared.
+
+Only the latest save has this shortcut. A new save, reset or restart invalidates
+the old action. Changed, corrected, deleted or expired measurements cannot be
+undone through it; use normal measurement editing/history instead. After expiry
+the button stays disabled rather than shrinking the card while you work. No
+measurement history is permanently removed. Supported tagged completion
+notifications are withdrawn when the session reopens.
+
 ## Metric meanings
 
 | Metric | Meaning |

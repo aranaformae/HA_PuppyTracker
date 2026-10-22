@@ -42,6 +42,7 @@ class PuppyTrackerRuntimeData:
     weight_input: float = 0.0
     weighing_session: dict[str, Any] = field(default_factory=new_session_state)
     weighing_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    weighing_undo: dict[str, Any] | None = None
     notification_manager: PuppyNotificationManager | None = None
     recurring_notification_manager: RecurringReminderNotificationManager | None = None
     last_backup_at: str | None = None

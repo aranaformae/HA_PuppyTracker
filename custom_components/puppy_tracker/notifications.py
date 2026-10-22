@@ -96,7 +96,14 @@ class PuppyNotificationManager:
         self._rerun_requested = False
         self._stopping = False
         self._puppy_state: dict[str, dict[str, Any]] = {}
-        self._last_session_completed_at: str | None = None
+        session = get_session(runtime)
+        # A restored completed checkpoint is history, not a new completion event.
+        self._last_session_completed_at: str | None = (
+            session.get("completed_at") if session.get("status") == SESSION_COMPLETED else None
+        )
+        self._last_session_litter_id: str | None = (
+            session.get("litter_id") if self._last_session_completed_at else None
+        )
 
     async def async_start(self) -> None:
         """Start monitoring."""
@@ -505,6 +512,15 @@ class PuppyNotificationManager:
     ) -> None:
         """Create one notification when the current weighing session completes."""
         session = get_session(self.runtime)
+        if self._last_session_litter_id and (
+            session.get("status") != SESSION_COMPLETED
+            or session.get("litter_id") != self._last_session_litter_id
+        ):
+            notification_id = self._session_notification_id(self._last_session_litter_id)
+            async_dismiss_persistent_notification(self.hass, notification_id)
+            await async_clear_notify_entities(self.hass, notify_entities, notification_id)
+            self._last_session_litter_id = None
+            self._last_session_completed_at = None
         if session.get("status") != SESSION_COMPLETED:
             return
 
@@ -535,8 +551,10 @@ class PuppyNotificationManager:
             notify_entities,
             title,
             message,
+            notification_tag=self._session_notification_id(litter_id),
         )
         self._last_session_completed_at = str(completed_at)
+        self._last_session_litter_id = str(litter_id)
 
     async def _async_send_notify_entities(
         self,
@@ -694,6 +712,9 @@ class PuppyNotificationManager:
         self, notify_entities: list[str]
     ) -> None:
         """Dismiss persistent and tagged mobile integration notifications."""
+        if self._last_session_litter_id:
+            await async_clear_notify_entities(self.hass, notify_entities, self._session_notification_id(self._last_session_litter_id))
+            self._last_session_litter_id = None
         for litter_id, litter in self.storage.get_litters().items():
             async_dismiss_persistent_notification(
                 self.hass,
