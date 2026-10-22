@@ -161,6 +161,37 @@ the puppy's collar colour where available. Its pencil opens the exact saved
 record for a quick correction. A failed save keeps all entered values for retry;
 known validation errors are shown beside the relevant input.
 
+### Reuse a previous feeding or medication entry
+
+In Journal and Mobile Quick Log, choose the owner and Feeding or Medication,
+then **Use previous entry**. The card reads that owner's current-litter dossier
+on demand and copies the most recent suitable active entry by occurrence time.
+It does not use an unsaved/failed draft, a deleted record, a missed care result
+or a future-dated entry. There is no age-based expiry: the source's category,
+owner and timestamp remain visible so you can judge whether it is still useful.
+Mother history is limited to the current litter, not all her litters.
+
+Feeding reuses food/feeding type, amount and unit. Medication reuses medicine
+name and the literal dose, without recalculation. Frequency, duration, old
+observations/notes and care/reminder metadata are not copied. A note-only legacy
+entry is not a structured source. Missing copied fields are cleared, so a new
+amount cannot inherit an unrelated unit already in the form. Current notes,
+observations and other manually entered fields are retained.
+
+Copying sets the execution timestamp to now and never changes the selected
+owner. Modified forms ask for confirmation before replacement. All values remain
+editable and require the normal Save action; selecting a reminder remains a
+separate explicit choice. Check the medicine/dose: copying is not dosage advice.
+If you explicitly change owner afterwards, the draft follows the existing rules
+above and its source label still names the original owner. Use the action again
+to fetch the new owner's own history.
+
+Loading failure or missing history keeps existing input. If you type while the
+read is running, it does not overwrite your newer input. Owner/category/litter
+changes, cancellation, tab detachment, connection/permission changes and saving
+invalidate pending reads. Source labels and draft fields are held in memory,
+not browser storage or backups; only an explicitly saved record is persistent.
+
 When you select a reminder, saving creates one new entry and completes only that
 reminder. The confirmation names it and offers the same editing and confirmed
 undo actions as direct reminder execution. **Log only** never silently falls

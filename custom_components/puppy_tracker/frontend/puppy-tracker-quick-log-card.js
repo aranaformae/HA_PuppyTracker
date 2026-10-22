@@ -7,6 +7,7 @@ import {
   escapeHtml,
   fetchLitterData,
   fetchLitters,
+  formatDateTime,
   languageForHass,
   loadCardState,
   localize,
@@ -71,6 +72,14 @@ const QUICK_LOG_TRANSLATIONS = {
     overdue: "Overdue",
     ownerUnavailable: "This owner is no longer available. Choose an owner before saving; your input has been kept.",
     unavailablePuppy: "Puppy no longer available",
+    reuse: "Use previous entry",
+    reuseLoading: "Loading previous entry...",
+    reuseConfirm: "Use the previous entry's fields? The time will be set to now; your current notes will be kept.",
+    reuseMissing: "No previous suitable structured entry for {owner}.",
+    reuseFailed: "The previous entry could not be loaded. Your input has been kept.",
+    reuseChanged: "Your input changed while loading. Nothing was copied; try again when ready.",
+    reuseSource: "Source: {category} for {owner} · {when}",
+    reuseMedicationCheck: "Check the medicine and dose before saving. This is not dosage advice.",
   },
   nl: {
     title: "Snel loggen",
@@ -116,6 +125,14 @@ const QUICK_LOG_TRANSLATIONS = {
     overdue: "Achterstallig",
     ownerUnavailable: "Deze eigenaar is niet meer beschikbaar. Kies een eigenaar voordat je opslaat; je invoer is bewaard.",
     unavailablePuppy: "Pup niet meer beschikbaar",
+    reuse: "Vorige invoer overnemen",
+    reuseLoading: "Vorige invoer ophalen...",
+    reuseConfirm: "Velden uit de vorige invoer overnemen? Het tijdstip wordt op nu gezet; je huidige notities blijven behouden.",
+    reuseMissing: "Geen eerdere geschikte gestructureerde invoer voor {owner}.",
+    reuseFailed: "De vorige invoer kon niet worden opgehaald. Je invoer is behouden.",
+    reuseChanged: "Je invoer is tijdens het ophalen gewijzigd. Er is niets overgenomen; probeer het opnieuw wanneer je klaar bent.",
+    reuseSource: "Bron: {category} voor {owner} · {when}",
+    reuseMedicationCheck: "Controleer middel en dosering voor het opslaan. Dit is geen doseeradvies.",
   },
 };
 
@@ -150,6 +167,16 @@ const PRESETS = RECORD_TYPES.flatMap(([id, labelKey, icon]) => {
 
 const LITTER_OWNER = "__litter__";
 const MOTHER_OWNER = "__mother__";
+const REUSE_FIELDS = { feeding: ["feeding_type", "amount", "unit"], medication: ["medication", "dose"] };
+
+function reusableData(record) {
+  const data = {};
+  for (const key of REUSE_FIELDS[record.type] || []) {
+    const value = record.data?.[key];
+    if ((typeof value === "string" && value.trim()) || (typeof value === "number" && Number.isFinite(value))) data[key] = value;
+  }
+  return data;
+}
 
 function text(hass, key, replacements = {}) {
   const language = languageForHass(hass);
@@ -208,6 +235,8 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
     this._saving = false;
     this._error = "";
     this._status = "";
+    this._reuse = null;
+    this._reuseRequest = 0;
     this._unsubscribe = null;
     this._subscriptionPending = false;
     this._refreshing = false;
@@ -268,6 +297,7 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
       stateNamespace,
     ]);
     if (ownerConfigKey !== this._ownerConfigKey) {
+      this._invalidateReuse();
       this._ownerConfigKey = ownerConfigKey;
       this._selectedLitterId = this._config.litter_id || this._selectedLitterId;
       this.__motherSelected = this._config.default_selected === "mother";
@@ -279,7 +309,11 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
   }
 
   set hass(hass) {
+    const previous = this._hass;
     this._hass = hass;
+    const identityChanged = previous && (previous.connection !== hass?.connection || previous.user?.id !== hass?.user?.id || previous.user?.is_admin !== hass?.user?.is_admin);
+    if (identityChanged || (this._reuse && !this._canReuse())) this._invalidateReuse();
+    if (identityChanged || languageForHass(previous) !== languageForHass(hass) || !this._canReuse()) this._renderReuse();
     if (!this._litters.length && !this._loading) this._loadInitial();
     else if (this.isConnected) this._subscribe();
   }
@@ -291,6 +325,8 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
   }
 
   disconnectedCallback() {
+    this._invalidateReuse();
+    this._renderReuse();
     closeRecordEditor(this);
     if (this._unsubscribe) Promise.resolve(this._unsubscribe()).catch(() => undefined);
     this._unsubscribe = null;
@@ -407,6 +443,7 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
   }
 
   async _selectLitter(litterId) {
+    this._invalidateReuse();
     this._selectedLitterId = litterId;
     this._selectedPuppyId = null;
     this._ownerSelectionResolved = true;
@@ -431,6 +468,7 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
       return;
     }
     this._captureDraft();
+    this._invalidateReuse();
     this._ownerSelectionResolved = true;
     if (this._draft?.presetId) this._rememberOwner(this._draft.presetId, value);
     this.__motherSelected = value === MOTHER_OWNER;
@@ -446,6 +484,7 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
 
   _startPreset(presetId) {
     if (this._saving || this._busy) return;
+    this._invalidateReuse();
     const preset = PRESETS.find((item) => item.id === presetId) || PRESETS[0];
     const remembered = this._state.recentOwners?.[preset.id];
     const ownerAvailable = remembered === LITTER_OWNER
@@ -463,6 +502,7 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
       occurred_at: previousDraft?.occurred_at || toLocalDateTimeInput(),
       note: previousDraft?.note || "",
       dataByPreset: { ...(previousDraft?.dataByPreset || {}) },
+      reusedByPreset: { ...(previousDraft?.reusedByPreset || {}) },
       reminder: previousDraft?.presetId === preset.id ? previousDraft.reminder : null,
     };
     if (!this._draft.dataByPreset[preset.id]) this._draft.dataByPreset[preset.id] = {};
@@ -478,6 +518,95 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
     if (!presetId) return;
     this._state.recentOwners = { ...(this._state.recentOwners || {}), [presetId]: ownerValue || LITTER_OWNER };
     saveCardState(this, this._state);
+  }
+
+  _invalidateReuse() {
+    this._reuseRequest += 1;
+    this._reuse = null;
+  }
+
+  _canReuse() {
+    return Boolean(REUSE_FIELDS[this._draft?.presetId] && canEditRecords(this)
+      && this._selectedLitterId && !this._saving && !this._busy
+      && (this.__motherSelected ? this._litterData?.litter?.mother : !this._selectedPuppyId || this._selectedPuppy));
+  }
+
+  async _reusePrevious() {
+    if (!this._canReuse() || this._reuse?.loading) return;
+    this._captureDraft();
+    if (this._formState.dirty && !window.confirm(text(this._hass, "reuseConfirm"))) return;
+    const request = ++this._reuseRequest;
+    const hass = this._hass;
+    const connection = hass.connection;
+    const userId = hass.user?.id;
+    const draft = this._draft;
+    const snapshot = JSON.stringify(draft);
+    const context = { litterId: this._selectedLitterId, puppyId: this._selectedPuppyId, mother: this.__motherSelected,
+      scope: this.__motherSelected ? "mother" : this._selectedPuppyId ? "puppy" : "litter",
+      ownerId: this.__motherSelected ? this._litterData?.litter?.mother_id : this._selectedPuppyId || this._selectedLitterId };
+    const ownerName = this._ownerName;
+    const current = () => this.isConnected && request === this._reuseRequest && draft === this._draft
+      && this._hass?.connection === connection && this._hass?.user?.id === userId && this._canReuse();
+    this._reuse = { loading: true };
+    this._renderReuse();
+    try {
+      const response = await hass.callWS(context.mother
+        ? { type: "puppy_tracker/mother/records", litter_id: context.litterId, history_scope: "current" }
+        : { type: "puppy_tracker/records", litter_id: context.litterId, ...(context.puppyId ? { puppy_id: context.puppyId } : {}) });
+      if (!current()) return;
+      if ((response?.owner?.scope && response.owner.scope !== context.scope)
+        || (response?.owner?.id && context.ownerId && response.owner.id !== context.ownerId)) {
+        this._reuse = { error: text(this._hass, "ownerUnavailable") };
+        return;
+      }
+      this._captureDraft();
+      if (JSON.stringify(draft) !== snapshot) { this._reuse = { error: text(this._hass, "reuseChanged") }; return; }
+      const now = Date.now();
+      const candidates = (response?.records || [])
+        .filter((record) => record.type === draft.presetId && !record.deleted && record.data?.care_status !== "missed"
+          && (!record.litter_id || record.litter_id === context.litterId)
+          && (context.mother || record.puppy_id === undefined || (record.puppy_id || null) === context.puppyId)
+          && Number.isFinite(Date.parse(record.occurred_at)) && Date.parse(record.occurred_at) <= now)
+        .map((record) => ({ record, data: reusableData(record) }))
+        .filter((item) => Object.keys(item.data).length)
+        .sort((a, b) => Date.parse(b.record.occurred_at) - Date.parse(a.record.occurred_at));
+      const source = candidates[0];
+      if (!source) { this._reuse = { error: text(this._hass, "reuseMissing", { owner: ownerName }) }; return; }
+      const data = { ...draft.dataByPreset[draft.presetId] };
+      for (const key of REUSE_FIELDS[draft.presetId]) delete data[key];
+      Object.assign(data, source.data);
+      draft.dataByPreset[draft.presetId] = data;
+      draft.occurred_at = toLocalDateTimeInput();
+      draft.reusedByPreset[draft.presetId] = { owner: ownerName, occurredAt: source.record.occurred_at, category: source.record.title || presetLabel(this._hass, PRESETS.find((item) => item.id === draft.presetId)) };
+      for (const field of TYPE_FIELDS[draft.presetId]) {
+        if (!REUSE_FIELDS[draft.presetId].includes(field.key)) continue;
+        const input = this.shadowRoot.getElementById(this._fieldInputId(field));
+        if (input) { input.value = data[field.key] ?? ""; this._formState.clearError(input); }
+      }
+      const occurred = this.shadowRoot.getElementById("quick-occurred");
+      if (occurred) { occurred.value = draft.occurred_at; this._formState.clearError(occurred); }
+      this._formState.capture();
+      this._reuse = null;
+    } catch (_error) {
+      if (current()) this._reuse = { error: text(this._hass, "reuseFailed") };
+    } finally {
+      if (request === this._reuseRequest) { if (this._reuse?.loading) this._reuse = null; this._renderReuse(); }
+    }
+  }
+
+  _renderReuse() {
+    const host = this.shadowRoot?.querySelector(".reuse-entry");
+    if (!host) return;
+    const source = this._draft?.reusedByPreset?.[this._draft.presetId];
+    const loading = this._reuse?.loading;
+    const button = host.querySelector("button");
+    button.disabled = Boolean(loading) || !this._canReuse();
+    button.setAttribute("aria-busy", String(Boolean(loading)));
+    button.querySelector("span").textContent = text(this._hass, loading ? "reuseLoading" : "reuse");
+    const message = [this._reuse?.error, source ? text(this._hass, "reuseSource", { category: source.category, owner: source.owner, when: formatDateTime(source.occurredAt, "", this._hass) }) : "", source && this._draft.presetId === "medication" ? text(this._hass, "reuseMedicationCheck") : ""].filter(Boolean).join(" ");
+    const feedback = host.querySelector(".reuse-feedback");
+    if (feedback.textContent !== message) feedback.textContent = message;
+    feedback.hidden = !message;
   }
 
   _captureDraft() {
@@ -560,6 +689,7 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
 
   async _finishDraft(saved = false) {
     if (!saved && !this._formState.discard()) return;
+    this._invalidateReuse();
     this._formState.reset();
     this._draft = null;
     this._saving = false;
@@ -617,6 +747,7 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
     const normalizedData = { ...data };
     if (preset.recordType === "temperature") normalizedData.temperature_c = temperature;
 
+    this._invalidateReuse();
     this._saving = true;
     this._formState.clearErrors();
     this._error = "";
@@ -712,6 +843,7 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
     const editor = draft ? `
       <div class="editor">
         ${this._renderReminderChoice(activePreset)}
+        ${REUSE_FIELDS[draft.presetId] ? `<div class="reuse-entry"><button type="button" id="quick-reuse"><ha-icon icon="mdi:content-copy"></ha-icon><span></span></button><div class="reuse-feedback" role="status" hidden></div></div>` : ""}
         <label class="field"><span>${escapeHtml(text(this._hass, "when"))}</span><input id="quick-occurred" type="datetime-local" step="1" value="${escapeHtml(draft.occurred_at)}"></label>
         ${this._renderTypeFields(activePreset)}
         <label class="field details"><span>${escapeHtml(text(this._hass, "details"))}</span><textarea id="quick-note" rows="2" placeholder="${escapeHtml(placeholder)}">${escapeHtml(draft.note)}</textarea></label>
@@ -732,6 +864,7 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
           .editor{display:grid;grid-template-columns:minmax(170px,.45fr) minmax(220px,1fr) auto;align-items:end;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--divider-color)}.typed-grid{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.typed-field.wide{grid-column:1/-1}.optional,.required{display:inline!important;margin-left:4px;font-size:10px}.optional{color:var(--secondary-text-color)}.required{color:var(--error-color);font-weight:650}.details textarea{min-height:64px}.actions{display:flex;gap:7px;align-items:center}.actions button{height:40px;padding:0 11px;border-radius:10px;border:1px solid var(--divider-color);font:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}.primary{background:var(--primary-color);border-color:var(--primary-color)!important;color:var(--text-primary-color,#fff);font-weight:600}.secondary{background:var(--secondary-background-color);color:var(--primary-text-color)}button:disabled{opacity:.55;cursor:default}
           .message{margin-top:9px;padding:8px 10px;border-radius:9px;font-size:12px}.status{background:var(--secondary-background-color);color:var(--secondary-text-color)}.error{background:color-mix(in srgb,var(--error-color) 10%,transparent);color:var(--error-color)}.empty{padding:12px 0 2px;color:var(--secondary-text-color);font-size:12px;text-align:center}
           .reminder-choice{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) 40px;align-items:end;gap:7px;min-width:0}.reminder-choice select{min-width:0;text-overflow:ellipsis}.reminder-choice button{width:40px;height:40px;padding:0;border:1px solid var(--divider-color);border-radius:8px;background:var(--secondary-background-color);color:var(--primary-text-color);cursor:pointer}.reminder-load-error{grid-column:1/-1;overflow-wrap:anywhere;font-size:12px;color:var(--error-color)}
+          .reuse-entry{grid-column:1/-1;display:grid;gap:6px;min-width:0}.reuse-entry button{justify-self:start;display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:8px 12px;border:1px solid var(--divider-color);border-radius:8px;background:var(--secondary-background-color);color:var(--primary-text-color);font:inherit;cursor:pointer}.reuse-entry ha-icon{--mdc-icon-size:18px}.reuse-feedback{font-size:12px;line-height:1.5;color:var(--secondary-text-color);overflow-wrap:anywhere}
           @container quick-log-card (max-width:720px){.head{flex-direction:column}.context{width:100%;justify-content:stretch}.context .field{flex:1}.context .field select{min-width:0;width:100%}.presets{grid-template-columns:repeat(5,minmax(66px,1fr));overflow-x:auto;padding-bottom:2px}.editor{grid-template-columns:1fr 1fr}.details{grid-column:1/-1}.actions{grid-column:1/-1;justify-content:flex-end}}
           @container quick-log-card (max-width:430px){ha-card{padding:13px}.context{display:grid;grid-template-columns:1fr}.presets{grid-template-columns:repeat(3,1fr);overflow:visible}.preset{min-height:54px}.editor,.typed-grid{grid-template-columns:1fr}.typed-field.wide,.details,.actions{grid-column:auto}.actions{display:grid;grid-template-columns:1fr 1fr}.actions button{justify-content:center}}
         </style>
@@ -783,6 +916,8 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
       this._draft.reminder = item ? structuredClone(item) : null;
     });
     this.shadowRoot.getElementById("quick-reminders-refresh")?.addEventListener("click", () => this._reloadReminders());
+    this.shadowRoot.getElementById("quick-reuse")?.addEventListener("click", () => this._reusePrevious());
+    this._renderReuse();
     renderRecurringSaveFeedback(this);
   }
 }

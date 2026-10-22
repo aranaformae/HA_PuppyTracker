@@ -126,6 +126,9 @@ correction instead. Quick Log keeps your chosen owner after saving or changing
 category. See [Dossier history](docs/DOSSIER_HISTORY.md) for filters, details and editing.
 Quick Log defaults to **Log only**, without completing reminders. Select an
 open reminder explicitly to save a new entry and complete only that reminder.
+For feeding and medication, **Use previous entry** fills an editable draft for
+the chosen owner with a fresh time. Check the values, especially the dose,
+before saving; nothing is logged automatically.
 
 ### Reminders and care programs
 

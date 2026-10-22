@@ -1165,6 +1165,23 @@ titled `note` record rather than a separate stored type. There is no
 temperature compatibility module and `mother-surfaces.js` exports the mother
 load/render operations invoked explicitly by Attention.
 
+Quick Log's explicit previous-entry action reads the selected owner's existing
+`records` or current-litter `mother/records` endpoint, not a second recent-log
+store. It picks the newest nonfuture, nondeleted, nonmissed record with suitable
+structured fields for Feeding or Medication. A narrow allowlist copies only
+`feeding_type`/`amount`/`unit` or `medication`/`dose`; care IDs, reminder matching,
+observations and course schedules cannot propagate through that action. The
+source label lives in the unsaved per-preset draft, not localStorage or exports.
+No write is made until normal Save, which still uses the selected owner route.
+Generation, draft identity, connection/user and permission guards reject stale
+read successes/errors. Comparing the captured draft prevents newer typing from
+being overwritten; only field values and the reuse feedback region update, not
+the form DOM. Save/cancel/detach invalidate pending reuse reads. There is no
+automatic dose scaling and no automatically stored reuse provenance metadata.
+Connection/principal values are captured separately from the mutable HA client.
+Returned owner scope/identity is checked against the requested owner, including
+the canonical mother ID, before any fields are replaced.
+
 Bulk Dossier owns a fixed save snapshot: the Home Assistant client, litter ID,
 selected puppy IDs/display names, category, timestamp and shared data are read
 before the first write. Both the shared FormState UI lock and action-handler
