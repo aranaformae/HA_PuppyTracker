@@ -10,6 +10,15 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-10-23
+
+**Breaking change:** owner placement/payment data migrates to separate litter
+dossiers. Create a full JSON backup before installing. Do not downgrade directly
+to an older release after migration; reverting requires restoring the original
+backup with the compatible older release. If the litter cannot be identified
+unambiguously, the original dossier remains available under **Without litter**
+for explicit assignment. See [storage migrations](docs/storage-migrations.md#ownercontact-data-version-2).
+
 ### Added
 
 - Owner contacts now have independent litter dossiers for preferences, placement,
@@ -47,12 +56,6 @@ they have not been reconstructed as a complete historical changelog.
 - Background checklist/navigation updates no longer replay stale scroll positions
   after the user has continued scrolling.
 
-### Deprecated
-
-### Removed
-
-### Security
-
 ## [0.29.6] - 2026-10-22
 
 ### Added
@@ -84,6 +87,7 @@ they have not been reconstructed as a complete historical changelog.
 
 - Separated daily execution from schedule management in Care workspace navigation.
 
-[Unreleased]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.29.6...HEAD
+[Unreleased]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.30.0...HEAD
+[0.30.0]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.29.6...v0.30.0
 [0.29.6]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.29.5...v0.29.6
 [0.29.5]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.29.4...v0.29.5
