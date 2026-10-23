@@ -352,6 +352,18 @@ save or another card redraw retains contact, preference, payment and note inputs
 The save confirmation names the contact and offers a pencil to reopen it. These
 drafts stay in memory only; they are not auto-saved contacts or backup data.
 
+Changes made on another device appear automatically when you are not entering
+data. An open editor, changed puppy-link selection or focused input postpones
+refresh; cancelling or leaving the input resumes it. Reconnecting keeps your
+draft, while changing user or losing administrator access clears private data.
+If another device changed the same contact (including another litter dossier)
+or the puppy's links, saving is blocked and your input remains available. Use
+**Load latest details** to review the current data; discarding unsaved changes
+requires confirmation. If that read fails, your draft is still retained.
+When a save succeeds but the overview cannot refresh, the confirmation remains
+and **Refresh overview** retries only loading, never the saved action. Reload
+open dashboards after upgrading so they use the guarded editing workflow.
+
 Contact fields include:
 
 - name, email, telephone, street/house number, postal code and city;

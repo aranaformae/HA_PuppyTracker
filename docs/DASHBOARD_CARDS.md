@@ -432,6 +432,17 @@ are shared. The expanded **Dossier for litter** selector switches dossiers, and
 selected. **Archive dossier** affects only the selected litter. Ambiguous old
 data is preserved under **Without litter**, with an explicit assignment action
 that never overwrites an existing target dossier.
+
+Changes made on another device appear automatically. While an editor, changed
+puppy-link selection or focused input is active, refresh waits so typing and
+scroll position are not disturbed. Cancelling the editor resumes refresh.
+If a contact or puppy link changed elsewhere before saving, the card keeps your
+input and offers **Load latest details**. Discarding changed input requires
+confirmation; the older form cannot overwrite the newer details. A confirmed
+save whose overview refresh fails remains saved, with a separate **Refresh
+overview** action that never repeats the write. Reconnecting retains same-user
+drafts; changing user or losing administrator access clears private card data.
+
 Selecting an owner reveals independently
 collapsible categories: **Contact details**, **Address details**, **Placement**,
 **Top 3 puppy preferences**, **Financial**, **General contact notes** and **Status history**.

@@ -10,6 +10,25 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+### Fixed
+
+- Owners refresh after changes on other devices and reconnects without replacing
+  active forms or focused inputs. Unchanged data does not rebuild the card;
+  measurement-only updates do not redraw owner profiles or the preference matrix.
+- Stale owner saves, deletions, dossier assignments and puppy-link edits are
+  rejected instead of silently overwriting newer changes. Drafts remain available
+  until the user explicitly loads the latest data and confirms discarding edits.
+- Confirmed owner changes remain visible when their follow-up refresh fails.
+  A separate refresh action retries only the read, never the saved operation.
+- Late responses and subscriptions cannot reintroduce data after changing user,
+  permissions, connection or removing the card. Reconnecting keeps same-user drafts.
+
+### Changed
+
+- Interactive owner updates/deletions now require the revision returned by the
+  owner API; puppy-link changes require the previously displayed links. Reload
+  open dashboards after updating. Stored owner data and backups are unchanged.
+
 ## [0.30.0] - 2026-10-23
 
 **Breaking change:** owner placement/payment data migrates to separate litter

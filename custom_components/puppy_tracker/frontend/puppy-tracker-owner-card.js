@@ -1,5 +1,5 @@
-import { puppySelectorLabel, downloadExportFile, escapeHtml, languageForHass, preserveScrollPosition } from "./puppy-tracker-card-common.js";
-import { FormState, appendEditAction } from "./puppy-tracker-form-state.js";
+import { puppySelectorLabel, downloadExportFile, escapeHtml, languageForHass, preserveScrollPosition, subscribeUpdates } from "./puppy-tracker-card-common.js";
+import { FormState, SavedRecordRefresh, appendEditAction } from "./puppy-tracker-form-state.js";
 import { collarColor } from "./puppy-tracker-collar-chart-colors.js";
 
 const TAG = "puppy-tracker-owner-card";
@@ -34,6 +34,8 @@ const SEX_LABELS = {
 
 const COPY = {
   nl: {
+    changedElsewhere: "Deze gegevens zijn ondertussen gewijzigd. Je invoer is behouden. Laad de nieuwste gegevens voordat je opnieuw opslaat.",
+    reloadLatest: "Nieuwste gegevens laden",
     title: "Baasjes beheren",
     subtitle: "Contactpersonen die later aan een pup gekoppeld kunnen worden.",
     ownersView: "Baasjes beheren",
@@ -176,6 +178,8 @@ const COPY = {
     no: "Nee",
   },
   en: {
+    changedElsewhere: "These details have changed in the meantime. Your input has been kept. Load the latest details before saving again.",
+    reloadLatest: "Load latest details",
     title: "Manage owners",
     subtitle: "Contacts that can be linked to a puppy later.",
     ownersView: "Manage owners",
@@ -410,6 +414,20 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     this._showCompleted = false;
     this._detailLitters = new Map();
     this._editingLitter = "";
+    this._editingContact = null;
+    this._linkBaseline = null;
+    this._conflict = false;
+    this._context = null;
+    this._principal = null;
+    this._loadSequence = 0;
+    this._refreshDeferred = false;
+    this._refreshTimer = null;
+    this._unsubscribe = null;
+    this._subscriptionPending = null;
+    this._connectionListeners = null;
+    this._focusOut = () => this._scheduleRefresh();
+    this._savedRefresh = new SavedRecordRefresh(this,
+      () => this._load(true, { background: true, propagate: true }), () => this._context);
   }
 
   static getStubConfig() { return { title: "", default_view: "owners", csv_delimiter: "comma" }; }
@@ -437,56 +455,201 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       this._activeView = nextConfig.default_view;
     }
     this._render();
-    if (this._hass && !this._loaded) this._load();
+    if (this._hass && this.isConnected && !this._loaded) this._queueRefresh();
   }
 
   set hass(value) {
+    const previous = this._context;
+    const wasBusy = this._busy;
+    const privateChanged = this._principal && (this._principal.user !== value?.user?.id || this._principal.admin !== value?.user?.is_admin);
+    this._principal = { user: value?.user?.id, admin: value?.user?.is_admin };
+    const changed = !previous || previous.connection !== value?.connection
+      || previous.user !== value?.user?.id || previous.admin !== value?.user?.is_admin;
     this._hass = value;
-    if (value?.user?.is_admin === false) {
-      this._formState.reset();
-      this._linkFormState.reset();
-      this._owners = [];
-      this._puppies = [];
-      this._litters = [];
-      this._ownerGroups.clear();
-      this._editing = null;
-      this._detailLitters.clear();
-      this._ownerSearch = "";
-      this._loaded = false;
-      this._render();
-      return;
+    if (changed) {
+      this._stopConnection();
+      this._invalidateLoads();
+      this._context = { connection: value?.connection, user: value?.user?.id, admin: value?.user?.is_admin };
+      if (privateChanged) this._clearPrivateState();
+      if (privateChanged || wasBusy || value?.user?.is_admin === false) this._render();
     }
-    if (this._config && !this._loaded && !this._loading) this._load();
+    if (!value || value.user?.is_admin === false) return;
+    if (!this.isConnected) return;
+    if (changed) this._updateActionState();
+    this._watchConnection();
+    this._subscribe();
+    if (changed || !this._loaded) this._queueRefresh();
   }
 
   connectedCallback() {
-    if (this._hass && !this._loaded && !this._loading) this._load();
+    this.addEventListener("focusout", this._focusOut);
+    if (!this._hass || this._hass.user?.is_admin === false) return;
+    this._context ||= { connection: this._hass.connection, user: this._hass.user?.id, admin: this._hass.user?.is_admin };
+    this._updateActionState();
+    this._watchConnection();
+    this._subscribe();
+    this._queueRefresh();
+  }
+
+  disconnectedCallback() {
+    const wasBusy = this._busy;
+    this.removeEventListener("focusout", this._focusOut);
+    this._stopConnection();
+    this._invalidateLoads();
+    if (wasBusy) this._render();
+    else this._updateActionState();
+  }
+
+  _isCurrent(context) {
+    return Boolean(context) && this.isConnected && context === this._context && this._hass
+      && context.connection === this._hass.connection && context.user === this._hass.user?.id
+      && context.admin === this._hass.user?.is_admin && context.admin !== false && context.connection?.connected !== false;
+  }
+
+  _invalidateLoads() {
+    this._context = null;
+    this._loadSequence += 1;
+    this._loading = false;
+    this._loaded = false;
+    this._busy = false;
+    this._savedRefresh.reset();
+    clearTimeout(this._refreshTimer);
+    this._refreshTimer = null;
+    this._refreshDeferred = false;
+  }
+
+  _clearPrivateState() {
+    this._formState.reset();
+    this._linkFormState.reset();
+    this._owners = [];
+    this._puppies = [];
+    this._litters = [];
+    this._ownerGroups.clear();
+    this._detailLitters.clear();
+    this._editing = null;
+    this._editingContact = null;
+    this._editingLitter = "";
+    this._linkBaseline = null;
+    this._showOwnerEditor = false;
+    this._expandedOwnerId = null;
+    this._matrixSelection = null;
+    this._ownerScope = null;
+    this._ownerSearch = "";
+    this._lastSavedOwnerId = null;
+    this._lastSavedLitter = "";
+    this._selectedLitter = "";
+    this._selectedPuppy = "";
+    this._matrixSelectedOwner = "";
+    this._matrixSelectedPuppy = "";
+    this._status = "";
+    this._error = "";
+    this._conflict = false;
+    this._paymentBeforeFull = null;
+  }
+
+  _stopSubscription() {
+    const unsubscribe = this._unsubscribe;
+    this._unsubscribe = null;
+    this._subscriptionPending = null;
+    if (unsubscribe) Promise.resolve().then(unsubscribe).catch(() => undefined);
+  }
+
+  _stopConnection() {
+    this._stopSubscription();
+    const listeners = this._connectionListeners;
+    if (!listeners) return;
+    listeners.connection.removeEventListener?.("ready", listeners.ready);
+    listeners.connection.removeEventListener?.("disconnected", listeners.disconnected);
+    this._connectionListeners = null;
+  }
+
+  _watchConnection() {
+    const connection = this._hass?.connection;
+    if (!connection || this._connectionListeners) return;
+    const ready = () => {
+      if (this._hass?.connection !== connection || !this.isConnected || this._hass.user?.is_admin === false) return;
+      this._context ||= { connection, user: this._hass.user?.id, admin: this._hass.user?.is_admin };
+      this._updateActionState();
+      this._subscribe();
+      this._queueRefresh();
+    };
+    const disconnected = () => {
+      const wasBusy = this._busy;
+      this._stopSubscription();
+      this._invalidateLoads();
+      if (wasBusy) this._render();
+      else this._updateActionState();
+    };
+    connection.addEventListener?.("ready", ready);
+    connection.addEventListener?.("disconnected", disconnected);
+    this._connectionListeners = { connection, ready, disconnected };
+  }
+
+  async _subscribe() {
+    const context = this._context;
+    if (!this._isCurrent(context) || !context.connection?.subscribeMessage || this._unsubscribe || this._subscriptionPending) return;
+    const pending = {};
+    this._subscriptionPending = pending;
+    try {
+      const unsubscribe = await subscribeUpdates(this._hass, () => {
+        if (this._isCurrent(context)) this._queueRefresh();
+      });
+      if (this._isCurrent(context) && this._subscriptionPending === pending) this._unsubscribe = unsubscribe;
+      else await unsubscribe?.();
+    } catch (_error) {
+      // A later hass update or connection-ready signal retries the subscription.
+    } finally {
+      if (this._subscriptionPending === pending) this._subscriptionPending = null;
+    }
+  }
+
+  get _showEditor() { return this._showOwnerEditor || this._linkFormState.dirty; }
+
+  _interactionActive() {
+    const active = this.getRootNode().activeElement;
+    return this._showEditor || this.contains(active) && active?.matches("input,select,textarea");
+  }
+
+  _queueRefresh() {
+    this._refreshDeferred = true;
+    this._scheduleRefresh();
+  }
+
+  _scheduleRefresh() {
+    if (this._refreshTimer !== null || !this._refreshDeferred || !this._isCurrent(this._context)) return;
+    this._refreshTimer = setTimeout(() => {
+      this._refreshTimer = null;
+      if (!this._refreshDeferred || this._busy || this._loading || this._interactionActive()) return;
+      this._refreshDeferred = false;
+      this._load(true, { background: true });
+    }, 0);
   }
 
   getCardSize() { return 7; }
   getGridOptions() { return { columns: 12, min_columns: 6 }; }
 
-  async _load(force = false) {
-    if (!this._hass || this._hass.user?.is_admin === false || this._loading || (this._loaded && !force)) return false;
+  async _load(force = false, { background = false, propagate = false, render = true, allowEditing = false } = {}) {
+    const context = this._context;
+    if (!this._isCurrent(context) || (this._loading && !force) || (this._loaded && !force)) return false;
+    const hass = this._hass;
+    const sequence = ++this._loadSequence;
+    const current = () => this._isCurrent(context) && sequence === this._loadSequence;
+    let changed = false;
     this._loading = true;
-    this._error = "";
-    this._render();
     try {
       const [ownerResult, litterResult] = await Promise.all([
-        this._hass.callWS({ type: "puppy_tracker/owners/list" }),
-        this._hass.callWS({ type: "puppy_tracker/litters" }),
+        hass.callWS({ type: "puppy_tracker/owners/list" }),
+        hass.callWS({ type: "puppy_tracker/litters" }),
       ]);
-      if (this._hass?.user?.is_admin === false) return false;
-      this._owners = ownerResult?.owners || [];
-      this._litters = litterResult?.litters || [];
-      if (!this._litters.some((litter) => litter.id === this._selectedLitter)) {
-        this._selectedLitter = this._litters.find((litter) => litter.active !== false)?.id || this._litters[0]?.id || "";
-      }
-      const data = await Promise.all(this._litters.map(async (litter) => {
-        const result = await this._hass.callWS({ type: "puppy_tracker/data", litter_id: litter.id });
+      if (!current()) return false;
+      const owners = ownerResult?.owners || [];
+      const litters = (litterResult?.litters || []).map(({ summary, growth_analysis, ...litter }) => litter);
+      const data = await Promise.all(litters.map(async (litter) => {
+        const result = await hass.callWS({ type: "puppy_tracker/data", litter_id: litter.id });
         const litterDetails = result?.litter || litter;
         return (result?.puppies || []).map((puppy) => ({
-          ...puppy,
+          ...Object.fromEntries(["id", "name", "registered_name", "collar_color", "coat_color", "breed", "sex", "birth_time", "chip_number", "owner_ids"]
+            .map((field) => [field, puppy[field]])),
           litter_id: litter.id,
           litter_name: litterDetails.name || text(this, "litter"),
           litter_birth_date: litterDetails.birth_date,
@@ -496,8 +659,19 @@ class PuppyTrackerOwnerCard extends HTMLElement {
           father_details: litterDetails.father_details || {},
         }));
       }));
-      if (this._hass?.user?.is_admin === false) return false;
+      if (!current()) return false;
+      if (!allowEditing && this._interactionActive()) {
+        this._refreshDeferred = true;
+        return false;
+      }
+      changed = !this._loaded || Boolean(this._error) || this._savedRefresh.failedContext === context
+        || JSON.stringify([owners, litters, data.flat()]) !== JSON.stringify([this._owners, this._litters, this._puppies]);
+      this._owners = owners;
+      this._litters = litters;
       this._puppies = data.flat();
+      if (!this._litters.some((litter) => litter.id === this._selectedLitter)) {
+        this._selectedLitter = this._litters.find((litter) => litter.active !== false)?.id || this._litters[0]?.id || "";
+      }
       if (this._ownerScope === null) this._ownerScope = this._litters.find((litter) => litter.active !== false)?.id || "__unassigned__";
       if (!["__all__", "__unassigned__"].includes(this._ownerScope) && !this._litters.some((litter) => litter.id === this._ownerScope)) this._ownerScope = "__all__";
       const selectedLitterPuppies = this._puppies.filter((puppy) => puppy.litter_id === this._selectedLitter);
@@ -505,19 +679,94 @@ class PuppyTrackerOwnerCard extends HTMLElement {
         this._matrixSelectedPuppy = selectedLitterPuppies[0]?.id || "";
       }
       this._loaded = true;
+      if (!this._conflict) this._error = "";
+      this._savedRefresh.refreshed();
       if (this._expandedOwnerId && !this._owners.some((owner) => owner.id === this._expandedOwnerId)) this._expandedOwnerId = null;
       return true;
     } catch (error) {
+      if (!current()) return false;
+      if (propagate) throw error;
       this._error = error?.message || String(error);
+      const message = this.querySelector("#owner-error");
+      if (message) message.textContent = this._error;
       return false;
     } finally {
-      this._loading = false;
-      this._render();
+      if (current()) {
+        this._loading = false;
+        if (render && !this._busy && (!background || changed) && !this._interactionActive()) this._render();
+        this._scheduleRefresh();
+      }
+    }
+  }
+
+  async _runMutation(message, saved) {
+    const context = this._context;
+    if (this._busy || !this._isCurrent(context) || this._conflict) return;
+    this._loadSequence += 1;
+    this._loading = false;
+    this._busy = true;
+    this._error = "";
+    this._status = "";
+    this._savedRefresh.reset();
+    this._render();
+    try {
+      const result = await this._hass.callWS(message);
+      if (!this._isCurrent(context)) return;
+      saved(result);
+      this._refreshDeferred = false;
+      // Keep the confirmed write separate from its fallible follow-up read.
+      await this._savedRefresh.run();
+    } catch (error) {
+      if (!this._isCurrent(context)) return;
+      this._conflict = error?.code === "owner_conflict";
+      this._error = this._conflict ? text(this, "changedElsewhere")
+        : error?.code === "owner_linked" ? text(this, "unlinkBeforeDelete") : error?.message || String(error);
+    } finally {
+      if (this._isCurrent(context)) {
+        this._busy = false;
+        this._render();
+        this._scheduleRefresh();
+      }
+    }
+  }
+
+  _updateActionState() {
+    const blocked = this._busy || this._conflict || !this._isCurrent(this._context);
+    this.querySelectorAll('button[type="submit"], #add-owner, [data-edit], [data-mark-paid], [data-add-dossier], [data-matrix-edit-owner]')
+      .forEach((button) => { button.disabled = blocked; });
+    this.querySelectorAll("[data-delete], [data-assign-owner]").forEach((button) => { button.disabled = blocked || this._showEditor; });
+    const link = this.querySelector("#link-save");
+    if (link) link.disabled = blocked || this._showOwnerEditor || !this._selectedPuppy;
+    const reload = this.querySelector("#reload-owner-conflict");
+    if (reload) reload.disabled = this._busy || !this._isCurrent(this._context);
+    const csv = this.querySelector("#export-owners-csv");
+    if (csv) csv.disabled = blocked || this._showEditor || !this._owners.length;
+    this.querySelectorAll("#owners-view, #matrix-view").forEach((button) => { button.disabled = this._busy || this._showOwnerEditor; });
+  }
+
+  async _reloadConflict() {
+    if (this._busy || !this._formState.confirmDiscard() || !this._linkFormState.confirmDiscard()) return;
+    const context = this._context;
+    this._busy = true;
+    this._render();
+    try {
+      if (!await this._load(true, { render: false, allowEditing: true }) || !this._isCurrent(context)) return;
+      this._formState.reset();
+      this._linkFormState.reset();
+      this._linkBaseline = null;
+      this._editingContact = this._owners.find((owner) => owner.id === this._editing) || null;
+      if (this._editing && !this._editingContact) { this._editing = null; this._showOwnerEditor = false; }
+      this._paymentBeforeFull = null;
+      this._conflict = false;
+      this._error = "";
+      this._refreshDeferred = false;
+    } finally {
+      if (this._isCurrent(context)) { this._busy = false; this._render(); }
     }
   }
 
   async _save(form) {
-    if (this._busy) return;
+    if (this._busy || !this._showOwnerEditor) return;
     this._formState.clearErrors();
     const data = Object.fromEntries(new FormData(form).entries());
     for (const field of ["payment_amount", "registration_fee_amount", "deposit_amount", "payment_balance"]) {
@@ -571,72 +820,48 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     data.puppy_preferences = puppyPreferences;
     data.litter_id = this._editingLitter || null;
     data.archived = form.elements.archived.checked;
-    if (this._editing) data.owner_id = this._editing;
-    this._busy = true;
-    this._error = "";
-    this._render();
-    try {
-      const result = await this._hass.callWS({ type: "puppy_tracker/owners/save", ...data });
+    if (this._editing) {
+      data.owner_id = this._editing;
+      data.expected_revision = this._editingContact?.revision || "";
+    }
+    await this._runMutation({ type: "puppy_tracker/owners/save", ...data }, (result) => {
+      this._owners = this._owners.filter((owner) => owner.id !== result.owner.id).concat(result.owner);
       this._lastSavedOwnerId = result?.owner?.id || this._editing;
       this._lastSavedLitter = this._editingLitter;
       this._ownerScope = this._editingLitter || "__unassigned__";
       if (data.archived || ["sold", "placed"].includes(data.placement_status)) this._showCompleted = true;
       this._formState.reset();
       this._editing = null;
+      this._editingContact = null;
       this._showOwnerEditor = false;
       this._status = `${text(this, "saved")} ${data.name || ""}`;
-      this._loaded = false;
-      await this._load();
-    } catch (error) {
-      this._error = error?.message || String(error);
-    } finally {
-      this._busy = false;
-      this._render();
-    }
+    });
   }
 
   async _delete(id) {
-    if (this._busy || !window.confirm(text(this, "confirmDelete"))) return;
-    this._busy = true;
-    this._error = "";
-    this._render();
-    try {
-      await this._hass.callWS({ type: "puppy_tracker/owners/delete", owner_id: id });
-      if (this._editing === id) { this._formState.reset(); this._editing = null; this._showOwnerEditor = false; }
+    if (this._busy || this._showEditor || !window.confirm(text(this, "confirmDelete"))) return;
+    const owner = this._owners.find((item) => item.id === id);
+    await this._runMutation({ type: "puppy_tracker/owners/delete", owner_id: id, expected_revision: owner?.revision || "" }, () => {
+      this._owners = this._owners.filter((item) => item.id !== id);
       this._expandedOwnerId = null;
       this._lastSavedOwnerId = null;
       this._status = text(this, "deleted");
-      this._loaded = false;
-      await this._load();
-    } catch (error) {
-      this._error = error?.code === "owner_linked" ? text(this, "unlinkBeforeDelete") : error?.message || String(error);
-    } finally {
-      this._busy = false;
-      this._render();
-    }
+    });
   }
 
   async _link() {
-    if (this._busy) return;
+    if (this._busy || this._showOwnerEditor) return;
     const puppy = this._puppies.find((item) => item.id === this._selectedPuppy);
     if (!puppy) return;
     const ownerIds = [...this.querySelectorAll("input[name=linked_owner]:checked")].map((input) => input.value);
-    this._busy = true;
-    this._error = "";
-    this._render();
-    try {
-      await this._hass.callWS({ type: "puppy_tracker/owners/link", litter_id: puppy.litter_id, puppy_id: puppy.id, owner_ids: ownerIds });
+    await this._runMutation({ type: "puppy_tracker/owners/link", litter_id: puppy.litter_id, puppy_id: puppy.id,
+      owner_ids: ownerIds, expected_owner_ids: this._linkBaseline?.ownerIds || puppy.owner_ids || [] }, () => {
+      puppy.owner_ids = ownerIds;
       this._linkFormState.reset();
+      this._linkBaseline = null;
       this._lastSavedOwnerId = null;
       this._status = text(this, "linked");
-      this._loaded = false;
-      await this._load();
-    } catch (error) {
-      this._error = error?.message || String(error);
-    } finally {
-      this._busy = false;
-      this._render();
-    }
+    });
   }
 
   _linkedPuppies(ownerId) {
@@ -696,25 +921,17 @@ class PuppyTrackerOwnerCard extends HTMLElement {
   }
 
   async _assignDossier(ownerId, litterId) {
-    if (!litterId || this._busy) return;
+    if (!litterId || this._busy || this._showEditor) return;
     const owner = this._owners.find((item) => item.id === ownerId);
-    this._busy = true;
-    this._error = "";
-    this._render();
-    try {
-      await this._hass.callWS({ type: "puppy_tracker/owners/save", owner_id: ownerId, name: owner.name, litter_id: litterId, move_unassigned: true });
+    await this._runMutation({ type: "puppy_tracker/owners/save", owner_id: ownerId, name: owner.name,
+      expected_revision: owner.revision || "", litter_id: litterId, move_unassigned: true }, (result) => {
+      this._owners = this._owners.map((item) => item.id === ownerId ? result.owner : item);
       this._lastSavedOwnerId = ownerId;
       this._lastSavedLitter = litterId;
       this._ownerScope = litterId;
       this._detailLitters.set(ownerId, litterId);
       this._status = text(this, "linked");
-      await this._load(true);
-    } catch (error) {
-      this._error = error?.message || String(error);
-    } finally {
-      this._busy = false;
-      this._render();
-    }
+    });
   }
 
   _puppyPreferenceLabel(puppyId, includeCollar = true) {
@@ -987,14 +1204,15 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       details.hidden = !active;
       details.querySelector("[data-matrix-edit-owner]")?.addEventListener("click", (event) => this._openEditor(event.currentTarget.dataset.matrixEditOwner));
     });
+    this._updateActionState();
   }
 
   _switchView(view) {
-    if (!["owners", "matrix"].includes(view) || view === this._activeView || this._showOwnerEditor) return;
+    if (!["owners", "matrix"].includes(view) || view === this._activeView || this._showOwnerEditor || this._busy) return;
     this._activeView = view;
     this._matrixSelection = null;
     this._status = "";
-    this._error = "";
+    if (!this._conflict) this._error = "";
     this._render();
   }
 
@@ -1008,6 +1226,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     }
     this._ownerScope = scope ?? (["__all__", "__unassigned__"].includes(this._ownerScope) ? this._ownerScope : litterId);
     this._render();
+    this._scheduleRefresh();
     return true;
   }
 
@@ -1101,8 +1320,9 @@ class PuppyTrackerOwnerCard extends HTMLElement {
   }
 
   async _downloadOwnersCsv() {
-    if (!this._owners.length || this._loading) return;
-    if (!await this._load(true) || !this._owners.length) return;
+    const context = this._context;
+    if (!this._owners.length || this._loading || this._busy || this._showEditor) return;
+    if (!await this._load(true) || !this._isCurrent(context) || !this._owners.length) return;
     downloadExportFile({
       content: this._ownerCsvContent(),
       filename: csvFilename(),
@@ -1117,8 +1337,10 @@ class PuppyTrackerOwnerCard extends HTMLElement {
   }
 
   _openEditor(ownerId = null, { paidInFull = false, litterId } = {}) {
-    if (!this._formState.discard()) return;
+    if (this._conflict || !this._formState.discard()) return;
     const contact = this._owners.find((item) => item.id === ownerId);
+    this._savedRefresh.reset();
+    this._editingContact = contact ? structuredClone(contact) : null;
     const scopeLitter = this._litters.some((litter) => litter.id === this._ownerScope) ? this._ownerScope : "";
     const defaultLitter = this._activeView === "matrix" ? this._selectedLitter : contact ? this._detailLitter(contact) : scopeLitter;
     this._editingLitter = litterId ?? defaultLitter;
@@ -1134,7 +1356,10 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       this.querySelector('[name="payment_status"]').value = "full";
       this._syncPaymentStatus(true);
     }
-    queueMicrotask(() => this.querySelector(paidInFull ? '[name="payment_date"]' : 'input[name="name"]')?.focus({ preventScroll: true }));
+    const context = this._context;
+    queueMicrotask(() => {
+      if (this._isCurrent(context) && this._showOwnerEditor) this.querySelector(paidInFull ? '[name="payment_date"]' : 'input[name="name"]')?.focus({ preventScroll: true });
+    });
   }
 
   _detail(label, value, className = "") {
@@ -1216,7 +1441,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
 
   _ownerForm() {
     if (!this._showOwnerEditor) return `<button type="button" id="add-owner" class="primary add-owner"><ha-icon icon="mdi:plus"></ha-icon>${escapeHtml(text(this, "addOwner"))}</button>`;
-    const contact = this._owners.find((item) => item.id === this._editing) || {};
+    const contact = this._editingContact || {};
     const owner = this._ownerForLitter(contact, this._editingLitter);
     const litterOptions = [["", text(this, "unassigned")], ...this._litters.map((litter) => [litter.id, litter.name])].map(([id, label]) => `<option value="${escapeHtml(id)}" ${id === this._editingLitter ? "selected" : ""}>${escapeHtml(label)}</option>`).join("");
     return `<section class="owner-editor"><h3>${escapeHtml(text(this, this._editing ? "editOwner" : "addOwner"))}</h3><form class="form">
@@ -1249,8 +1474,13 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       ${selectField(this, "payment_method", text(this, "paymentMethod"), PAYMENT_METHOD_LABELS, owner.payment_method || "none")}
       <label><span>${escapeHtml(text(this, "paymentDate"))}</span><input name="payment_date" type="date" value="${escapeHtml(owner.payment_date || "")}"></label>
       <label class="wide"><span>${escapeHtml(text(this, "notes"))}</span><textarea name="notes" rows="5">${escapeHtml(owner.notes || "")}</textarea></label>
+      ${this._ownerErrorMarkup()}
       <div class="actions wide"><button type="button" class="secondary" id="cancel-owner">${escapeHtml(text(this, "cancel"))}</button><button type="submit" class="primary">${escapeHtml(text(this, this._editing ? "update" : "addOwner"))}</button></div>
     </form></section>`;
+  }
+
+  _ownerErrorMarkup() {
+    return `<div id="owner-error" class="message error wide" role="alert">${escapeHtml(this._error)}</div>${this._conflict ? `<button type="button" class="secondary wide" id="reload-owner-conflict"><ha-icon icon="mdi:refresh"></ha-icon>${escapeHtml(text(this, "reloadLatest"))}</button>` : ""}`;
   }
 
   _linkSection(litterPuppies, puppy, linked, litterOptions, puppyOptions) {
@@ -1312,6 +1542,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     const puppy = litterPuppies.find((item) => item.id === this._selectedPuppy) || litterPuppies[0] || null;
     this._selectedPuppy = puppy?.id || "";
     const linked = new Set(puppy?.owner_ids || []);
+    if (!this._linkFormState.dirty) this._linkBaseline = { ownerIds: [...linked] };
     const litterOptions = this._litters.map((litter) => `<option value="${escapeHtml(litter.id)}" ${litter.id === this._selectedLitter ? "selected" : ""}>${escapeHtml(litter.name || text(this, "litter"))}</option>`).join("");
     const puppyOptions = litterPuppies.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === this._selectedPuppy ? "selected" : ""}>${escapeHtml(puppySelectorLabel(item, text(this, "puppy")))}</option>`).join("");
 
@@ -1321,7 +1552,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     const ownersContent = `${this._showOwnerEditor ? this._ownerForm() : ""}${this._ownerFilters()}<section class="list" aria-live="polite">${this._ownerList()}</section>${this._linkSection(litterPuppies, puppy, linked, litterOptions, puppyOptions)}`;
     const content = ownersView ? ownersContent : this._matrixView();
     const subtitle = text(this, ownersView ? "subtitle" : "matrixSubtitle");
-    this.innerHTML = `<ha-card><div class="head"><div><div class="title">${escapeHtml(this._config.title || text(this, "title"))}</div><div class="sub">${escapeHtml(subtitle)}</div></div>${headerActions}</div>${viewTabs}${content}<div id="owner-error" class="message error" role="alert">${escapeHtml(this._error)}</div><div id="owner-status" class="message" role="status" aria-live="polite">${escapeHtml(this._status)}</div></ha-card><style>
+    this.innerHTML = `<ha-card><div class="head"><div><div class="title">${escapeHtml(this._config.title || text(this, "title"))}</div><div class="sub">${escapeHtml(subtitle)}</div></div>${headerActions}</div>${viewTabs}${content}${this._showOwnerEditor ? "" : this._ownerErrorMarkup()}<div id="owner-status" class="message" role="status" aria-live="polite">${escapeHtml(this._status)}</div></ha-card><style>
       :host{display:block}
       ha-card{padding:16px;container-type:inline-size;container-name:owner-card}
       .head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
@@ -1508,6 +1739,9 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     if (this._status && this._lastSavedOwnerId && savedStatus) {
       appendEditAction(this, savedStatus, () => this._openEditor(this._lastSavedOwnerId, { litterId: this._lastSavedLitter }), text(this, "editOwner"));
     }
+    this._savedRefresh.bind(savedStatus);
+    this.querySelector("#reload-owner-conflict")?.addEventListener("click", () => this._reloadConflict());
+    this.querySelectorAll('.checks input').forEach((input) => input.addEventListener("change", () => this._updateActionState()));
     this.querySelector(".owner-editor form")?.addEventListener("submit", (event) => { event.preventDefault(); this._save(event.currentTarget); });
     this.querySelector("#export-owners-csv")?.addEventListener("click", () => this._downloadOwnersCsv());
     this.querySelector("#owners-view")?.addEventListener("click", () => this._switchView("owners"));
@@ -1531,12 +1765,21 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       this._render();
       this.querySelector("#owner-litter")?.focus({ preventScroll: true });
     });
-    this.querySelector("#cancel-owner")?.addEventListener("click", () => { if (!this._formState.discard()) return; this._editing = null; this._showOwnerEditor = false; this._error = ""; this._render(); });
+    this.querySelector("#cancel-owner")?.addEventListener("click", () => {
+      if (!this._formState.discard()) return;
+      this._editing = null;
+      this._editingContact = null;
+      this._showOwnerEditor = false;
+      this._error = "";
+      this._conflict = false;
+      this._render();
+      this._queueRefresh();
+    });
     this._bindOwnerRows();
     this.querySelector('[name="payment_status"]')?.addEventListener("change", () => this._syncPaymentStatus(true));
     this.querySelectorAll('input[name="payment_amount"], input[name="registration_fee_amount"], input[name="deposit_amount"]').forEach((input) => input.addEventListener("input", () => this._updateFinalPaymentPreview()));
     this.querySelector("#link-litter")?.addEventListener("change", (event) => { if (!this._changeLitter(event.target.value)) event.target.value = this._selectedLitter; });
-    this.querySelector("#link-puppy")?.addEventListener("change", (event) => { if (!this._linkFormState.discard()) { event.target.value = this._selectedPuppy; return; } this._selectedPuppy = event.target.value; this._render(); });
+    this.querySelector("#link-puppy")?.addEventListener("change", (event) => { if (!this._linkFormState.discard()) { event.target.value = this._selectedPuppy; return; } this._selectedPuppy = event.target.value; this._render(); this._scheduleRefresh(); });
     this.querySelector("#link-save")?.addEventListener("click", () => this._link());
     this.querySelector("#matrix-litter")?.addEventListener("change", (event) => { if (!this._changeLitter(event.target.value)) event.target.value = this._selectedLitter; });
     this.querySelector("#matrix-show-resolved")?.addEventListener("change", (event) => { this._matrixShowResolved = event.target.checked; this._matrixSelection = null; this._render(); });
@@ -1574,6 +1817,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       const select = [...this.querySelectorAll("[data-assign-litter]")].find((item) => item.dataset.assignLitter === button.dataset.assignOwner);
       this._assignDossier(button.dataset.assignOwner, select?.value);
     }));
+    this._updateActionState();
   }
 }
 

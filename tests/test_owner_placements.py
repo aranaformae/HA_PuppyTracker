@@ -1,6 +1,7 @@
 """Reusable contacts must not share financial/placement state between litters."""
 
 from copy import deepcopy
+import asyncio
 from unittest.mock import AsyncMock
 from inspect import unwrap
 
@@ -9,7 +10,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.puppy_tracker import owner_api
 from custom_components.puppy_tracker.const import DOMAIN
-from custom_components.puppy_tracker.owners import OwnerStore, normalize_owner_backup_data, owner_for_litter
+from custom_components.puppy_tracker.owners import OwnerConflict, OwnerStore, normalize_owner_backup_data, owner_for_litter, owner_revision
 from custom_components.puppy_tracker.runtime import PuppyTrackerRuntimeData
 
 
@@ -167,7 +168,7 @@ async def test_link_creates_membership_without_copying_unassigned_money(owner_cl
     await owners.async_restore_backup_data({"owners": {"o1": legacy_owner()}})
     old = owners.get("o1")["unassigned_placement"]
     await owner_client.send_json_auto_id({"type": "puppy_tracker/owners/link", "litter_id": litter_id,
-                                         "puppy_id": puppy_id, "owner_ids": ["o1"]})
+                                         "puppy_id": puppy_id, "owner_ids": ["o1"], "expected_owner_ids": []})
     assert (await owner_client.receive_json())["success"]
     contact = owners.get("o1")
     assert contact["placements"][litter_id]["payment_amount"] is None
@@ -183,7 +184,7 @@ async def test_link_failure_rolls_back_contact_memberships(hass, owner_client, o
     storage.async_save.side_effect = OSError("disk full")
     with pytest.raises(OSError, match="disk full"):
         await unwrap(owner_api.websocket_link_owners)(hass, None, {
-            "id": 1, "litter_id": litter_id, "puppy_id": puppy_id, "owner_ids": ["o1"],
+            "id": 1, "litter_id": litter_id, "puppy_id": puppy_id, "owner_ids": ["o1"], "expected_owner_ids": [],
         })
     assert owners.get_backup_data() == before
     assert storage.get_data() == before_storage
@@ -193,11 +194,110 @@ async def test_contact_delete_cannot_leave_orphaned_puppy_links(owner_client, ow
     install_litter(puppy_overrides={"owner_ids": ["o1"]})
     await owners.async_restore_backup_data({"owners": {"o1": legacy_owner()}})
     before = owners.get_backup_data()
-    await owner_client.send_json_auto_id({"type": "puppy_tracker/owners/delete", "owner_id": "o1"})
+    await owner_client.send_json_auto_id({"type": "puppy_tracker/owners/delete", "owner_id": "o1",
+                                         "expected_revision": owner_revision(owners.get("o1"))})
     response = await owner_client.receive_json()
     assert not response["success"]
     assert response["error"]["code"] == "owner_linked"
     assert owners.get_backup_data() == before
+
+
+async def test_only_one_concurrent_edit_can_save_the_same_snapshot(owners):
+    owner = await owners.async_upsert({"name": "Alex", "litter_id": "l1", "payment_balance": "1000"})
+    revision = owner_revision(owner)
+    started, finish = asyncio.Event(), asyncio.Event()
+
+    async def delayed_save(_data):
+        started.set()
+        await finish.wait()
+
+    owners._store.async_save.reset_mock()
+    owners._store.async_save.side_effect = delayed_save
+    first = asyncio.create_task(owners.async_upsert({"name": "Phone edit", "litter_id": "l1",
+        "payment_balance": "500", "expected_revision": revision}, owner["id"]))
+    await started.wait()
+    second = asyncio.create_task(owners.async_upsert({"name": "Tablet edit", "litter_id": "l1",
+        "payment_balance": "0", "expected_revision": revision}, owner["id"]))
+    finish.set()
+    outcomes = await asyncio.gather(first, second, return_exceptions=True)
+    assert sum(isinstance(result, OwnerConflict) for result in outcomes) == 1
+    winner = next(result for result in outcomes if isinstance(result, dict))
+    assert owners.get(owner["id"]) == winner
+    assert owner_revision(winner) != revision
+    assert "revision" not in owners.get_backup_data()["owners"][owner["id"]]
+    owners._store.async_save.assert_awaited_once()
+
+
+async def test_two_websocket_clients_cannot_overwrite_each_other(hass, hass_ws_client, owner_client, owners):
+    other_client = await hass_ws_client(hass)
+    owner = await owners.async_upsert({"name": "Alex", "litter_id": "l1", "payment_balance": "1000"})
+    message = {"type": "puppy_tracker/owners/save", "owner_id": owner["id"],
+               "expected_revision": owner_revision(owner)}
+    await asyncio.gather(owner_client.send_json_auto_id({**message, "name": "Phone"}),
+                         other_client.send_json_auto_id({**message, "name": "Tablet"}))
+    responses = await asyncio.gather(owner_client.receive_json(), other_client.receive_json())
+    assert sum(response["success"] for response in responses) == 1
+    saved = next(response["result"]["owner"] for response in responses if response["success"])
+    assert owners.get(owner["id"])["name"] == saved["name"]
+    assert next(response["error"]["code"] for response in responses if not response["success"]) == "owner_conflict"
+
+
+@pytest.mark.parametrize("operation", ["save", "delete", "move"])
+@pytest.mark.parametrize("revision_kind", ["stale", "missing", "deleted"])
+async def test_api_rejects_stale_or_missing_revision_without_writing(owner_client, owners, install_litter, operation, revision_kind):
+    litter_id, _ = install_litter()
+    await owners.async_restore_backup_data({"owners": {"o1": legacy_owner()}})
+    stale = owner_revision(owners.get("o1"))
+    if revision_kind == "deleted":
+        await owners.async_delete("o1")
+    else:
+        await owners.async_upsert({"phone": "0699999999"}, "o1")
+    before = owners.get_backup_data()
+    owners._store.async_save.reset_mock()
+    message = {"type": f"puppy_tracker/owners/{'delete' if operation == 'delete' else 'save'}", "owner_id": "o1"}
+    if operation != "delete":
+        message.update(name="Stale edit", litter_id=litter_id, move_unassigned=operation == "move")
+    if revision_kind != "missing":
+        message["expected_revision"] = stale
+    await owner_client.send_json_auto_id(message)
+    result = await owner_client.receive_json()
+    assert not result["success"]
+    assert result["error"]["code"] == "owner_conflict"
+    assert owners.get_backup_data() == before
+    owners._store.async_save.assert_not_awaited()
+
+
+async def test_api_lists_and_returns_fresh_revisions_without_storing_metadata(owner_client, owners):
+    owner = await owners.async_upsert({"name": "Alex"})
+    await owner_client.send_json_auto_id({"type": "puppy_tracker/owners/list"})
+    listed = (await owner_client.receive_json())["result"]["owners"][0]
+    assert listed["revision"] == owner_revision(owner)
+    await owner_client.send_json_auto_id({"type": "puppy_tracker/owners/save", "owner_id": owner["id"],
+                                         "expected_revision": listed["revision"], "name": "Alex Updated"})
+    saved = (await owner_client.receive_json())["result"]["owner"]
+    assert saved["revision"] != listed["revision"]
+    assert "revision" not in owners.get(owner["id"])
+    await owner_client.send_json_auto_id({"type": "puppy_tracker/owners/delete", "owner_id": owner["id"],
+                                         "expected_revision": saved["revision"]})
+    assert (await owner_client.receive_json())["success"]
+    assert owners.get_all() == []
+
+
+@pytest.mark.parametrize("expected", [None, [], ["o1", "other"]])
+async def test_link_conflict_never_creates_membership_or_overwrites_newer_links(owner_client, owners, storage, install_litter, expected):
+    litter_id, puppy_id = install_litter(puppy_overrides={"owner_ids": ["o1"]})
+    await owners.async_restore_backup_data({"owners": {"o1": legacy_owner()}})
+    before_owners = owners.get_backup_data()
+    before_storage = storage.get_data()
+    message = {"type": "puppy_tracker/owners/link", "litter_id": litter_id, "puppy_id": puppy_id, "owner_ids": []}
+    if expected is not None:
+        message["expected_owner_ids"] = expected
+    await owner_client.send_json_auto_id(message)
+    response = await owner_client.receive_json()
+    assert not response["success"]
+    assert response["error"]["code"] == "owner_conflict"
+    assert owners.get_backup_data() == before_owners
+    assert storage.get_data() == before_storage
 
 
 @pytest.mark.parametrize("broken", [{"owners": {"o1": "broken"}}, {"owners": []}, {"version": 99, "owners": {}}])

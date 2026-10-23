@@ -5,6 +5,8 @@ from __future__ import annotations
 from copy import deepcopy
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
+import hashlib
+import json
 from typing import Any
 from uuid import uuid4
 
@@ -50,6 +52,20 @@ PLACEMENT_FIELDS = (
     "status_history", "placement_notes", "archived", *AMOUNT_FIELDS, *DATE_FIELDS,
 )
 CONTACT_FIELDS = (*OWNER_FIELDS, "role", "contact_preference", "created_at", "updated_at")
+
+
+class OwnerConflict(ValueError):
+    """An interactive write was based on an outdated contact snapshot."""
+
+
+def owner_revision(owner: dict[str, Any]) -> str:
+    """Fingerprint the complete contact without changing its portable data format."""
+    return hashlib.sha256(json.dumps(owner, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
+def owner_response(owner: dict[str, Any]) -> dict[str, Any]:
+    """Add transient concurrency metadata only at the API boundary."""
+    return {**owner, "revision": owner_revision(owner)}
 
 
 def normalize_owner_backup_data(data: Any, litters: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -330,6 +346,9 @@ class OwnerStore:
     async def async_upsert(self, data: dict[str, Any], owner_id: str | None = None) -> dict[str, Any]:
         async with self._lock:
             existing = self._data["owners"].get(owner_id) if owner_id else None
+            if owner_id and "expected_revision" in data:
+                if existing is None or data["expected_revision"] != owner_revision(existing):
+                    raise OwnerConflict("Contact changed; reload before saving")
             if owner_id and existing is None:
                 raise ValueError("Unknown owner")
             litter_id = data.get("litter_id") or None
@@ -358,8 +377,11 @@ class OwnerStore:
             self._data = candidate
             return deepcopy(owner)
 
-    async def async_delete(self, owner_id: str) -> None:
+    async def async_delete(self, owner_id: str, *, expected_revision: str | None = None) -> None:
         async with self._lock:
+            existing = self._data["owners"].get(owner_id)
+            if expected_revision is not None and (existing is None or expected_revision != owner_revision(existing)):
+                raise OwnerConflict("Contact changed; reload before deleting")
             if owner_id not in self._data["owners"]:
                 raise ValueError("Unknown owner")
             candidate = deepcopy(self._data)

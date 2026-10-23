@@ -938,6 +938,44 @@ the owner store back if writing the puppy link fails. Contact deletion is refuse
 while puppy links remain, avoiding orphan references; archiving affects just one
 litter dossier and preserves all links.
 
+Interactive concurrency is enforced at the storage boundary. Owner API list/save
+responses add a transient `revision`: SHA-256 of the canonical, sorted JSON contact
+(including every litter dossier). Existing-contact saves, explicit dossier moves
+and deletions must send `expected_revision`; the check runs under the owner-store
+lock, before any mutation. Missing, deleted or changed snapshots return
+`owner_conflict`. The check deliberately covers the whole contact because forms
+also submit shared contact fields, even when editing one litter. Linking sends
+`expected_owner_ids`; its set comparison runs inside the existing exclusive
+cross-store barrier before creating membership or updating puppy links. Internal
+store operations remain usable without an interactive revision. Revisions are
+response metadata only: owner data version 2, migrations, backups, CSV and PDF
+schemas do not change. Cached older interactive clients must reload rather than
+fall back to unguarded writes.
+
+The Owners card captures connection, user ID and administrator status separately
+from HA's frequently replaced `hass` object. Request sequence and context checks
+guard both stages of the all-litter load, subscriptions and write callbacks.
+Loads publish a complete snapshot only after every read succeeds. Subscription
+notifications coalesce, retaining a rerun when a signal arrives during a read.
+Connection `disconnected`/`ready` listeners handle recovery on the same websocket
+connection object; removal or identity changes unsubscribe settled and pending
+subscriptions and invalidate old replies. Same-user drafts survive reconnects;
+different users or permissions clear contact, draft and status data.
+
+Background refresh defers while the editor, dirty linking controls or focused
+inputs are active, checking again before publishing a response. Leaving the
+input or cancelling flushes deferred refresh. Unchanged snapshots do not rebuild
+the DOM; puppy data retains only identity/link fields and litter summaries omit
+growth projections, so weighing does not redraw owner content. Rendering retains
+native disclosure state and synchronous ancestor/list scroll offsets. An editor
+holds its original contact/revision until an explicit reload; a failed conflict
+reload keeps the draft. Confirmed write responses update the local view first.
+`SavedRecordRefresh` handles failed follow-up reads without converting confirmed
+success into a save error or repeating the mutation; late retries cannot replace
+a new draft. Controlled browser tests cover two cards, stale reads/subscriptions,
+permission changes, deferred updates and read-only retries; real HA websocket
+tests verify concurrent-client and store-lock conflict rejection.
+
 `payment_status: full` canonically forces `payment_balance: "0"` during
 save/load/restore normalization. The agreed final-payment calculation is
 unchanged; partial-payment balances remain explicit. Normalization never

@@ -12,7 +12,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from .const import DOMAIN, SIGNAL_DASHBOARD_UPDATE
 from .runtime import get_runtime_data
 from .storage_lock import mutation_coordinator
-from .owners import PLACEMENT_FIELDS
+from .owners import PLACEMENT_FIELDS, OwnerConflict, owner_response
 
 
 def _owners(hass: HomeAssistant):
@@ -28,13 +28,14 @@ def websocket_list_owners(hass: HomeAssistant, connection, msg: dict[str, Any]) 
     if owners is None:
         connection.send_error(msg["id"], "not_loaded", "Puppy Tracker is not loaded")
         return
-    connection.send_result(msg["id"], {"owners": owners.get_all()})
+    connection.send_result(msg["id"], {"owners": [owner_response(owner) for owner in owners.get_all()]})
 
 
 @websocket_api.require_admin
 @websocket_api.websocket_command({
     vol.Required("type"): f"{DOMAIN}/owners/save",
     vol.Optional("owner_id"): str,
+    vol.Optional("expected_revision"): str,
     vol.Required("name"): str,
     vol.Optional("email"): vol.Any(str, None),
     vol.Optional("phone"): vol.Any(str, None),
@@ -73,6 +74,8 @@ async def websocket_save_owner(hass: HomeAssistant, connection, msg: dict[str, A
         connection.send_error(msg["id"], "not_loaded", "Puppy Tracker is not loaded")
         return
     try:
+        if msg.get("owner_id") and not msg.get("expected_revision"):
+            raise OwnerConflict("Reload the contact before saving")
         async with mutation_coordinator(hass).operation():
             runtime = get_runtime_data(hass)
             litter_id = msg.get("litter_id")
@@ -90,15 +93,19 @@ async def websocket_save_owner(hass: HomeAssistant, connection, msg: dict[str, A
                     if preference["puppy_id"] not in puppy_ids and preference not in previous_preferences:
                         raise ValueError("Puppy preferences must belong to the selected litter")
             owner = await owners.async_upsert(msg, msg.get("owner_id"))
+    except OwnerConflict as err:
+        connection.send_error(msg["id"], "owner_conflict", str(err))
+        return
     except ValueError as err:
         connection.send_error(msg["id"], "invalid_owner", str(err))
         return
     async_dispatcher_send(hass, SIGNAL_DASHBOARD_UPDATE)
-    connection.send_result(msg["id"], {"owner": owner})
+    connection.send_result(msg["id"], {"owner": owner_response(owner)})
 
 
 @websocket_api.require_admin
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/owners/delete", vol.Required("owner_id"): str})
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/owners/delete", vol.Required("owner_id"): str,
+                                  vol.Optional("expected_revision"): str})
 @websocket_api.async_response
 async def websocket_delete_owner(hass: HomeAssistant, connection, msg: dict[str, Any]) -> None:
     owners = _owners(hass)
@@ -106,6 +113,8 @@ async def websocket_delete_owner(hass: HomeAssistant, connection, msg: dict[str,
         connection.send_error(msg["id"], "not_loaded", "Puppy Tracker is not loaded")
         return
     try:
+        if not msg.get("expected_revision"):
+            raise OwnerConflict("Reload the contact before deleting")
         async with mutation_coordinator(hass).restore():
             runtime = get_runtime_data(hass)
             if any(msg["owner_id"] in (puppy.get("owner_ids") or [])
@@ -113,7 +122,10 @@ async def websocket_delete_owner(hass: HomeAssistant, connection, msg: dict[str,
                    for puppy in litter.get("puppies", {}).values()):
                 connection.send_error(msg["id"], "owner_linked", "Unlink the contact from puppies before deleting it")
                 return
-            await owners.async_delete(msg["owner_id"])
+            await owners.async_delete(msg["owner_id"], expected_revision=msg["expected_revision"])
+    except OwnerConflict as err:
+        connection.send_error(msg["id"], "owner_conflict", str(err))
+        return
     except ValueError as err:
         connection.send_error(msg["id"], "not_found", str(err))
         return
@@ -127,6 +139,7 @@ async def websocket_delete_owner(hass: HomeAssistant, connection, msg: dict[str,
     vol.Required("litter_id"): str,
     vol.Required("puppy_id"): str,
     vol.Required("owner_ids"): [str],
+    vol.Optional("expected_owner_ids"): [str],
 })
 @websocket_api.async_response
 async def websocket_link_owners(hass: HomeAssistant, connection, msg: dict[str, Any]) -> None:
@@ -142,6 +155,9 @@ async def websocket_link_owners(hass: HomeAssistant, connection, msg: dict[str, 
             litter = runtime.storage.get_litter(msg["litter_id"])
             if litter is None or msg["puppy_id"] not in litter.get("puppies", {}):
                 raise ValueError("Unknown puppy")
+            linked = litter["puppies"][msg["puppy_id"]].get("owner_ids") or []
+            if "expected_owner_ids" not in msg or set(msg["expected_owner_ids"]) != set(linked):
+                raise OwnerConflict("Puppy links changed; reload before linking")
             before = runtime.owners.get_backup_data()
             try:
                 for owner_id in set(msg["owner_ids"]):
@@ -153,6 +169,9 @@ async def websocket_link_owners(hass: HomeAssistant, connection, msg: dict[str, 
             except BaseException:
                 await runtime.owners.async_restore_backup_data(before)
                 raise
+    except OwnerConflict as err:
+        connection.send_error(msg["id"], "owner_conflict", str(err))
+        return
     except ValueError as err:
         connection.send_error(msg["id"], "invalid_puppy", str(err))
         return
