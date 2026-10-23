@@ -140,6 +140,10 @@ Ordinary HA state refreshes with the same connection/principal may replace the
 data-write policy; reader controls remain disabled with a localized reason.
 Busy completion reapplies the latest permissions instead of restoring stale
 button states. Native HA entity-control rights are unchanged.
+Shared Workspace scroll preservation flushes the synchronous layout update and
+restores only changed ancestor/page positions before returning. It never queues
+an old position in an animation frame, which could undo a newer user scroll
+while checklist completion or navigation updates arrive in the background.
 
 Dossier share `puppy-tracker-dossier-search.js` for accent- and
 case-insensitive title/note/result matching and localized search controls.

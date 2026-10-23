@@ -36,6 +36,8 @@ they have not been reconstructed as a complete historical changelog.
   leave unrelated station drafts untouched.
 - Invalid operational checkpoints no longer prevent starting/resetting sessions.
 - Completion notifications are withdrawn even after session alerts are disabled.
+- Background checklist/navigation updates no longer replay stale scroll positions
+  after the user has continued scrolling.
 
 ### Deprecated
 

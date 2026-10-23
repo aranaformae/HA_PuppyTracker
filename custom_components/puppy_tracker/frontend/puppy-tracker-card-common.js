@@ -60,13 +60,20 @@ export function preserveScrollPosition(element, update) {
   const windowPosition = [window.scrollX, window.scrollY];
   const restore = () => {
     for (const [target, left, top] of positions) {
-      if (target.isConnected) target.scrollTo(left, top);
+      if (target.isConnected && (target.scrollLeft !== left || target.scrollTop !== top)) {
+        target.scrollTo({ left, top, behavior: "instant" });
+      }
     }
-    window.scrollTo(windowPosition[0], windowPosition[1]);
+    if (window.scrollX !== windowPosition[0] || window.scrollY !== windowPosition[1]) {
+      window.scrollTo({ left: windowPosition[0], top: windowPosition[1], behavior: "instant" });
+    }
   };
 
   const result = update();
-  requestAnimationFrame(restore);
+  // Flush the synchronous layout change before restoring. A deferred restore
+  // can otherwise overwrite a newer user scroll with an old snapshot.
+  element?.ownerDocument?.documentElement?.getBoundingClientRect();
+  restore();
   return result;
 }
 
