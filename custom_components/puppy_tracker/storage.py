@@ -1650,6 +1650,7 @@ class PuppyTrackerStorage:
         note: str | None = None,
         *,
         weighing_session: dict[str, Any] | None = None,
+        validate_write: Callable[[], None] | None = None,
     ) -> str:
         """Record a new puppy weight."""
 
@@ -1671,6 +1672,9 @@ class PuppyTrackerStorage:
                 litter_id,
                 puppy_id,
             )
+
+            if validate_write is not None:
+                validate_write()
 
             measurement_id = str(
                 uuid4()

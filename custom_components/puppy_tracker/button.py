@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from copy import deepcopy
 import logging
 from typing import Any
@@ -20,8 +19,6 @@ from homeassistant.util import dt as dt_util
 
 from .const import (
     DOMAIN,
-    DUPLICATE_CONFIRMATION_SECONDS,
-    DUPLICATE_WEIGHING_WINDOW_SECONDS,
     SIGNAL_DASHBOARD_UPDATE,
     SIGNAL_UPDATE,
 )
@@ -29,13 +26,12 @@ from .runtime import PuppyTrackerRuntimeData
 from .session import (
     SESSION_ACTIVE,
     SESSION_INTERRUPTED,
-    async_record_station_weight,
     async_resolve_session,
     get_session,
     reset_weighing_session,
     start_weighing_session,
 )
-from .time_utils import parse_timestamp, timestamp_sort_key
+from .weighing import async_save_dashboard_weight
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -255,248 +251,21 @@ class PuppySaveWeightButton(
         "puppy_tracker_save_weight"
     )
 
-    def _has_recent_dashboard_measurement(
-        self,
-        litter_id: str,
-        puppy_id: str,
-    ) -> bool:
-        """Check for a very recent dashboard measurement."""
-
-        try:
-            measurements = (
-                self.storage.get_active_measurements(
-                    litter_id,
-                    puppy_id,
-                )
-            )
-        except ValueError:
-            return False
-
-        if not measurements:
-            return False
-
-        latest = max(
-            measurements,
-            key=lambda item: timestamp_sort_key(item.get("created_at")),
-        )
-
-        if (
-            latest.get("note")
-            != "Dashboardweging"
-        ):
-            return False
-
-        created_at = (
-            parse_timestamp(
-                latest.get(
-                    "created_at"
-                )
-            )
-        )
-
-        if created_at is None:
-            return False
-
-        age_seconds = (
-            dt_util.now()
-            - created_at
-        ).total_seconds()
-
-        return (
-            0
-            <= age_seconds
-            <= DUPLICATE_WEIGHING_WINDOW_SECONDS
-        )
-
-    def _duplicate_is_confirmed(
-        self,
-        puppy_id: str,
-        weight: float,
-    ) -> bool:
-        """Check whether second press confirms duplicate."""
-
-        session = get_session(
-            self.data
-        )
-
-        pending = session.get(
-            "duplicate_pending"
-        )
-
-        if not isinstance(
-            pending,
-            dict,
-        ):
-            return False
-
-        expires_at = (
-            parse_timestamp(
-                pending.get(
-                    "expires_at"
-                )
-            )
-        )
-
-        if expires_at is None:
-            session[
-                "duplicate_pending"
-            ] = None
-
-            return False
-
-        if dt_util.now() > expires_at:
-            session[
-                "duplicate_pending"
-            ] = None
-
-            return False
-
-        return (
-            pending.get(
-                "puppy_id"
-            )
-            == puppy_id
-            and float(
-                pending.get(
-                    "weight",
-                    -1,
-                )
-            )
-            == float(
-                weight
-            )
-        )
-
-    def _request_duplicate_confirmation(
-        self,
-        puppy_id: str,
-        puppy_name: str,
-        weight: float,
-    ) -> None:
-        """Store pending duplicate confirmation."""
-
-        session = get_session(
-            self.data
-        )
-
-        expires_at = (
-            dt_util.now().timestamp()
-            + DUPLICATE_CONFIRMATION_SECONDS
-        )
-
-        expires_datetime = (
-            datetime.fromtimestamp(
-                expires_at,
-                tz=(
-                    dt_util.DEFAULT_TIME_ZONE
-                ),
-            )
-        )
-
-        session[
-            "duplicate_pending"
-        ] = {
-            "puppy_id": puppy_id,
-            "weight": float(
-                weight
-            ),
-            "expires_at": (
-                expires_datetime.isoformat()
-            ),
-        }
-
-        session[
-            "message"
-        ] = (
-            f"{puppy_name} is minder dan "
-            f"2 minuten geleden gewogen. "
-            f"Druk nogmaals op Gewicht opslaan "
-            f"om {weight:g} g te bevestigen."
-        )
-
-        async_dispatcher_send(
-            self.hass,
-            SIGNAL_DASHBOARD_UPDATE,
-        )
-
-    async def async_press(
-        self,
-    ) -> None:
-        """Save entered weight."""
-
+    async def async_press(self) -> None:
+        """Save an explicit snapshot of the current native station controls."""
         litter_id = self.data.selected_litter_id
-
         puppy_id = self.data.selected_puppy_id
-
         weight = float(self.data.weight_input)
-
-        if not litter_id:
-            raise HomeAssistantError(
-                "Selecteer eerst een nest."
+        if not litter_id or not puppy_id:
+            raise HomeAssistantError("Selecteer eerst een nest en een puppy.")
+        try:
+            measurement_id = await async_save_dashboard_weight(
+                self.data, litter_id=litter_id, puppy_id=puppy_id, weight=weight,
             )
-
-        if not puppy_id:
-            raise HomeAssistantError(
-                "Selecteer eerst een puppy."
-            )
-
-        if weight <= 0:
-            raise HomeAssistantError(
-                "Voer eerst een gewicht groter dan 0 gram in."
-            )
-
-        puppy = self.storage.get_puppy(
-            litter_id,
-            puppy_id,
-        )
-
-        if puppy is None:
-            raise HomeAssistantError(
-                "De geselecteerde puppy bestaat niet meer."
-            )
-
-        if not puppy.get(
-            "active",
-            True,
-        ):
-            raise HomeAssistantError(
-                "De geselecteerde puppy is gearchiveerd."
-            )
-
-        puppy_name = puppy.get(
-            "name",
-            "Puppy",
-        )
-
-        if self._has_recent_dashboard_measurement(
-            litter_id,
-            puppy_id,
-        ):
-            if not self._duplicate_is_confirmed(
-                puppy_id,
-                weight,
-            ):
-                self._request_duplicate_confirmation(
-                    puppy_id,
-                    puppy_name,
-                    weight,
-                )
-
-                raise HomeAssistantError(
-                    "Mogelijke dubbele meting. "
-                    "Druk binnen 30 seconden nogmaals "
-                    "op Gewicht opslaan om te bevestigen."
-                )
-
-        measurement_id = (
-            await async_record_station_weight(
-                self.data,
-                litter_id=litter_id,
-                puppy_id=puppy_id,
-                weight=weight,
-                note="Dashboardweging",
-            )
-        )
+        except ValueError as err:
+            async_dispatcher_send(self.hass, SIGNAL_DASHBOARD_UPDATE)
+            raise HomeAssistantError(str(err)) from err
+        puppy_name = self.storage.get_puppy(litter_id, puppy_id).get("name", "Puppy")
 
         # Clear input to prevent accidentally reusing
         # the previous puppy's weight.

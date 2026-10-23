@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 from copy import deepcopy
 from datetime import timedelta
 from uuid import uuid4
@@ -318,9 +318,12 @@ def recover_session(storage: Any) -> dict[str, Any]:
     return session
 
 
-async def async_record_station_weight(runtime: PuppyTrackerRuntimeData, **weight: Any) -> str:
+async def async_record_station_weight(
+    runtime: PuppyTrackerRuntimeData, *, expected_session: dict[str, Any] | None = None,
+    validate_write: Callable[[], None] | None = None, **weight: Any,
+) -> str:
     """Serialize station writes and publish runtime progress only after persistence."""
-    expected = deepcopy(get_session(runtime))
+    expected = deepcopy(expected_session if expected_session is not None else get_session(runtime))
     async with runtime.weighing_lock:
         session = get_session(runtime)
         if (session.get("id"), session.get("revision")) != (expected.get("id"), expected.get("revision")):
@@ -330,7 +333,7 @@ async def async_record_station_weight(runtime: PuppyTrackerRuntimeData, **weight
         before_session = deepcopy(session)
         before_summary = runtime.storage.get_completed_weighing_summary(weight["litter_id"])
         measurement_id = await runtime.storage.async_record_weight(
-            **weight, weighing_session=deepcopy(session),
+            **weight, weighing_session=deepcopy(session), validate_write=validate_write,
         )
         checkpoint = runtime.storage.get_weighing_session()
         if isinstance(checkpoint, dict):

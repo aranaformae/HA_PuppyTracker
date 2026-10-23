@@ -27,6 +27,7 @@ from .session import async_resolve_session, async_undo_station_weight, get_sessi
 from .storage import PuppyTrackerStorage
 from .time_utils import timestamp_sort_key
 from .updates import dispatch_dossier_update, dispatch_measurement_update
+from .weighing import async_save_dashboard_weight
 from .managed_files_http import signed_file_path
 from .upcoming import DAYS_AHEAD_DEFAULT, upcoming_actions, upcoming_summary
 
@@ -756,7 +757,42 @@ def websocket_preview_weight(hass, connection, msg) -> None:
     except ValueError as err:
         connection.send_error(msg["id"], "not_found", str(err))
         return
+    runtime = get_runtime_data(hass)
+    session = get_session(runtime) if runtime else {}
+    result["session"] = {"id": session.get("id"), "revision": session.get("revision", 0)}
     connection.send_result(msg["id"], result)
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/weight/save",
+    vol.Required("litter_id"): str,
+    vol.Required("puppy_id"): str,
+    vol.Required("weight"): vol.All(vol.Coerce(float), vol.Range(min=1, max=10000)),
+    vol.Required("session_id"): vol.Any(str, None),
+    vol.Required("revision"): vol.All(int, vol.Range(min=0)),
+    vol.Required("baseline_id"): vol.Any(str, None),
+    vol.Optional("confirmed", default=False): bool,
+})
+@websocket_api.async_response
+async def websocket_save_weight(hass, connection, msg):
+    """Commit the exact puppy, weight, session and baseline reviewed by a card."""
+    runtime = get_runtime_data(hass)
+    if runtime is None:
+        connection.send_error(msg["id"], "not_loaded", "Puppy Tracker is not loaded")
+        return
+    try:
+        measurement_id = await async_save_dashboard_weight(
+            runtime, litter_id=msg["litter_id"], puppy_id=msg["puppy_id"], weight=msg["weight"],
+            expected_session={"id": msg["session_id"], "revision": msg["revision"]},
+            preview={"baseline_id": msg["baseline_id"], "confirmed": msg.get("confirmed", False)},
+        )
+    except ValueError as err:
+        async_dispatcher_send(hass, SIGNAL_DASHBOARD_UPDATE)
+        connection.send_error(msg["id"], "weight_changed", str(err))
+        return
+    dispatch_measurement_update(hass, msg["puppy_id"])
+    connection.send_result(msg["id"], {"measurement_id": measurement_id, "puppy_id": msg["puppy_id"], "weight": msg["weight"]})
 
 
 @websocket_api.require_admin
@@ -1461,6 +1497,7 @@ def async_setup_api(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, websocket_get_litters)
     websocket_api.async_register_command(hass, websocket_get_data)
     websocket_api.async_register_command(hass, websocket_preview_weight)
+    websocket_api.async_register_command(hass, websocket_save_weight)
     websocket_api.async_register_command(hass, websocket_get_measurements)
     websocket_api.async_register_command(hass, websocket_correct_measurement)
     websocket_api.async_register_command(hass, websocket_delete_measurement)

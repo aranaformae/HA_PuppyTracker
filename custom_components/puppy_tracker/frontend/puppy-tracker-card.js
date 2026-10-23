@@ -1014,6 +1014,11 @@ class PuppyTrackerCard extends HTMLElement {
     const value = Number(input?.value ?? this._draftWeight ?? 0);
     const puppy = this._puppyRows(station).find((row) => row.selected) || null;
     const previousWeight = Number(puppy?.weight);
+    const hass = this._hass;
+    const connection = hass.connection;
+    const user = hass.user?.id;
+    const current = () => this._hass === hass && hass.connection === connection
+      && hass.user?.id === user && hass.user?.is_admin !== false && this.isConnected;
 
     if (!Number.isFinite(value) || value <= 0) {
       this._localMessage = this._t("enterValidWeight");
@@ -1027,32 +1032,22 @@ class PuppyTrackerCard extends HTMLElement {
     controls.forEach(([element]) => { element.disabled = true; });
     try {
       const litterId = this._deviceIdentifier(this._selectedLitterDevice(station), "litter_")?.slice("litter_".length);
-      if (litterId && puppy?.puppyId) {
-        const preview = await this._hass.callWS({ type: "puppy_tracker/weight/preview", litter_id: litterId, puppy_id: puppy.puppyId, weight: value });
-        const key = JSON.stringify([litterId, puppy.puppyId, value, preview.baseline_id]);
-        if (preview.anomaly && this._pendingWeightConfirmation !== key) {
-          this._pendingWeightConfirmation = key;
-          this._localMessage = this._t("weightWarning", { weight: value, puppy: puppy.displayName, change: preview.anomaly.change_percent });
-          this._localMessageType = "warning";
-          this._scheduleRender(true);
-          return;
-        }
+      if (!litterId || !puppy?.puppyId || !current()) return;
+      const preview = await hass.callWS({ type: "puppy_tracker/weight/preview", litter_id: litterId, puppy_id: puppy.puppyId, weight: value });
+      if (!current()) return;
+      const key = JSON.stringify([litterId, puppy.puppyId, value, preview.baseline_id]);
+      if (preview.anomaly && this._pendingWeightConfirmation !== key) {
+        this._pendingWeightConfirmation = key;
+        this._localMessage = this._t("weightWarning", { weight: value, puppy: puppy.displayName, change: preview.anomaly.change_percent });
+        this._localMessageType = "warning";
+        this._scheduleRender(true);
+        return;
       }
-      if (station.ids.weight) {
-        await this._hass.callService(
-          "number",
-          "set_value",
-          { value },
-          { entity_id: station.ids.weight }
-        );
-      }
-
-      await this._hass.callService(
-        "button",
-        "press",
-        {},
-        { entity_id: station.ids.save }
-      );
+      await hass.callWS({ type: "puppy_tracker/weight/save", litter_id: litterId,
+        puppy_id: puppy.puppyId, weight: value, baseline_id: preview.baseline_id,
+        session_id: preview.session?.id ?? null, revision: preview.session?.revision ?? 0,
+        confirmed: Boolean(preview.anomaly && this._pendingWeightConfirmation === key) });
+      if (!current()) return;
 
       this._draftWeight = null;
       this._pendingWeightConfirmation = null;
@@ -1094,7 +1089,7 @@ class PuppyTrackerCard extends HTMLElement {
       this._localMessageType = "success";
       this._scheduleRender(true);
     } catch (err) {
-      this._setError(err);
+      if (current()) this._setError(err);
     } finally {
       this._weightSaveBusy = false;
       controls.forEach(([element, disabled]) => { if (element.isConnected) element.disabled = disabled; });

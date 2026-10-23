@@ -107,10 +107,17 @@ projections retain their own settings and behavior.
 
 `puppy_tracker/weight/preview` is an authenticated, read-only WebSocket command
 using `weight_change_anomaly`, the same rule used after persistence. It returns
-only anomaly metadata and the current baseline ID for the selected puppy.
+anomaly metadata, the current baseline ID and the session ID/revision.
 The shared Weighing surface binds confirmation to litter, puppy, entered value
 and baseline ID. A busy guard and disabled controls protect the async preflight
 and save path; direct record-weight actions are not changed by this UI prompt.
+`puppy_tracker/weight/save` commits the explicit litter, puppy and entered
+weight in one administrator-only command. It checks the reviewed session and,
+inside the storage lock, the baseline and any anomaly confirmation. The card
+does not write the shared number entity before pressing a save button. Native
+station buttons and this command share `weighing.py` duplicate protection,
+bound to the actual latest measurement. A changed connection/principal cannot
+continue a preflight or apply late feedback to a different client context.
 
 Dossier share `puppy-tracker-dossier-search.js` for accent- and
 case-insensitive title/note/result matching and localized search controls.
