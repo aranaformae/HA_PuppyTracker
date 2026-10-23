@@ -10,6 +10,15 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-10-23
+
+**Breaking API change:** interactive owner updates/deletions now require the
+revision returned by the owner API; puppy-link changes require the previously
+displayed links. Restart Home Assistant and reload open dashboards after updating.
+Custom API clients must send these concurrency fields. Stored owner data and
+backups are unchanged from 0.30.0; upgrades from older versions still require
+the backup and migration precautions described under 0.30.0 below.
+
 ### Added
 
 - Compact owner editing with independently collapsible contact, address,
@@ -114,7 +123,8 @@ for explicit assignment. See [storage migrations](docs/storage-migrations.md#own
 
 - Separated daily execution from schedule management in Care workspace navigation.
 
-[Unreleased]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.30.0...HEAD
+[Unreleased]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.31.0...HEAD
+[0.31.0]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.30.0...v0.31.0
 [0.30.0]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.29.6...v0.30.0
 [0.29.6]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.29.5...v0.29.6
 [0.29.5]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.29.4...v0.29.5
