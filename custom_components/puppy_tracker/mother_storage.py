@@ -65,7 +65,7 @@ class MotherScopeStorage(PuppyTrackerStorage):
         mother_name: str | None,
         mother_details: dict[str, Any] | None = None,
     ) -> None:
-        async with self._lock:
+        async with self._mutation():
             litter = self._require_litter(litter_id)
             current_mother_id = str(litter.get("mother_id") or "")
             name = _clean_name(mother_name)
@@ -203,7 +203,7 @@ class MotherScopeStorage(PuppyTrackerStorage):
     async def async_update_mother_profile_note(
         self, mother_id: str, profile_note: str | None
     ) -> None:
-        async with self._lock:
+        async with self._mutation():
             mother = self._require_mother(mother_id)
             note = (
                 profile_note.strip()
@@ -290,7 +290,7 @@ class MotherScopeStorage(PuppyTrackerStorage):
         normalized_type = validate_record_type(record_type)
         if normalized_type == BEHAVIOR_RECORD_TYPE:
             raise ValueError("Behavior observations must belong to a puppy")
-        async with self._lock:
+        async with self._mutation():
             litter = self._require_litter(litter_id)
             if str(litter.get("mother_id") or "") != mother_id:
                 raise ValueError("Mother is not linked to this litter")
@@ -311,8 +311,6 @@ class MotherScopeStorage(PuppyTrackerStorage):
                 data=normalized_data,
                 now=now,
             )
-            before = deepcopy(self._data) if (followup_record_id or normalized_data.get("recurring_reminder_id")
-                                             or normalized_data.get("recurring_completion") == "none") else None
             mother.setdefault("records", []).append(record)
             mother["updated_at"] = now
             litter["updated_at"] = now
@@ -322,12 +320,7 @@ class MotherScopeStorage(PuppyTrackerStorage):
                 record_id=record["id"],
                 details={"mother_id": mother_id, "type": record["type"]},
             )
-            try:
-                await self.async_save()
-            except Exception:
-                if before is not None:
-                    self._data = before
-                raise
+            await self.async_save()
         return str(record["id"])
 
     async def async_update_record(
@@ -357,7 +350,7 @@ class MotherScopeStorage(PuppyTrackerStorage):
         normalized_type = validate_record_type(record_type)
         if normalized_type == BEHAVIOR_RECORD_TYPE:
             raise ValueError("Behavior observations must belong to a puppy")
-        async with self._lock:
+        async with self._mutation():
             mother = self._require_mother(mother_id)
             record = self._require_record(mother, record_id)
             now = _now_iso()
@@ -411,7 +404,7 @@ class MotherScopeStorage(PuppyTrackerStorage):
                 target_scope=target_scope,
             )
 
-        async with self._lock:
+        async with self._mutation():
             litter = self._require_litter(litter_id)
             mother_id = str(litter.get("mother_id") or "")
             if not mother_id:
@@ -474,14 +467,13 @@ class MotherScopeStorage(PuppyTrackerStorage):
     ) -> None:
         if mother_id is None:
             return await super().async_delete_record(litter_id, record_id, puppy_id, validate_delete=validate_delete)
-        async with self._lock:
+        async with self._mutation():
             mother = self._require_mother(mother_id)
             record = self._require_record(mother, record_id)
             if validate_delete is not None:
                 validate_delete(record, mother.get("records", []))
             if record.get("deleted", False):
                 return
-            before = deepcopy(self._data) if validate_delete is not None else None
             now = _now_iso()
             record["deleted"] = True
             record["deleted_at"] = now
@@ -490,12 +482,7 @@ class MotherScopeStorage(PuppyTrackerStorage):
             self._require_litter(litter_id)["updated_at"] = now
             self._add_audit_entry(action="delete_record", litter_id=litter_id,
                                   record_id=record_id, details={"type": record.get("type"), "mother_id": mother_id})
-            try:
-                await self.async_save()
-            except Exception:
-                if before is not None:
-                    self._data = before
-                raise
+            await self.async_save()
 
     async def async_restore_record(
         self,
@@ -507,7 +494,7 @@ class MotherScopeStorage(PuppyTrackerStorage):
     ) -> None:
         if mother_id is None:
             return await super().async_restore_record(litter_id, record_id, puppy_id)
-        async with self._lock:
+        async with self._mutation():
             mother = self._require_mother(mother_id)
             record = self._require_record(mother, record_id)
             if not record.get("deleted", False):

@@ -200,6 +200,19 @@ class PuppyTrackerStorage:
             "unresolved": [],
         }
 
+    @asynccontextmanager
+    async def _mutation(self):
+        """Restore live data and diagnostics when a locked write does not commit."""
+        async with self._lock:
+            before = deepcopy(self._data)
+            before_report = deepcopy(self._last_integrity_report)
+            try:
+                yield
+            except BaseException:
+                self._data = before
+                self._last_integrity_report = before_report
+                raise
+
     async def async_load(self) -> None:
         """Load data from Home Assistant storage and migrate older data."""
         stored = await self._store.async_load()
@@ -773,7 +786,7 @@ class PuppyTrackerStorage:
         repair: bool = True,
     ) -> dict[str, Any]:
         """Run a full storage integrity check and optionally apply safe repairs."""
-        async with self._lock:
+        async with self._mutation():
             changed, report = inspect_and_repair_data(
                 self._data,
                 repair=repair,
@@ -914,7 +927,7 @@ class PuppyTrackerStorage:
                 "Growth monitoring period must be between 1 and 56 days"
             )
 
-        async with self._lock:
+        async with self._mutation():
             before = deepcopy(
                 self._data.get(
                     "settings",
@@ -1001,7 +1014,7 @@ class PuppyTrackerStorage:
         normalized = normalize_breeder(breeder)
         if logo_content is not None:
             logo_content = await self.hass.async_add_executor_job(normalize_logo, logo_content)
-        async with self._lock:
+        async with self._mutation():
             before = deepcopy(self._data)
             manifest = self.get_managed_files()
             if logo_content is not None:
@@ -1049,14 +1062,12 @@ class PuppyTrackerStorage:
     async def async_update_feeding_settings(self, litter_id: str, values: dict[str, Any]) -> dict[str, Any]:
         """Persist one litter's feeding preferences with complete rollback on failure."""
         settings = normalize_feeding_settings(values)
-        async with self._lock:
+        async with self._mutation():
             litter = self._data.get("litters", {}).get(litter_id)
             if litter is None:
                 raise ValueError("Unknown litter")
             if litter.get("feeding_settings") == settings:
                 return deepcopy(settings)
-            before = deepcopy(self._data)
-            before_report = deepcopy(self._last_integrity_report)
             old_settings = normalize_feeding_settings(litter.get("feeding_settings"))
             litter["feeding_settings"] = settings
             litter["updated_at"] = _now_iso()
@@ -1064,12 +1075,7 @@ class PuppyTrackerStorage:
                 action="update_feeding_settings", litter_id=litter_id,
                 details={"before": old_settings, "after": deepcopy(settings)},
             )
-            try:
-                await self.async_save()
-            except Exception:
-                self._data = before
-                self._last_integrity_report = before_report
-                raise
+            await self.async_save()
         return deepcopy(settings)
 
     async def async_create_litter(
@@ -1082,7 +1088,7 @@ class PuppyTrackerStorage:
     ) -> str:
         """Create a new litter."""
 
-        async with self._lock:
+        async with self._mutation():
             litter_id = str(uuid4())
             now = _now_iso()
 
@@ -1135,7 +1141,7 @@ class PuppyTrackerStorage:
     ) -> None:
         """Update litter details."""
 
-        async with self._lock:
+        async with self._mutation():
             litter = self._require_litter(
                 litter_id
             )
@@ -1199,7 +1205,7 @@ class PuppyTrackerStorage:
     ) -> None:
         """Archive or restore a litter."""
 
-        async with self._lock:
+        async with self._mutation():
             litter = self._require_litter(
                 litter_id
             )
@@ -1224,7 +1230,7 @@ class PuppyTrackerStorage:
     ) -> dict[str, Any]:
         """Permanently delete a litter."""
 
-        async with self._lock:
+        async with self._mutation():
             litter = self._require_litter(
                 litter_id
             )
@@ -1290,7 +1296,7 @@ class PuppyTrackerStorage:
     ) -> str:
         """Add a puppy to a litter."""
 
-        async with self._lock:
+        async with self._mutation():
             litter = self._require_litter(
                 litter_id
             )
@@ -1403,7 +1409,7 @@ class PuppyTrackerStorage:
     ) -> None:
         """Update puppy details and keep the birth measurement synchronized."""
 
-        async with self._lock:
+        async with self._mutation():
             puppy = self._require_puppy(litter_id, puppy_id)
 
             before = {
@@ -1555,7 +1561,7 @@ class PuppyTrackerStorage:
         self, litter_id: str, puppy_id: str, owner_ids: list[str]
     ) -> None:
         """Set reusable owner references on a puppy."""
-        async with self._lock:
+        async with self._mutation():
             puppy = self._require_puppy(litter_id, puppy_id)
             normalized = list(dict.fromkeys(str(value).strip() for value in owner_ids if str(value).strip()))
             before = list(puppy.get("owner_ids") or [])
@@ -1576,7 +1582,7 @@ class PuppyTrackerStorage:
     ) -> None:
         """Archive or restore a puppy."""
 
-        async with self._lock:
+        async with self._mutation():
             puppy = self._require_puppy(
                 litter_id,
                 puppy_id,
@@ -1604,7 +1610,7 @@ class PuppyTrackerStorage:
     ) -> dict[str, Any]:
         """Permanently delete a puppy."""
 
-        async with self._lock:
+        async with self._mutation():
             litter = self._require_litter(
                 litter_id
             )
@@ -1660,8 +1666,7 @@ class PuppyTrackerStorage:
                 "Weight must be greater than zero"
             )
 
-        async with self._lock:
-            before = deepcopy(self._data)
+        async with self._mutation():
             if weighing_session is not None:
                 self._check_weighing_checkpoint(weighing_session)
                 if weighing_session.get("status") == SESSION_INTERRUPTED:
@@ -1740,11 +1745,7 @@ class PuppyTrackerStorage:
                                    weighed_puppies=len(checkpoint["weighed_puppy_ids"]))
                     self._require_litter(litter_id)["last_completed_session"] = summary
                     self._add_audit_entry(action="complete_weighing_session", litter_id=litter_id, details=deepcopy(summary))
-            try:
-                await self.async_save()
-            except Exception:
-                self._data = before
-                raise
+            await self.async_save()
 
             return measurement_id
 
@@ -1767,9 +1768,8 @@ class PuppyTrackerStorage:
         self, session: dict[str, Any] | None, *, expected: dict[str, Any],
     ) -> None:
         """Commit a checkpoint transition or discard without touching weight history."""
-        async with self._lock:
+        async with self._mutation():
             self._check_weighing_checkpoint(expected)
-            before = deepcopy(self._data)
             if session is not None:
                 litter = self._require_litter(session["litter_id"])
                 if not litter.get("active", True) or not session["puppy_ids"]:
@@ -1778,11 +1778,7 @@ class PuppyTrackerStorage:
                        for puppy_id in session["puppy_ids"]):
                     raise ValueError("De geselecteerde puppy is gearchiveerd.")
             self._data["weighing_session"] = deepcopy(session)
-            try:
-                await self.async_save()
-            except Exception:
-                self._data = before
-                raise
+            await self.async_save()
 
     async def async_correct_measurement(
         self,
@@ -1800,7 +1796,7 @@ class PuppyTrackerStorage:
         if new_timestamp is not None and not new_timestamp:
             raise ValueError("Timestamp is invalid")
 
-        async with self._lock:
+        async with self._mutation():
             puppy = self._require_puppy(litter_id, puppy_id)
             original = self._require_measurement(puppy, measurement_id)
 
@@ -1887,10 +1883,9 @@ class PuppyTrackerStorage:
         weighing_undo: dict[str, Any] | None = None,
     ) -> None:
         """Soft-delete a current measurement and reactivate its predecessor."""
-        async with self._lock:
+        async with self._mutation():
             puppy = self._require_puppy(litter_id, puppy_id)
             measurement = self._require_measurement(puppy, measurement_id)
-            before = deepcopy(self._data) if weighing_undo else None
             if weighing_undo is not None:
                 self._check_weighing_checkpoint(weighing_undo["after_session"])
                 expires = parse_timestamp(weighing_undo.get("expires_at"))
@@ -1967,12 +1962,7 @@ class PuppyTrackerStorage:
                 session["message"] = "Laatste weging ongedaan gemaakt"
                 self._data["weighing_session"] = session if session.get("id") else None
                 self._require_litter(litter_id)["last_completed_session"] = deepcopy(weighing_undo["before_summary"])
-            try:
-                await self.async_save()
-            except Exception:
-                if before is not None:
-                    self._data = before
-                raise
+            await self.async_save()
 
     async def async_restore_weight(
         self,
@@ -1990,7 +1980,7 @@ class PuppyTrackerStorage:
         keeps every historical version and guarantees one unambiguous active
         version per correction chain.
         """
-        async with self._lock:
+        async with self._mutation():
             puppy = self._require_puppy(litter_id, puppy_id)
             measurement = self._require_measurement(puppy, measurement_id)
 
@@ -2143,7 +2133,7 @@ class PuppyTrackerStorage:
         profile_note: str | None,
     ) -> None:
         """Update only the persistent profile note for one puppy."""
-        async with self._lock:
+        async with self._mutation():
             litter = self._require_litter(litter_id)
             puppy = self._require_puppy(litter_id, puppy_id)
             before = puppy.get("profile_note")
@@ -2227,7 +2217,7 @@ class PuppyTrackerStorage:
         followup_due_date: str | None = None,
     ) -> str:
         """Add a generic dossier record to a litter or puppy."""
-        async with self._lock:
+        async with self._mutation():
             litter = self._require_litter(litter_id)
             owner = litter if puppy_id is None else self._require_puppy(litter_id, puppy_id)
             now = _now_iso()
@@ -2251,8 +2241,6 @@ class PuppyTrackerStorage:
                 data=normalized_data,
                 now=now,
             )
-            before = deepcopy(self._data) if (followup_record_id or normalized_data.get("recurring_reminder_id")
-                                             or normalized_data.get("recurring_completion") == "none") else None
             owner.setdefault("records", []).append(record)
             owner["updated_at"] = now
             litter["updated_at"] = now
@@ -2267,12 +2255,7 @@ class PuppyTrackerStorage:
                     "occurred_at": record["occurred_at"],
                 },
             )
-            try:
-                await self.async_save()
-            except Exception:
-                if before is not None:
-                    self._data = before
-                raise
+            await self.async_save()
             return str(record["id"])
 
     async def async_update_record(
@@ -2288,7 +2271,7 @@ class PuppyTrackerStorage:
         data: dict[str, Any] | None = None,
     ) -> None:
         """Update a dossier record while preserving its identity and history metadata."""
-        async with self._lock:
+        async with self._mutation():
             litter = self._require_litter(litter_id)
             owner = litter if puppy_id is None else self._require_puppy(litter_id, puppy_id)
             record = self._require_record(owner, record_id)
@@ -2331,7 +2314,7 @@ class PuppyTrackerStorage:
         target_scope: str | None = None,
     ) -> dict[str, Any]:
         """Move a dossier record between litter and puppy ownership lists."""
-        async with self._lock:
+        async with self._mutation():
             litter = self._require_litter(litter_id)
             source_scope = source_scope or (
                 RECORD_SCOPE_PUPPY if source_puppy_id else RECORD_SCOPE_LITTER
@@ -2389,7 +2372,7 @@ class PuppyTrackerStorage:
         validate_delete: Callable[[dict, list[dict]], None] | None = None,
     ) -> None:
         """Soft-delete a record, optionally validating against locked owner history."""
-        async with self._lock:
+        async with self._mutation():
             litter = self._require_litter(litter_id)
             owner = litter if puppy_id is None else self._require_puppy(litter_id, puppy_id)
             record = self._require_record(owner, record_id)
@@ -2398,7 +2381,6 @@ class PuppyTrackerStorage:
             if record.get("deleted", False):
                 return
 
-            before = deepcopy(self._data) if validate_delete is not None else None
             now = _now_iso()
             record["deleted"] = True
             record["deleted_at"] = now
@@ -2412,12 +2394,7 @@ class PuppyTrackerStorage:
                 record_id=record_id,
                 details={"type": record.get("type")},
             )
-            try:
-                await self.async_save()
-            except Exception:
-                if before is not None:
-                    self._data = before
-                raise
+            await self.async_save()
 
     async def async_restore_record(
         self,
@@ -2426,7 +2403,7 @@ class PuppyTrackerStorage:
         puppy_id: str | None = None,
     ) -> None:
         """Restore a soft-deleted dossier record."""
-        async with self._lock:
+        async with self._mutation():
             litter = self._require_litter(litter_id)
             owner = litter if puppy_id is None else self._require_puppy(litter_id, puppy_id)
             record = self._require_record(owner, record_id)

@@ -98,6 +98,14 @@ the restore and releases the barrier. Individual stores retain their own locks,
 so ordinary unrelated writes remain concurrent. Mother-profile composite writes
 participate for their entire operation, including the persistence step.
 
+Main-store mutations use one `_mutation()` context: acquire the coordinated
+store lock, snapshot live data and integrity diagnostics, and restore both if
+validation, persistence or cancellation fails. Dossier add/edit/move/delete/
+restore use this same path for litter, mother and puppy ownership, as do weight
+history corrections and profile/settings writes. A rejected write therefore
+cannot leak into a later unrelated successful save. Binary-file cleanup retains
+its separate best-effort handling for immutable staged files.
+
 `rolling_growth.py` derives 48/72-hour percentage series and a 48-hour
 time-weighted mean from effective measurement history. Duplicate instants are
 collapsed deterministically; cumulative trapezoidal areas and binary-search

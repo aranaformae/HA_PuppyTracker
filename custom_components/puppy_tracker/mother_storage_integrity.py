@@ -33,7 +33,7 @@ class MotherScopeIntegrityStorage(MotherScopeStorage):
         *,
         repair: bool = True,
     ) -> dict[str, Any]:
-        async with self._lock:
+        async with self._mutation():
             changed, report = self._combined_integrity(repair=repair)
             self._last_integrity_report = report
             if changed:
