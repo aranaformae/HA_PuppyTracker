@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from copy import deepcopy
 from typing import Any
 
@@ -10,6 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
 from .const import DOMAIN
+from .storage_lock import CoordinatedLock, mutation_coordinator
 
 CARE_REMINDER_STORE_KEY = f"{DOMAIN}_care_reminders"
 CARE_REMINDER_STORE_VERSION = 1
@@ -86,7 +86,7 @@ class CareReminderStore:
             CARE_REMINDER_STORE_KEY,
         )
         self._data = _default_data()
-        self._lock = asyncio.Lock()
+        self._lock = CoordinatedLock(mutation_coordinator(hass))
 
     async def async_load(self) -> None:
         """Load and normalize care reminder settings."""

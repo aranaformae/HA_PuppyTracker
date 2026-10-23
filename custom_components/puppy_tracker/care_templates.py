@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from copy import deepcopy
 from typing import Any
 from uuid import uuid4
@@ -12,6 +11,7 @@ from homeassistant.helpers.storage import Store
 
 from .care_programs import normalize_care_program
 from .const import DOMAIN
+from .storage_lock import CoordinatedLock, mutation_coordinator
 
 TEMPLATE_STORE_KEY = f"{DOMAIN}_care_program_templates"
 TEMPLATE_STORE_VERSION = 1
@@ -118,7 +118,7 @@ class CareProgramTemplateStore:
     def __init__(self, hass: HomeAssistant) -> None:
         self._store: Store[dict[str, Any]] = Store(hass, TEMPLATE_STORE_VERSION, TEMPLATE_STORE_KEY)
         self._data: dict[str, Any] = {"templates": {}}
-        self._lock = asyncio.Lock()
+        self._lock = CoordinatedLock(mutation_coordinator(hass))
 
     async def async_load(self) -> None:
         loaded = await self._store.async_load()

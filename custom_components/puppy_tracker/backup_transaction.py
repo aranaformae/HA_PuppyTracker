@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from copy import deepcopy
 from typing import Any
 
@@ -97,12 +98,13 @@ async def async_apply_import_transaction(
     care_templates: CareProgramTemplateStore | None = None,
     owners: OwnerStore | None = None,
 ) -> dict[str, Any]:
-    """Pin binary rollback dependencies for the complete multi-store operation."""
-    async with storage.async_pin_managed_files():
-        return await _async_apply_import_transaction(
-            storage, plan, care_reminders=care_reminders, care_programs=care_programs,
-            recurring_reminders=recurring_reminders, care_templates=care_templates, owners=owners,
-        )
+    """Isolate all store writes until the complete restore commits or rolls back."""
+    async with storage.mutations.restore():
+        async with storage.async_pin_managed_files():
+            return await _async_apply_import_transaction(
+                storage, plan, care_reminders=care_reminders, care_programs=care_programs,
+                recurring_reminders=recurring_reminders, care_templates=care_templates, owners=owners,
+            )
 
 
 async def _async_apply_import_transaction(
@@ -217,7 +219,7 @@ async def _async_apply_import_transaction(
         if owner_data is not None and owners is not None:
             await owners.async_restore_backup_data(owner_data)
         return result
-    except Exception as primary:  # noqa: BLE001 - preserve original failure after rollback
+    except (Exception, asyncio.CancelledError) as primary:  # noqa: BLE001 - rollback also survives cancellation
         rollback_errors: list[str] = []
 
         if before_recurring is not None and recurring_reminders is not None:

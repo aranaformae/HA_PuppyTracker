@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import asyncio
 from copy import deepcopy
 from unittest.mock import AsyncMock
 
@@ -35,6 +36,56 @@ TARGET_CARE_SETTINGS = {
     "lead_days": 5,
     "categories": {"vaccination": False, "deworming": True},
 }
+
+
+@pytest.mark.parametrize("outcome", ["success", "failure", "cancel"])
+async def test_restore_isolates_concurrent_dossier_and_owner_writes(hass, storage, install_litter, outcome):
+    from custom_components.puppy_tracker.owners import OwnerStore
+
+    litter_id, puppy_id = install_litter()
+    document = build_export_document(storage, scope="full", care_reminder_settings=TARGET_CARE_SETTINGS,
+                                     scheduler_data=_source_schedulers())
+    plan = prepare_import(storage, document, mode="replace_all")
+    care, programs, recurring, templates = _runtime_stores(hass)
+    owners = OwnerStore(hass)
+    owners._store.async_save = AsyncMock()
+    storage._store.async_save = AsyncMock()
+    entered, release = asyncio.Event(), asyncio.Event()
+    calls = 0
+
+    async def blocked_save(*args):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            entered.set()
+            await release.wait()
+            if outcome == "failure":
+                raise OSError("care save failed")
+
+    care._store.async_save = blocked_save
+    restore = asyncio.create_task(async_apply_import_transaction(storage, plan, care_reminders=care,
+        care_programs=programs, recurring_reminders=recurring, care_templates=templates, owners=owners))
+    await entered.wait()
+    note = asyncio.create_task(storage.async_add_record(litter_id, puppy_id=puppy_id,
+                               record_type="note", note="Saved while restore was pending"))
+    contact = asyncio.create_task(owners.async_upsert({"name": "New owner"}))
+    await asyncio.sleep(0)
+    assert not note.done() and not contact.done()
+    if outcome == "cancel":
+        restore.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await restore
+    else:
+        release.set()
+        if outcome == "failure":
+            with pytest.raises(OSError, match="care save failed"):
+                await restore
+        else:
+            await restore
+    record_id = await note
+    owner = await contact
+    assert any(record["id"] == record_id for record in storage.get_records(litter_id, puppy_id))
+    assert owners.get(owner["id"])["name"] == "New owner"
 
 
 def _source_program() -> dict:

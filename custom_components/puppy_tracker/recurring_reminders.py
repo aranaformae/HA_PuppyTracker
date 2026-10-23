@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from copy import deepcopy
 from datetime import datetime, timedelta
 from math import isfinite
@@ -17,6 +16,7 @@ from .care_programs import normalize_notification_lead_minutes
 from .const import DEFAULT_NOTIFICATION_LEAD_MINUTES, DOMAIN
 from .records import record_sort_key, validate_record_type
 from .mother_storage import MotherScopeStorage
+from .storage_lock import CoordinatedLock, mutation_coordinator
 
 STORE_KEY = f"{DOMAIN}_recurring_reminders"
 STORE_VERSION = 1
@@ -383,7 +383,7 @@ class RecurringReminderStore:
     def __init__(self, hass: HomeAssistant) -> None:
         self._store: Store[dict[str, Any]] = Store(hass, STORE_VERSION, STORE_KEY)
         self._data: dict[str, Any] = {"reminders": {}}
-        self._lock = asyncio.Lock()
+        self._lock = CoordinatedLock(mutation_coordinator(hass))
 
     async def async_load(self) -> None:
         loaded = await self._store.async_load()

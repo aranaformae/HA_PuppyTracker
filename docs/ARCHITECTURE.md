@@ -89,6 +89,15 @@ not crash-atomic filesystem/database transactions. Partial imports preserve
 destination branding; general attachment links and public serving policies for
 puppy/record documents are still future work (issue #19).
 
+`storage_lock.py` coordinates all main, owner and scheduling-store writes.
+A full restore waits for existing writes (including nested cross-store
+executions), then holds an exclusive write barrier through commit or rollback.
+New edits wait outside the stores and only run against the final state; a
+rollback cannot erase a separately acknowledged edit. Cancellation rolls back
+the restore and releases the barrier. Individual stores retain their own locks,
+so ordinary unrelated writes remain concurrent. Mother-profile composite writes
+participate for their entire operation, including the persistence step.
+
 `rolling_growth.py` derives 48/72-hour percentage series and a 48-hour
 time-weighted mean from effective measurement history. Duplicate instants are
 collapsed deterministically; cumulative trapezoidal areas and binary-search

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from copy import deepcopy
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
@@ -13,6 +12,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
 from .const import DOMAIN
+from .storage_lock import CoordinatedLock, mutation_coordinator
 
 STORE_KEY = f"{DOMAIN}_owners"
 STORE_VERSION = 1
@@ -234,7 +234,7 @@ class OwnerStore:
     def __init__(self, hass: HomeAssistant) -> None:
         self._store: Store[dict[str, Any]] = Store(hass, STORE_VERSION, STORE_KEY)
         self._data: dict[str, Any] = {"owners": {}}
-        self._lock = asyncio.Lock()
+        self._lock = CoordinatedLock(mutation_coordinator(hass))
 
     async def async_load(self) -> None:
         loaded = await self._store.async_load()

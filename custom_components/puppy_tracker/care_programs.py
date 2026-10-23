@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from copy import deepcopy
 from typing import Any
 from uuid import uuid4
@@ -13,6 +12,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
 from .records import validate_record_type
+from .storage_lock import CoordinatedLock, mutation_coordinator
 
 STORE_KEY = f"{DOMAIN}_care_programs"
 STORE_VERSION = 1
@@ -236,7 +236,7 @@ class AgeBasedCareProgramStore:
     def __init__(self, hass: HomeAssistant) -> None:
         self._store: Store[dict[str, Any]] = Store(hass, STORE_VERSION, STORE_KEY)
         self._data: dict[str, Any] = {"programs": {}}
-        self._lock = asyncio.Lock()
+        self._lock = CoordinatedLock(mutation_coordinator(hass))
 
     async def async_load(self) -> None:
         loaded = await self._store.async_load()

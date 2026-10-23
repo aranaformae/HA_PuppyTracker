@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from collections.abc import Callable
 from copy import deepcopy
 from datetime import datetime, timezone
@@ -13,6 +12,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
 from .behavior import BEHAVIOR_RECORD_TYPE, validate_behavior_data
+from .storage_lock import CoordinatedLock, mutation_coordinator
 from .const import (
     DEFAULT_DOUBLE_WEIGHT_REFERENCE_DAYS,
     DEFAULT_GROWTH_MILESTONES_PERCENT,
@@ -180,7 +180,8 @@ class PuppyTrackerStorage:
         )
 
         self._data: dict[str, Any] = {}
-        self._lock = asyncio.Lock()
+        self.mutations = mutation_coordinator(hass)
+        self._lock = CoordinatedLock(self.mutations)
         self._last_integrity_report: dict[str, Any] = {
             "healthy": True,
             "issues_found": 0,

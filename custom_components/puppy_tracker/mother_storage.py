@@ -118,7 +118,7 @@ class MotherScopeStorage(PuppyTrackerStorage):
                 litter["mother"] = mother["name"]
                 litter["updated_at"] = now
             self._data["updated_at"] = now
-        await self.async_save()
+            await self.async_save()
 
     async def async_create_litter(
         self,
@@ -129,20 +129,21 @@ class MotherScopeStorage(PuppyTrackerStorage):
         mother_details: dict[str, Any] | None = None,
         father_details: dict[str, Any] | None = None,
     ) -> str:
-        normalized_mother = (
-            normalize_parent_details(mother_details, call_name=mother)
-            if mother_details is not None
-            else None
-        )
-        litter_id = await super().async_create_litter(
-            name=name,
-            birth_date=birth_date,
-            mother=mother,
-            father=father,
-            father_details=father_details,
-        )
-        await self._link_litter_mother(litter_id, mother, normalized_mother)
-        return litter_id
+        async with self.mutations.operation():
+            normalized_mother = (
+                normalize_parent_details(mother_details, call_name=mother)
+                if mother_details is not None
+                else None
+            )
+            litter_id = await super().async_create_litter(
+                name=name,
+                birth_date=birth_date,
+                mother=mother,
+                father=father,
+                father_details=father_details,
+            )
+            await self._link_litter_mother(litter_id, mother, normalized_mother)
+            return litter_id
 
     async def async_update_litter(
         self,
@@ -156,21 +157,22 @@ class MotherScopeStorage(PuppyTrackerStorage):
         father_details: dict[str, Any] | None = None,
         growth_analysis: dict[str, Any] | None = None,
     ) -> None:
-        normalized_mother = (
-            normalize_parent_details(mother_details, call_name=mother)
-            if mother_details is not None
-            else None
-        )
-        await super().async_update_litter(
-            litter_id,
-            name=name,
-            birth_date=birth_date,
-            mother=mother,
-            father=father,
-            father_details=father_details,
-            growth_analysis=growth_analysis,
-        )
-        await self._link_litter_mother(litter_id, mother, normalized_mother)
+        async with self.mutations.operation():
+            normalized_mother = (
+                normalize_parent_details(mother_details, call_name=mother)
+                if mother_details is not None
+                else None
+            )
+            await super().async_update_litter(
+                litter_id,
+                name=name,
+                birth_date=birth_date,
+                mother=mother,
+                father=father,
+                father_details=father_details,
+                growth_analysis=growth_analysis,
+            )
+            await self._link_litter_mother(litter_id, mother, normalized_mother)
 
     def get_mothers(self) -> list[dict[str, Any]]:
         """Return all mother profiles sorted by name."""
@@ -210,7 +212,7 @@ class MotherScopeStorage(PuppyTrackerStorage):
             )
             mother["profile_note"] = note
             mother["updated_at"] = _now_iso()
-        await self.async_save()
+            await self.async_save()
 
     def get_records(
         self,
@@ -368,7 +370,7 @@ class MotherScopeStorage(PuppyTrackerStorage):
             record["updated_at"] = now
             mother["updated_at"] = now
             self._require_litter(litter_id)["updated_at"] = now
-        await self.async_save()
+            await self.async_save()
 
     async def async_change_record_owner(
         self,
@@ -516,4 +518,4 @@ class MotherScopeStorage(PuppyTrackerStorage):
             record["updated_at"] = now
             mother["updated_at"] = now
             self._require_litter(litter_id)["updated_at"] = now
-        await self.async_save()
+            await self.async_save()
