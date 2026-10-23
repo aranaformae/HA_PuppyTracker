@@ -318,11 +318,60 @@ def recover_session(storage: Any) -> dict[str, Any]:
     return session
 
 
+def reconcile_active_session(session: Any, litters: dict[str, Any]) -> dict[str, Any] | None:
+    """Recheck live progress against effective history, not cached checkmarks."""
+    if not isinstance(session, dict) or session.get("status") not in {SESSION_ACTIVE, SESSION_INTERRUPTED}:
+        return session
+    staged = deepcopy(session)
+    litter = litters.get(staged.get("litter_id")) or {}
+    puppies = litter.get("puppies", {}) if litter.get("active", True) else {}
+    staged["puppy_ids"] = [pid for pid in staged.get("puppy_ids", [])
+                           if pid in puppies and puppies[pid].get("active", True)]
+    if not staged["puppy_ids"]:
+        return None
+    ids = staged.get("measurement_ids", {})
+    staged["weighed_puppy_ids"] = [pid for pid in staged["puppy_ids"]
+        if any(_effective_session_measurement(puppies[pid], mid) for mid in ids.get(pid, []))]
+    last_puppy = (litters.get(staged.get("last_litter_id")) or {}).get("puppies", {}).get(staged.get("last_puppy_id"))
+    last = _effective_session_measurement(last_puppy, staged.get("last_measurement_id")) if last_puppy else None
+    if last is None and last_puppy:
+        last = next((measurement for mid in reversed(ids.get(staged.get("last_puppy_id"), []))
+                     if (measurement := _effective_session_measurement(last_puppy, mid))), None)
+    staged["last_measurement_id"] = last.get("id") if last else None
+    staged["last_weight"] = last.get("weight") if last else None
+    if staged != session:
+        staged["revision"] = session.get("revision", 0) + 1
+        staged["duplicate_pending"] = None
+        staged["message"] = ""
+        if staged["status"] == SESSION_ACTIVE and not remaining_puppy_ids(staged):
+            staged["status"] = SESSION_COMPLETED
+            staged["completed_at"] = dt_util.now().isoformat()
+    return staged
+
+
+def sync_station_session(runtime: PuppyTrackerRuntimeData) -> bool:
+    """Publish a persisted history transition without implicitly resuming recovery."""
+    current = get_session(runtime)
+    stored = runtime.storage.get_weighing_session()
+    if stored is None and current.get("id") is None:
+        return False
+    candidate = stored if isinstance(stored, dict) else new_session_state()
+    if (current.get("id"), current.get("revision")) == (candidate.get("id"), candidate.get("revision")):
+        return False
+    if current.get("status") == SESSION_INTERRUPTED and current.get("id") == candidate.get("id"):
+        candidate["status"] = SESSION_INTERRUPTED
+        candidate["completed_at"] = None
+    runtime.weighing_session = candidate
+    runtime.weighing_undo = None
+    return True
+
+
 async def async_record_station_weight(
     runtime: PuppyTrackerRuntimeData, *, expected_session: dict[str, Any] | None = None,
     validate_write: Callable[[], None] | None = None, **weight: Any,
 ) -> str:
     """Serialize station writes and publish runtime progress only after persistence."""
+    sync_station_session(runtime)
     expected = deepcopy(expected_session if expected_session is not None else get_session(runtime))
     async with runtime.weighing_lock:
         session = get_session(runtime)

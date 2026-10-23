@@ -816,8 +816,26 @@ class PuppyTrackerStorage:
         self._last_integrity_report = report
         return deepcopy(report)
 
+    def _record_completed_session(self, checkpoint: dict[str, Any]) -> None:
+        summary = {key: deepcopy(checkpoint.get(key)) for key in (
+            "started_at", "completed_at", "puppy_ids", "weighed_puppy_ids",
+        )}
+        summary.update(total_puppies=len(checkpoint["puppy_ids"]),
+                       weighed_puppies=len(checkpoint["weighed_puppy_ids"]))
+        litter_id = checkpoint["litter_id"]
+        self._require_litter(litter_id)["last_completed_session"] = summary
+        self._add_audit_entry(action="complete_weighing_session", litter_id=litter_id, details=deepcopy(summary))
+
     async def async_save(self) -> None:
         """Immediately save data to disk and refresh integrity diagnostics."""
+        from .session import reconcile_active_session
+
+        before_session = self._data.get("weighing_session")
+        checkpoint = reconcile_active_session(before_session, self._data.get("litters", {}))
+        if checkpoint != before_session:
+            self._data["weighing_session"] = checkpoint
+            if checkpoint and checkpoint["status"] == SESSION_COMPLETED:
+                self._record_completed_session(checkpoint)
         self._data["updated_at"] = _now_iso()
         _changed, report = inspect_and_repair_data(
             self._data,
@@ -1738,13 +1756,7 @@ class PuppyTrackerStorage:
                 )
                 self._data["weighing_session"] = checkpoint
                 if checkpoint["status"] == SESSION_COMPLETED and weighing_session["status"] == SESSION_ACTIVE:
-                    summary = {key: deepcopy(checkpoint.get(key)) for key in (
-                        "started_at", "completed_at", "puppy_ids", "weighed_puppy_ids",
-                    )}
-                    summary.update(total_puppies=len(checkpoint["puppy_ids"]),
-                                   weighed_puppies=len(checkpoint["weighed_puppy_ids"]))
-                    self._require_litter(litter_id)["last_completed_session"] = summary
-                    self._add_audit_entry(action="complete_weighing_session", litter_id=litter_id, details=deepcopy(summary))
+                    self._record_completed_session(checkpoint)
             await self.async_save()
 
             return measurement_id

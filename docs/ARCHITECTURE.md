@@ -1077,6 +1077,15 @@ check session ID/revision under the storage lock. Old databases need no new
 required field or schema migration. Both native station buttons and the public
 record-weight action use this path.
 
+Every persisted mutation reconciles an active checkpoint with effective
+measurement chains and the surviving active cohort. Ordinary dossier deletion
+therefore removes its checkmark; correction/restoration follow the effective
+version. Removing the last unweighed puppy can finish the remaining cohort,
+while an empty/inactive litter clears the operational checkpoint. History
+updates refresh the runtime mirror and invalidate stale undo/confirmation
+tokens, without implicitly resuming an interrupted session. Previously
+completed litter summaries remain historical data.
+
 On load, an active checkpoint becomes `interrupted`: saved IDs are reconciled
 against current active puppies and effective measurement chains. It requires
 explicit resume or discard; the input weight and duplicate confirmation are

@@ -10,7 +10,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN
-from .session import SESSION_ACTIVE, new_session_state
+from .session import SESSION_ACTIVE, new_session_state, sync_station_session
 from .storage import PuppyTrackerStorage
 
 if TYPE_CHECKING:
@@ -92,7 +92,7 @@ def reconcile_dashboard_selection(
     Return True when either selection changed.
     """
 
-    changed = False
+    changed = sync_station_session(runtime)
     litters = runtime.storage.get_litters()
 
     active_litter_ids = [

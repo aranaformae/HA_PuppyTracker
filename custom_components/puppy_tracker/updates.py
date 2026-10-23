@@ -6,10 +6,13 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .const import SIGNAL_DASHBOARD_UPDATE, SIGNAL_UPDATE
+from .runtime import get_runtime_data, reconcile_dashboard_selection
 
 
 def dispatch_measurement_update(hass: HomeAssistant, puppy_id: str) -> None:
     """Refresh entities, dashboards and monitoring after a weight mutation."""
+    if (runtime := get_runtime_data(hass)) is not None:
+        reconcile_dashboard_selection(runtime)
     async_dispatcher_send(hass, SIGNAL_UPDATE, puppy_id)
     async_dispatcher_send(hass, SIGNAL_DASHBOARD_UPDATE)
 

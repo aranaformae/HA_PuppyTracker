@@ -23,7 +23,7 @@ from .measurements import measurement_status, puppy_measurements
 from .metrics import calculate_puppy_metrics, preview_weight
 from .pdf_export import build_pdf_export
 from .runtime import get_runtime_data, get_runtime_storage
-from .session import async_resolve_session, async_undo_station_weight, get_session, remaining_puppy_ids
+from .session import async_resolve_session, async_undo_station_weight, get_session, remaining_puppy_ids, sync_station_session
 from .storage import PuppyTrackerStorage
 from .time_utils import timestamp_sort_key
 from .updates import dispatch_dossier_update, dispatch_measurement_update
@@ -758,6 +758,8 @@ def websocket_preview_weight(hass, connection, msg) -> None:
         connection.send_error(msg["id"], "not_found", str(err))
         return
     runtime = get_runtime_data(hass)
+    if runtime is not None:
+        sync_station_session(runtime)
     session = get_session(runtime) if runtime else {}
     result["session"] = {"id": session.get("id"), "revision": session.get("revision", 0)}
     connection.send_result(msg["id"], result)

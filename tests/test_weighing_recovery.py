@@ -106,6 +106,62 @@ async def test_recovery_rechecks_deleted_measurements_and_archived_puppies(stati
     assert session["weighed_puppy_ids"] == []
 
 
+@pytest.fixture
+def reconciled_station(station):
+    runtime, *_ = station
+    runtime.storage.async_save = PuppyTrackerStorage.async_save.__get__(runtime.storage)
+    runtime.storage._store.async_save = AsyncMock()
+    return station
+
+
+async def test_deleted_active_weighing_does_not_complete_the_session(reconciled_station):
+    runtime, _, _, litter_id, first, second = reconciled_station
+    mid = await async_record_station_weight(runtime, litter_id=litter_id, puppy_id=first, weight=450)
+    await runtime.storage.async_delete_weight(litter_id, first, mid)
+    await async_record_station_weight(runtime, litter_id=litter_id, puppy_id=second, weight=460)
+    assert runtime.weighing_session["status"] == "active"
+    assert runtime.weighing_session["weighed_puppy_ids"] == [second]
+    assert runtime.selected_puppy_id == first
+    assert runtime.storage.get_completed_weighing_summary(litter_id) is None
+
+
+async def test_correct_restore_and_archive_reconcile_live_session(reconciled_station):
+    from custom_components.puppy_tracker.session import sync_station_session
+
+    runtime, _, _, litter_id, first, second = reconciled_station
+    mid = await async_record_station_weight(runtime, litter_id=litter_id, puppy_id=first, weight=450)
+    corrected = await runtime.storage.async_correct_measurement(litter_id, first, mid, new_weight=455, new_timestamp=None)
+    sync_station_session(runtime)
+    assert runtime.weighing_session["last_measurement_id"] == corrected
+    assert runtime.weighing_session["last_weight"] == 455
+    await runtime.storage.async_delete_weight(litter_id, first, corrected)
+    sync_station_session(runtime)
+    assert runtime.weighing_session["last_measurement_id"] == mid
+    assert runtime.weighing_session["weighed_puppy_ids"] == [first]
+    await runtime.storage.async_delete_weight(litter_id, first, mid)
+    sync_station_session(runtime)
+    assert runtime.weighing_session["weighed_puppy_ids"] == []
+    await runtime.storage.async_restore_weight(litter_id, first, mid)
+    sync_station_session(runtime)
+    assert runtime.weighing_session["weighed_puppy_ids"] == [first]
+    await runtime.storage.async_set_puppy_active(litter_id, second, False)
+    sync_station_session(runtime)
+    assert runtime.weighing_session["status"] == "completed"
+    assert runtime.weighing_session["puppy_ids"] == [first]
+
+
+async def test_history_change_never_implicitly_resumes_interrupted_session(reconciled_station):
+    from custom_components.puppy_tracker.session import sync_station_session
+
+    runtime, _, _, litter_id, first, _ = reconciled_station
+    mid = await async_record_station_weight(runtime, litter_id=litter_id, puppy_id=first, weight=450)
+    runtime.weighing_session = recover_session(runtime.storage)
+    await runtime.storage.async_delete_weight(litter_id, first, mid)
+    sync_station_session(runtime)
+    assert runtime.weighing_session["status"] == "interrupted"
+    assert runtime.weighing_session["weighed_puppy_ids"] == []
+
+
 async def test_failed_resume_or_reset_keeps_the_checkpoint(station):
     runtime, _, reset, _, _, _ = station
     runtime.weighing_session = recover_session(runtime.storage)
