@@ -264,11 +264,9 @@ class PuppyNotificationManager:
                     notify_entities=notify_entities,
                 )
 
-            if settings.get(
-                "notify_session_complete",
-                DEFAULT_NOTIFY_SESSION_COMPLETE,
-            ):
-                await self._process_completed_session(notify_entities)
+            await self._process_completed_session(notify_entities, enabled=bool(settings.get(
+                "notify_session_complete", DEFAULT_NOTIFY_SESSION_COMPLETE,
+            )))
 
     async def _process_puppy_status(
         self,
@@ -509,11 +507,13 @@ class PuppyNotificationManager:
     async def _process_completed_session(
         self,
         notify_entities: list[str],
+        *,
+        enabled: bool = True,
     ) -> None:
         """Create one notification when the current weighing session completes."""
         session = get_session(self.runtime)
         if self._last_session_litter_id and (
-            session.get("status") != SESSION_COMPLETED
+            not enabled or session.get("status") != SESSION_COMPLETED
             or session.get("litter_id") != self._last_session_litter_id
         ):
             notification_id = self._session_notification_id(self._last_session_litter_id)
@@ -521,7 +521,7 @@ class PuppyNotificationManager:
             await async_clear_notify_entities(self.hass, notify_entities, notification_id)
             self._last_session_litter_id = None
             self._last_session_completed_at = None
-        if session.get("status") != SESSION_COMPLETED:
+        if not enabled or session.get("status") != SESSION_COMPLETED:
             return
 
         completed_at = session.get("completed_at")

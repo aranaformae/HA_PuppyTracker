@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import pytest
 from unittest.mock import AsyncMock, MagicMock
 from unittest.mock import Mock
 
@@ -47,6 +48,34 @@ async def test_recovered_completion_does_not_send_a_new_notification(hass, stora
     await manager._process_completed_session(["notify.phone"])
     manager._async_send_notify_entities.assert_not_awaited()
     create.assert_not_called()
+
+
+@pytest.mark.parametrize("after_disable", ["completed", "active", "idle"])
+async def test_completion_toggle_disables_creation_but_never_cleanup(hass, storage, install_litter, monkeypatch, after_disable):
+    litter_id, puppy_id = install_litter()
+    runtime = PuppyTrackerRuntimeData(storage=storage)
+    manager = PuppyNotificationManager(hass, MagicMock(), storage, runtime)
+    manager._process_puppy_status = AsyncMock()
+    manager._async_send_notify_entities = AsyncMock()
+    dismiss, clear, create = Mock(), AsyncMock(), Mock()
+    monkeypatch.setattr("custom_components.puppy_tracker.notifications.async_create_persistent_notification", create)
+    monkeypatch.setattr("custom_components.puppy_tracker.notifications.async_dismiss_persistent_notification", dismiss)
+    monkeypatch.setattr("custom_components.puppy_tracker.notifications.async_clear_notify_entities", clear)
+    storage._data["settings"].update(notifications_enabled=True, notify_session_complete=True,
+                                    notify_entities=["notify.phone"])
+    runtime.weighing_session.update(status="completed", litter_id=litter_id, puppy_ids=[puppy_id],
+                                    weighed_puppy_ids=[puppy_id], completed_at="2026-10-23T08:00:00+00:00")
+    await manager.async_check()
+    assert create.call_count == 1
+    storage._data["settings"]["notify_session_complete"] = False
+    runtime.weighing_session["status"] = after_disable
+    await manager.async_check()
+    await manager.async_check()
+    dismiss.assert_called_once_with(hass, manager._session_notification_id(litter_id))
+    clear.assert_awaited_once_with(hass, ["notify.phone"], manager._session_notification_id(litter_id))
+    assert create.call_count == 1
+    assert manager._async_send_notify_entities.await_count == 1
+    assert manager._last_session_litter_id is None
 
 
 async def test_recurring_manager_rechecks_after_signal_during_active_check(

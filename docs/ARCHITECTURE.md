@@ -1120,7 +1120,9 @@ version. It reuses `async_delete_weight` with its correction/history semantics,
 committing soft-deletion, progress and summary rollback together. Runtime state
 and token are changed only after success; a failed save leaves a retry possible.
 Successful undo consumes the token and cannot delete twice. A completed-session
-notification is tagged and cleared once when the session reopens. Restored
+notification is tagged and cleared once when the session reopens. Session
+notifications are also cleared once when their notification setting
+is disabled: that setting suppresses creation, never lifecycle cleanup. Restored
 completed checkpoints do not produce new notification events. The frontend
 uses one expiry timeout (cleared on disconnect); expiry disables rather than
 removes the action, preserving geometry and input nodes.
