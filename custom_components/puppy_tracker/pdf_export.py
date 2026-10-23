@@ -19,7 +19,7 @@ from .behavior import BEHAVIOR_GROUPS, BEHAVIOR_RECORD_TYPE, build_behavior_prof
 from .dog_identity import parent_details_for_litter
 from .measurements import puppy_measurements
 from .metrics import calculate_puppy_metrics
-from .owners import final_payment_amount, owner_address_parts
+from .owners import final_payment_amount, owner_address_parts, owner_for_litter
 from .storage import PuppyTrackerStorage
 from .time_utils import format_local_timestamp, timestamp_sort_key
 
@@ -991,7 +991,7 @@ def build_pdf_export(
         owner_rows = []
         for _current_id, puppy in puppies:
             linked = [
-                owner_by_id[owner_id]
+                owner_for_litter(owner_by_id[owner_id], litter_id)
                 for owner_id in puppy.get("owner_ids", [])
                 if owner_id in owner_by_id
             ]

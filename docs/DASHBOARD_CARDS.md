@@ -419,9 +419,22 @@ Wide cards show the comparison table, with selected details alongside it when
 at least 1000 pixels are available. Preference ranks and actual puppy links stay
 separate; switching a view never creates a link.
 
-The create/edit form starts collapsed. Selecting an owner reveals independently
+The create/edit form starts collapsed. Assigned puppies appear directly in each
+owner row with call name, collar colour and litter name, without expanding it.
+Multiple puppy links are supported; preferences alone do not count as assignments.
+The **Owners for** filter starts on the first active litter and also offers
+**All litters** and **Without litter**. Search matches contact details and linked
+puppy names. Completed and archived dossiers start hidden and can be revealed.
+The owner list scrolls internally above 600px. Each contact has independent
+placement, preference, payment and note data per litter; contact/address details
+are shared. The expanded **Dossier for litter** selector switches dossiers, and
+**Add litter dossier** reuses a contact for another litter before a puppy is
+selected. **Archive dossier** affects only the selected litter. Ambiguous old
+data is preserved under **Without litter**, with an explicit assignment action
+that never overwrites an existing target dossier.
+Selecting an owner reveals independently
 collapsible categories: **Contact details**, **Address details**, **Placement**,
-**Top 3 puppy preferences**, **Financial**, **Notes** and **Status history**.
+**Top 3 puppy preferences**, **Financial**, **General contact notes** and **Status history**.
 Contact, placement and notes start open; the remaining categories start closed.
 Open/closed choices are retained separately for each owner during the card session,
 including when switching owners or refreshing data. Category toggles do not reload
@@ -432,7 +445,9 @@ planning data; it does not alter placement status or create a puppy link. Its
 selectors include puppies from all available litters and label them with litter
 and call name. Puppy linking remains a separate step. **Export CSV** downloads
 one Word/Excel-friendly row per owner-puppy link
-and retains unlinked owners with empty puppy columns. Set `csv_delimiter` to
+and retains unlinked candidates once per visible litter dossier, with empty
+puppy columns. **Export selection (CSV)** follows the litter/search/archive
+filters and uses each row's own litter payment data. Set `csv_delimiter` to
 `comma` (default and suitable for Nextcloud) or `semicolon`; both choices are
 also available in the visual editor. Address entry is split into street/house
 number, postal code and city. Linked rows include the complete puppy and parent
@@ -455,7 +470,7 @@ owners on rows and puppies on columns. Cells show first, second or third choice,
 whether a note exists and whether that owner is already linked to the puppy.
 Puppy headers use their collar colours. The summary identifies puppies with
 multiple first choices, puppies without any choice, owners without a choice and
-existing links. Optional switches reveal sold/placed owners or reduce the table
+existing links. Optional switches reveal sold/placed/archived dossiers or reduce the table
 to first-choice conflicts. Selecting a populated cell exposes its complete note
 and an edit action without rerendering the matrix.
 

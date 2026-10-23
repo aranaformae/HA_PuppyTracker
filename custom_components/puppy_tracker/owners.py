@@ -16,6 +16,7 @@ from .storage_lock import CoordinatedLock, mutation_coordinator
 
 STORE_KEY = f"{DOMAIN}_owners"
 STORE_VERSION = 1
+DATA_VERSION = 2
 OWNER_FIELDS = (
     "name",
     "email",
@@ -44,20 +45,27 @@ DATE_FIELDS = (
     "deposit_date",
     "payment_date",
 )
+PLACEMENT_FIELDS = (
+    "placement_status", "payment_status", "payment_method", "puppy_preferences",
+    "status_history", "placement_notes", "archived", *AMOUNT_FIELDS, *DATE_FIELDS,
+)
+CONTACT_FIELDS = (*OWNER_FIELDS, "role", "contact_preference", "created_at", "updated_at")
 
 
-def normalize_owner_backup_data(data: Any) -> dict[str, Any]:
+def normalize_owner_backup_data(data: Any, litters: dict[str, Any] | None = None) -> dict[str, Any]:
     """Validate and normalize a portable owner-store snapshot."""
     if not isinstance(data, dict) or not isinstance(data.get("owners"), dict):
         raise ValueError("Owner backup owners must be an object")
+    if data.get("version", 1) not in (1, DATA_VERSION):
+        raise ValueError("Unsupported owner data version")
 
     owners: dict[str, dict[str, Any]] = {}
     for key, value in data["owners"].items():
         owner_id = str(key)
         if not owner_id or not isinstance(value, dict):
             raise ValueError("Owner backup contains an invalid owner")
-        owners[owner_id] = _normalize(value, owner_id=owner_id, preserve_timestamps=True)
-    return {"owners": owners}
+        owners[owner_id] = _normalize_contact(value, owner_id=owner_id, litters=litters)
+    return {"version": DATA_VERSION, "owners": owners}
 
 
 def _now() -> str:
@@ -150,7 +158,7 @@ def final_payment_amount(owner: dict[str, Any]) -> str | None:
 
 
 def _normalize(data: dict[str, Any], *, owner_id: str | None = None, existing: dict[str, Any] | None = None, preserve_timestamps: bool = False) -> dict[str, Any]:
-    """Normalize one reusable contact and migrate legacy address values."""
+    """Validate a contact/placement form, also used for legacy flat records."""
     source = {**(existing or {}), **data}
     split_address_fields = ("street", "postal_code", "city")
     if "address" in data and not any(field in data for field in split_address_fields):
@@ -177,6 +185,8 @@ def _normalize(data: dict[str, Any], *, owner_id: str | None = None, existing: d
     payment_method = str(source.get("payment_method") or "none").strip()
     if payment_method not in PAYMENT_METHODS:
         raise ValueError("unsupported payment method")
+    if not isinstance(source.get("archived", False), bool):
+        raise ValueError("archived must be a boolean")
     status_history = source.get("status_history") or []
     if not isinstance(status_history, list):
         raise ValueError("status_history must be a list")
@@ -215,9 +225,56 @@ def _normalize(data: dict[str, Any], *, owner_id: str | None = None, existing: d
         "contact_preference": contact_preference,
         "puppy_preferences": puppy_preferences,
         "status_history": normalized_history,
+        "placement_notes": str(source.get("placement_notes") or "").strip() or None,
+        "archived": bool(source.get("archived", False)),
         "created_at": (existing or {}).get("created_at") or (source.get("created_at") if preserve_timestamps else None) or now,
         "updated_at": (source.get("updated_at") if preserve_timestamps else None) or now,
     }
+
+
+def _placement(form: dict[str, Any]) -> dict[str, Any]:
+    return {field: deepcopy(form[field]) for field in PLACEMENT_FIELDS}
+
+
+def _normalize_contact(data: dict[str, Any], *, owner_id: str, litters: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Normalize contacts and move legacy placement data only when unambiguous."""
+    if "placements" in data and any(field in data for field in PLACEMENT_FIELDS):
+        raise ValueError("Placement fields must be stored in a litter dossier")
+    form = _normalize(data, owner_id=owner_id, preserve_timestamps=True)
+    contact = {"id": owner_id, **{field: form[field] for field in CONTACT_FIELDS}}
+    if "placements" not in data:
+        legacy = _placement(form)
+        matches = set()
+        preferred = {item["puppy_id"] for item in legacy["puppy_preferences"]}
+        for litter_id, litter in (litters or {}).items():
+            puppies = litter.get("puppies", {})
+            for puppy in puppies.values():
+                if owner_id in (puppy.get("owner_ids") or []) or puppy.get("id") in preferred:
+                    matches.add(litter_id)
+        contact["placements"] = {next(iter(matches)): legacy} if len(matches) == 1 else {}
+        contact["unassigned_placement"] = None if len(matches) == 1 else legacy
+        return contact
+
+    if not isinstance(data["placements"], dict):
+        raise ValueError("Owner placements must be an object")
+    placements = {}
+    for litter_id, raw in data["placements"].items():
+        if not isinstance(litter_id, str) or not litter_id.strip() or not isinstance(raw, dict):
+            raise ValueError("Invalid owner litter placement")
+        placements[litter_id] = _placement(_normalize({"name": form["name"], **raw}, preserve_timestamps=True))
+    unassigned = data.get("unassigned_placement")
+    if unassigned is not None and not isinstance(unassigned, dict):
+        raise ValueError("Invalid unassigned owner placement")
+    contact["placements"] = placements
+    contact["unassigned_placement"] = _placement(_normalize({"name": form["name"], **unassigned}, preserve_timestamps=True)) if unassigned is not None else None
+    return contact
+
+
+def owner_for_litter(owner: dict[str, Any], litter_id: str) -> dict[str, Any]:
+    """Build an export view without leaking another litter's payment details."""
+    contact = {key: value for key, value in owner.items() if key in ("id", *CONTACT_FIELDS)}
+    placement = owner.get("placements", {}).get(litter_id) or {}
+    return deepcopy({**contact, **placement})
 
 
 def owner_address_parts(owner: dict[str, Any]) -> tuple[str | None, str | None, str | None]:
@@ -233,30 +290,15 @@ class OwnerStore:
 
     def __init__(self, hass: HomeAssistant) -> None:
         self._store: Store[dict[str, Any]] = Store(hass, STORE_VERSION, STORE_KEY)
-        self._data: dict[str, Any] = {"owners": {}}
+        self._data: dict[str, Any] = {"version": DATA_VERSION, "owners": {}}
         self._lock = CoordinatedLock(mutation_coordinator(hass))
 
-    async def async_load(self) -> None:
+    async def async_load(self, litters: dict[str, Any] | None = None) -> None:
         loaded = await self._store.async_load()
-        if not isinstance(loaded, dict) or not isinstance(loaded.get("owners"), dict):
-            self._data = {"owners": {}}
-            await self._store.async_save(self._data)
-            return
-        self._data = {"owners": {}}
-        changed = False
-        for owner_id, raw in loaded["owners"].items():
-            if not isinstance(raw, dict):
-                changed = True
-                continue
-            try:
-                normalized = _normalize(raw, owner_id=str(owner_id), preserve_timestamps=True)
-            except ValueError:
-                changed = True
-                continue
-            self._data["owners"][normalized["id"]] = normalized
-            changed = changed or normalized != raw
-        if changed:
-            await self._store.async_save(self._data)
+        candidate = normalize_owner_backup_data(loaded if loaded is not None else {"owners": {}}, litters)
+        if candidate != loaded:
+            await self._store.async_save(candidate)
+        self._data = candidate
 
     def get_all(self) -> list[dict[str, Any]]:
         return sorted((deepcopy(item) for item in self._data["owners"].values()), key=lambda item: item["name"].lower())
@@ -267,7 +309,7 @@ class OwnerStore:
 
     def get_backup_data(self) -> dict[str, Any]:
         """Return all reusable owner records for a portable backup."""
-        return {"owners": deepcopy(self._data["owners"])}
+        return deepcopy(self._data)
 
     async def async_restore_backup_data(self, data: dict[str, Any]) -> None:
         """Atomically replace the owner store from a validated snapshot."""
@@ -290,7 +332,26 @@ class OwnerStore:
             existing = self._data["owners"].get(owner_id) if owner_id else None
             if owner_id and existing is None:
                 raise ValueError("Unknown owner")
-            owner = _normalize(data, owner_id=owner_id, existing=existing)
+            litter_id = data.get("litter_id") or None
+            previous_placement = (existing or {}).get("placements", {}).get(litter_id) if litter_id else (existing or {}).get("unassigned_placement")
+            move = bool(data.get("move_unassigned"))
+            if move:
+                if not litter_id or not (existing or {}).get("unassigned_placement"):
+                    raise ValueError("No unassigned placement to move")
+                if previous_placement is not None:
+                    raise ValueError("This contact already has a dossier for this litter")
+                previous_placement = existing["unassigned_placement"]
+            form = _normalize(data, owner_id=owner_id, existing={**(existing or {}), **(previous_placement or {})})
+            owner = {"id": form["id"], **{field: form[field] for field in CONTACT_FIELDS},
+                     "placements": deepcopy((existing or {}).get("placements", {})),
+                     "unassigned_placement": deepcopy((existing or {}).get("unassigned_placement"))}
+            if "litter_id" in data or any(field in data for field in PLACEMENT_FIELDS):
+                if litter_id:
+                    owner["placements"][litter_id] = _placement(form)
+                    if move:
+                        owner["unassigned_placement"] = None
+                else:
+                    owner["unassigned_placement"] = _placement(form)
             candidate = deepcopy(self._data)
             candidate["owners"][owner["id"]] = owner
             await self._store.async_save(candidate)

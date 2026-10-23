@@ -182,8 +182,8 @@ def test_owner_card_is_declarative_localized_and_keeps_long_notes_visible() -> N
     assert 'data.puppy_preferences = puppyPreferences' in source
     assert 'owners: "Baasjes"' in source
     assert 'owners: "Owners"' in source
-    assert 'exportCsv: "CSV exporteren"' in source
-    assert 'exportCsv: "Export CSV"' in source
+    assert 'exportCsv: "Selectie exporteren (CSV)"' in source
+    assert 'exportCsv: "Export selection (CSV)"' in source
     assert 'id="export-owners-csv"' in source
     assert 'csv_delimiter: "comma"' in source
     assert 'value: "semicolon"' in source

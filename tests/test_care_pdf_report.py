@@ -88,8 +88,9 @@ async def test_pdf_owner_section_respects_contact_privacy(storage, install_litte
         "name": "Alex",
         "email": "alex@example.com",
         "phone": "0612345678",
-        "address": "Voorbeeldstraat 1",
+        "street": "Voorbeeldstraat 1",
         "role": "owner",
+        "placements": {litter_id: {
         "placement_status": "reserved",
         "placement_date": "2026-09-01",
         "expected_pickup_date": "2026-10-01",
@@ -101,6 +102,7 @@ async def test_pdf_owner_section_respects_contact_privacy(storage, install_litte
         "payment_method": "bank_transfer",
         "payment_balance": "1400",
         "payment_date": "2026-09-20",
+        }},
     }
 
     _filename, _mime, encoded = build_pdf_export(

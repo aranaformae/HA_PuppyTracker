@@ -45,7 +45,8 @@ async function mount(page, tag, config = {}, overrides = {}) {
 async function mountOwnerMatrix(page, { width = "", language = "en", details = false } = {}) {
   await page.goto("/tests/e2e/cards.html?production=1");
   await page.waitForFunction(() => window.__puppyTrackerReady);
-  await page.evaluate(({ width, language, details }) => {
+  await page.evaluate(async ({ width, language, details }) => {
+    const { ownerContact } = await import("/tests/e2e/helpers/owners.mjs");
     const owners = [
       {
         id: "o1", name: "Family Jansen", role: "owner", placement_status: "interested",
@@ -81,7 +82,7 @@ async function mountOwnerMatrix(page, { width = "", language = "en", details = f
     card.hass = {
       language, locale: { language },
       callWS: async (message) => {
-        if (message.type === "puppy_tracker/owners/list") return { owners };
+        if (message.type === "puppy_tracker/owners/list") return { owners: owners.map((owner) => ownerContact(owner, ["l1"])) };
         if (message.type === "puppy_tracker/litters") return { litters: [{ id: "l1", name: "Milky Way" }] };
         if (message.type === "puppy_tracker/data") return { litter: { id: "l1", name: "Milky Way" }, puppies: [
           { id: "p1", name: "Nova", collar_color: "Roze", owner_ids: [] },
@@ -96,6 +97,26 @@ async function mountOwnerMatrix(page, { width = "", language = "en", details = f
 }
 
 for (const language of ["nl", "en"]) {
+  test(`owner summaries show assigned puppies without expanding (${language}) @cross-browser @tablet`, async ({ page }) => {
+    const card = await mountOwnerMatrix(page, { language, details: true });
+    await card.locator("#owners-view").click();
+    const summary = card.locator('[data-toggle-owner="o1"]');
+    await expect(summary).toHaveAttribute("aria-expanded", "false");
+    await expect(card.locator(".owner-detail")).toHaveCount(0);
+    await expect(summary.locator(".owner-puppies")).toHaveText(
+      `${language === "nl" ? "Gekoppelde pups" : "Linked puppies"}: Boris (Blauw) (Milky Way)`,
+    );
+    await expect(summary).toContainText("jansen@example.com");
+    await expect(summary).not.toContainText("Nova");
+    await expect(card.locator('[data-toggle-owner="o2"] .owner-puppies')).toHaveCount(0);
+    await summary.click();
+    await expect(card.locator('[data-owner-group="placement"]')).toContainText("Boris (Blauw)");
+    await card.locator('[data-toggle-owner="o1"]').click();
+    expect(await summary.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    expect(await card.locator("ha-card").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await card.screenshot({ path: test.info().outputPath(`owner-linked-puppies-${language}.png`) });
+  });
+
   test(`private owner and report cards do not request or display data for non-admins (${language}) @cross-browser @tablet`, async ({ page }) => {
     await page.goto("/tests/e2e/cards.html?production=1");
     await page.waitForFunction(() => window.__puppyTrackerReady);
@@ -291,11 +312,15 @@ for (const [tag, selector, titleSelector] of [
   });
 }
 
-test("owner linking filters puppies by litter and sends the puppy's litter", async ({ page }) => {
+test("owner linking updates assigned puppies across litters without expanding @cross-browser @tablet", async ({ page }) => {
   await page.goto("/tests/e2e/cards.html?production=1");
   await page.waitForFunction(() => window.__puppyTrackerReady);
   await page.evaluate(() => {
     window.calls = [];
+    const puppies = {
+      l1: { id: "p-l1", name: "Nova", collar_color: "Paars", owner_ids: [] },
+      l2: { id: "p-l2", name: "Blauw", collar_color: "blauw", owner_ids: [] },
+    };
     const card = document.createElement("puppy-tracker-owner-card");
     card.setConfig({});
     document.querySelector("#cards").append(card);
@@ -303,28 +328,48 @@ test("owner linking filters puppies by litter and sends the puppy's litter", asy
       language: "en",
       callWS: async (msg) => {
         window.calls.push(msg);
-        if (msg.type === "puppy_tracker/owners/list") return { owners: [{ id: "o1", name: "Alex" }] };
+        if (msg.type === "puppy_tracker/owners/list") return { owners: [{ id: "o1", name: "Alex", placements: { l1: {}, l2: {} }, unassigned_placement: null }] };
         if (msg.type === "puppy_tracker/litters") return { litters: [{ id: "l1", name: "First" }, { id: "l2", name: "Second" }] };
-        if (msg.type === "puppy_tracker/data") return { puppies: [{ id: `p-${msg.litter_id}`, name: `Puppy ${msg.litter_id}` }] };
-        if (msg.type === "puppy_tracker/owners/link") return {};
+        if (msg.type === "puppy_tracker/data") return { puppies: [structuredClone(puppies[msg.litter_id])] };
+        if (msg.type === "puppy_tracker/owners/link") {
+          puppies[msg.litter_id].owner_ids = [...msg.owner_ids];
+          return {};
+        }
         throw new Error(msg.type);
       },
     };
   });
   const card = page.locator("puppy-tracker-owner-card");
   await expect(card.locator("#link-puppy")).toHaveValue("p-l1");
+  await card.locator("#owner-scope").selectOption("__all__");
   await card.locator("#link-litter").selectOption("l2");
   await expect(card.locator("#link-puppy")).toHaveValue("p-l2");
   await expect(card.locator("#link-puppy option")).toHaveCount(1);
   await card.locator('[name="linked_owner"]').check();
   await card.locator("#link-save").click();
   await expect.poll(() => page.evaluate(() => window.calls.find(c => c.type === "puppy_tracker/owners/link"))).toMatchObject({ litter_id: "l2", puppy_id: "p-l2", owner_ids: ["o1"] });
+  const summary = card.locator('[data-toggle-owner="o1"]');
+  await expect(summary.locator(".owner-puppies")).toHaveText("Linked puppies: Blauw (Second)");
+  await card.locator("#link-litter").selectOption("l1");
+  await card.locator('[name="linked_owner"]').check();
+  await card.locator("#link-save").click();
+  await expect(summary.locator(".owner-puppies")).toHaveText("Linked puppies: Nova (Paars) (First), Blauw (Second)");
+  await card.locator("#link-litter").selectOption("l2");
+  await card.locator('[name="linked_owner"]').uncheck();
+  await card.locator("#link-save").click();
+  await expect(summary.locator(".owner-puppies")).toHaveText("Linked puppies: Nova (Paars) (First)");
+  await card.locator("#link-litter").selectOption("l1");
+  await card.locator('[name="linked_owner"]').uncheck();
+  await card.locator("#link-save").click();
+  await expect(summary.locator(".owner-puppies")).toHaveCount(0);
+  await expect(summary).toHaveAttribute("aria-expanded", "false");
 });
 
 test("owner dates and stored values are labeled and localized", async ({ page }) => {
   await page.goto("/tests/e2e/cards.html?production=1");
   await page.waitForFunction(() => window.__puppyTrackerReady);
-  await page.evaluate(() => {
+  await page.evaluate(async () => {
+    const { ownerContact } = await import("/tests/e2e/helpers/owners.mjs");
     window.calls = [];
     const owner = {
       id: "o1", name: "Alex", role: "owner", placement_status: "reserved",
@@ -346,7 +391,7 @@ test("owner dates and stored values are labeled and localized", async ({ page })
       language: "en", locale: { language: "en" },
       callWS: async (message) => {
         window.calls.push(message);
-        if (message.type === "puppy_tracker/owners/list") return { owners: [owner] };
+        if (message.type === "puppy_tracker/owners/list") return { owners: [ownerContact(owner, ["l1"])] };
         if (message.type === "puppy_tracker/litters") return { litters: [{ id: "l1", name: "Milky Way" }] };
         if (message.type === "puppy_tracker/data") return { puppies: [
           { id: "p1", name: "Red", owner_ids: [] },
@@ -544,7 +589,8 @@ test("owner contract CSV refreshes parent chips before download and stops on ref
 test("owner CSV is comma-separated, keeps unlinked owners and exports one row per puppy link", async ({ page }) => {
   await page.goto("/tests/e2e/cards.html?production=1");
   await page.waitForFunction(() => window.__puppyTrackerReady);
-  await page.evaluate(() => {
+  await page.evaluate(async () => {
+    const { ownerContact } = await import("/tests/e2e/helpers/owners.mjs");
     const owners = [
       {
         id: "owner-alex",
@@ -589,7 +635,7 @@ test("owner CSV is comma-separated, keeps unlinked owners and exports one row pe
     card.hass = {
       language: "en", locale: { language: "en" },
       callWS: async (message) => {
-        if (message.type === "puppy_tracker/owners/list") return { owners };
+        if (message.type === "puppy_tracker/owners/list") return { owners: [ownerContact(owners[0], ["l1", "l2"]), ownerContact(owners[1], [], true)] };
         if (message.type === "puppy_tracker/litters") return { litters: [
           { id: "l1", name: "First", birth_date: "2026-06-01", mother: "Luna", mother_details: { registered_name: "Mother Registered", birth_date: "2022-01-02", breed: "Multi-generation Australian Labradoodle", wala_number: "WALA-M", chip_number: "000123456789012" }, father: "Max", father_details: { registered_name: "Father Registered", birth_date: "2021-01-02", breed: "Multi-generation Australian Labradoodle", wala_number: "WALA-F", chip_number: "000987654321098" } },
           { id: "l2", name: "Second", birth_date: "2026-07-02", mother: "Nova", mother_details: { registered_name: "Second Mother", breed: "Multi-generation Australian Labradoodle" }, father: "Cooper", father_details: { registered_name: "Second Father", breed: "Multi-generation Australian Labradoodle" } },
@@ -607,6 +653,7 @@ test("owner CSV is comma-separated, keeps unlinked owners and exports one row pe
 
   const card = page.locator("puppy-tracker-owner-card");
   await expect(card.locator("#export-owners-csv")).toBeEnabled();
+  await card.locator("#owner-scope").selectOption("__all__");
   const downloadPromise = page.waitForEvent("download");
   await card.locator("#export-owners-csv").click();
   const download = await downloadPromise;
@@ -635,7 +682,7 @@ test("owner CSV is comma-separated, keeps unlinked owners and exports one row pe
   expect(content.match(/"Alex",/g)).toHaveLength(2);
   expect(content.match(/"Blair",/g)).toHaveLength(1);
   const blairRow = content.split("\r\n").find((row) => row.startsWith('"Blair",'));
-  expect(blairRow).toMatch(/(?:,""){19}$/);
+  expect(blairRow).toMatch(/(?:,""){20},"No"$/);
   expect(content).not.toContain("owner-alex");
   expect(content).not.toContain("owner-blair");
   await expect(card.locator("#owner-status")).toHaveText("Owner CSV downloaded.");

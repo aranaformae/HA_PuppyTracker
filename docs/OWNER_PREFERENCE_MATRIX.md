@@ -7,7 +7,7 @@ decision, not to make that decision automatically.
 
 ## Recommended workflow
 
-1. Open **Manage owners** and add the prospective owner or co-owner.
+1. Open **Manage owners**, select the litter dossier and add the prospective owner or co-owner.
 2. Record up to three puppy preferences in order. Add a short note where the
    reason for a preference matters.
 3. Switch to **Preference matrix** and select the litter being matched.
@@ -45,18 +45,17 @@ The segmented control remains available after the card opens, so
 The matrix always compares one selected litter. It includes an owner when at
 least one of these conditions applies:
 
-- the owner has a preference for a puppy in the selected litter;
-- the owner is already linked to a puppy in the selected litter;
-- the contact has role **Owner** or **Co-owner** and has no puppy preferences
-  yet.
+- the contact has an explicit dossier for the selected litter, even without
+  a puppy preference or final puppy link;
+- the contact is already linked to a puppy in the selected litter.
 
-An owner whose shortlist refers only to another litter is left out of the
-current comparison unless that owner already has a link in the selected
-litter. Contacts with another role, such as breeder or veterinarian, are not
-shown solely because their shortlist is empty.
+A contact with a dossier only in another litter is left out unless it already
+has a puppy link in this litter. An empty shortlist or an owner/co-owner role
+alone no longer adds a contact to every litter. Preferences, status and
+financial data belong to the selected litter dossier, not the shared contact.
 
-Owners with placement status **Sold** or **Placed** are hidden initially. Enable
-**Show sold and placed owners** to include completed placements. All counts and
+Sold, placed and archived dossiers are hidden initially. Enable
+**Show sold, placed and archived dossiers** to include them. All counts and
 conflict detection are recalculated for the owners currently included by this
 setting.
 
@@ -144,8 +143,10 @@ the selected litter and each puppy's authoritative owner links. Matrix cells,
 summary totals and conflicts are not saved separately. This prevents a second
 matching state from becoming stale.
 
-- A full JSON backup includes owners, their ranked preferences and puppy links.
-- Owner CSV export includes all three preferences and their notes.
+- A full JSON backup includes contacts, all litter dossiers, unassigned legacy
+  dossiers, ranked preferences and puppy links.
+- Owner CSV export includes all three preferences and notes for each visible
+  litter dossier; it follows the owner-list filters, not the matrix switches.
 - The matrix view and its active filters are presentation state and are not
   backed up.
 - Owner preferences are currently not printed in PDF reports; use owner CSV
@@ -163,8 +164,9 @@ because there is no valid puppy column for it.
 **An owner is missing**
 
 Check the selected litter, the owner's shortlist and existing puppy links. If
-the owner is sold or placed, enable **Show sold and placed owners**. An owner
-with preferences only in another litter is intentionally omitted.
+the dossier is sold, placed or archived, enable **Show sold, placed and archived dossiers**.
+Add a litter dossier first if the contact is still under **Without litter** or
+has a dossier only for another litter.
 
 **A conflict count changed after showing placed owners**
 

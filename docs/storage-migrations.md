@@ -41,6 +41,26 @@ The production runtime currently ends on **storage schema 9** through `MotherSco
 
 Every migrated fixture is then loaded a second time. The second load must be **idempotent**: the resulting data must be identical and the Home Assistant Store must not be written again.
 
+## Owner/contact data version 2
+
+The separate `puppy_tracker_owners` Store keeps Home Assistant Store version 1,
+but its data envelope now has `version: 2`. This does not change main storage
+schema 9 or full backup format 6. Contacts have shared personal data plus a
+`placements` map keyed by litter ID and an optional `unassigned_placement`.
+
+Legacy flat payment, preference and placement data moves to a litter only when
+existing puppy links and preferences identify exactly one litter. With zero or
+multiple matching litters, the complete original dossier stays unassigned for
+explicit user assignment. Money is never duplicated across litters. Contact IDs,
+timestamps, addresses, notes, status history and puppy links remain intact.
+Canonical version-2 dossiers are not inferred again on later loads.
+
+The same normalization runs for full backup validation and startup. Invalid
+stored data aborts loading without writing over the source. Tests cover repeated
+loads, multiple litters, failed writes, assignment conflicts and full restore.
+After this upgrade, do not downgrade to a release without litter-dossier support;
+take a full JSON backup before upgrading.
+
 ## Rules for future schema changes
 
 When adding schema 10 or later:

@@ -3,10 +3,11 @@ import { expect, test } from "@playwright/test";
 async function mount(page, tag, config = {}) {
   await page.goto("/tests/e2e/cards.html?production");
   await page.waitForFunction(() => window.__puppyTrackerReady);
-  await page.evaluate(({ tag, config }) => {
+  await page.evaluate(async ({ tag, config }) => {
+    const { ownerContact, saveOwner } = await import("/tests/e2e/helpers/owners.mjs");
     const copy = (value) => structuredClone(value);
     const records = [];
-    const owners = [{ id: "o1", name: "Alex", role: "owner", puppy_preferences: [] }];
+    const owners = [ownerContact({ id: "o1", name: "Alex", role: "owner", puppy_preferences: [] }, ["l1"])];
     const programs = [{ id: "program-1", litter_id: "l1", title: "Daily care", start_age_days: 3, end_age_days: 16, interval_days: 1, time_of_day: "09:00", instructions_by_age: { 3: "Original instruction" } }];
     const reminders = [{ id: "reminder-1", litter_id: "l1", title: "Daily reminder", schedule_mode: "interval", interval_minutes: 240, owner_scope: "puppy", owner_id: "p1" }];
     const puppies = [{ id: "p1", name: "Alice", collar_color: "Red", active: true }, { id: "p2", name: "Bob", collar_color: "Blue", active: true }];
@@ -25,7 +26,7 @@ async function mount(page, tag, config = {}) {
         if (msg.type.endsWith("/record/add")) { const record = { ...copy(msg), id: `r${records.length + 1}`, type: msg.record_type, deleted: false }; records.push(record); return { record: copy(record), record_id: record.id }; }
         if (msg.type.endsWith("/record/update")) { const record = records.find((r) => r.id === msg.record_id); Object.assign(record, copy(msg), { type: msg.record_type }); return { ok: true }; }
         if (msg.type === "puppy_tracker/owners/list") return { owners: copy(owners) };
-        if (msg.type === "puppy_tracker/owners/save") { const owner = { ...copy(msg), id: msg.owner_id || "o2" }; const index = owners.findIndex((o) => o.id === owner.id); if (index >= 0) owners[index] = owner; else owners.push(owner); return { owner: copy(owner) }; }
+        if (msg.type === "puppy_tracker/owners/save") return saveOwner(owners, msg);
         if (msg.type === "puppy_tracker/owners/link") return { ok: true };
         if (msg.type === "puppy_tracker/care_programs") return { programs: copy(programs.filter((p) => p.litter_id === msg.litter_id)) };
         if (msg.type === "puppy_tracker/care_program_templates") return { templates: [] };

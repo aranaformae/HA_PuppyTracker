@@ -895,12 +895,17 @@ coordinated scheduler transaction. Partial litter/puppy transfers omit them.
 
 `OwnerStore` contains reusable contact records. Puppies store an `owner_ids`
 reference list rather than embedding personal data, which allows contacts to be
-created and edited before a puppy is selected for placement. Owner records carry
-contact details (street, postal code and city are stored separately) plus role,
-preferred contact method, placement status, actual
-placement date, expected pickup date, payment status, total amount, registration
+created and edited before a puppy is selected for placement. The owner-store
+envelope has `version: 2` independently of HA Store version 1 and main schema 9.
+Each contact stores identity, split address, role, contact preference, shared
+contact notes and timestamps once. `placements` maps litter IDs to independent
+dossiers. `unassigned_placement` is either null or a preserved dossier without
+a known litter. A litter dossier stores placement status, actual placement date,
+expected pickup date, payment status, total amount, registration
 fee, deposit amount/date, actual outstanding amount, final-payment date/method,
-an ordered `puppy_preferences` shortlist, status history and notes. The shortlist
+an ordered `puppy_preferences` shortlist, status history, `placement_notes` and
+an `archived` flag. No payment/preference fields remain on the shared contact.
+The shortlist
 contains at most three unique `{puppy_id, note}` entries; list order is the rank
 and each optional note is limited to 240 characters. It is explicitly separate
 from a puppy's authoritative `owner_ids` placement links. The scheduled
@@ -908,7 +913,30 @@ final-payment amount is derived as
 `total - registration fee - deposit` by the shared backend helper and is never
 persisted as a second source of truth. Monetary values are normalized as
 non-negative decimal strings; registration fee plus deposit cannot exceed a
-known total.
+known total. Updating one dossier leaves all others unchanged; contact-only
+updates never create or reset a dossier. Dossiers are keyed by contact and litter,
+not per puppy: multiple puppy links in one litter share that placement's finances.
+
+Startup and full-backup normalization migrate flat legacy records using the
+union of litter IDs identified by puppy links and preferences. Exactly one
+matching litter receives the original dossier. Zero or several matches preserve
+it unassigned, without copying payments. Existing version-2 dossiers are never
+inferred again. Invalid stored data aborts without overwriting the source.
+Moving an unassigned dossier is explicit (`move_unassigned: true`) and rejects
+an already populated target. The source is removed only after a successful save.
+This is a one-way data migration: unsupported older releases must not be used
+against the upgraded store.
+
+`puppy_tracker/owners/save` requires an explicit `litter_id` whenever placement
+fields are submitted (`null` means unassigned), so a cached old form cannot
+silently update the wrong dossier. New preferences must belong to that litter;
+unchanged unavailable references remain preservable. The owner list API returns
+canonical contacts with their dossiers. Linking a contact to a puppy creates an
+empty litter dossier if absent, without borrowing an unassigned balance. The
+cross-store link operation uses the shared exclusive mutation barrier and rolls
+the owner store back if writing the puppy link fails. Contact deletion is refused
+while puppy links remain, avoiding orphan references; archiving affects just one
+litter dossier and preserves all links.
 
 `payment_status: full` canonically forces `payment_balance: "0"` during
 save/load/restore normalization. The agreed final-payment calculation is
@@ -922,11 +950,17 @@ Disclosure choices are card-local per owner, not stored in `OwnerStore` or backu
 Native toggles do not rerender or call the API. Before another action rebuilds
 the view, current open states are captured; entries for deleted owners are pruned.
 Full-width notes retain their complete text. The create/edit form, CSV and PDF
-data contracts are unchanged by this presentation grouping.
+views use the chosen dossier, while contact/address fields stay shared. The
+management list defaults to the first active litter and supports all/unassigned
+filters, contact/puppy search and revealing completed/archived dossiers. Explicit
+nest changes keep the linking section and matrix aligned and protect dirty link
+drafts. The 600px list retains its scroll offset across row redraws; search only
+replaces list content, keeping its input focused. Ancestor scroll restoration is
+synchronous through the shared helper.
 
 `puppy_tracker/owners/save` accepts the complete ordered list. Sending `[]`
-clears it, while omission preserves an existing list so an older cached card
-cannot accidentally erase newer data. Structural validation is authoritative,
+clears that dossier's shortlist, while omission preserves its existing list.
+Structural validation is authoritative,
 but a preference is allowed to outlive current puppy availability. This keeps a
 restore or later puppy removal lossless; the card renders such a reference as
 unavailable and never exposes its internal ID. Final placement still requires
@@ -935,8 +969,10 @@ the separate `puppy_tracker/owners/link` command.
 The Owners card derives its preference matrix entirely from `OwnerStore`
 shortlists, litter puppy metadata and each puppy's authoritative `owner_ids`.
 No matrix, conflict or aggregate count is persisted. A conflict means more than
-one currently visible owner has the same puppy as first choice; sold and placed
-owners are excluded unless explicitly shown. Wide cards render a scrollable
+one currently visible contact has the same puppy as first choice. Membership
+requires that litter's dossier or an actual puppy link; an empty global
+shortlist no longer adds candidates to every litter. Sold, placed and archived
+dossiers are excluded unless explicitly shown. Wide cards render a scrollable
 owner-by-puppy table with sticky headers. At 1000px card width, a fixed side
 column holds selected details without resizing the table. A container query
 replaces the table at 620px or less with compact lists by puppy or by owner,
@@ -969,8 +1005,13 @@ names, while mother identity remains reusable across litters. Missing breed
 values normalize to `Multi-generation Australian Labradoodle`; user-entered
 values remain editable and authoritative.
 
-The Owners-card presentation CSV joins each reusable owner to its linked puppy
-and litter at export time. Puppy and parent contract identity comes from the
+The Owners-card presentation CSV follows the management litter/search/archive
+filters, enumerates visible dossiers and joins their puppy links at export time.
+Each row uses its own dossier's payment/preferences/history. An unlinked dossier
+retains the litter name with empty puppy fields; an unassigned contact has a
+single blank-litter row. Litter notes and archive state are separate columns.
+`owner_for_litter` supplies the equivalent selected-dossier view for PDF, never
+falling back to unassigned or another litter's payments. Puppy and parent contract identity comes from the
 authoritative main profiles, not `OwnerStore`. This keeps exported identity data
 current without duplicating it. The download awaits a forced reload of owners,
 litters and litter payloads; a failed reload aborts the download instead of

@@ -38,7 +38,7 @@ for (const language of ["nl", "en"]) {
           if (msg.type === "puppy_tracker/care_occurrences") return { occurrences: structuredClone(occurrences), skipped: [] };
           if (msg.type === "puppy_tracker/care_programs") return { programs: [] };
           if (msg.type === "puppy_tracker/recurring_reminders") return { reminders: [{ id: "rem", owner_scope: "puppy", owner_id: "p4", owner_name: "Nova", title: "Feeding", record_type: "feeding", status: "overdue", next_due_at: now, updated_at: now }] };
-          if (msg.type === "puppy_tracker/owners/list") return { owners: [{ id: "owner", name: "Family", puppy_preferences: [{ puppy_id: "p1" }] }] };
+          if (msg.type === "puppy_tracker/owners/list") return { owners: [{ id: "owner", name: "Family", placements: { l1: { puppy_preferences: [{ puppy_id: "p1" }] } }, unassigned_placement: null }] };
           if (msg.type === "puppy_tracker/attention_acknowledgements") return { acknowledgements: [] };
           throw new Error(msg.type);
         },

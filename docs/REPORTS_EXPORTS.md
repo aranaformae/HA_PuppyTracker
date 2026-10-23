@@ -185,15 +185,21 @@ by an update.
 
 - **CSV** contains effective weight measurements for the selected litter or
   puppy and selected period. It is intended for external analysis.
-- **Owners CSV** is downloaded from the Owners card. It contains one row per
-  owner-puppy link, plus one row for every unlinked owner. The card's
+- **Owners CSV** is downloaded with **Export selection (CSV)** in the Owners card.
+  It follows the litter/search/completed filters and contains one row per visible
+  owner-puppy link, or one row per visible unlinked litter dossier. A dossier
+  without a puppy retains the litter name; unassigned contacts have blank litter
+  and puppy columns. For a complete list select all litters, clear search and
+  show completed dossiers. The card's
   `csv_delimiter` option selects `comma` (default, including Nextcloud) or
   `semicolon` (useful for some regional Excel settings). Delimiters, quotes and
   line breaks inside values are safely quoted. It includes contact and placement
   data, the top three puppy preferences with their short notes, the detailed
-  payment schedule and actual outstanding amount, notes and status history.
+  payment schedule and actual outstanding amount, shared contact notes, litter
+  notes, archive state and status history. Payment and preference fields always
+  come from the row's litter dossier, never another placement for that contact.
   The six preference columns are repeated for each linked-puppy row; an unlinked
-  owner still receives one row with those preference values.
+  candidate still receives one row per visible dossier with those preference values.
   Linked puppy rows add registered and call names, birth date,
   sex, coat and collar colours, microchip number and breed/type. Both parents
   add registered and call names, birth date, breed/type, WALA and chip number without

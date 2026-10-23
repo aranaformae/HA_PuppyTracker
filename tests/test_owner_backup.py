@@ -9,6 +9,7 @@ from custom_components.puppy_tracker.owners import (
     _normalize,
     final_payment_amount,
     normalize_owner_backup_data,
+    PLACEMENT_FIELDS,
 )
 
 
@@ -49,8 +50,10 @@ def test_owner_backup_normalizes_owner_records() -> None:
     })
 
     assert result["owners"]["owner-1"]["name"] == "Alex"
-    assert result["owners"]["owner-1"]["payment_status"] == "registration_fee"
+    assert "payment_status" not in result["owners"]["owner-1"]
     assert result["owners"]["owner-1"]["contact_preference"] == "whatsapp"
+    result["owners"]["owner-1"] = result["owners"]["owner-1"]["unassigned_placement"]
+    assert result["owners"]["owner-1"]["payment_status"] == "registration_fee"
     assert result["owners"]["owner-1"]["expected_pickup_date"] == "2026-10-01"
     assert result["owners"]["owner-1"]["payment_amount"] == "2500"
     assert result["owners"]["owner-1"]["registration_fee_amount"] == "250"
@@ -189,7 +192,7 @@ def test_paid_in_full_always_has_zero_outstanding_without_changing_schedule(bala
     assert owner["payment_balance"] == "0"
     assert owner["payment_date"] == "2026-10-21"
     assert final_payment_amount(owner) == "1750"
-    assert normalize_owner_backup_data({"owners": {owner["id"]: owner}})["owners"][owner["id"]] == owner
+    assert normalize_owner_backup_data({"owners": {owner["id"]: owner}})["owners"][owner["id"]]["unassigned_placement"] == {field: owner[field] for field in PLACEMENT_FIELDS}
 
 
 @pytest.mark.parametrize("status", ["none", "registration_fee", "deposit"])
@@ -209,7 +212,7 @@ async def test_final_payment_survives_owner_store_backup_reload_and_can_be_corre
     store._store.async_save = AsyncMock()
     owner = await store.async_upsert({"name": "Alex", "payment_status": "deposit", "payment_balance": "1750"})
     paid = await store.async_upsert({"payment_status": "full", "payment_date": "2026-10-21"}, owner["id"])
-    assert paid["payment_balance"] == "0"
+    assert paid["unassigned_placement"]["payment_balance"] == "0"
     restored = OwnerStore(hass)
     restored._store.async_save = AsyncMock()
     await restored.async_restore_backup_data(store.get_backup_data())
@@ -217,7 +220,7 @@ async def test_final_payment_survives_owner_store_backup_reload_and_can_be_corre
     await restored.async_load()
     assert restored.get(owner["id"]) == paid
     corrected = await restored.async_upsert({"payment_status": "deposit", "payment_balance": "100"}, owner["id"])
-    assert corrected["payment_balance"] == "100"
+    assert corrected["unassigned_placement"]["payment_balance"] == "100"
 
 
 async def test_failed_final_payment_save_retains_the_previous_balance(hass):
@@ -245,7 +248,7 @@ def test_owner_status_change_is_added_to_history() -> None:
 async def test_owner_reload_and_restore_preserve_history_timestamps(hass) -> None:
     owner = _normalize({"name": "Alex"}, owner_id="owner-1")
     owner.update(created_at="2025-01-01T10:00:00+00:00", updated_at="2025-02-01T10:00:00+00:00")
-    snapshot = {"owners": {"owner-1": owner}}
+    snapshot = normalize_owner_backup_data({"owners": {"owner-1": owner}})
     store = OwnerStore(hass)
     store._store.async_load = AsyncMock(return_value=deepcopy(snapshot))
     store._store.async_save = AsyncMock()
@@ -282,6 +285,7 @@ async def test_owner_reload_adds_new_optional_fields_to_legacy_records(hass) -> 
 
     migrated = store.get("owner-1")
     assert migrated is not None
+    migrated = migrated["unassigned_placement"]
     assert migrated["payment_amount"] == "2500"
     assert migrated["expected_pickup_date"] is None
     assert migrated["registration_fee_amount"] is None

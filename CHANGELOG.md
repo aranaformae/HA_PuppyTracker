@@ -12,6 +12,9 @@ they have not been reconstructed as a complete historical changelog.
 
 ### Added
 
+- Owner contacts now have independent litter dossiers for preferences, placement,
+  payments, notes and archiving. Litter/search filters and expandable dossiers
+  keep multiple litters manageable; assigned puppies are visible in collapsed rows.
 - Durable weighing-session checkpoints with explicit restart recovery. Weight,
   progress and completion summary commit together; discarding keeps saved history.
 - Shared ordinary/mobile recovery controls with saved progress, explicit
@@ -22,6 +25,11 @@ they have not been reconstructed as a complete historical changelog.
 
 ### Changed
 
+- Owner data migrates to version 2. Legacy placement data is assigned only when
+  one litter is unambiguous; otherwise it stays under **Without litter** for
+  explicit assignment. Take a full JSON backup before upgrading and do not
+  downgrade to an older release after migration. CSV now exports the visible
+  dossier selection; select all litters and show completed dossiers for everything.
 - Updated the pinned browser-test runtime to Playwright 1.64.1, with a separate
   long-run WebKit lifecycle diagnostic.
 

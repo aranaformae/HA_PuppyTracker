@@ -89,4 +89,5 @@ async def test_full_download_includes_external_scheduler_store_snapshots(storage
         "care_templates": {"templates": {}},
     }
     assert payload["owners"]["owners"]["owner-1"]["notes"] == "Belangrijke notitie"
-    assert payload["owners"]["owners"]["owner-1"]["payment_status"] == "registration_fee"
+    assert payload["owners"]["version"] == 2
+    assert payload["owners"]["owners"]["owner-1"]["unassigned_placement"]["payment_status"] == "registration_fee"

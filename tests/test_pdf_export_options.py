@@ -298,9 +298,11 @@ def test_owner_contact_requires_owner_section_and_codes_are_localized(
         "name": "Alex",
         "email": "alex@example.com",
         "role": "co_owner",
-        "placement_status": "reserved",
-        "payment_status": "registration_fee",
-        "payment_method": "bank_transfer",
+        "placements": {litter_id: {
+            "placement_status": "reserved",
+            "payment_status": "registration_fee",
+            "payment_method": "bank_transfer",
+        }},
     }
 
     contact_without_owners = _pdf_bytes(
@@ -327,6 +329,23 @@ def test_owner_contact_requires_owner_section_and_codes_are_localized(
     assert b"alex@example.com" not in owner_document
     for internal_value in (b"co_owner", b"reserved", b"registration_fee", b"bank_transfer"):
         assert internal_value not in owner_document
+
+
+def test_puppy_pdf_uses_only_the_owners_matching_litter_dossier(storage, install_litter):
+    first, first_pup = install_litter(litter_id="first", puppy_id="first-pup", puppy_overrides={"owner_ids": ["o1"]})
+    second, second_pup = install_litter(litter_id="second", puppy_id="second-pup", puppy_overrides={"owner_ids": ["o1"]})
+    owner = {"id": "o1", "name": "Alex", "placements": {
+        first: {"payment_amount": "1234.56", "payment_balance": "1111.11", "placement_status": "reserved"},
+        second: {"payment_amount": "2345.67", "payment_balance": "0", "payment_status": "full"},
+    }, "unassigned_placement": {"payment_amount": "9876.54"}}
+    for litter, puppy, included, excluded in [
+        (first, first_pup, b"1234.56", b"2345.67"),
+        (second, second_pup, b"2345.67", b"1234.56"),
+    ]:
+        document = _pdf_bytes(storage, litter, puppy_id=puppy, sections=_sections("owners"), owner_records=[owner])
+        assert included in document
+        assert excluded not in document
+        assert b"9876.54" not in document
 
 
 def test_pdf_identity_section_contains_contract_fields(

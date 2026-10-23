@@ -1,4 +1,4 @@
-import { puppySelectorLabel, downloadExportFile, escapeHtml, languageForHass } from "./puppy-tracker-card-common.js";
+import { puppySelectorLabel, downloadExportFile, escapeHtml, languageForHass, preserveScrollPosition } from "./puppy-tracker-card-common.js";
 import { FormState, appendEditAction } from "./puppy-tracker-form-state.js";
 import { collarColor } from "./puppy-tracker-collar-chart-colors.js";
 
@@ -41,7 +41,7 @@ const COPY = {
     defaultView: "Standaardweergave",
     matrixSubtitle: "Vergelijk pupvoorkeuren en bestaande koppelingen per nest.",
     matrixLitter: "Nest voor vergelijking",
-    showResolved: "Toon verkochte en geplaatste baasjes",
+    showResolved: "Toon verkochte, geplaatste en gearchiveerde dossiers",
     onlyConflicts: "Alleen conflicten in eerste voorkeur",
     firstChoiceConflicts: "Conflicten eerste voorkeur",
     puppiesWithoutPreferences: "Pups zonder voorkeur",
@@ -89,6 +89,7 @@ const COPY = {
     noPuppyPreference: "Geen pup gekozen",
     noPuppyPreferences: "Geen pupvoorkeuren vastgelegd",
     unavailablePuppy: "Niet meer beschikbare pup",
+    unavailableLitter: "Niet meer beschikbaar nest",
     selectPuppyForNote: "Kies eerst een pup voor deze notitie.",
     duplicatePuppyPreference: "Kies elke pup maximaal één keer.",
     fillEarlierPreference: "Vul eerst de voorgaande pupvoorkeur in.",
@@ -114,7 +115,7 @@ const COPY = {
     paymentDate: "Datum slotbetaling",
     markPaidInFull: "Volledig betaald registreren",
     contactPreference: "Voorkeurscontact",
-    notes: "Notities",
+    notes: "Algemene contactnotities",
     owners: "Baasjes",
     linkedPuppies: "Gekoppelde pups",
     noLinkedPuppies: "Geen gekoppelde pups",
@@ -147,16 +148,32 @@ const COPY = {
     saved: "Baasje opgeslagen.",
     linked: "Koppeling opgeslagen.",
     deleted: "Baasje verwijderd.",
-    confirmDelete: "Dit baasje verwijderen?",
+    confirmDelete: "Deze contactpersoon met alle nestdossiers definitief verwijderen?",
+    unlinkBeforeDelete: "Ontkoppel deze contactpersoon eerst van de pups, of archiveer alleen het nestdossier.",
     edit: "Bewerken",
     remove: "Verwijderen",
     loading: "Baasjes laden…",
     empty: "Nog geen baasjes toegevoegd.",
     unknown: "Niet opgegeven",
-    exportCsv: "CSV exporteren",
+    exportCsv: "Selectie exporteren (CSV)",
     csvDone: "Baasjes-CSV gedownload.",
     csvComma: "Komma (,) - Nextcloud",
     csvSemicolon: "Puntkomma (;) - Excel NL",
+    ownerScope: "Baasjes voor",
+    allLitters: "Alle nesten",
+    unassigned: "Zonder nest",
+    searchOwners: "Zoeken op naam, contactgegevens of pup",
+    showCompleted: "Afgeronde en gearchiveerde dossiers tonen",
+    noMatchingOwners: "Geen baasjes binnen deze selectie.",
+    dossierLitter: "Dossier voor nest",
+    placementNotes: "Notities bij dit nest",
+    archived: "Dossier archiveren",
+    assignDossier: "Dossier aan nest koppelen",
+    addDossier: "Nestdossier toevoegen",
+    archivedColumn: "Gearchiveerd",
+    chooseLitter: "Kies een nest",
+    yes: "Ja",
+    no: "Nee",
   },
   en: {
     title: "Manage owners",
@@ -166,7 +183,7 @@ const COPY = {
     defaultView: "Default view",
     matrixSubtitle: "Compare puppy preferences and existing links per litter.",
     matrixLitter: "Litter to compare",
-    showResolved: "Show sold and placed owners",
+    showResolved: "Show sold, placed and archived dossiers",
     onlyConflicts: "First-choice conflicts only",
     firstChoiceConflicts: "First-choice conflicts",
     puppiesWithoutPreferences: "Puppies without preferences",
@@ -214,6 +231,7 @@ const COPY = {
     noPuppyPreference: "No puppy selected",
     noPuppyPreferences: "No puppy preferences recorded",
     unavailablePuppy: "Puppy no longer available",
+    unavailableLitter: "Litter no longer available",
     selectPuppyForNote: "Select a puppy before adding a note.",
     duplicatePuppyPreference: "Select each puppy no more than once.",
     fillEarlierPreference: "Fill the previous puppy preference first.",
@@ -239,7 +257,7 @@ const COPY = {
     paymentDate: "Final payment date",
     markPaidInFull: "Record payment in full",
     contactPreference: "Preferred contact",
-    notes: "Notes",
+    notes: "General contact notes",
     owners: "Owners",
     linkedPuppies: "Linked puppies",
     noLinkedPuppies: "No linked puppies",
@@ -272,16 +290,32 @@ const COPY = {
     saved: "Owner saved.",
     linked: "Link saved.",
     deleted: "Owner deleted.",
-    confirmDelete: "Delete this owner?",
+    confirmDelete: "Permanently delete this contact and all litter dossiers?",
+    unlinkBeforeDelete: "Unlink this contact from the puppies first, or archive only the litter dossier.",
     edit: "Edit",
     remove: "Delete",
     loading: "Loading owners…",
     empty: "No owners added yet.",
     unknown: "Not specified",
-    exportCsv: "Export CSV",
+    exportCsv: "Export selection (CSV)",
     csvDone: "Owner CSV downloaded.",
     csvComma: "Comma (,) - Nextcloud",
     csvSemicolon: "Semicolon (;) - Excel NL",
+    ownerScope: "Owners for",
+    allLitters: "All litters",
+    unassigned: "Without litter",
+    searchOwners: "Search by name, contact details or puppy",
+    showCompleted: "Show completed and archived dossiers",
+    noMatchingOwners: "No owners match this selection.",
+    dossierLitter: "Dossier for litter",
+    placementNotes: "Notes for this litter",
+    archived: "Archive dossier",
+    assignDossier: "Assign dossier to litter",
+    addDossier: "Add litter dossier",
+    archivedColumn: "Archived",
+    chooseLitter: "Choose a litter",
+    yes: "Yes",
+    no: "No",
   },
 };
 
@@ -292,7 +326,7 @@ function text(card, key) {
 
 function optionLabel(card, value, labels, fallback = "") {
   const language = languageForHass(card?._hass);
-  return labels[value]?.[language] || labels[value]?.nl || fallback || value || text(card, "unknown");
+  return labels[value]?.[language] || labels[value]?.nl || labels[fallback]?.[language] || labels[fallback]?.nl || fallback || value || text(card, "unknown");
 }
 
 function selectField(card, name, label, labels, value) {
@@ -371,6 +405,11 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     this._busy = false;
     this._formState = new FormState(this);
     this._linkFormState = new FormState(this);
+    this._ownerScope = null;
+    this._ownerSearch = "";
+    this._showCompleted = false;
+    this._detailLitters = new Map();
+    this._editingLitter = "";
   }
 
   static getStubConfig() { return { title: "", default_view: "owners", csv_delimiter: "comma" }; }
@@ -411,6 +450,8 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       this._litters = [];
       this._ownerGroups.clear();
       this._editing = null;
+      this._detailLitters.clear();
+      this._ownerSearch = "";
       this._loaded = false;
       this._render();
       return;
@@ -439,7 +480,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       this._owners = ownerResult?.owners || [];
       this._litters = litterResult?.litters || [];
       if (!this._litters.some((litter) => litter.id === this._selectedLitter)) {
-        this._selectedLitter = this._litters[0]?.id || "";
+        this._selectedLitter = this._litters.find((litter) => litter.active !== false)?.id || this._litters[0]?.id || "";
       }
       const data = await Promise.all(this._litters.map(async (litter) => {
         const result = await this._hass.callWS({ type: "puppy_tracker/data", litter_id: litter.id });
@@ -457,6 +498,8 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       }));
       if (this._hass?.user?.is_admin === false) return false;
       this._puppies = data.flat();
+      if (this._ownerScope === null) this._ownerScope = this._litters.find((litter) => litter.active !== false)?.id || "__unassigned__";
+      if (!["__all__", "__unassigned__"].includes(this._ownerScope) && !this._litters.some((litter) => litter.id === this._ownerScope)) this._ownerScope = "__all__";
       const selectedLitterPuppies = this._puppies.filter((puppy) => puppy.litter_id === this._selectedLitter);
       if (!selectedLitterPuppies.some((puppy) => puppy.id === this._matrixSelectedPuppy)) {
         this._matrixSelectedPuppy = selectedLitterPuppies[0]?.id || "";
@@ -526,6 +569,8 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       selectedPuppies.add(puppyId);
     }
     data.puppy_preferences = puppyPreferences;
+    data.litter_id = this._editingLitter || null;
+    data.archived = form.elements.archived.checked;
     if (this._editing) data.owner_id = this._editing;
     this._busy = true;
     this._error = "";
@@ -533,6 +578,9 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     try {
       const result = await this._hass.callWS({ type: "puppy_tracker/owners/save", ...data });
       this._lastSavedOwnerId = result?.owner?.id || this._editing;
+      this._lastSavedLitter = this._editingLitter;
+      this._ownerScope = this._editingLitter || "__unassigned__";
+      if (data.archived || ["sold", "placed"].includes(data.placement_status)) this._showCompleted = true;
       this._formState.reset();
       this._editing = null;
       this._showOwnerEditor = false;
@@ -561,7 +609,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       this._loaded = false;
       await this._load();
     } catch (error) {
-      this._error = error?.message || String(error);
+      this._error = error?.code === "owner_linked" ? text(this, "unlinkBeforeDelete") : error?.message || String(error);
     } finally {
       this._busy = false;
       this._render();
@@ -595,6 +643,80 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     return this._puppies.filter((puppy) => (puppy.owner_ids || []).includes(ownerId));
   }
 
+  _linkedPuppiesLabel(ownerId) {
+    return this._linkedPuppies(ownerId).filter((puppy) => [null, "__all__"].includes(this._ownerScope) || puppy.litter_id === this._ownerScope).map((puppy) => {
+      const label = puppySelectorLabel(puppy, text(this, "puppy"));
+      return puppy.litter_name ? `${label} (${puppy.litter_name})` : label;
+    }).join(", ");
+  }
+
+  _ownerForLitter(owner, litterId) {
+    return { ...owner, ...(litterId ? owner.placements?.[litterId] : owner.unassigned_placement) };
+  }
+
+  _litterLabel(litterId) {
+    return litterId ? this._litters.find((litter) => litter.id === litterId)?.name || text(this, "unavailableLitter") : text(this, "unassigned");
+  }
+
+  _ownerLitterIds(owner) {
+    const ids = new Set(Object.keys(owner.placements || {}));
+    this._linkedPuppies(owner.id).forEach((puppy) => ids.add(puppy.litter_id));
+    if (owner.unassigned_placement || !ids.size) ids.add("");
+    return [...ids];
+  }
+
+  _visibleLitterIds(owner) {
+    return this._ownerLitterIds(owner).filter((id) => {
+      if (this._ownerScope !== "__all__" && id !== (this._ownerScope === "__unassigned__" ? "" : this._ownerScope)) return false;
+      const dossier = this._ownerForLitter(owner, id);
+      return this._showCompleted || (!dossier.archived && !["sold", "placed"].includes(dossier.placement_status));
+    });
+  }
+
+  _visibleOwners() {
+    const query = this._ownerSearch.trim().toLocaleLowerCase();
+    return this._owners.filter((owner) => this._visibleLitterIds(owner).length && (!query ||
+      [owner.name, owner.email, owner.phone, this._linkedPuppies(owner.id).map((puppy) => puppySelectorLabel(puppy)).join(" ")].join(" ").toLocaleLowerCase().includes(query)));
+  }
+
+  _detailLitter(owner) {
+    const visible = this._visibleLitterIds(owner);
+    const selected = this._detailLitters.get(owner.id);
+    return visible.includes(selected) ? selected : visible[0] || "";
+  }
+
+  _ownerFilters() {
+    const disabled = this._busy || this._showOwnerEditor ? "disabled" : "";
+    const options = [
+      ["__all__", text(this, "allLitters")],
+      ...this._litters.map((litter) => [litter.id, litter.name]),
+      ["__unassigned__", `${text(this, "unassigned")} (${this._owners.filter((owner) => this._ownerLitterIds(owner).includes("")).length})`],
+    ].map(([id, label]) => `<option value="${escapeHtml(id)}" ${id === this._ownerScope ? "selected" : ""}>${escapeHtml(label)}</option>`).join("");
+    return `<div class="owner-filters"><label><span>${escapeHtml(text(this, "ownerScope"))}</span><select id="owner-scope" ${disabled}>${options}</select></label><label><span>${escapeHtml(text(this, "searchOwners"))}</span><input id="owner-search" type="search" value="${escapeHtml(this._ownerSearch)}" ${disabled}></label><label class="completed-toggle"><input id="owner-show-completed" type="checkbox" ${this._showCompleted ? "checked" : ""} ${disabled}>${escapeHtml(text(this, "showCompleted"))}</label></div>`;
+  }
+
+  async _assignDossier(ownerId, litterId) {
+    if (!litterId || this._busy) return;
+    const owner = this._owners.find((item) => item.id === ownerId);
+    this._busy = true;
+    this._error = "";
+    this._render();
+    try {
+      await this._hass.callWS({ type: "puppy_tracker/owners/save", owner_id: ownerId, name: owner.name, litter_id: litterId, move_unassigned: true });
+      this._lastSavedOwnerId = ownerId;
+      this._lastSavedLitter = litterId;
+      this._ownerScope = litterId;
+      this._detailLitters.set(ownerId, litterId);
+      this._status = text(this, "linked");
+      await this._load(true);
+    } catch (error) {
+      this._error = error?.message || String(error);
+    } finally {
+      this._busy = false;
+      this._render();
+    }
+  }
+
   _puppyPreferenceLabel(puppyId, includeCollar = true) {
     const puppy = this._puppies.find((item) => item.id === puppyId);
     if (!puppy) return text(this, "unavailablePuppy");
@@ -602,7 +724,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
   }
 
   _puppyPreferenceOptions(selectedId) {
-    const puppies = [...this._puppies].sort((left, right) =>
+    const puppies = this._puppies.filter((puppy) => !this._editingLitter || puppy.litter_id === this._editingLitter).sort((left, right) =>
       `${left.litter_name || ""}\u0000${left.name || ""}`.localeCompare(`${right.litter_name || ""}\u0000${right.name || ""}`),
     );
     const options = puppies.map((puppy) => `<option value="${escapeHtml(puppy.id)}" ${puppy.id === selectedId ? "selected" : ""}>${escapeHtml([puppy.litter_name, puppySelectorLabel(puppy, text(this, "puppy"))].filter(Boolean).join(" · "))}</option>`);
@@ -645,7 +767,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     const linksByOwner = new Map();
     const resolvedStatuses = new Set(["sold", "placed"]);
 
-    const owners = this._owners.filter((owner) => {
+    const owners = this._owners.map((owner) => this._ownerForLitter(owner, this._selectedLitter)).filter((owner) => {
       const allPreferences = Array.isArray(owner.puppy_preferences) ? owner.puppy_preferences : [];
       const preferences = new Map();
       allPreferences.slice(0, 3).forEach((preference, index) => {
@@ -658,10 +780,9 @@ class PuppyTrackerOwnerCard extends HTMLElement {
           .filter((puppy) => (puppy.owner_ids || []).includes(owner.id))
           .map((puppy) => puppy.id),
       );
-      const candidateRole = ["owner", "co_owner"].includes(owner.role || "owner");
-      const belongsInLitter = preferences.size > 0 || linkedPuppyIds.size > 0 || (candidateRole && allPreferences.length === 0);
+      const belongsInLitter = Boolean(owner.placements?.[this._selectedLitter]) || linkedPuppyIds.size > 0;
       if (!belongsInLitter) return false;
-      if (!this._matrixShowResolved && resolvedStatuses.has(owner.placement_status)) return false;
+      if (!this._matrixShowResolved && (owner.archived || resolvedStatuses.has(owner.placement_status))) return false;
       preferencesByOwner.set(owner.id, preferences);
       linksByOwner.set(owner.id, linkedPuppyIds);
       return true;
@@ -822,7 +943,8 @@ class PuppyTrackerOwnerCard extends HTMLElement {
 
   _matrixDetailsMarkup() {
     if (!this._matrixSelection) return "";
-    const owner = this._owners.find((item) => item.id === this._matrixSelection.ownerId);
+    const contact = this._owners.find((item) => item.id === this._matrixSelection.ownerId);
+    const owner = contact ? this._ownerForLitter(contact, this._selectedLitter) : null;
     const puppy = this._puppies.find((item) => item.id === this._matrixSelection.puppyId);
     if (!owner || !puppy) return "";
     const preferences = Array.isArray(owner.puppy_preferences) ? owner.puppy_preferences : [];
@@ -876,6 +998,19 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     this._render();
   }
 
+  _changeLitter(litterId, scope = null) {
+    if (litterId !== this._selectedLitter && !this._linkFormState.discard()) return false;
+    if (litterId !== this._selectedLitter) {
+      this._selectedLitter = litterId;
+      this._selectedPuppy = "";
+      this._matrixSelectedPuppy = "";
+      this._matrixSelection = null;
+    }
+    this._ownerScope = scope ?? (["__all__", "__unassigned__"].includes(this._ownerScope) ? this._ownerScope : litterId);
+    this._render();
+    return true;
+  }
+
   _ownerCsvContent() {
     const headers = [
       "name", "email", "phone", "street", "postalCode", "city", "role", "contactPreference",
@@ -888,72 +1023,77 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       "puppyBirthDate", "puppySex", "puppyCoatColor", "puppyCollarColor",
       "chipNumber", "puppyBreed", "fatherRegisteredName", "fatherCallName",
       "fatherBirthDate", "fatherBreed", "fatherWala", "fatherChipNumber", "motherRegisteredName",
-      "motherCallName", "motherBirthDate", "motherBreed", "motherWala", "motherChipNumber",
+      "motherCallName", "motherBirthDate", "motherBreed", "motherWala", "motherChipNumber", "placementNotes", "archivedColumn",
     ].map((key) => text(this, key));
     const rows = [headers];
-    for (const owner of this._owners) {
-      const history = (owner.status_history || []).map((entry) => {
-        const status = optionLabel(this, entry.status, PLACEMENT_STATUS_LABELS, entry.status);
-        return `${status} · ${formattedDate(this, entry.changed_at, true)}`;
-      }).join(" | ");
-      const puppyPreferences = Array.isArray(owner.puppy_preferences) ? owner.puppy_preferences.slice(0, 3) : [];
-      const preferenceValues = [0, 1, 2].flatMap((index) => {
-        const preference = puppyPreferences[index];
-        return preference ? [this._puppyPreferenceLabel(preference.puppy_id, false), preference.note] : ["", ""];
-      });
-      const ownerValues = [
-        owner.name,
-        owner.email,
-        owner.phone,
-        owner.street || owner.address,
-        owner.postal_code,
-        owner.city,
-        optionLabel(this, owner.role, OWNER_ROLE_LABELS, "owner"),
-        optionLabel(this, owner.contact_preference, CONTACT_PREFERENCE_LABELS, "none"),
-        optionLabel(this, owner.placement_status, PLACEMENT_STATUS_LABELS, "interested"),
-        owner.placement_date,
-        owner.expected_pickup_date,
-        ...preferenceValues,
-        optionLabel(this, owner.payment_status, PAYMENT_STATUS_LABELS, "none"),
-        owner.payment_amount,
-        owner.registration_fee_amount,
-        owner.deposit_amount,
-        owner.deposit_date,
-        finalPaymentAmount(owner),
-        owner.payment_balance,
-        optionLabel(this, owner.payment_method, PAYMENT_METHOD_LABELS, "none"),
-        owner.payment_date,
-        owner.notes,
-        history,
-      ];
-      const linkedPuppies = this._linkedPuppies(owner.id).sort((left, right) =>
-        `${left.litter_name || ""}\u0000${left.name || ""}`.localeCompare(`${right.litter_name || ""}\u0000${right.name || ""}`),
-      );
-      for (const puppy of linkedPuppies.length ? linkedPuppies : [null]) {
-        rows.push([
-          ...ownerValues,
-          puppy?.litter_name,
-          puppy?.registered_name,
-          puppy?.name,
-          puppy ? dateOnly(puppy.birth_time, puppy.litter_birth_date) : "",
-          puppy ? optionLabel(this, puppy.sex, SEX_LABELS, puppy.sex) : "",
-          puppy?.coat_color,
-          puppy?.collar_color,
-          puppy?.chip_number,
-          puppy?.breed,
-          puppy?.father_details?.registered_name,
-          puppy?.father,
-          puppy?.father_details?.birth_date,
-          puppy?.father_details?.breed,
-          puppy?.father_details?.wala_number,
-          puppy?.father_details?.chip_number,
-          puppy?.mother_details?.registered_name,
-          puppy?.mother,
-          puppy?.mother_details?.birth_date,
-          puppy?.mother_details?.breed,
-          puppy?.mother_details?.wala_number,
-          puppy?.mother_details?.chip_number,
-        ]);
+    for (const contact of this._visibleOwners()) {
+      for (const litterId of this._visibleLitterIds(contact)) {
+        const owner = this._ownerForLitter(contact, litterId);
+        const history = (owner.status_history || []).map((entry) => {
+          const status = optionLabel(this, entry.status, PLACEMENT_STATUS_LABELS, entry.status);
+          return `${status} · ${formattedDate(this, entry.changed_at, true)}`;
+        }).join(" | ");
+        const puppyPreferences = Array.isArray(owner.puppy_preferences) ? owner.puppy_preferences.slice(0, 3) : [];
+        const preferenceValues = [0, 1, 2].flatMap((index) => {
+          const preference = puppyPreferences[index];
+          return preference ? [this._puppyPreferenceLabel(preference.puppy_id, false), preference.note] : ["", ""];
+        });
+        const ownerValues = [
+          owner.name,
+          owner.email,
+          owner.phone,
+          owner.street || owner.address,
+          owner.postal_code,
+          owner.city,
+          optionLabel(this, owner.role, OWNER_ROLE_LABELS, "owner"),
+          optionLabel(this, owner.contact_preference, CONTACT_PREFERENCE_LABELS, "none"),
+          optionLabel(this, owner.placement_status, PLACEMENT_STATUS_LABELS, "interested"),
+          owner.placement_date,
+          owner.expected_pickup_date,
+          ...preferenceValues,
+          optionLabel(this, owner.payment_status, PAYMENT_STATUS_LABELS, "none"),
+          owner.payment_amount,
+          owner.registration_fee_amount,
+          owner.deposit_amount,
+          owner.deposit_date,
+          finalPaymentAmount(owner),
+          owner.payment_balance,
+          optionLabel(this, owner.payment_method, PAYMENT_METHOD_LABELS, "none"),
+          owner.payment_date,
+          owner.notes,
+          history,
+        ];
+        const linkedPuppies = this._linkedPuppies(owner.id).filter((puppy) => puppy.litter_id === litterId).sort((left, right) =>
+          `${left.litter_name || ""}\u0000${left.name || ""}`.localeCompare(`${right.litter_name || ""}\u0000${right.name || ""}`),
+        );
+        for (const puppy of linkedPuppies.length ? linkedPuppies : [null]) {
+          rows.push([
+            ...ownerValues,
+            puppy?.litter_name || (litterId ? this._litterLabel(litterId) : ""),
+            puppy?.registered_name,
+            puppy?.name,
+            puppy ? dateOnly(puppy.birth_time, puppy.litter_birth_date) : "",
+            puppy ? optionLabel(this, puppy.sex, SEX_LABELS, puppy.sex) : "",
+            puppy?.coat_color,
+            puppy?.collar_color,
+            puppy?.chip_number,
+            puppy?.breed,
+            puppy?.father_details?.registered_name,
+            puppy?.father,
+            puppy?.father_details?.birth_date,
+            puppy?.father_details?.breed,
+            puppy?.father_details?.wala_number,
+            puppy?.father_details?.chip_number,
+            puppy?.mother_details?.registered_name,
+            puppy?.mother,
+            puppy?.mother_details?.birth_date,
+            puppy?.mother_details?.breed,
+            puppy?.mother_details?.wala_number,
+            puppy?.mother_details?.chip_number,
+            owner.placement_notes,
+            text(this, owner.archived ? "yes" : "no"),
+          ]);
+        }
       }
     }
     const delimiter = configuredCsvDelimiter(this._config);
@@ -976,8 +1116,12 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     if (error) error.textContent = "";
   }
 
-  _openEditor(ownerId = null, { paidInFull = false } = {}) {
+  _openEditor(ownerId = null, { paidInFull = false, litterId } = {}) {
     if (!this._formState.discard()) return;
+    const contact = this._owners.find((item) => item.id === ownerId);
+    const scopeLitter = this._litters.some((litter) => litter.id === this._ownerScope) ? this._ownerScope : "";
+    const defaultLitter = this._activeView === "matrix" ? this._selectedLitter : contact ? this._detailLitter(contact) : scopeLitter;
+    this._editingLitter = litterId ?? defaultLitter;
     this._paymentBeforeFull = null;
     this._lastSavedOwnerId = null;
     this._activeView = "owners";
@@ -998,13 +1142,21 @@ class PuppyTrackerOwnerCard extends HTMLElement {
   }
 
   _ownerDetails(owner) {
-    const linked = this._linkedPuppies(owner.id).map((puppy) => `${puppySelectorLabel(puppy, text(this, "puppy"))} (${puppy.litter_name})`).join(", ") || text(this, "noLinkedPuppies");
+    const litterId = this._detailLitter(owner);
+    const contact = owner;
+    owner = this._ownerForLitter(owner, litterId);
+    const linked = this._linkedPuppies(owner.id).filter((puppy) => puppy.litter_id === litterId).map((puppy) => puppySelectorLabel(puppy, text(this, "puppy"))).join(", ") || text(this, "noLinkedPuppies");
+    const litterOptions = this._visibleLitterIds(contact).map((id) => `<option value="${escapeHtml(id)}" ${id === litterId ? "selected" : ""}>${escapeHtml(this._litterLabel(id))}</option>`).join("");
+    const assignable = this._litters.filter((litter) => !contact.placements?.[litter.id]);
+    const addDossier = assignable.length && (litterId || !contact.unassigned_placement) ? `<button type="button" class="secondary" data-add-dossier="${escapeHtml(owner.id)}" ${this._busy ? "disabled" : ""}><ha-icon icon="mdi:folder-plus-outline"></ha-icon>${escapeHtml(text(this, "addDossier"))}</button>` : "";
+    const assign = !litterId && contact.unassigned_placement && assignable.length ? `<div class="assign-dossier"><label><span>${escapeHtml(text(this, "dossierLitter"))}</span><select data-assign-litter="${escapeHtml(owner.id)}"><option value="">${escapeHtml(text(this, "chooseLitter"))}</option>${assignable.map((litter) => `<option value="${escapeHtml(litter.id)}">${escapeHtml(litter.name)}</option>`).join("")}</select></label><button type="button" class="secondary" data-assign-owner="${escapeHtml(owner.id)}" ${this._busy ? "disabled" : ""}><ha-icon icon="mdi:link-variant"></ha-icon>${escapeHtml(text(this, "assignDossier"))}</button></div>` : "";
     const history = (owner.status_history || []).map((entry) => `${optionLabel(this, entry.status, PLACEMENT_STATUS_LABELS, entry.status)} · ${formattedDate(this, entry.changed_at, true)}`).join("\n") || "—";
     const group = (key, title, fields, defaultOpen = false) => {
       const open = this._ownerGroups.get(owner.id)?.[key] ?? defaultOpen;
       return `<details class="owner-detail-group" data-owner-group="${key}" data-group-owner="${escapeHtml(owner.id)}" ${open ? "open" : ""}><summary>${escapeHtml(text(this, title))}</summary><div class="owner-detail-fields">${fields}</div></details>`;
     };
     return `<div class="owner-detail" id="owner-detail-${escapeHtml(owner.id)}">
+      <div class="dossier-controls"><label class="dossier-select"><span>${escapeHtml(text(this, "dossierLitter"))}</span><select data-owner-dossier="${escapeHtml(owner.id)}">${litterOptions}</select></label>${addDossier}</div>${assign}
       ${group("contact", "contactDetails", `
       ${this._detail(text(this, "name"), owner.name)}
       ${this._detail(text(this, "role"), optionLabel(this, owner.role, OWNER_ROLE_LABELS, "owner"))}
@@ -1022,6 +1174,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       ${this._detail(text(this, "placementDate"), formattedDate(this, owner.placement_date))}
       ${this._detail(text(this, "expectedPickupDate"), formattedDate(this, owner.expected_pickup_date))}
       ${this._detail(text(this, "linkedPuppies"), linked, "wide")}
+      ${this._detail(text(this, "placementNotes"), owner.placement_notes || "—", "wide preformatted")}
       `, true)}
       ${group("preferences", "puppyPreferences", this._puppyPreferenceDetails(owner))}
       ${group("financial", "financialDetails", `
@@ -1043,11 +1196,18 @@ class PuppyTrackerOwnerCard extends HTMLElement {
 
   _ownerList() {
     if (!this._owners.length) return `<div class="empty">${escapeHtml(text(this, this._loading ? "loading" : "empty"))}</div>`;
-    return this._owners.map((owner) => {
+    const owners = this._visibleOwners();
+    if (!owners.length) return `<div class="empty">${escapeHtml(text(this, "noMatchingOwners"))}</div>`;
+    return owners.map((owner) => {
       const expanded = owner.id === this._expandedOwnerId;
       const contact = [owner.email, owner.phone].filter(Boolean).join(" · ") || text(this, "noContact");
+      const linked = this._linkedPuppiesLabel(owner.id);
+      const dossiers = this._visibleLitterIds(owner).map((id) => {
+        const dossier = this._ownerForLitter(owner, id);
+        return [this._litterLabel(id), optionLabel(this, dossier.placement_status, PLACEMENT_STATUS_LABELS, "interested"), dossier.archived ? text(this, "archivedColumn") : ""].filter(Boolean).join(" · ");
+      }).join(", ");
       return `<article class="owner" data-owner="${escapeHtml(owner.id)}">
-        <button type="button" class="owner-toggle" data-toggle-owner="${escapeHtml(owner.id)}" aria-expanded="${expanded}" aria-controls="owner-detail-${escapeHtml(owner.id)}"><span><strong>${escapeHtml(owner.name)}</strong><small>${escapeHtml(contact)}</small></span><ha-icon icon="mdi:chevron-${expanded ? "up" : "down"}"></ha-icon></button>
+        <button type="button" class="owner-toggle" data-toggle-owner="${escapeHtml(owner.id)}" aria-expanded="${expanded}" aria-controls="owner-detail-${escapeHtml(owner.id)}"><span><strong>${escapeHtml(owner.name)}</strong><small>${escapeHtml(contact)}</small><small>${escapeHtml(dossiers)}</small>${linked ? `<small class="owner-puppies">${escapeHtml(text(this, "linkedPuppies"))}: ${escapeHtml(linked)}</small>` : ""}</span><ha-icon icon="mdi:chevron-${expanded ? "up" : "down"}"></ha-icon></button>
         <div class="owner-actions"><button type="button" data-edit="${escapeHtml(owner.id)}" title="${escapeHtml(text(this, "edit"))}" aria-label="${escapeHtml(text(this, "edit"))}"><ha-icon icon="mdi:pencil-outline"></ha-icon></button><button type="button" data-delete="${escapeHtml(owner.id)}" title="${escapeHtml(text(this, "remove"))}" aria-label="${escapeHtml(text(this, "remove"))}"><ha-icon icon="mdi:delete-outline"></ha-icon></button></div>
         ${expanded ? this._ownerDetails(owner) : ""}
       </article>`;
@@ -1056,7 +1216,9 @@ class PuppyTrackerOwnerCard extends HTMLElement {
 
   _ownerForm() {
     if (!this._showOwnerEditor) return `<button type="button" id="add-owner" class="primary add-owner"><ha-icon icon="mdi:plus"></ha-icon>${escapeHtml(text(this, "addOwner"))}</button>`;
-    const owner = this._owners.find((item) => item.id === this._editing) || {};
+    const contact = this._owners.find((item) => item.id === this._editing) || {};
+    const owner = this._ownerForLitter(contact, this._editingLitter);
+    const litterOptions = [["", text(this, "unassigned")], ...this._litters.map((litter) => [litter.id, litter.name])].map(([id, label]) => `<option value="${escapeHtml(id)}" ${id === this._editingLitter ? "selected" : ""}>${escapeHtml(label)}</option>`).join("");
     return `<section class="owner-editor"><h3>${escapeHtml(text(this, this._editing ? "editOwner" : "addOwner"))}</h3><form class="form">
       <h4 class="form-heading">${escapeHtml(text(this, "contactDetails"))}</h4>
       <label><span>${escapeHtml(text(this, "name"))}</span><input name="name" required autocomplete="name" value="${escapeHtml(owner.name || "")}"></label>
@@ -1068,11 +1230,14 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       ${selectField(this, "role", text(this, "role"), OWNER_ROLE_LABELS, owner.role || "owner")}
       ${selectField(this, "contact_preference", text(this, "contactPreference"), CONTACT_PREFERENCE_LABELS, owner.contact_preference || "none")}
       <h4 class="form-heading">${escapeHtml(text(this, "placementDetails"))}</h4>
+      <label class="wide"><span>${escapeHtml(text(this, "dossierLitter"))}</span><select id="owner-litter" data-draft-ignore ${this._busy ? "disabled" : ""}>${litterOptions}</select></label>
       ${selectField(this, "placement_status", text(this, "placementStatus"), PLACEMENT_STATUS_LABELS, owner.placement_status || "interested")}
       <label><span>${escapeHtml(text(this, "placementDate"))}</span><input name="placement_date" type="date" value="${escapeHtml(owner.placement_date || "")}"></label>
       <label><span>${escapeHtml(text(this, "expectedPickupDate"))}</span><input name="expected_pickup_date" type="date" value="${escapeHtml(owner.expected_pickup_date || "")}"></label>
       <h4 class="form-heading">${escapeHtml(text(this, "puppyPreferences"))}</h4>
       ${this._puppyPreferenceFields(owner)}
+      <label class="wide"><span>${escapeHtml(text(this, "placementNotes"))}</span><textarea name="placement_notes" rows="3">${escapeHtml(owner.placement_notes || "")}</textarea></label>
+      <label class="completed-toggle wide"><input name="archived" type="checkbox" ${owner.archived ? "checked" : ""}>${escapeHtml(text(this, "archived"))}</label>
       <h4 class="form-heading">${escapeHtml(text(this, "paymentDetails"))}</h4>
       ${selectField(this, "payment_status", text(this, "paymentStatus"), PAYMENT_STATUS_LABELS, owner.payment_status || "none")}
       <label><span>${escapeHtml(text(this, "paymentAmount"))}</span><input name="payment_amount" type="number" min="0" step="0.01" inputmode="decimal" value="${escapeHtml(owner.payment_amount ?? "")}"></label>
@@ -1089,7 +1254,8 @@ class PuppyTrackerOwnerCard extends HTMLElement {
   }
 
   _linkSection(litterPuppies, puppy, linked, litterOptions, puppyOptions) {
-    return `<section class="link"><h3>${escapeHtml(text(this, "linkTitle"))}</h3><div class="link-form"><label><span>${escapeHtml(text(this, "litter"))}</span><select id="link-litter">${litterOptions}</select></label><label><span>${escapeHtml(text(this, "puppy"))}</span><select id="link-puppy" ${litterPuppies.length ? "" : "disabled"}>${puppyOptions}</select></label><fieldset class="checks"><legend>${escapeHtml(text(this, "owners"))}</legend>${this._owners.map((owner) => `<label><input type="checkbox" name="linked_owner" value="${escapeHtml(owner.id)}" ${linked.has(owner.id) ? "checked" : ""}>${escapeHtml(owner.name)}</label>`).join("") || `<span class="empty">${escapeHtml(text(this, "empty"))}</span>`}</fieldset></div><div class="actions"><button type="button" id="link-save" class="primary" ${!puppy || this._busy ? "disabled" : ""}>${escapeHtml(text(this, "linkSave"))}</button></div></section>`;
+    const owners = this._owners.filter((owner) => linked.has(owner.id) || ((owner.placements?.[this._selectedLitter] || this._ownerLitterIds(owner).includes("")) && !this._ownerForLitter(owner, this._selectedLitter).archived));
+    return `<section class="link"><h3>${escapeHtml(text(this, "linkTitle"))}</h3><div class="link-form"><label><span>${escapeHtml(text(this, "litter"))}</span><select id="link-litter">${litterOptions}</select></label><label><span>${escapeHtml(text(this, "puppy"))}</span><select id="link-puppy" ${litterPuppies.length ? "" : "disabled"}>${puppyOptions}</select></label><fieldset class="checks"><legend>${escapeHtml(text(this, "owners"))}</legend>${owners.map((owner) => `<label><input type="checkbox" name="linked_owner" value="${escapeHtml(owner.id)}" ${linked.has(owner.id) ? "checked" : ""}>${escapeHtml(owner.name)}</label>`).join("") || `<span class="empty">${escapeHtml(text(this, "noMatchingOwners"))}</span>`}</fieldset></div><div class="actions"><button type="button" id="link-save" class="primary" ${!puppy || this._busy ? "disabled" : ""}>${escapeHtml(text(this, "linkSave"))}</button></div></section>`;
   }
 
   _updateFinalPaymentPreview() {
@@ -1123,7 +1289,12 @@ class PuppyTrackerOwnerCard extends HTMLElement {
   }
 
   _render() {
+    preserveScrollPosition(this, () => this._renderContent());
+  }
+
+  _renderContent() {
     if (!this._config) return;
+    const listScroll = this.querySelector(".list")?.scrollTop || 0;
     this._formState.capture();
     this._linkFormState.capture();
     if (this._hass?.user?.is_admin === false) {
@@ -1147,7 +1318,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     const ownersView = this._activeView !== "matrix";
     const headerActions = `<div class="head-actions"><button type="button" id="export-owners-csv" class="secondary" ${!this._owners.length || this._loading ? "disabled" : ""}><ha-icon icon="mdi:file-delimited-outline"></ha-icon>${escapeHtml(text(this, "exportCsv"))}</button>${ownersView && !this._showOwnerEditor ? this._ownerForm() : ""}</div>`;
     const viewTabs = `<div class="view-tabs" role="tablist" aria-label="${escapeHtml(text(this, "title"))}"><button type="button" id="owners-view" role="tab" aria-selected="${ownersView}" class="${ownersView ? "active" : ""}"><ha-icon icon="mdi:account-multiple-outline"></ha-icon>${escapeHtml(text(this, "ownersView"))}</button><button type="button" id="matrix-view" role="tab" aria-selected="${!ownersView}" class="${ownersView ? "" : "active"}" ${this._showOwnerEditor ? "disabled" : ""}><ha-icon icon="mdi:table-large"></ha-icon>${escapeHtml(text(this, "matrixView"))}</button></div>`;
-    const ownersContent = `${this._showOwnerEditor ? this._ownerForm() : ""}<section class="list" aria-live="polite">${this._ownerList()}</section>${this._linkSection(litterPuppies, puppy, linked, litterOptions, puppyOptions)}`;
+    const ownersContent = `${this._showOwnerEditor ? this._ownerForm() : ""}${this._ownerFilters()}<section class="list" aria-live="polite">${this._ownerList()}</section>${this._linkSection(litterPuppies, puppy, linked, litterOptions, puppyOptions)}`;
     const content = ownersView ? ownersContent : this._matrixView();
     const subtitle = text(this, ownersView ? "subtitle" : "matrixSubtitle");
     this.innerHTML = `<ha-card><div class="head"><div><div class="title">${escapeHtml(this._config.title || text(this, "title"))}</div><div class="sub">${escapeHtml(subtitle)}</div></div>${headerActions}</div>${viewTabs}${content}<div id="owner-error" class="message error" role="alert">${escapeHtml(this._error)}</div><div id="owner-status" class="message" role="status" aria-live="polite">${escapeHtml(this._status)}</div></ha-card><style>
@@ -1180,11 +1351,23 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       .preference-row legend{padding:0 5px;color:var(--primary-text-color);font-size:.8rem;font-weight:600}
       .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
       .list{display:grid;gap:8px;margin-top:16px}
+      .list{max-height:600px;overflow-y:auto;scrollbar-gutter:stable}
+      .owner-filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:16px}
+      .owner-filters label,.dossier-select,.assign-dossier label{display:grid;gap:4px;min-width:0;color:var(--secondary-text-color);font-size:.78rem}
+      .owner-filters select,.owner-filters input[type=search],.dossier-select select,.assign-dossier select{box-sizing:border-box;width:100%;min-height:42px;padding:8px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color);font:inherit}
+      .owner-filters .completed-toggle,.form .completed-toggle{display:flex;align-items:center;gap:8px;grid-column:1/-1}
+      .completed-toggle input{width:18px;height:18px;min-height:18px;accent-color:var(--primary-color)}
+      .dossier-select{margin-bottom:12px}
+      .dossier-controls{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+      .dossier-controls .dossier-select{flex:1 1 160px;margin:0}
+      .assign-dossier{display:flex;align-items:end;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+      .assign-dossier label{flex:1 1 160px}
       .owner{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;border-top:1px solid var(--divider-color);padding-top:9px}
       .owner-toggle{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;border:0;background:transparent;color:var(--primary-text-color);padding:5px 2px;text-align:left;font:inherit;cursor:pointer}
       .owner-toggle span{min-width:0}
       .owner-toggle strong,.owner-toggle small{display:block;overflow-wrap:anywhere}
       .owner-toggle small{color:var(--secondary-text-color);margin-top:2px;font-size:.78rem}
+      .owner-toggle .owner-puppies{color:var(--primary-text-color);margin-top:5px;font-weight:600}
       .owner-actions{display:flex;gap:5px}
       .owner-actions button{width:38px;padding:0}
       .owner-actions ha-icon{--mdc-icon-size:19px}
@@ -1198,7 +1381,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       .owner-detail .wide{grid-column:1/-1}
       .owner-detail .preformatted>div{white-space:pre-wrap;word-break:break-word}
       .owner-detail .notes>div{max-height:none;overflow:visible}
-      .checks{min-width:0;margin:2px 0 0;padding:10px;border:1px solid var(--divider-color);border-radius:8px;display:grid;gap:7px}
+      .checks{min-width:0;margin:2px 0 0;padding:10px;border:1px solid var(--divider-color);border-radius:8px;display:grid;gap:7px;max-height:260px;overflow-y:auto}
       .checks legend{padding:0 4px;color:var(--secondary-text-color);font-size:.78rem}
       .checks label{display:flex;align-items:center;gap:7px;color:var(--primary-text-color)}
       .empty,.message{color:var(--secondary-text-color);padding:10px 2px}
@@ -1307,7 +1490,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
         .head-actions{display:grid;justify-content:stretch}
         .head-actions button{width:100%}
         .view-tabs{display:grid}
-        .form,.link-form,.owner-detail-fields,.preference-row{grid-template-columns:1fr}
+        .form,.link-form,.owner-detail-fields,.preference-row,.owner-filters{grid-template-columns:1fr}
         .wide,.checks,.owner-detail .wide{grid-column:auto}
         .owner{grid-template-columns:minmax(0,1fr) auto}
         .owner-actions{flex-direction:column}
@@ -1316,36 +1499,46 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       }
     </style>`;
 
+    if (this.querySelector(".list")) this.querySelector(".list").scrollTop = listScroll;
     this._formState.bind(this.querySelector(".owner-editor form"));
     this._syncPaymentStatus();
     this._linkFormState.bind(this.querySelector(".link-form .checks"));
     this._updateFinalPaymentPreview();
     const savedStatus = this.querySelector("#owner-status");
     if (this._status && this._lastSavedOwnerId && savedStatus) {
-      appendEditAction(this, savedStatus, () => this._openEditor(this._lastSavedOwnerId), text(this, "editOwner"));
+      appendEditAction(this, savedStatus, () => this._openEditor(this._lastSavedOwnerId, { litterId: this._lastSavedLitter }), text(this, "editOwner"));
     }
     this.querySelector(".owner-editor form")?.addEventListener("submit", (event) => { event.preventDefault(); this._save(event.currentTarget); });
     this.querySelector("#export-owners-csv")?.addEventListener("click", () => this._downloadOwnersCsv());
     this.querySelector("#owners-view")?.addEventListener("click", () => this._switchView("owners"));
     this.querySelector("#matrix-view")?.addEventListener("click", () => this._switchView("matrix"));
     this.querySelector("#add-owner")?.addEventListener("click", () => this._openEditor());
+    this.querySelector("#owner-scope")?.addEventListener("change", (event) => {
+      const scope = event.target.value;
+      const litterId = ["__all__", "__unassigned__"].includes(scope) ? this._selectedLitter : scope;
+      if (!this._changeLitter(litterId, scope)) event.target.value = this._ownerScope;
+    });
+    this.querySelector("#owner-show-completed")?.addEventListener("change", (event) => { this._showCompleted = event.target.checked; this._render(); });
+    this.querySelector("#owner-search")?.addEventListener("input", (event) => {
+      this._ownerSearch = event.target.value;
+      this.querySelector(".list").innerHTML = this._ownerList();
+      this._bindOwnerRows();
+    });
+    this.querySelector("#owner-litter")?.addEventListener("change", (event) => {
+      if (!this._formState.discard()) { event.target.value = this._editingLitter; return; }
+      this._editingLitter = event.target.value;
+      this._paymentBeforeFull = null;
+      this._render();
+      this.querySelector("#owner-litter")?.focus({ preventScroll: true });
+    });
     this.querySelector("#cancel-owner")?.addEventListener("click", () => { if (!this._formState.discard()) return; this._editing = null; this._showOwnerEditor = false; this._error = ""; this._render(); });
-    this.querySelectorAll("[data-toggle-owner]").forEach((button) => button.addEventListener("click", () => { this._expandedOwnerId = this._expandedOwnerId === button.dataset.toggleOwner ? null : button.dataset.toggleOwner; this._render(); }));
-    this.querySelectorAll("[data-owner-group]").forEach((group) => group.addEventListener("toggle", () => {
-      if (!group.isConnected) return;
-      const state = this._ownerGroups.get(group.dataset.groupOwner) || {};
-      state[group.dataset.ownerGroup] = group.open;
-      this._ownerGroups.set(group.dataset.groupOwner, state);
-    }));
-    this.querySelectorAll("[data-edit]").forEach((button) => button.addEventListener("click", () => this._openEditor(button.dataset.edit)));
-    this.querySelectorAll("[data-mark-paid]").forEach((button) => button.addEventListener("click", () => this._openEditor(button.dataset.markPaid, { paidInFull: true })));
+    this._bindOwnerRows();
     this.querySelector('[name="payment_status"]')?.addEventListener("change", () => this._syncPaymentStatus(true));
-    this.querySelectorAll("[data-delete]").forEach((button) => button.addEventListener("click", () => this._delete(button.dataset.delete)));
     this.querySelectorAll('input[name="payment_amount"], input[name="registration_fee_amount"], input[name="deposit_amount"]').forEach((input) => input.addEventListener("input", () => this._updateFinalPaymentPreview()));
-    this.querySelector("#link-litter")?.addEventListener("change", (event) => { if (!this._linkFormState.discard()) { event.target.value = this._selectedLitter; return; } this._selectedLitter = event.target.value; this._selectedPuppy = ""; this._matrixSelectedPuppy = ""; this._matrixSelection = null; this._render(); });
+    this.querySelector("#link-litter")?.addEventListener("change", (event) => { if (!this._changeLitter(event.target.value)) event.target.value = this._selectedLitter; });
     this.querySelector("#link-puppy")?.addEventListener("change", (event) => { if (!this._linkFormState.discard()) { event.target.value = this._selectedPuppy; return; } this._selectedPuppy = event.target.value; this._render(); });
     this.querySelector("#link-save")?.addEventListener("click", () => this._link());
-    this.querySelector("#matrix-litter")?.addEventListener("change", (event) => { this._selectedLitter = event.target.value; this._selectedPuppy = ""; this._matrixSelectedPuppy = ""; this._matrixSelection = null; this._render(); });
+    this.querySelector("#matrix-litter")?.addEventListener("change", (event) => { if (!this._changeLitter(event.target.value)) event.target.value = this._selectedLitter; });
     this.querySelector("#matrix-show-resolved")?.addEventListener("change", (event) => { this._matrixShowResolved = event.target.checked; this._matrixSelection = null; this._render(); });
     this.querySelector("#matrix-only-conflicts")?.addEventListener("change", (event) => { this._matrixOnlyConflicts = event.target.checked; this._matrixSelection = null; this._render(); });
     this.querySelector("#matrix-puppy")?.addEventListener("change", (event) => { this._matrixSelectedPuppy = event.target.value; this._matrixSelection = null; this._render(); });
@@ -1358,6 +1551,29 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     }));
     this.querySelectorAll("[data-matrix-owner]").forEach((button) => button.addEventListener("click", () => this._selectMatrixCell(button.dataset.matrixOwner, button.dataset.matrixPuppy)));
     this.querySelectorAll("[data-matrix-edit-owner]").forEach((button) => button.addEventListener("click", (event) => this._openEditor(event.currentTarget.dataset.matrixEditOwner)));
+  }
+
+  _bindOwnerRows() {
+    this.querySelectorAll("[data-owner-group]").forEach((group) => group.addEventListener("toggle", () => {
+      if (!group.isConnected) return;
+      const state = this._ownerGroups.get(group.dataset.groupOwner) || {};
+      state[group.dataset.ownerGroup] = group.open;
+      this._ownerGroups.set(group.dataset.groupOwner, state);
+    }));
+    this.querySelectorAll("[data-toggle-owner]").forEach((button) => button.addEventListener("click", () => { this._expandedOwnerId = this._expandedOwnerId === button.dataset.toggleOwner ? null : button.dataset.toggleOwner; this._render(); }));
+    this.querySelectorAll("[data-delete]").forEach((button) => button.addEventListener("click", () => this._delete(button.dataset.delete)));
+    this.querySelectorAll("[data-edit]").forEach((button) => button.addEventListener("click", () => this._openEditor(button.dataset.edit)));
+    this.querySelectorAll("[data-mark-paid]").forEach((button) => button.addEventListener("click", () => this._openEditor(button.dataset.markPaid, { paidInFull: true })));
+    this.querySelectorAll("[data-owner-dossier]").forEach((select) => select.addEventListener("change", () => { this._detailLitters.set(select.dataset.ownerDossier, select.value); this._render(); }));
+    this.querySelectorAll("[data-add-dossier]").forEach((button) => button.addEventListener("click", () => {
+      const owner = this._owners.find((item) => item.id === button.dataset.addDossier);
+      const litter = this._litters.find((item) => !owner.placements?.[item.id]);
+      if (litter) this._openEditor(owner.id, { litterId: litter.id });
+    }));
+    this.querySelectorAll("[data-assign-owner]").forEach((button) => button.addEventListener("click", () => {
+      const select = [...this.querySelectorAll("[data-assign-litter]")].find((item) => item.dataset.assignLitter === button.dataset.assignOwner);
+      this._assignDossier(button.dataset.assignOwner, select?.value);
+    }));
   }
 }
 

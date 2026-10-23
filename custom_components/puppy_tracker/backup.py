@@ -310,7 +310,7 @@ def build_export_document(
         _validate_scheduler_references(data, normalized_schedulers)
         document["schedulers"] = normalized_schedulers
         if owner_data is not None:
-            document["owners"] = normalize_owner_backup_data(owner_data)
+            document["owners"] = normalize_owner_backup_data(owner_data, data.get("litters", {}))
         return document
 
     if scheduler_data is not None:
@@ -487,7 +487,7 @@ def parse_export_json(content: str) -> dict[str, Any]:
             )
         if "owners" in document:
             try:
-                document["owners"] = normalize_owner_backup_data(document["owners"])
+                document["owners"] = normalize_owner_backup_data(document["owners"], data.get("litters", {}))
             except ValueError as err:
                 raise BackupValidationError(
                     "invalid_backup",

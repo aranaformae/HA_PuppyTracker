@@ -178,7 +178,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     attention_acknowledgements = AttentionAcknowledgementStore(hass)
     await attention_acknowledgements.async_load()
     owners = OwnerStore(hass)
-    await owners.async_load()
+    await owners.async_load(storage.get_litters())
     onboarding = OnboardingStore(hass)
     await onboarding.async_load()
 

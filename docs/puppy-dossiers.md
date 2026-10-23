@@ -322,6 +322,31 @@ csv_delimiter: comma
 The create/edit form starts collapsed. Select **Add owner** or edit an existing
 contact to expose it. Clicking an owner row expands the complete stored details,
 including long notes.
+Assigned puppies are also visible in the collapsed owner row, with their call
+name, collar colour and litter name. All actual links are shown, including links
+across litters when **All litters** is selected; preferences alone are not assignments.
+The list starts on the first active litter. **Owners for** also offers all
+litters and **Without litter**. Search by contact name, email, phone or linked
+puppy. Completed (sold/placed) and archived dossiers start hidden; use the
+checkbox to show them. Long lists scroll inside the card at a 600px maximum.
+
+One contact can have a separate dossier for each litter. Contact details and
+general contact notes are shared; placement status, pickup date, top-three
+preferences, payments, history and litter notes are independent per litter.
+Choose **Dossier for litter** in the expanded details to inspect another
+dossier, or **Add litter dossier** to register interest in another litter
+without selecting a puppy. In the editor, switching litter asks before discarding
+unsaved changes. A new litter starts with empty payment and preference fields.
+
+**Archive dossier** hides only that litter's dossier, not the contact or its
+other dossiers. Deleting a contact removes all its dossiers and is refused
+while any puppy still links to the contact; unlink those puppies first.
+
+On upgrade, old placement/payment data is assigned automatically only when
+puppy links and preferences identify exactly one litter. Otherwise it remains
+under **Without litter**. Expand that contact and use **Assign dossier to litter**
+to move the original data explicitly. Existing target dossiers are never
+overwritten. No balance is copied to several litters.
 Changing or closing a modified contact form asks before discarding it. A failed
 save or another card redraw retains contact, preference, payment and note inputs.
 The save confirmation names the contact and offers a pencil to reopen it. These
@@ -340,8 +365,8 @@ Contact fields include:
 ### Puppy preferences and final placement
 
 Open **Add owner** or **Edit owner** and use **Top 3 puppy preferences** to
-record a first, second and third choice. Each selector shows puppies from every
-available litter as `Litter name · puppy call name (collar colour)`, so equal call names remain
+record a first, second and third choice for the selected litter dossier. Each
+selector shows that litter's puppies as `Litter name · puppy call name (collar colour)`, so equal call names remain
 distinguishable. All three rows are optional. When used, fill them in order and
 select each puppy only once. Every selected puppy can have a separate note of up
 to 240 characters.
@@ -357,6 +382,9 @@ puppy can have multiple linked contacts. Linking does not erase the shortlist,
 so the original matching considerations remain available until you edit or
 clear them. If a selected puppy is later unavailable or removed, the saved
 position is shown as unavailable instead of silently switching to another pup.
+A final puppy link creates an empty litter dossier when needed. To move existing
+unassigned payment or preference history, use **Assign dossier to litter** first;
+linking alone never guesses which historical balance belongs to this litter.
 
 ### Comparing preferences
 
@@ -370,7 +398,7 @@ second and third choices.
 The summary highlights shared first choices, puppies without preferences,
 owners who have not selected a puppy for the litter and existing owner-puppy
 links. **First-choice conflicts only** reduces the matrix to the affected pups
-and owners. Sold and placed owners are hidden initially and can be revealed with
+and owners. Sold, placed and archived dossiers are hidden initially and can be revealed with
 the adjacent switch. Select a cell to read the complete preference note or open
 that owner in the editor.
 
@@ -404,15 +432,21 @@ Existing fully-paid contacts are normalized to zero outstanding without
 inventing a missing historical payment date. The saved status, date and zero
 balance are included in backups, CSV export and owner-enabled PDF reports.
 
-Use **CSV exporteren** in the Owners card to download the complete visible
+Use **Export selection (CSV)** in the Owners card to download the visible
 contact list for Word, Nextcloud or another mail-merge tool. The UTF-8 file
 contains localized column headings and one row per owner-puppy link. Choose
 `csv_delimiter: comma` (the default, suitable for Nextcloud) or
 `csv_delimiter: semicolon` (often convenient for regional Excel settings) in
 YAML or the visual card editor. An owner linked to two puppies therefore has two
-rows; an owner without a puppy is kept once with empty litter and puppy columns.
+rows with the payment and preference data of the corresponding litter dossier.
+An unlinked candidate receives one row per visible litter dossier, with the
+litter name but empty puppy columns. A contact without a litter receives an
+unassigned row with empty litter and puppy columns. The litter filter, search
+and completed/archive checkbox also apply to this export; select **All litters**,
+clear search and enable completed dossiers for a complete list.
 Contact, placement, payment, notes, the three puppy preferences with their notes
-and status history are included. Linked rows also contain the litter, puppy
+and status history are included, together with litter notes and archive state.
+Linked rows also contain the litter, puppy
 registered name and call name, birth date, sex, coat and collar colours, chip
 number and breed/type. Father and mother each have separate registered name,
 call name, birth date, breed/type, WALA and chip-number columns. Internal Puppy
