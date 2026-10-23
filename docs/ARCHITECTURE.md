@@ -1076,6 +1076,12 @@ with in-memory rollback on failure. Station transitions are serialized and
 check session ID/revision under the storage lock. Old databases need no new
 required field or schema migration. Both native station buttons and the public
 record-weight action use this path.
+Explicit `puppy_tracker.record_weight` actions only participate in an active
+session when their puppy belongs to its cohort. During interruption, outside
+that cohort or for another litter they save an ordinary measurement without
+resuming/discarding the station, advancing its selector or clearing its input.
+Station-only commands still require explicit recovery. Both paths reject
+archived litter/puppy targets.
 
 Every persisted mutation reconciles an active checkpoint with effective
 measurement chains and the surviving active cohort. Ordinary dossier deletion

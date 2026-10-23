@@ -162,6 +162,38 @@ async def test_history_change_never_implicitly_resumes_interrupted_session(recon
     assert runtime.weighing_session["weighed_puppy_ids"] == []
 
 
+@pytest.mark.parametrize("other_litter", [False, True])
+async def test_explicit_actions_work_during_interruption_without_changing_station(reconciled_station, install_litter, other_litter):
+    runtime, _, _, litter_id, first, _ = reconciled_station
+    runtime.weighing_session = recover_session(runtime.storage)
+    runtime.weight_input = 999
+    before_session = deepcopy(runtime.weighing_session)
+    before_selected = runtime.selected_puppy_id
+    if other_litter:
+        litter_id, first = install_litter(litter_id="other-litter", puppy_id="other-puppy")
+    mid = await async_record_station_weight(runtime, station_command=False,
+                                           litter_id=litter_id, puppy_id=first, weight=450)
+    assert runtime.storage.get_measurement(litter_id, first, mid)["weight"] == 450
+    assert runtime.weighing_session == before_session
+    assert runtime.selected_puppy_id == before_selected
+    assert runtime.weight_input == 999
+
+
+async def test_explicit_foreign_action_keeps_draft_and_active_cohort_action_advances(reconciled_station, install_litter):
+    runtime, _, _, litter_id, first, second = reconciled_station
+    other_litter, other_pup = install_litter(litter_id="other-litter", puppy_id="other-puppy")
+    runtime.weight_input = 999
+    before = deepcopy(runtime.weighing_session)
+    await async_record_station_weight(runtime, station_command=False,
+                                     litter_id=other_litter, puppy_id=other_pup, weight=450)
+    assert runtime.weight_input == 999
+    assert runtime.weighing_session == before
+    await async_record_station_weight(runtime, station_command=False,
+                                     litter_id=litter_id, puppy_id=first, weight=450)
+    assert runtime.weighing_session["weighed_puppy_ids"] == [first]
+    assert runtime.selected_puppy_id == second
+
+
 async def test_failed_resume_or_reset_keeps_the_checkpoint(station):
     runtime, _, reset, _, _, _ = station
     runtime.weighing_session = recover_session(runtime.storage)

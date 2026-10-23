@@ -1,6 +1,7 @@
 """Execute the 1.0 permission policy at the real HA entry points."""
 
 from datetime import timedelta
+from copy import deepcopy
 import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
@@ -293,6 +294,23 @@ async def test_file_backup_still_works_for_admin_and_automation(hass, service_ru
     assert (tmp_path / "backups/test.json").is_file()
     assert service_runtime.last_backup_status == "ok"
     assert (await service_runtime.onboarding.async_status(service_runtime.storage, "admin"))["steps"]["backup"] is True
+
+
+async def test_weight_automation_works_while_station_waits_for_recovery(hass, service_runtime):
+    from custom_components.puppy_tracker.session import start_weighing_session, recover_session
+
+    runtime = service_runtime
+    start_weighing_session(runtime, "litter-1", ["puppy-1"])
+    runtime.storage._data["weighing_session"] = deepcopy(runtime.weighing_session)
+    runtime.weighing_session = recover_session(runtime.storage)
+    runtime.weight_input = 999
+    checkpoint = deepcopy(runtime.weighing_session)
+    await hass.services.async_call(DOMAIN, "record_weight", {
+        "litter_id": "litter-1", "puppy_id": "puppy-1", "weight": 600,
+    }, blocking=True)
+    assert runtime.storage.get_active_measurements("litter-1", "puppy-1")[-1]["weight"] == 600
+    assert runtime.weighing_session == checkpoint
+    assert runtime.weight_input == 999
 
 
 @pytest.mark.parametrize("path", ["www/private.json", "../escape.json", "linked/private.json"])

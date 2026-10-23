@@ -368,14 +368,19 @@ def sync_station_session(runtime: PuppyTrackerRuntimeData) -> bool:
 
 async def async_record_station_weight(
     runtime: PuppyTrackerRuntimeData, *, expected_session: dict[str, Any] | None = None,
-    validate_write: Callable[[], None] | None = None, **weight: Any,
+    validate_write: Callable[[], None] | None = None, station_command: bool = True, **weight: Any,
 ) -> str:
     """Serialize station writes and publish runtime progress only after persistence."""
     sync_station_session(runtime)
     expected = deepcopy(expected_session if expected_session is not None else get_session(runtime))
     async with runtime.weighing_lock:
+        sync_station_session(runtime)
         session = get_session(runtime)
-        if (session.get("id"), session.get("revision")) != (expected.get("id"), expected.get("revision")):
+        active_member = (session.get("status") == SESSION_ACTIVE
+            and session.get("litter_id") == weight["litter_id"] and weight["puppy_id"] in session.get("puppy_ids", []))
+        if not station_command and not active_member:
+            return await runtime.storage.async_record_weight(**weight)
+        if station_command and (session.get("id"), session.get("revision")) != (expected.get("id"), expected.get("revision")):
             raise ValueError("De weegsessie is gewijzigd. Vernieuw de kaart en probeer opnieuw.")
         if session.get("status") == SESSION_INTERRUPTED:
             raise ValueError("Hervat de onderbroken weegsessie of sluit deze eerst af.")

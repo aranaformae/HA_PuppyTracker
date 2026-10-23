@@ -278,6 +278,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         measurement_id = await async_record_station_weight(
             runtime,
+            station_command=False,
             litter_id=litter_id,
             puppy_id=puppy_id,
             weight=weight,

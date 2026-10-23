@@ -1689,9 +1689,9 @@ class PuppyTrackerStorage:
                 self._check_weighing_checkpoint(weighing_session)
                 if weighing_session.get("status") == SESSION_INTERRUPTED:
                     raise ValueError("Hervat de onderbroken weegsessie of sluit deze eerst af.")
-                if (not self._require_litter(litter_id).get("active", True)
-                    or not self._require_puppy(litter_id, puppy_id).get("active", True)):
-                    raise ValueError("De geselecteerde puppy of het nest is gearchiveerd.")
+            if (not self._require_litter(litter_id).get("active", True)
+                or not self._require_puppy(litter_id, puppy_id).get("active", True)):
+                raise ValueError("De geselecteerde puppy of het nest is gearchiveerd.")
             puppy = self._require_puppy(
                 litter_id,
                 puppy_id,
