@@ -320,8 +320,8 @@ views:
         cards:
           - type: custom:puppy-tracker-workspace-card
             preset: journal
-            title: Logboek
-            default_tab: dossier
+            title: Logboek en dossier
+            default_tab: quickLog
             default_selected: all
             show_litter_selector: false
             show_bulk_action: true
@@ -332,11 +332,12 @@ views:
               dossier:
                 default_selected: all
                 show_profile_note: true
-                show_history: true
-                show_weights: true
-                show_details: false
+                show_timeline_items: false
+              timeline:
+                default_selected: all
                 max_items: 250
-                max_height: 520
+                show_history_toggle: true
+                show_timeline_items: true
               temperature:
                 default_selected: mother
                 default_range: all
