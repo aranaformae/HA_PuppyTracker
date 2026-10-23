@@ -2,6 +2,12 @@ const contactFields = ["name", "email", "phone", "street", "postal_code", "city"
 const placementFields = ["placement_status", "placement_date", "expected_pickup_date", "payment_status", "payment_date", "payment_amount", "registration_fee_amount", "deposit_amount", "deposit_date", "payment_method", "payment_balance", "puppy_preferences", "status_history", "placement_notes", "archived"];
 const pick = (value, fields) => Object.fromEntries(fields.filter((key) => key in value).map((key) => [key, structuredClone(value[key])]));
 
+export async function openOwnerSection(card, key) {
+  const section = card.locator(`[data-owner-editor-group="${key}"]`);
+  if (await section.getAttribute("open") === null) await section.locator("summary").click();
+  return section;
+}
+
 export function ownerContact(values, litterIds = [], unassigned = false) {
   const placement = pick(values, placementFields);
   return { id: values.id, ...pick(values, contactFields),

@@ -4,6 +4,15 @@ import { collarColor } from "./puppy-tracker-collar-chart-colors.js";
 
 const TAG = "puppy-tracker-owner-card";
 
+const OWNER_EDITOR_SECTIONS = {
+  contact: { title: "contactDetails", edit: "editContact", field: "name" },
+  address: { title: "addressDetails", edit: "editAddress", field: "street" },
+  placement: { title: "placementDetails", edit: "editPlacement", field: "placement_status" },
+  preferences: { title: "puppyPreferences", edit: "editPreferences", field: "preference_puppy_1" },
+  financial: { title: "financialDetails", edit: "editFinancial", field: "payment_status" },
+  notes: { title: "notesSection", edit: "editNotes", field: "notes" },
+};
+
 const OWNER_ROLE_LABELS = {
   owner: { nl: "Eigenaar", en: "Owner" },
   co_owner: { nl: "Mede-eigenaar", en: "Co-owner" },
@@ -36,6 +45,14 @@ const COPY = {
   nl: {
     changedElsewhere: "Deze gegevens zijn ondertussen gewijzigd. Je invoer is behouden. Laad de nieuwste gegevens voordat je opnieuw opslaat.",
     reloadLatest: "Nieuwste gegevens laden",
+    unsavedChanges: "Niet-opgeslagen wijzigingen",
+    notesSection: "Notities",
+    editContact: "Contactgegevens wijzigen",
+    editAddress: "Adresgegevens wijzigen",
+    editPlacement: "Plaatsing wijzigen",
+    editPreferences: "Pupvoorkeuren wijzigen",
+    editFinancial: "Betaling wijzigen",
+    editNotes: "Notities wijzigen",
     title: "Baasjes beheren",
     subtitle: "Contactpersonen die later aan een pup gekoppeld kunnen worden.",
     ownersView: "Baasjes beheren",
@@ -180,6 +197,14 @@ const COPY = {
   en: {
     changedElsewhere: "These details have changed in the meantime. Your input has been kept. Load the latest details before saving again.",
     reloadLatest: "Load latest details",
+    unsavedChanges: "Unsaved changes",
+    notesSection: "Notes",
+    editContact: "Edit contact details",
+    editAddress: "Edit address details",
+    editPlacement: "Edit placement",
+    editPreferences: "Edit puppy preferences",
+    editFinancial: "Edit payment",
+    editNotes: "Edit notes",
     title: "Manage owners",
     subtitle: "Contacts that can be linked to a puppy later.",
     ownersView: "Manage owners",
@@ -401,6 +426,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     this._editing = null;
     this._expandedOwnerId = null;
     this._ownerGroups = new Map();
+    this._editorGroups = { contact: true };
     this._showOwnerEditor = false;
     this._status = "";
     this._error = "";
@@ -525,6 +551,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     this._puppies = [];
     this._litters = [];
     this._ownerGroups.clear();
+    this._editorGroups = { contact: true };
     this._detailLitters.clear();
     this._editing = null;
     this._editingContact = null;
@@ -732,7 +759,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
 
   _updateActionState() {
     const blocked = this._busy || this._conflict || !this._isCurrent(this._context);
-    this.querySelectorAll('button[type="submit"], #add-owner, [data-edit], [data-mark-paid], [data-add-dossier], [data-matrix-edit-owner]')
+    this.querySelectorAll('button[type="submit"], #add-owner, [data-edit], [data-edit-owner-section], [data-mark-paid], [data-add-dossier], [data-matrix-edit-owner]')
       .forEach((button) => { button.disabled = blocked; });
     this.querySelectorAll("[data-delete], [data-assign-owner]").forEach((button) => { button.disabled = blocked || this._showEditor; });
     const link = this.querySelector("#link-save");
@@ -791,27 +818,22 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       const noteField = `preference_note_${rank}`;
       const puppyId = String(data[puppyField] || "").trim();
       const note = String(data[noteField] || "").trim();
-      const select = form.querySelector(`[name="${puppyField}"]`);
-      select?.setCustomValidity("");
       delete data[puppyField];
       delete data[noteField];
       if (!puppyId) {
         hasEmptyEarlierPreference = true;
         if (note) {
-          select?.setCustomValidity(text(this, "selectPuppyForNote"));
-          select?.reportValidity();
+          this._formState.error(`[name="${puppyField}"]`, text(this, "selectPuppyForNote"));
           return;
         }
         continue;
       }
       if (hasEmptyEarlierPreference) {
-        select?.setCustomValidity(text(this, "fillEarlierPreference"));
-        select?.reportValidity();
+        this._formState.error(`[name="${puppyField}"]`, text(this, "fillEarlierPreference"));
         return;
       }
       if (selectedPuppies.has(puppyId)) {
-        select?.setCustomValidity(text(this, "duplicatePuppyPreference"));
-        select?.reportValidity();
+        this._formState.error(`[name="${puppyField}"]`, text(this, "duplicatePuppyPreference"));
         return;
       }
       puppyPreferences.push({ puppy_id: puppyId, note: note || null });
@@ -1202,7 +1224,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
         || (details.dataset.detailOwner === ownerId && details.dataset.detailPuppy === puppyId));
       details.innerHTML = active ? this._matrixDetailsMarkup() : "";
       details.hidden = !active;
-      details.querySelector("[data-matrix-edit-owner]")?.addEventListener("click", (event) => this._openEditor(event.currentTarget.dataset.matrixEditOwner));
+      details.querySelector("[data-matrix-edit-owner]")?.addEventListener("click", (event) => this._openEditor(event.currentTarget.dataset.matrixEditOwner, { section: "preferences" }));
     });
     this._updateActionState();
   }
@@ -1336,11 +1358,13 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     if (error) error.textContent = "";
   }
 
-  _openEditor(ownerId = null, { paidInFull = false, litterId } = {}) {
+  _openEditor(ownerId = null, { paidInFull = false, litterId, section = "contact" } = {}) {
     if (this._conflict || !this._formState.discard()) return;
     const contact = this._owners.find((item) => item.id === ownerId);
     this._savedRefresh.reset();
     this._editingContact = contact ? structuredClone(contact) : null;
+    const target = paidInFull ? "financial" : Object.hasOwn(OWNER_EDITOR_SECTIONS, section) ? section : "contact";
+    this._editorGroups = { [target]: true };
     const scopeLitter = this._litters.some((litter) => litter.id === this._ownerScope) ? this._ownerScope : "";
     const defaultLitter = this._activeView === "matrix" ? this._selectedLitter : contact ? this._detailLitter(contact) : scopeLitter;
     this._editingLitter = litterId ?? defaultLitter;
@@ -1358,7 +1382,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     }
     const context = this._context;
     queueMicrotask(() => {
-      if (this._isCurrent(context) && this._showOwnerEditor) this.querySelector(paidInFull ? '[name="payment_date"]' : 'input[name="name"]')?.focus({ preventScroll: true });
+      if (this._isCurrent(context) && this._showOwnerEditor) this.querySelector(`[name="${paidInFull ? "payment_date" : OWNER_EDITOR_SECTIONS[target].field}"]`)?.focus({ preventScroll: true });
     });
   }
 
@@ -1378,7 +1402,9 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     const history = (owner.status_history || []).map((entry) => `${optionLabel(this, entry.status, PLACEMENT_STATUS_LABELS, entry.status)} · ${formattedDate(this, entry.changed_at, true)}`).join("\n") || "—";
     const group = (key, title, fields, defaultOpen = false) => {
       const open = this._ownerGroups.get(owner.id)?.[key] ?? defaultOpen;
-      return `<details class="owner-detail-group" data-owner-group="${key}" data-group-owner="${escapeHtml(owner.id)}" ${open ? "open" : ""}><summary>${escapeHtml(text(this, title))}</summary><div class="owner-detail-fields">${fields}</div></details>`;
+      const editLabel = OWNER_EDITOR_SECTIONS[key]?.edit;
+      const edit = editLabel ? `<button type="button" class="owner-section-edit" data-edit-owner-section="${key}" data-section-owner="${escapeHtml(owner.id)}" data-section-litter="${escapeHtml(litterId)}" title="${escapeHtml(text(this, editLabel))}" aria-label="${escapeHtml(text(this, editLabel))}"><ha-icon icon="mdi:pencil-outline"></ha-icon></button>` : "";
+      return `<details class="owner-detail-group" data-owner-group="${key}" data-group-owner="${escapeHtml(owner.id)}" ${open ? "open" : ""}><summary><ha-icon class="owner-section-chevron" icon="mdi:chevron-down" aria-hidden="true"></ha-icon><span class="owner-section-title">${escapeHtml(text(this, title))}</span>${edit}</summary><div class="owner-detail-fields">${fields}</div></details>`;
     };
     return `<div class="owner-detail" id="owner-detail-${escapeHtml(owner.id)}">
       <div class="dossier-controls"><label class="dossier-select"><span>${escapeHtml(text(this, "dossierLitter"))}</span><select data-owner-dossier="${escapeHtml(owner.id)}">${litterOptions}</select></label>${addDossier}</div>${assign}
@@ -1399,7 +1425,6 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       ${this._detail(text(this, "placementDate"), formattedDate(this, owner.placement_date))}
       ${this._detail(text(this, "expectedPickupDate"), formattedDate(this, owner.expected_pickup_date))}
       ${this._detail(text(this, "linkedPuppies"), linked, "wide")}
-      ${this._detail(text(this, "placementNotes"), owner.placement_notes || "—", "wide preformatted")}
       `, true)}
       ${group("preferences", "puppyPreferences", this._puppyPreferenceDetails(owner))}
       ${group("financial", "financialDetails", `
@@ -1414,7 +1439,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       ${this._detail(text(this, "paymentDate"), formattedDate(this, owner.payment_date))}
       ${owner.payment_status !== "full" ? `<div class="wide"><button type="button" class="secondary" data-mark-paid="${escapeHtml(owner.id)}" ${this._busy ? "disabled" : ""}><ha-icon icon="mdi:cash-check"></ha-icon>${escapeHtml(text(this, "markPaidInFull"))}</button></div>` : ""}
       `)}
-      ${group("notes", "notes", this._detail(text(this, "notes"), owner.notes || "—", "wide notes preformatted"), true)}
+      ${group("notes", "notesSection", `${this._detail(text(this, "notes"), owner.notes || "—", "wide notes preformatted")}${this._detail(text(this, "placementNotes"), owner.placement_notes || "—", "wide preformatted")}`, true)}
       ${group("history", "statusHistory", this._detail(text(this, "statusHistory"), history, "wide preformatted"))}
     </div>`;
   }
@@ -1444,26 +1469,28 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     const contact = this._editingContact || {};
     const owner = this._ownerForLitter(contact, this._editingLitter);
     const litterOptions = [["", text(this, "unassigned")], ...this._litters.map((litter) => [litter.id, litter.name])].map(([id, label]) => `<option value="${escapeHtml(id)}" ${id === this._editingLitter ? "selected" : ""}>${escapeHtml(label)}</option>`).join("");
-    return `<section class="owner-editor"><h3>${escapeHtml(text(this, this._editing ? "editOwner" : "addOwner"))}</h3><form class="form">
-      <h4 class="form-heading">${escapeHtml(text(this, "contactDetails"))}</h4>
+    return `<section class="owner-editor"><h3>${escapeHtml(text(this, this._editing ? "editOwner" : "addOwner"))}${contact.name ? `: ${escapeHtml(contact.name)}` : ""}</h3><form class="form">
+      <label class="wide"><span>${escapeHtml(text(this, "dossierLitter"))}</span><select id="owner-litter" data-draft-ignore ${this._busy ? "disabled" : ""}>${litterOptions}</select></label>
+      ${this._editorSection("contact", `
       <label><span>${escapeHtml(text(this, "name"))}</span><input name="name" required autocomplete="name" value="${escapeHtml(owner.name || "")}"></label>
       <label><span>${escapeHtml(text(this, "email"))}</span><input name="email" type="email" autocomplete="email" value="${escapeHtml(owner.email || "")}"></label>
       <label><span>${escapeHtml(text(this, "phone"))}</span><input name="phone" autocomplete="tel" value="${escapeHtml(owner.phone || "")}"></label>
+      ${selectField(this, "role", text(this, "role"), OWNER_ROLE_LABELS, owner.role || "owner")}
+      ${selectField(this, "contact_preference", text(this, "contactPreference"), CONTACT_PREFERENCE_LABELS, owner.contact_preference || "none")}
+      `)}
+      ${this._editorSection("address", `
       <label><span>${escapeHtml(text(this, "street"))}</span><input name="street" autocomplete="street-address" value="${escapeHtml(owner.street || owner.address || "")}"></label>
       <label><span>${escapeHtml(text(this, "postalCode"))}</span><input name="postal_code" autocomplete="postal-code" value="${escapeHtml(owner.postal_code || "")}"></label>
       <label><span>${escapeHtml(text(this, "city"))}</span><input name="city" autocomplete="address-level2" value="${escapeHtml(owner.city || "")}"></label>
-      ${selectField(this, "role", text(this, "role"), OWNER_ROLE_LABELS, owner.role || "owner")}
-      ${selectField(this, "contact_preference", text(this, "contactPreference"), CONTACT_PREFERENCE_LABELS, owner.contact_preference || "none")}
-      <h4 class="form-heading">${escapeHtml(text(this, "placementDetails"))}</h4>
-      <label class="wide"><span>${escapeHtml(text(this, "dossierLitter"))}</span><select id="owner-litter" data-draft-ignore ${this._busy ? "disabled" : ""}>${litterOptions}</select></label>
+      `)}
+      ${this._editorSection("placement", `
       ${selectField(this, "placement_status", text(this, "placementStatus"), PLACEMENT_STATUS_LABELS, owner.placement_status || "interested")}
       <label><span>${escapeHtml(text(this, "placementDate"))}</span><input name="placement_date" type="date" value="${escapeHtml(owner.placement_date || "")}"></label>
       <label><span>${escapeHtml(text(this, "expectedPickupDate"))}</span><input name="expected_pickup_date" type="date" value="${escapeHtml(owner.expected_pickup_date || "")}"></label>
-      <h4 class="form-heading">${escapeHtml(text(this, "puppyPreferences"))}</h4>
-      ${this._puppyPreferenceFields(owner)}
-      <label class="wide"><span>${escapeHtml(text(this, "placementNotes"))}</span><textarea name="placement_notes" rows="3">${escapeHtml(owner.placement_notes || "")}</textarea></label>
       <label class="completed-toggle wide"><input name="archived" type="checkbox" ${owner.archived ? "checked" : ""}>${escapeHtml(text(this, "archived"))}</label>
-      <h4 class="form-heading">${escapeHtml(text(this, "paymentDetails"))}</h4>
+      `)}
+      ${this._editorSection("preferences", this._puppyPreferenceFields(owner))}
+      ${this._editorSection("financial", `
       ${selectField(this, "payment_status", text(this, "paymentStatus"), PAYMENT_STATUS_LABELS, owner.payment_status || "none")}
       <label><span>${escapeHtml(text(this, "paymentAmount"))}</span><input name="payment_amount" type="number" min="0" step="0.01" inputmode="decimal" value="${escapeHtml(owner.payment_amount ?? "")}"></label>
       <label><span>${escapeHtml(text(this, "registrationFeeAmount"))}</span><input name="registration_fee_amount" type="number" min="0" step="0.01" inputmode="decimal" value="${escapeHtml(owner.registration_fee_amount ?? "")}"></label>
@@ -1473,10 +1500,30 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       <label><span>${escapeHtml(text(this, "paymentBalance"))}</span><input name="payment_balance" type="number" min="0" step="0.01" inputmode="decimal" value="${escapeHtml(owner.payment_balance ?? "")}"></label>
       ${selectField(this, "payment_method", text(this, "paymentMethod"), PAYMENT_METHOD_LABELS, owner.payment_method || "none")}
       <label><span>${escapeHtml(text(this, "paymentDate"))}</span><input name="payment_date" type="date" value="${escapeHtml(owner.payment_date || "")}"></label>
+      `)}
+      ${this._editorSection("notes", `
       <label class="wide"><span>${escapeHtml(text(this, "notes"))}</span><textarea name="notes" rows="5">${escapeHtml(owner.notes || "")}</textarea></label>
+      <label class="wide"><span>${escapeHtml(text(this, "placementNotes"))}</span><textarea name="placement_notes" rows="3">${escapeHtml(owner.placement_notes || "")}</textarea></label>
+      `)}
       ${this._ownerErrorMarkup()}
-      <div class="actions wide"><button type="button" class="secondary" id="cancel-owner">${escapeHtml(text(this, "cancel"))}</button><button type="submit" class="primary">${escapeHtml(text(this, this._editing ? "update" : "addOwner"))}</button></div>
+      <div class="owner-editor-actions wide"><div class="owner-draft-status" role="status" aria-live="polite"></div><div class="actions"><button type="button" class="secondary" id="cancel-owner">${escapeHtml(text(this, "cancel"))}</button><button type="submit" class="primary">${escapeHtml(text(this, this._editing ? "update" : "addOwner"))}</button></div></div>
     </form></section>`;
+  }
+
+  _editorSection(key, fields) {
+    return `<details class="owner-editor-group wide" data-owner-editor-group="${key}" ${this._editorGroups[key] ? "open" : ""}><summary><ha-icon class="owner-section-chevron" icon="mdi:chevron-down" aria-hidden="true"></ha-icon>${escapeHtml(text(this, OWNER_EDITOR_SECTIONS[key].title))}</summary><div class="owner-editor-fields">${fields}</div></details>`;
+  }
+
+  _captureEditorGroups() {
+    if (!this._formState.root || this._formState.root !== this.querySelector(".owner-editor form")) return;
+    this.querySelectorAll("[data-owner-editor-group]").forEach((group) => { this._editorGroups[group.dataset.ownerEditorGroup] = group.open; });
+  }
+
+  _updateOwnerDraftStatus() {
+    const status = this.querySelector(".owner-draft-status");
+    if (!status) return;
+    const message = this._formState.dirty ? text(this, "unsavedChanges") : "";
+    if (status.textContent !== message) status.textContent = message;
   }
 
   _ownerErrorMarkup() {
@@ -1516,6 +1563,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     }
     balance.readOnly = paid;
     this._formState.capture();
+    this._updateOwnerDraftStatus();
   }
 
   _render() {
@@ -1524,6 +1572,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
 
   _renderContent() {
     if (!this._config) return;
+    this._captureEditorGroups();
     const listScroll = this.querySelector(".list")?.scrollTop || 0;
     this._formState.capture();
     this._linkFormState.capture();
@@ -1569,8 +1618,21 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       .owner-editor,.link{margin-top:16px;padding-top:14px;border-top:1px solid var(--divider-color)}
       h3{margin:0 0 10px;font-size:1rem;letter-spacing:0}
       .form,.link-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
-      .form-heading{grid-column:1/-1;margin:8px 0 0;font-size:.86rem;letter-spacing:0}
-      .form-heading:first-child{margin-top:0}
+      .owner-editor-group{min-width:0;border-top:1px solid var(--divider-color)}
+      .owner-editor-group summary,.owner-detail-group summary{display:flex;align-items:center;gap:8px;min-height:48px;box-sizing:border-box;list-style:none;cursor:pointer}
+      .owner-editor-group summary{padding:4px 0;font-weight:600}
+      .owner-editor-group summary::-webkit-details-marker,.owner-detail-group summary::-webkit-details-marker{display:none}
+      .owner-section-chevron{flex:0 0 20px;--mdc-icon-size:20px;transform:rotate(-90deg)}
+      details[open]>summary>.owner-section-chevron{transform:none}
+      .owner-section-title{flex:1;min-width:0;overflow-wrap:anywhere}
+      .owner-detail-group summary>.owner-section-title{color:var(--primary-text-color);font-size:inherit;margin:0}
+      .owner-section-edit{display:inline-grid;place-items:center;flex:0 0 44px;width:44px;height:44px;padding:0;border:0;border-radius:8px;background:transparent;color:var(--primary-color);cursor:pointer}
+      .owner-section-edit ha-icon{--mdc-icon-size:20px}
+      .owner-editor-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;min-width:0;padding:4px 0 14px}
+      .owner-editor-group summary:focus-visible,.owner-section-edit:focus-visible{outline:2px solid var(--primary-color);outline-offset:2px}
+      .owner-draft-status{min-height:20px;line-height:20px;font-size:.8rem;color:var(--warning-color,var(--secondary-text-color))}
+      .owner-editor-actions{border-top:1px solid var(--divider-color);padding-top:10px}
+      .owner-editor-actions button{min-height:44px;min-width:0;white-space:normal;overflow-wrap:anywhere}
       .form label,.link-form label{display:grid;gap:4px;color:var(--secondary-text-color);font-size:.78rem}
       .form input,.form select,.form textarea,.form output,.link-form select{box-sizing:border-box;width:100%;min-height:42px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color);padding:9px;font:inherit}
       .form output{display:flex;align-items:center;background:var(--secondary-background-color)}
@@ -1604,7 +1666,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       .owner-actions ha-icon{--mdc-icon-size:19px}
       .owner-detail{grid-column:1/-1;min-width:0;font-size:.85rem}
       .owner-detail-group{border-top:1px solid var(--divider-color)}
-      .owner-detail-group summary{box-sizing:border-box;min-height:44px;padding:12px 2px;color:var(--primary-text-color);font-weight:600;cursor:pointer;overflow-wrap:anywhere}
+      .owner-detail-group summary{padding:4px 2px;color:var(--primary-text-color);font-weight:600;overflow-wrap:anywhere}
       .owner-detail-group summary:focus-visible{outline:2px solid var(--primary-color);outline-offset:2px}
       .owner-detail-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:2px 2px 14px}
       .owner-detail-fields>div{min-width:0;overflow-wrap:anywhere}
@@ -1721,7 +1783,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
         .head-actions{display:grid;justify-content:stretch}
         .head-actions button{width:100%}
         .view-tabs{display:grid}
-        .form,.link-form,.owner-detail-fields,.preference-row,.owner-filters{grid-template-columns:1fr}
+        .form,.link-form,.owner-detail-fields,.owner-editor-fields,.preference-row,.owner-filters{grid-template-columns:1fr}
         .wide,.checks,.owner-detail .wide{grid-column:auto}
         .owner{grid-template-columns:minmax(0,1fr) auto}
         .owner-actions{flex-direction:column}
@@ -1733,6 +1795,13 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     if (this.querySelector(".list")) this.querySelector(".list").scrollTop = listScroll;
     this._formState.bind(this.querySelector(".owner-editor form"));
     this._syncPaymentStatus();
+    const ownerForm = this._formState.root;
+    if (ownerForm) {
+      for (const event of ["input", "change"]) ownerForm.addEventListener(event, () => this._updateOwnerDraftStatus());
+      ownerForm.querySelectorAll("[data-owner-editor-group]").forEach((group) => group.addEventListener("toggle", () => {
+        if (group.isConnected && group.closest("form") === this._formState.root) this._editorGroups[group.dataset.ownerEditorGroup] = group.open;
+      }));
+    }
     this._linkFormState.bind(this.querySelector(".link-form .checks"));
     this._updateFinalPaymentPreview();
     const savedStatus = this.querySelector("#owner-status");
@@ -1759,6 +1828,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       this._bindOwnerRows();
     });
     this.querySelector("#owner-litter")?.addEventListener("change", (event) => {
+      this._captureEditorGroups();
       if (!this._formState.discard()) { event.target.value = this._editingLitter; return; }
       this._editingLitter = event.target.value;
       this._paymentBeforeFull = null;
@@ -1793,7 +1863,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       this._render();
     }));
     this.querySelectorAll("[data-matrix-owner]").forEach((button) => button.addEventListener("click", () => this._selectMatrixCell(button.dataset.matrixOwner, button.dataset.matrixPuppy)));
-    this.querySelectorAll("[data-matrix-edit-owner]").forEach((button) => button.addEventListener("click", (event) => this._openEditor(event.currentTarget.dataset.matrixEditOwner)));
+    this.querySelectorAll("[data-matrix-edit-owner]").forEach((button) => button.addEventListener("click", (event) => this._openEditor(event.currentTarget.dataset.matrixEditOwner, { section: "preferences" })));
   }
 
   _bindOwnerRows() {
@@ -1806,12 +1876,17 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     this.querySelectorAll("[data-toggle-owner]").forEach((button) => button.addEventListener("click", () => { this._expandedOwnerId = this._expandedOwnerId === button.dataset.toggleOwner ? null : button.dataset.toggleOwner; this._render(); }));
     this.querySelectorAll("[data-delete]").forEach((button) => button.addEventListener("click", () => this._delete(button.dataset.delete)));
     this.querySelectorAll("[data-edit]").forEach((button) => button.addEventListener("click", () => this._openEditor(button.dataset.edit)));
+    this.querySelectorAll("[data-edit-owner-section]").forEach((button) => button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this._openEditor(button.dataset.sectionOwner, { section: button.dataset.editOwnerSection, litterId: button.dataset.sectionLitter });
+    }));
     this.querySelectorAll("[data-mark-paid]").forEach((button) => button.addEventListener("click", () => this._openEditor(button.dataset.markPaid, { paidInFull: true })));
     this.querySelectorAll("[data-owner-dossier]").forEach((select) => select.addEventListener("change", () => { this._detailLitters.set(select.dataset.ownerDossier, select.value); this._render(); }));
     this.querySelectorAll("[data-add-dossier]").forEach((button) => button.addEventListener("click", () => {
       const owner = this._owners.find((item) => item.id === button.dataset.addDossier);
       const litter = this._litters.find((item) => !owner.placements?.[item.id]);
-      if (litter) this._openEditor(owner.id, { litterId: litter.id });
+      if (litter) this._openEditor(owner.id, { litterId: litter.id, section: "placement" });
     }));
     this.querySelectorAll("[data-assign-owner]").forEach((button) => button.addEventListener("click", () => {
       const select = [...this.querySelectorAll("[data-assign-litter]")].find((item) => item.dataset.assignLitter === button.dataset.assignOwner);

@@ -112,6 +112,9 @@ export class FormState {
   _showError(selector, message) {
     const input = this.root?.querySelector(selector);
     if (!input) return;
+    for (let ancestor = input.parentElement; ancestor && this.root.contains(ancestor); ancestor = ancestor.parentElement) {
+      if (ancestor.tagName === "DETAILS") ancestor.open = true;
+    }
     input.setAttribute("aria-invalid", "true");
     const id = `${input.id || input.name}-error`;
     input.setAttribute("aria-errormessage", id);

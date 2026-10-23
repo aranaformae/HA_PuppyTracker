@@ -10,6 +10,14 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+### Added
+
+- Compact owner editing with independently collapsible contact, address,
+  placement, puppy-preference, financial and note sections. Contact opens by
+  default; section-specific edit actions and the matrix open the relevant fields.
+- A localized unsaved-changes indicator updates without rebuilding the form.
+  Validation opens the section containing the invalid field before focusing it.
+
 ### Fixed
 
 - Owners refresh after changes on other devices and reconnects without replacing

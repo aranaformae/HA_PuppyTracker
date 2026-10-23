@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { openOwnerSection } from "./helpers/owners.mjs";
 import { readFile } from "node:fs/promises";
 
 async function mount(page, tag, config = {}, overrides = {}) {
@@ -425,7 +426,9 @@ test("owner dates and stored values are labeled and localized", async ({ page })
   await expect(card.locator('input[name="preference_note_1"]')).toHaveValue("Best temperament match");
   await expect(card.locator('select[name="preference_puppy_2"]')).toHaveValue("p2");
   await expect(card.locator("#final-payment-amount")).toHaveText("1750");
+  await openOwnerSection(card, "financial");
   await card.locator('input[name="deposit_amount"]').fill("600");
+  await openOwnerSection(card, "preferences");
   await card.locator('input[name="preference_note_1"]').fill("Best match after second visit");
   await expect(card.locator("#final-payment-amount")).toHaveText("1650");
   await card.locator(".owner-editor form button[type='submit']").click();

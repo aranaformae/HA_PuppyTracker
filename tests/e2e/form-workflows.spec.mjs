@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { openOwnerSection } from "./helpers/owners.mjs";
 
 async function mount(page, tag, config = {}) {
   await page.goto("/tests/e2e/cards.html?production");
@@ -88,9 +89,11 @@ test("Owners retain raw form values through rendering, failed saving and cancell
   await card.locator('[name="name"]').fill("Jordan");
   await card.locator('[name="email"]').fill("jordan@example.com");
   await card.locator('[name="phone"]').fill("0612345678");
+  await openOwnerSection(card, "notes");
   await card.locator('[name="notes"]').fill("Long private note that must not disappear.");
   await card.locator('[data-toggle-owner="o1"]').click();
   await expect(card.locator('[name="notes"]')).toHaveValue("Long private note that must not disappear.");
+  await openOwnerSection(card, "financial");
   await card.locator('[name="payment_amount"]').fill("100");
   await card.locator('[name="deposit_amount"]').fill("120");
   await card.locator('.owner-editor button[type="submit"]').click();
@@ -119,6 +122,7 @@ for (const language of ["nl", "en"]) {
     const card = await mount(page, "puppy-tracker-owner-card");
     await card.evaluate((node, language) => { node._hass.language = language; node._hass.locale.language = language; node._render(); }, language);
     await card.locator('[data-edit="o1"]').click();
+    await openOwnerSection(card, "financial");
     await card.locator('[name="payment_amount"]').fill("2500");
     await card.locator('[name="registration_fee_amount"]').fill("250");
     await card.locator('[name="deposit_amount"]').fill("500");

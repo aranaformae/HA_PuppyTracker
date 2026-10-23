@@ -322,6 +322,15 @@ csv_delimiter: comma
 The create/edit form starts collapsed. Select **Add owner** or edit an existing
 contact to expose it. Clicking an owner row expands the complete stored details,
 including long notes.
+The editor opens contact details first and groups address, placement, puppy
+preferences, finance and notes into separate collapsible sections. The litter
+selector stays outside those sections. Use a category's pencil to edit just that
+part; **Edit payment** opens finance and the matrix opens puppy preferences.
+History is read-only and has no editing shortcut. **Unsaved changes** appears
+when values differ from the original form. Opening or closing sections does not
+save or mark the form changed, and collapsing a section never excludes its data
+from Save. Invalid fields automatically open their section. All changes still
+use the same explicit Save/Cancel workflow and discard confirmation.
 Assigned puppies are also visible in the collapsed owner row, with their call
 name, collar colour and litter name. All actual links are shown, including links
 across litters when **All litters** is selected; preferences alone are not assignments.

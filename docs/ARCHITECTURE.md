@@ -984,6 +984,21 @@ an editable draft; the normal owner save and rollback path remains authoritative
 
 The Owners detail view groups the same fields into native `details` disclosures
 for contact, address, placement, puppy preferences, finance, notes and history.
+The editor uses the same section vocabulary but keeps separate card-local
+`_editorGroups` state. Its single form retains every control in the DOM, including
+closed sections, so `FormData` and concurrency guards are unchanged. The litter
+selector remains outside the disclosures; shared and litter-specific notes keep
+distinct labels in the notes section. Section metadata defines titles, direct-edit
+labels and focus targets. Category pencils pass the displayed litter explicitly;
+history stays read-only. The matrix targets preferences, new litter dossiers
+target placement and the full-payment shortcut targets finance without saving.
+Contact is the default for ordinary editing/creation; a targeted action initially
+opens only its requested section. Group states are captured synchronously before
+redraw and survive failed saves, conflict reloads and same-user reconnects.
+Input/change events update a reserved-height dirty indicator from `FormState`
+without replacing DOM nodes or moving focus. The shared form error renderer
+opens enclosing native details within its root before focusing an invalid field
+with `preventScroll`. Owner preference validation uses this same inline path.
 Disclosure choices are card-local per owner, not stored in `OwnerStore` or backups.
 Native toggles do not rerender or call the API. Before another action rebuilds
 the view, current open states are captured; entries for deleted owners are pruned.

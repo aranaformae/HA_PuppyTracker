@@ -1,10 +1,16 @@
 import { expect, test } from "@playwright/test";
 import { readFile } from "node:fs/promises";
+import { openOwnerSection } from "./helpers/owners.mjs";
 
 async function mount(page, language = "nl") {
   await page.goto("/tests/e2e/cards.html?production");
   await page.waitForFunction(() => window.__puppyTrackerReady);
   await page.evaluate(async (language) => {
+    for (const [name, value] of Object.entries({
+      "primary-color": "#008c9e", "primary-text-color": "#202124", "secondary-text-color": "#60656b",
+      "text-primary-color": "#fff", "card-background-color": "#fff", "secondary-background-color": "#f1f3f4",
+      "divider-color": "#d9dde0", "error-color": "#b3261e", "warning-color": "#765800",
+    })) document.documentElement.style.setProperty(`--${name}`, value);
     const { saveOwner } = await import("/tests/e2e/helpers/owners.mjs");
     const owners = [
       { id: "o1", name: "Alex", email: "alex@example.com", phone: "0612345678", notes: "Contact note",
@@ -64,8 +70,8 @@ for (const language of ["nl", "en"]) {
     await card.locator('[data-owner-dossier="o1"]').selectOption("l2");
     await expect(card.locator('[data-owner-group="contact"]')).toContainText(language === "nl" ? "Eigenaar" : "Owner");
     await expect(card.locator('[data-owner-group="contact"]')).toContainText(language === "nl" ? "Geen voorkeur" : "No preference");
-    await expect(card.locator('[data-owner-group="placement"]')).toContainText("Second dossier note");
-    await expect(card.locator('[data-owner-group="placement"]')).not.toContainText("First dossier note");
+    await expect(card.locator('[data-owner-group="notes"]')).toContainText("Second dossier note");
+    await expect(card.locator('[data-owner-group="notes"]')).not.toContainText("First dossier note");
     expect(await card.locator("ha-card").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     await card.screenshot({ path: test.info().outputPath(`owner-placement-details-${language}.png`) });
   });
@@ -76,6 +82,7 @@ test("editing another litter protects drafts and never changes the first payment
   const before = await page.evaluate(() => structuredClone(window.ownerPlacementFixture.owners[0].placements.l1));
   await card.locator('[data-edit="o1"]').click();
   await expect(card.locator('[name="payment_amount"]')).toHaveValue("2500");
+  await openOwnerSection(card, "financial");
   await card.locator('[name="payment_balance"]').fill("950");
   page.once("dialog", (dialog) => dialog.dismiss());
   await card.locator("#owner-litter").selectOption("l2");
@@ -87,6 +94,7 @@ test("editing another litter protects drafts and never changes the first payment
   await expect(card.locator('[name="payment_balance"]')).toHaveValue("3000");
   await expect(card.locator('[name="preference_puppy_1"] option[value="p1"]')).toHaveCount(0);
   await card.locator('[name="payment_status"]').selectOption("full");
+  await openOwnerSection(card, "notes");
   await card.locator('[name="placement_notes"]').fill("Second litter paid");
   await page.evaluate(() => { window.ownerPlacementFixture.failNext = true; });
   await card.locator('.owner-editor button[type="submit"]').click();
@@ -111,6 +119,7 @@ test("an existing contact can get a new nest dossier before choosing a puppy @cr
   await expect(card.locator("#owner-litter")).toHaveValue("l1");
   await expect(card.locator('[name="payment_amount"]')).toHaveValue("");
   await expect(card.locator('[name="preference_puppy_1"]')).toHaveValue("");
+  await openOwnerSection(card, "notes");
   await card.locator('[name="placement_notes"]').fill("Interested in this litter too");
   await card.locator('.owner-editor button[type="submit"]').click();
   await expect(card.locator("#owner-scope")).toHaveValue("l1");
@@ -174,3 +183,109 @@ test("long owner lists scroll internally and expanding a row keeps its position 
   expect(Math.abs((await list.evaluate((element) => element.scrollTop)) - before)).toBeLessThan(2);
   expect(await card.locator("ha-card").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
 });
+
+for (const language of ["nl", "en"]) {
+  test(`compact owner creation shows only contact fields and does not autosave (${language}) @cross-browser @tablet`, async ({ page }) => {
+    const card = await mount(page, language);
+    await page.evaluate(() => window.ownerPlacementFixture.owners.splice(0));
+    await card.evaluate((element) => element._load(true));
+    await card.locator("#add-owner").click();
+    await expect(card.locator("[data-owner-editor-group][open]")).toHaveCount(1);
+    await expect(card.locator('[data-owner-editor-group="contact"]')).toHaveJSProperty("open", true);
+    await expect(card.locator('[name="payment_amount"]')).not.toBeVisible();
+    await expect(card.locator("#owner-litter")).toBeVisible();
+    await expect(card.locator(".owner-draft-status")).toBeEmpty();
+    await card.evaluate((element) => { element.originalForm = element.querySelector(".owner-editor form"); });
+    const statusHeight = await card.locator(".owner-draft-status").evaluate((element) => element.getBoundingClientRect().height);
+    await card.locator('[name="name"]').pressSequentially("Jordan");
+    await expect(card.locator(".owner-draft-status")).toHaveText(language === "nl" ? "Niet-opgeslagen wijzigingen" : "Unsaved changes");
+    expect(await card.evaluate((element) => element.originalForm === element.querySelector(".owner-editor form"))).toBe(true);
+    expect(await card.locator(".owner-draft-status").evaluate((element) => element.getBoundingClientRect().height)).toBe(statusHeight);
+    await card.locator('[name="name"]').fill("");
+    await expect(card.locator(".owner-draft-status")).toBeEmpty();
+    await card.locator('[name="name"]').fill("Jordan");
+    expect(await page.evaluate(() => window.ownerPlacementFixture.calls.filter((call) => call.type.endsWith("owners/save")))).toHaveLength(0);
+    await card.locator(".owner-editor").screenshot({ path: test.info().outputPath(`compact-owner-editor-${language}.png`) });
+    expect(await card.locator("ha-card").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await card.locator('button[type="submit"]').click();
+    await expect(card.locator(".owner-editor")).toHaveCount(0);
+    const saved = await page.evaluate(() => window.ownerPlacementFixture.owners[0]);
+    expect(saved.name).toBe("Jordan");
+    expect(saved.placements.l1.payment_amount).toBe("");
+    expect(saved.placements.l1.puppy_preferences).toEqual([]);
+  });
+}
+
+for (const [section, field] of [["contact", "name"], ["address", "street"], ["placement", "placement_status"], ["preferences", "preference_puppy_1"], ["financial", "payment_status"], ["notes", "notes"]]) {
+  test(`direct ${section} editing opens the selected litter and only the intended section @cross-browser @tablet`, async ({ page }) => {
+    const card = await mount(page);
+    await card.locator("#owner-scope").selectOption("__all__");
+    await card.locator('[data-toggle-owner="o1"]').click();
+    await card.locator('[data-owner-dossier="o1"]').selectOption("l2");
+    await expect(card.locator('[data-owner-group="history"] [data-edit-owner-section]')).toHaveCount(0);
+    await card.locator(`[data-section-owner="o1"][data-edit-owner-section="${section}"]`).click();
+    await expect(card.locator("#owner-litter")).toHaveValue("l2");
+    await expect(card.locator("[data-owner-editor-group][open]")).toHaveCount(1);
+    await expect(card.locator(`[data-owner-editor-group="${section}"]`)).toHaveJSProperty("open", true);
+    await expect(card.locator(`[name="${field}"]`)).toBeVisible();
+    await expect(card.locator(`[name="${field}"]`)).toBeFocused();
+    await expect(card.locator('[name="payment_amount"]')).toHaveValue("3000");
+    await expect(card.locator(".owner-draft-status")).toBeEmpty();
+    if (section === "financial") await card.locator(".owner-editor").screenshot({ path: test.info().outputPath("owner-financial-editor.png") });
+    await card.locator("#cancel-owner").click();
+    await expect(card.locator(".owner-editor")).toHaveCount(0);
+    expect(await page.evaluate(() => window.ownerPlacementFixture.calls.filter((call) => call.type.endsWith("owners/save")))).toHaveLength(0);
+  });
+}
+
+test("collapsing edited sections preserves every value through failed save and retry @cross-browser @tablet", async ({ page }) => {
+  const card = await mount(page);
+  await card.locator('[data-edit="o1"]').click();
+  await openOwnerSection(card, "address");
+  await card.locator('[name="street"]').fill("Nieuwe straat 4");
+  await openOwnerSection(card, "financial");
+  await card.locator('[name="payment_balance"]').fill("850");
+  await openOwnerSection(card, "notes");
+  await card.locator('[name="notes"]').fill("A long contact note\nwith another line");
+  await card.locator('[name="placement_notes"]').fill("Notes for this litter only");
+  const openSections = await card.locator("[data-owner-editor-group][open]").evaluateAll((groups) => groups.map((group) => group.dataset.ownerEditorGroup));
+  for (const key of openSections) await card.locator(`[data-owner-editor-group="${key}"] summary`).click();
+  await card.evaluate((element) => element._render());
+  await expect(card.locator("[data-owner-editor-group][open]")).toHaveCount(0);
+  await page.evaluate(() => { window.ownerPlacementFixture.failNext = true; });
+  await card.locator('button[type="submit"]').click();
+  await expect(card.locator("#owner-error")).toContainText("Temporary save failure");
+  await expect(card.locator("[data-owner-editor-group][open]")).toHaveCount(0);
+  await expect(card.locator('[name="street"]')).toHaveValue("Nieuwe straat 4");
+  await expect(card.locator('[name="payment_balance"]')).toHaveValue("850");
+  await expect(card.locator(".owner-draft-status")).not.toBeEmpty();
+  await card.locator('button[type="submit"]').click();
+  await expect(card.locator(".owner-editor")).toHaveCount(0);
+  const owner = await page.evaluate(() => window.ownerPlacementFixture.owners[0]);
+  expect(owner.street).toBe("Nieuwe straat 4");
+  expect(owner.notes).toBe("A long contact note\nwith another line");
+  expect(owner.placements.l1.payment_balance).toBe("850");
+  expect(owner.placements.l1.placement_notes).toBe("Notes for this litter only");
+  expect(owner.placements.l2.payment_balance).toBe("3000");
+});
+
+for (const [section, field] of [["contact", "email"], ["financial", "deposit_amount"], ["preferences", "preference_puppy_1"]]) {
+  test(`validation reveals the collapsed ${section} section without jumping the page @cross-browser @tablet`, async ({ page }) => {
+    const card = await mount(page);
+    await card.locator('[data-edit="o1"]').click();
+    const group = await openOwnerSection(card, section);
+    if (section === "contact") await card.locator('[name="email"]').fill("invalid-email");
+    if (section === "financial") await card.locator('[name="deposit_amount"]').fill("3000");
+    if (section === "preferences") await card.locator('[name="preference_puppy_1"]').selectOption("");
+    await group.locator("summary").click();
+    const before = await page.evaluate(() => window.scrollY);
+    await card.locator(".owner-editor form").evaluate((form) => form.requestSubmit());
+    await expect(group).toHaveJSProperty("open", true);
+    await expect(card.locator(`[name="${field}"]`)).toHaveAttribute("aria-invalid", "true");
+    await expect(card.locator(`[name="${field}"]`)).toBeFocused();
+    expect(await page.evaluate(() => window.scrollY)).toBe(before);
+    await card.evaluate((element) => element._render());
+    await expect(group).toHaveJSProperty("open", true);
+    expect(await page.evaluate(() => window.ownerPlacementFixture.calls.filter((call) => call.type.endsWith("owners/save")))).toHaveLength(0);
+  });
+}

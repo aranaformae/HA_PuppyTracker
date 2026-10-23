@@ -421,6 +421,13 @@ separate; switching a view never creates a link.
 
 The create/edit form starts collapsed. Assigned puppies appear directly in each
 owner row with call name, collar colour and litter name, without expanding it.
+When creating or editing, contact details start open. Address, placement, puppy
+preferences, finance and notes can be opened independently; the chosen litter
+stays visible above them. A pencil beside a detail category opens that part of
+the editor, and the matrix opens puppy preferences. A draft indicator shows
+unsaved changes without refreshing the form. Collapsed fields are still included
+when saving. Validation reveals the relevant section; toggles do not save data,
+and open sections and input survive redraws and failed saves.
 Multiple puppy links are supported; preferences alone do not count as assignments.
 The **Owners for** filter starts on the first active litter and also offers
 **All litters** and **Without litter**. Search matches contact details and linked
@@ -445,7 +452,8 @@ drafts; changing user or losing administrator access clears private card data.
 
 Selecting an owner reveals independently
 collapsible categories: **Contact details**, **Address details**, **Placement**,
-**Top 3 puppy preferences**, **Financial**, **General contact notes** and **Status history**.
+**Top 3 puppy preferences**, **Financial**, **Notes** and **Status history**.
+Notes keeps general contact notes and litter-specific notes separately labelled.
 Contact, placement and notes start open; the remaining categories start closed.
 Open/closed choices are retained separately for each owner during the card session,
 including when switching owners or refreshing data. Category toggles do not reload

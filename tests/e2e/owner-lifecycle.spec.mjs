@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { pendingCount, release } from "./helpers/async-card.mjs";
+import { openOwnerSection } from "./helpers/owners.mjs";
 
 async function mount(page, { language = "en", hold = [], cards = 1, shadow = false } = {}) {
   await page.goto("/tests/e2e/cards.html?production");
@@ -149,6 +150,7 @@ for (const language of ["nl", "en"]) {
   test(`stale edits keep input and require an explicit reload (${language}) @cross-browser @tablet`, async ({ page }) => {
     const card = await mount(page, { language });
     await card.locator('[data-edit="o1"]').click();
+    await openOwnerSection(card, "notes");
     await card.locator('[name="notes"]').fill("My unsaved note");
     await notify(page, true);
     await expect(card.locator('[name="notes"]')).toBeFocused();
@@ -175,6 +177,7 @@ for (const language of ["nl", "en"]) {
     await expect(card.locator('[name="name"]')).toHaveValue("Changed elsewhere");
     await expect(card.locator('[name="notes"]')).toHaveValue("Original contact note");
     await page.evaluate(() => window.__async.hold.clear());
+    await openOwnerSection(card, "notes");
     await card.locator('[name="notes"]').fill("Reviewed latest version");
     await card.locator('button[type="submit"]').click();
     await expect(card.locator(".owner-editor")).toHaveCount(0);
@@ -210,6 +213,7 @@ test("a late refresh retry cannot replace a new draft or steal focus @cross-brow
   await card.locator("[data-retry-saved-refresh]").click();
   await expect.poll(() => pendingCount(page, "puppy_tracker/owners/list")).toBe(1);
   await card.locator('[data-edit="o1"]').click();
+  await openOwnerSection(card, "notes");
   await card.locator('[name="notes"]').fill("New draft during retry");
   await release(page, "puppy_tracker/owners/list");
   await expect(card.locator('[name="notes"]')).toHaveValue("New draft during retry");
@@ -297,6 +301,7 @@ for (const change of ["connection", "user", "permission", "detach"]) {
 test("same-connection reconnect preserves drafts and ordinary hass updates do not resubscribe @cross-browser @tablet", async ({ page }) => {
   const card = await mount(page);
   await card.locator('[data-edit="o1"]').click();
+  await openOwnerSection(card, "notes");
   await card.locator('[name="notes"]').fill("Draft across reconnect");
   await page.evaluate(() => {
     const card = window.__async.cards[0];
@@ -327,6 +332,7 @@ test("same-connection reconnect preserves drafts and ordinary hass updates do no
 test("permission change during a write cannot restore private data from its late response @cross-browser @tablet", async ({ page }) => {
   const card = await mount(page);
   await card.locator('[data-edit="o1"]').click();
+  await openOwnerSection(card, "notes");
   await card.locator('[name="notes"]').fill("Private draft");
   await page.evaluate(() => window.__async.hold.add("puppy_tracker/owners/save"));
   await card.locator('button[type="submit"]').click();
@@ -373,6 +379,7 @@ for (const operation of ["delete", "link", "move"]) {
 test("failed writing keeps the draft and does not claim success @cross-browser @tablet", async ({ page }) => {
   const card = await mount(page);
   await card.locator('[data-edit="o1"]').click();
+  await openOwnerSection(card, "notes");
   await card.locator('[name="notes"]').fill("Retain after failed write");
   await page.evaluate(() => window.__async.hold.add("puppy_tracker/owners/save"));
   await card.locator('button[type="submit"]').click();
