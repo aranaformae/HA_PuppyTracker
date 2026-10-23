@@ -1099,6 +1099,11 @@ never restored. Native Start resumes an interrupted session, while Reset
 discards its checkpoint without deleting measurements. JSON backups omit this
 local operational state, and imported candidates strip it; a full replacement
 also clears the live station. Completed summaries remain portable litter data.
+One shared envelope validator guards loading, live reconciliation and revision
+checks. Unknown or malformed operational checkpoints are discarded without
+changing measurement history; loading records the discard in the audit log.
+An idle recovery fallback can always start/reset instead of getting stuck on
+the rejected checkpoint's old ID.
 The shared weighing surface updates an inline recovery region in place, without
 replacing the input DOM or automatically opening a dialog. Its admin-only
 `weighing_session/resolve` WebSocket action checks the displayed session ID and

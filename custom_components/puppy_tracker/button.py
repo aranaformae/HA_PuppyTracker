@@ -30,6 +30,7 @@ from .session import (
     get_session,
     reset_weighing_session,
     start_weighing_session,
+    sync_station_session,
 )
 from .weighing import async_save_dashboard_weight
 
@@ -133,6 +134,7 @@ class PuppyStartSessionButton(
     async def async_press(
         self,
     ) -> None:
+        sync_station_session(self.data)
         session = get_session(self.data)
         if session.get("status") == SESSION_INTERRUPTED:
             await async_resolve_session(self.data, resume=True, session_id=session["id"], revision=session["revision"])
@@ -308,6 +310,7 @@ class PuppyResetSessionButton(
         """Reset session."""
 
         async with self.data.weighing_lock:
+            sync_station_session(self.data)
             await self.storage.async_set_weighing_session(None, expected=get_session(self.data))
             reset_weighing_session(self.data)
 

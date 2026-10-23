@@ -48,7 +48,10 @@ from .records import (
     validate_record_type,
 )
 from .time_utils import normalize_timestamp, parse_timestamp
-from .session import SESSION_ACTIVE, SESSION_COMPLETED, SESSION_INTERRUPTED, session_after_weight
+from .session import (
+    SESSION_ACTIVE, SESSION_COMPLETED, SESSION_INTERRUPTED, session_after_weight,
+    is_recognized_session, reconcile_active_session,
+)
 from .upcoming import followup_record_data
 from .breeder import normalize_breeder
 from .feeding import normalize_feeding_settings
@@ -298,6 +301,8 @@ class PuppyTrackerStorage:
             self._data["schema_version"] = 7
             changed = True
 
+        if self._data.get("weighing_session") is not None and not is_recognized_session(self._data["weighing_session"]):
+            changed = True
         if changed:
             await self.async_save()
 
@@ -828,12 +833,12 @@ class PuppyTrackerStorage:
 
     async def async_save(self) -> None:
         """Immediately save data to disk and refresh integrity diagnostics."""
-        from .session import reconcile_active_session
-
         before_session = self._data.get("weighing_session")
         checkpoint = reconcile_active_session(before_session, self._data.get("litters", {}))
         if checkpoint != before_session:
             self._data["weighing_session"] = checkpoint
+            if before_session is not None and not is_recognized_session(before_session):
+                self._add_audit_entry(action="discard_invalid_weighing_session", details={"reason": "unrecognized_format"})
             if checkpoint and checkpoint["status"] == SESSION_COMPLETED:
                 self._record_completed_session(checkpoint)
         self._data["updated_at"] = _now_iso()
@@ -1763,7 +1768,8 @@ class PuppyTrackerStorage:
 
     def _check_weighing_checkpoint(self, expected: dict[str, Any]) -> None:
         """Reject a stale session, including after replacing the database."""
-        current = self._data.get("weighing_session") or {}
+        raw = self._data.get("weighing_session")
+        current = raw if is_recognized_session(raw) else {}
         if (current.get("id") != expected.get("id")
             or (expected.get("id") and current.get("revision", 0) != expected.get("revision", 0))):
             raise ValueError("De weegsessie is gewijzigd. Vernieuw de kaart en probeer opnieuw.")

@@ -278,19 +278,30 @@ def _effective_session_measurement(puppy: dict[str, Any], measurement_id: Any) -
     return None
 
 
+def is_recognized_session(raw: Any) -> bool:
+    """Validate the operational envelope before recovery or revision checks."""
+    if not isinstance(raw, dict):
+        return False
+    return (type(raw.get("version")) is int and raw["version"] == 1
+        and isinstance(raw.get("id"), str) and bool(raw["id"])
+        and type(raw.get("revision")) is int and raw["revision"] >= 0
+        and isinstance(raw.get("status"), str)
+        and raw["status"] in {SESSION_ACTIVE, SESSION_COMPLETED, SESSION_INTERRUPTED}
+        and isinstance(raw.get("litter_id"), str) and bool(raw["litter_id"])
+        and isinstance(raw.get("puppy_ids"), list)
+        and all(isinstance(value, str) and bool(value) for value in raw["puppy_ids"])
+        and isinstance(raw.get("measurement_ids"), dict)
+        and all(isinstance(key, str) and isinstance(values, list)
+                and all(isinstance(value, str) for value in values)
+                for key, values in raw["measurement_ids"].items())
+        and all(raw.get(key) is None or isinstance(raw[key], str)
+                for key in ("last_litter_id", "last_puppy_id", "last_measurement_id")))
+
+
 def recover_session(storage: Any) -> dict[str, Any]:
     """Recover only a recognized checkpoint; never replay a weighing or an input."""
     raw = storage.get_weighing_session()
-    if not isinstance(raw, dict) or raw.get("version") != 1:
-        return new_session_state()
-    if (not isinstance(raw.get("id"), str) or not raw["id"]
-        or not isinstance(raw.get("revision"), int)
-        or raw["revision"] < 0
-        or raw.get("status") not in {SESSION_ACTIVE, SESSION_COMPLETED, SESSION_INTERRUPTED}
-        or not isinstance(raw.get("litter_id"), str)
-        or not isinstance(raw.get("puppy_ids"), list)
-        or not all(isinstance(value, str) for value in raw["puppy_ids"])
-        or not isinstance(raw.get("measurement_ids"), dict)):
+    if not is_recognized_session(raw):
         return new_session_state()
     session = {**new_session_state(), **deepcopy(raw), "duplicate_pending": None}
     litter = storage.get_litter(session["litter_id"])
@@ -320,7 +331,9 @@ def recover_session(storage: Any) -> dict[str, Any]:
 
 def reconcile_active_session(session: Any, litters: dict[str, Any]) -> dict[str, Any] | None:
     """Recheck live progress against effective history, not cached checkmarks."""
-    if not isinstance(session, dict) or session.get("status") not in {SESSION_ACTIVE, SESSION_INTERRUPTED}:
+    if not is_recognized_session(session):
+        return None
+    if session.get("status") not in {SESSION_ACTIVE, SESSION_INTERRUPTED}:
         return session
     staged = deepcopy(session)
     litter = litters.get(staged.get("litter_id")) or {}
@@ -355,7 +368,7 @@ def sync_station_session(runtime: PuppyTrackerRuntimeData) -> bool:
     stored = runtime.storage.get_weighing_session()
     if stored is None and current.get("id") is None:
         return False
-    candidate = stored if isinstance(stored, dict) else new_session_state()
+    candidate = stored if is_recognized_session(stored) else new_session_state()
     if (current.get("id"), current.get("revision")) == (candidate.get("id"), candidate.get("revision")):
         return False
     if current.get("status") == SESSION_INTERRUPTED and current.get("id") == candidate.get("id"):

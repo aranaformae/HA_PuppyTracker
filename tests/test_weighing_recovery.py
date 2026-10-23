@@ -215,6 +215,41 @@ async def test_missing_or_unrecognized_checkpoint_never_starts_a_session(storage
     assert recover_session(storage)["status"] == "idle"
 
 
+@pytest.mark.parametrize("change", [
+    {"version": 99}, {"revision": True}, {"id": []}, {"status": []}, {"puppy_ids": [None]},
+    {"measurement_ids": {"puppy-1": None}}, {"last_litter_id": []},
+])
+@pytest.mark.parametrize("action", ["start", "reset"])
+async def test_invalid_checkpoint_does_not_lock_native_controls(reconciled_station, change, action):
+    runtime, start, reset, litter_id, first, _ = reconciled_station
+    mid = await async_record_station_weight(runtime, litter_id=litter_id, puppy_id=first, weight=450)
+    history = runtime.storage.get_puppy(litter_id, first)["measurements"]
+    raw = runtime.storage.get_weighing_session()
+    raw.update(change)
+    runtime.storage._data["weighing_session"] = raw
+    runtime.weighing_session = recover_session(runtime.storage)
+    assert runtime.weighing_session["status"] == "idle"
+    await (start if action == "start" else reset).async_press()
+    assert runtime.weighing_session["status"] == ("active" if action == "start" else "idle")
+    assert runtime.storage.get_puppy(litter_id, first)["measurements"] == history
+    assert runtime.storage.get_measurement(litter_id, first, mid)
+
+
+@pytest.mark.parametrize("raw", [["invalid"], {"version": 99, "id": "future-session"}])
+async def test_loading_discards_only_invalid_operational_state(hass, reconciled_station, raw):
+    runtime, _, _, litter_id, first, _ = reconciled_station
+    mid = await async_record_station_weight(runtime, litter_id=litter_id, puppy_id=first, weight=450)
+    data = runtime.storage.get_data()
+    data["weighing_session"] = raw
+    fresh = PuppyTrackerStorage(hass)
+    fresh._store.async_load = AsyncMock(return_value=data)
+    fresh._store.async_save = AsyncMock()
+    await fresh.async_load()
+    assert fresh.get_weighing_session() is None
+    assert fresh.get_measurement(litter_id, first, mid)["weight"] == 450
+    assert any(item["action"] == "discard_invalid_weighing_session" for item in fresh.get_data()["audit_log"])
+
+
 async def test_two_waiting_station_saves_do_not_both_apply_to_one_revision(station):
     runtime, _, _, litter_id, first, _ = station
     await runtime.weighing_lock.acquire()
