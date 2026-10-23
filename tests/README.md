@@ -30,6 +30,9 @@ The current suite covers the main backend, frontend contract and browser flows.
 | `test_recurring_execution.py` | Recurring execution ownership, schedules, retry idempotency, last-record payload, rebuildable completion, atomic undo guards; one-time postponement, fixed-slot bounds, backup/reload, cancel, notification withdrawal/resumption, rollback and real WebSocket entry points |
 | `test_runtime_selection.py` | Typed runtime selection, explicit defaults and archived-selection fallback behavior |
 | `test_weighing_recovery.py` / weighing-station Playwright specs | Atomic session checkpoints, restart/resume/discard, non-portable operational state, guarded short-lived Undo, progress/summary rollback, concurrency, exact source IDs and stable shared mobile controls |
+| `test_dashboard_weighing.py` | Explicit atomic card targets, locked baseline checks, shared duplicate protection and real WebSocket saves under concurrent station selection changes |
+| `test_storage_atomicity.py` | Failed/cancelled add/edit/move/delete/restore across litter, mother and puppy ownership; weight history, audit and integrity rollback |
+| `test_storage_lock.py` / `test_backup_transaction.py` | Restore write isolation, nested cross-store operations, queued edits, cancellation and coordinated rollback |
 | `test_recurring_reminders.py` | Recurring reminder normalization, owner matching, schedule modes, due status and notification lead-time overrides |
 | `test_care_programs.py` / `test_care_occurrences.py` / `test_care_results.py` | Age-based care program validation, deterministic occurrences, result recording and protocol locking |
 | `test_care_templates.py` / `test_care_program_frontend.py` | Built-in and user template validation, day-specific instructions, JSON import/export and atomic batch saves |
@@ -140,6 +143,23 @@ Run only the browser suite with:
 ```bash
 npm run test:e2e
 ```
+
+Playwright is pinned to 1.64.1. After updating the lockfile, reinstall its
+matching Chromium/WebKit binaries with `npx playwright install chromium webkit`.
+The former 1.62.1 WebKit build could stall around the 64th fresh page on macOS
+when the display slept, before sending a navigation request. The
+[upstream investigation](https://github.com/microsoft/playwright/issues/42385)
+confirmed a browser-build fix. Keep the normal assertion timeouts and do not
+mask this fault with navigation retries or global macOS preference changes.
+
+To exercise that browser lifecycle separately from the application, run:
+
+```bash
+npm run test:browser-lifecycle
+```
+
+This opens 96 fresh contexts in one WebKit process against an isolated local
+HTTP server, without retries. It closes every context, browser and server.
 
 ## Run the backend suite only
 

@@ -7,9 +7,10 @@
   },
   "scripts": {
     "test:e2e": "playwright test",
+    "test:browser-lifecycle": "node scripts/check-browser-lifecycle.mjs",
     "test:all": "node scripts/test-all.mjs"
   },
   "devDependencies": {
-    "@playwright/test": "1.62.1"
+    "@playwright/test": "1.64.1"
   }
 }

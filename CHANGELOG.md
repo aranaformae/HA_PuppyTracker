@@ -22,7 +22,20 @@ they have not been reconstructed as a complete historical changelog.
 
 ### Changed
 
+- Updated the pinned browser-test runtime to Playwright 1.64.1, with a separate
+  long-run WebKit lifecycle diagnostic.
+
 ### Fixed
+
+- Weighing saves target the reviewed puppy and value atomically, even when
+  another dashboard changes the shared station controls.
+- Backup rollback cannot erase separately acknowledged concurrent edits.
+- Failed or cancelled dossier/history writes no longer leak into later saves.
+- Active weighing progress follows deleted, restored and corrected measurements.
+- Explicit weight automations remain available during interrupted sessions and
+  leave unrelated station drafts untouched.
+- Invalid operational checkpoints no longer prevent starting/resetting sessions.
+- Completion notifications are withdrawn even after session alerts are disabled.
 
 ### Deprecated
 
