@@ -13,6 +13,7 @@ const WEIGHING_TEXT = {
     discardConfirm: "Deze sessie afsluiten? Alle opgeslagen gewichten blijven bewaard.",
     sessionResolved: "Sessie bijgewerkt.",
     adminRecovery: "Een beheerder kan de sessie hervatten of afsluiten.",
+    adminWeight: "Een beheerder kan gewichten opslaan.",
     undoWeight: "Ongedaan maken: {puppy} · {weight} g",
     undoWindow: "Tot twee minuten na opslaan. Daarna kun je de meting aanpassen.",
     undoDraftConfirm: "De nog niet opgeslagen invoer wordt gewist. De laatste weging ongedaan maken?",
@@ -87,6 +88,7 @@ const WEIGHING_TEXT = {
     discardConfirm: "Close this session? All saved weights are kept.",
     sessionResolved: "Session updated.",
     adminRecovery: "An administrator can resume or close the session.",
+    adminWeight: "An administrator can save weights.",
     undoWeight: "Undo: {puppy} · {weight} g",
     undoWindow: "Available for two minutes after saving. You can edit the measurement afterward.",
     undoDraftConfirm: "The unsaved input will be cleared. Undo the last weighing?",
@@ -167,6 +169,10 @@ function configHass() {
 }
 
 const WEIGHING_ERRORS_EN = new Map([
+  ["Selecteer eerst een nest en een puppy.", "Select a litter and puppy first."],
+  ["Voer een geldig gewicht van maximaal 10000 gram in.", "Enter a valid weight of at most 10000 grams."],
+  ["De vorige meting is gewijzigd. Controleer het gewicht opnieuw.", "The previous measurement changed. Check the weight again."],
+  ["Controleer de afwijkende meting en bevestig het gewicht opnieuw.", "Check the unusual measurement and confirm the weight again."],
   ["Deze weging kan niet meer ongedaan worden gemaakt.", "This weighing can no longer be undone."],
   ["De weegsessie is gewijzigd. Vernieuw de kaart en probeer opnieuw.", "The weighing session changed. Refresh the card and try again."],
   ["Hervat de onderbroken weegsessie of sluit deze eerst af.", "Resume or close the interrupted weighing session first."],
@@ -1008,6 +1014,7 @@ class PuppyTrackerCard extends HTMLElement {
 
   async _saveWeight(station) {
     if (!this._hass || !station?.ids?.save || this._weightSaveBusy || this._sessionActionBusy
+      || this._hass.user?.is_admin === false
       || this._sessionPresentation(this._state(station.ids.session)?.state).code === "interrupted") return;
 
     const input = this.shadowRoot?.querySelector("#weight-input");
@@ -1017,8 +1024,8 @@ class PuppyTrackerCard extends HTMLElement {
     const hass = this._hass;
     const connection = hass.connection;
     const user = hass.user?.id;
-    const current = () => this._hass === hass && hass.connection === connection
-      && hass.user?.id === user && hass.user?.is_admin !== false && this.isConnected;
+    const current = () => this.isConnected && [hass, this._hass].every((context) =>
+      context?.connection === connection && context?.user?.id === user && context?.user?.is_admin !== false);
 
     if (!Number.isFinite(value) || value <= 0) {
       this._localMessage = this._t("enterValidWeight");
@@ -1093,6 +1100,7 @@ class PuppyTrackerCard extends HTMLElement {
     } finally {
       this._weightSaveBusy = false;
       controls.forEach(([element, disabled]) => { if (element.isConnected) element.disabled = disabled; });
+      this._updateSessionControls(this._station());
     }
   }
 
@@ -1416,8 +1424,8 @@ class PuppyTrackerCard extends HTMLElement {
     const active = this._sessionPresentation(state?.state).code === "active";
     const complete = this._sessionPresentation(state?.state).code === "complete";
     const disabled = {
-      "weight-input": blocked || !station.ids.weight,
-      "save-weight": blocked || !station.ids.save,
+      "weight-input": blocked || !admin || !station.ids.weight,
+      "save-weight": blocked || !admin || !station.ids.save,
       "toggle-session": blocked || !(active || complete ? station.ids.reset : station.ids.start),
       "puppy-select": blocked || !station.ids.puppy,
       "litter-select": blocked || active || !station.ids.litter,
@@ -1427,6 +1435,8 @@ class PuppyTrackerCard extends HTMLElement {
       const element = this.shadowRoot.getElementById(id);
       if (element) element.disabled = Boolean(value);
     }
+    const save = this.shadowRoot.getElementById("save-weight");
+    if (save) save.title = admin ? "" : this._t("adminWeight");
     this.shadowRoot.querySelectorAll("[data-puppy-option]").forEach((element) => { element.disabled = blocked; });
     const lastState = this._state(station.ids.last);
     const last = lastState?.attributes || {};

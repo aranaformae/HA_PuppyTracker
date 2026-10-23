@@ -742,6 +742,54 @@ test("a second dashboard cannot redirect a save through shared station controls 
   ]);
 });
 
+for (const change of ["refresh", "user", "connection", "role"]) {
+  test(`weight preflight handles a ${change} update without misapplying writes @cross-browser @tablet`, async ({ page }) => {
+    await mountWeighingStation(page);
+    await page.evaluate((change) => {
+      const hass = window.__mockHass;
+      hass.user = { id: "admin", is_admin: true };
+      hass.connection = {};
+      const original = hass.callWS;
+      hass.callWS = async (message) => {
+        const result = await original(message);
+        if (message.type === "puppy_tracker/weight/preview") {
+          const next = { ...hass, states: { ...hass.states } };
+          if (change === "user") next.user = { id: "other", is_admin: true };
+          if (change === "connection") next.connection = {};
+          if (change === "role") next.user = { id: "admin", is_admin: false };
+          window.__weighingCard.hass = next;
+        }
+        return result;
+      };
+    }, change);
+    const card = page.locator("puppy-tracker-card");
+    await card.locator("#weight-input").fill("428");
+    await card.locator("#save-weight").click();
+    await expect.poll(() => card.evaluate((element) => element._weightSaveBusy)).toBe(false);
+    expect(await page.evaluate(() => window.__weightSaves.length)).toBe(change === "refresh" ? 1 : 0);
+    if (change === "refresh") await expect(card.locator("#local-message")).toContainText("428 g saved");
+    else await expect(card.locator("#weight-input")).toHaveValue("428");
+    if (change === "role") await expect(card.locator("#save-weight")).toBeDisabled();
+  });
+}
+
+test("atomic save errors are translated and keep the draft @cross-browser @tablet", async ({ page }) => {
+  await mountWeighingStation(page);
+  await page.evaluate(() => {
+    const original = window.__mockHass.callWS;
+    window.__mockHass.callWS = (message) => {
+      if (message.type === "puppy_tracker/weight/save") throw new Error("De vorige meting is gewijzigd. Controleer het gewicht opnieuw.");
+      return original(message);
+    };
+  });
+  const card = page.locator("puppy-tracker-card");
+  await card.locator("#weight-input").fill("428");
+  await card.locator("#save-weight").click();
+  await expect(card.locator("#local-message")).toHaveText("The previous measurement changed. Check the weight again.");
+  await expect(card.locator("#weight-input")).toHaveValue("428");
+  await expect(card.locator("#save-weight")).toBeEnabled();
+});
+
 test("weight input focus and draft survive a tracked HA rerender request", async ({ page }) => {
   await mountWeighingStation(page);
 

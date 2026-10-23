@@ -135,6 +135,11 @@ does not write the shared number entity before pressing a save button. Native
 station buttons and this command share `weighing.py` duplicate protection,
 bound to the actual latest measurement. A changed connection/principal cannot
 continue a preflight or apply late feedback to a different client context.
+Ordinary HA state refreshes with the same connection/principal may replace the
+`hass` object without cancelling the save. Atomic saves follow the administrator
+data-write policy; reader controls remain disabled with a localized reason.
+Busy completion reapplies the latest permissions instead of restoring stale
+button states. Native HA entity-control rights are unchanged.
 
 Dossier share `puppy-tracker-dossier-search.js` for accent- and
 case-insensitive title/note/result matching and localized search controls.
