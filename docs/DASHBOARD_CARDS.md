@@ -506,6 +506,15 @@ rank, note, placement status and link information. The matrix remains planning
 support only: use **Link owner to puppy** in the management view for an
 authoritative link.
 
+Management rows also show each visible dossier's pickup date and recorded
+outstanding amount. Phase-aware attention actions open the relevant fields;
+name/pickup/status/balance sorting applies before CSV export. Expanded contact
+details offer call, mail, WhatsApp and copy actions. The contact editor warns
+about possible duplicate email/phone matches without blocking a legitimate
+shared contact value or changing stored data automatically. See the
+[owner workflow](puppy-dossiers.md#ownercontact-card) for the exact inclusion,
+sorting, contact-link and duplicate-comparison rules.
+
 The complete workflow, matrix legend, inclusion rules and summary definitions
 are documented in
 [Owner puppy-preference matrix](OWNER_PREFERENCE_MATRIX.md).

@@ -359,6 +359,16 @@ values, with mail addresses safely encoded; unexpected text remains copyable
 without becoming an active link. Clipboard success/failure is shown locally
 without rebuilding the card. If clipboard access is denied, the text stays
 selectable for manual copying. These actions do not edit stored contact values.
+While adding/editing, a non-blocking hint lists contacts with the same email or
+phone across all litters, including archived dossiers. Email comparison ignores
+case/outer whitespace; phone separators and explicit `+`/`00` international
+prefixes normalize for comparison only. National/international equivalents are
+not guessed. Empty/invalid values, names and addresses are not duplicate keys;
+the contact being edited is excluded. **Open existing owner** asks before
+discarding a changed draft and opens the existing contact's appropriate litter
+dossier. Save remains available for legitimate shared partner details. No merge,
+uniqueness constraint or stored-value normalization is introduced. The hints use
+the loaded snapshot; they are not a cross-device uniqueness guarantee.
 The list starts on the first active litter. **Owners for** also offers all
 litters and **Without litter**. Search by contact name, email, phone or linked
 puppy. **Status filter** starts at **Active (including sold)**: interested,

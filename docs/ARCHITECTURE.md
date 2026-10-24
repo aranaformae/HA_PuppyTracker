@@ -1019,6 +1019,40 @@ drafts. The 600px list retains its scroll offset across row redraws; search only
 replaces list content, keeping its input focused. Ancestor scroll restoration is
 synchronous through the shared helper.
 
+Collapsed rows derive pickup/balance summaries separately for each visible
+dossier. Amounts are the explicit `payment_balance`, never an inferred final
+payment; null stays unknown and recorded zero stays zero. Currency uses HA's
+configured currency or EUR. Reserved/sold dossiers expose section-targeted
+attention actions for missing contact or positive outstanding balance; a missing
+pickup date is actionable only once sold. Placed/archived dossiers do not get
+these hints. Opening an action edits the explicit litter snapshot through the
+existing FormState/revision path, without automatic saves or notifications.
+
+Management sorting is card-local and defaults to locale-aware name ordering.
+Filtering precedes key derivation. Pickup uses the earliest visible date, status
+uses the earliest visible placement phase, and balance uses the sum of known
+visible balances. Unknown dates/balances sort last; names and IDs break ties.
+Sort changes replace only list content, keeping input/linking controls intact.
+Management CSV consumes that same order; matrix rows retain their own ordering.
+
+Contact icon actions use strict phone/email link validation, encoded mailto
+addresses and explicit international numbers for WhatsApp. No region is guessed
+and no message is sent by rendering. Copy uses the raw stored value and changes
+only a reserved local feedback region after checking the current admin context;
+clipboard failure never triggers a DOM-selection fallback or a whole-card render.
+
+Duplicate hints are advisory frontend projections, not a uniqueness constraint.
+A WeakMap caches normalized email/phone indexes per loaded owner-array snapshot,
+so typing performs indexed lookups instead of scanning the full contact list.
+Old snapshot indexes can be collected; identity/permission changes replace the
+cache explicitly. Email case and phone separators/explicit `00` prefixes are
+normalized for comparison only. The edited contact is excluded, names/addresses
+are not keys, and matching both fields lists a contact once. Warning DOM changes
+only when the match signature changes; inputs, focus and FormState remain intact.
+Opening an existing match goes through discard confirmation and selects an
+existing appropriate litter dossier. Explicit duplicate saves remain possible;
+loaded-snapshot hints do not promise cross-device uniqueness.
+
 `puppy_tracker/owners/save` accepts the complete ordered list. Sending `[]`
 clears that dossier's shortlist, while omission preserves its existing list.
 Structural validation is authoritative,

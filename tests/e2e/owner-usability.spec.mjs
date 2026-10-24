@@ -34,6 +34,56 @@ async function mount(page, language = "nl") {
 }
 
 for (const language of ["nl", "en"]) {
+  test(`duplicate hints preserve drafts and can open the existing contact for the right litter (${language}) @cross-browser @tablet`, async ({ page }) => {
+    const card = await mount(page, language);
+    await card.locator("#add-owner").click();
+    await card.locator("#owner-litter").selectOption("l2");
+    await expect(card.locator(".owner-duplicates")).toBeHidden();
+    await card.locator('[name="name"]').fill("New contact draft");
+    await card.locator('[name="phone"]').fill(" (06) 1234-5678 ");
+    await expect(card.locator(".owner-duplicate-match")).toHaveCount(1);
+    await expect(card.locator(".owner-duplicates")).toContainText("Alex");
+    await card.locator('[name="email"]').fill("ALEX@EXAMPLE.COM");
+    await expect(card.locator(".owner-duplicate-match")).toHaveCount(1);
+    await expect(card.locator(".owner-duplicates")).toContainText(language === "nl" ? "E-mail, Telefoon" : "Email, Phone");
+    await card.evaluate((element) => { element.originalEmail = element.querySelector('[name="email"]'); });
+    await card.locator('[name="email"]').press("End");
+    await card.locator('[name="email"]').press("Backspace");
+    await expect(card.locator('[name="email"]')).toBeFocused();
+    expect(await card.evaluate((element) => element.originalEmail === element.querySelector('[name="email"]'))).toBe(true);
+    await card.locator('[name="email"]').fill("alex@example.com");
+    page.once("dialog", (dialog) => dialog.dismiss());
+    await card.locator('[data-open-duplicate-owner="alex"]').click();
+    await expect(card.locator('[name="name"]')).toHaveValue("New contact draft");
+    await card.screenshot({ path: test.info().outputPath(`owner-duplicate-warning-${language}.png`) });
+    expect(await card.locator("ha-card").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    page.once("dialog", (dialog) => dialog.accept());
+    await card.locator('[data-open-duplicate-owner="alex"]').click();
+    await expect(card.locator('[name="name"]')).toHaveValue("Alex");
+    await expect(card.locator("#owner-litter")).toHaveValue("l2");
+    await expect(card.locator('[name="payment_balance"]')).toHaveValue("900");
+    await expect(card.locator(".owner-duplicates")).toBeHidden();
+    expect(await page.evaluate(() => window.ownerUsability.calls.some((call) => call.type.endsWith("/save")))).toBe(false);
+  });
+
+  test(`shared contact values warn but never block explicit saving (${language}) @cross-browser @tablet`, async ({ page }) => {
+    const card = await mount(page, language);
+    await card.locator('[data-edit="alex"]').click();
+    await expect(card.locator(".owner-duplicates")).toBeHidden();
+    await card.locator("#cancel-owner").click();
+    await card.locator("#add-owner").click();
+    await card.locator('[name="name"]').fill("Alex partner");
+    await card.locator('[name="email"]').fill("alex@example.com");
+    await expect(card.locator(".owner-duplicate-match")).toHaveCount(1);
+    await expect(card.locator('.owner-editor button[type="submit"]')).toBeEnabled();
+    await card.locator('.owner-editor button[type="submit"]').click();
+    await expect(card.locator(".owner-editor")).toHaveCount(0);
+    const owners = await page.evaluate(() => window.ownerUsability.owners);
+    expect(owners.filter((owner) => owner.email === "alex@example.com")).toHaveLength(2);
+    expect(owners.find((owner) => owner.id === "alex").name).toBe("Alex");
+    expect(owners.find((owner) => owner.id.startsWith("new-")).name).toBe("Alex partner");
+  });
+
   test(`contact actions preserve original values and give stable copy feedback (${language}) @cross-browser @tablet`, async ({ page }) => {
     const card = await mount(page, language);
     await page.evaluate(() => {
@@ -61,7 +111,7 @@ for (const language of ["nl", "en"]) {
     await card.locator('[data-toggle-owner="blair"]').click();
     await expect(card.locator('#owner-detail-blair a[href^="https://wa.me/"]')).toHaveAttribute("href", "https://wa.me/31687654321");
     await expect(card.locator('#owner-detail-blair a[href^="https://wa.me/"]')).toHaveAttribute("rel", "noopener noreferrer");
-    await card.screenshot({ path: test.info().outputPath(`owner-contact-actions-${language}.png`) });
+    await card.locator('#owner-detail-blair [data-owner-group="contact"]').screenshot({ path: test.info().outputPath(`owner-contact-actions-${language}.png`) });
     expect(await card.locator("ha-card").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     expect(await page.evaluate(() => window.ownerUsability.calls.some((call) => call.type.endsWith("/save")))).toBe(false);
   });
@@ -187,4 +237,32 @@ test("late clipboard completion cannot restore private feedback after permission
   await page.evaluate(() => window.finishOwnerCopy());
   await expect(card.locator("[data-contact-feedback]")).toHaveCount(0);
   await expect(card).not.toContainText("alex@example.com");
+});
+
+test("duplicate detection normalizes explicit country prefixes and clears private indexes @cross-browser @tablet", async ({ page }) => {
+  const card = await mount(page);
+  await page.evaluate(() => { window.ownerUsability.owners[0].phone = "+31 (6) 1234-5678"; });
+  await page.evaluate(() => {
+    window.ownerUsability.owners[3].email = "archived@example.com";
+    window.ownerUsability.owners[3].placements.l1.archived = true;
+  });
+  await card.evaluate((element) => element._load(true));
+  await card.locator("#add-owner").click();
+  await card.locator('[name="phone"]').fill("0612345678");
+  await expect(card.locator(".owner-duplicates")).toBeHidden();
+  await card.locator('[name="phone"]').fill("00 31 6 1234 5678");
+  await expect(card.locator(".owner-duplicates")).toContainText("Alex");
+  await card.locator('[name="phone"]').fill("");
+  await card.locator('[name="email"]').fill("ARCHIVED@example.com");
+  await expect(card.locator(".owner-duplicates")).toContainText("Dana");
+  await expect(card.locator('[data-owner="dana"]')).toHaveCount(0);
+  expect(await card.evaluate((element) => element._duplicateIndexes.has(element._owners))).toBe(true);
+  await card.evaluate((element) => {
+    const before = element._owners;
+    element.hass = { ...element._hass, user: { id: "viewer", is_admin: false } };
+    element.retainedPrivateIndex = element._duplicateIndexes.has(before);
+  });
+  await expect(card.locator(".owner-duplicates")).toHaveCount(0);
+  expect(await card.evaluate((element) => element.retainedPrivateIndex)).toBe(false);
+  await expect(card).not.toContainText("Alex");
 });

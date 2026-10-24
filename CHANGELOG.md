@@ -12,6 +12,9 @@ they have not been reconstructed as a complete historical changelog.
 
 ### Added
 
+- Non-blocking duplicate-contact hints compare email/phone values across all
+  dossiers, exclude the edited contact and offer explicit reuse with draft-discard
+  confirmation. Shared partner details remain allowed; nothing is merged automatically.
 - Owner contact details offer call, compose-email, explicit-international-number
   WhatsApp and copy actions, with localized feedback and no automatic messages.
 - Owner management sorts by name, next pickup, placement phase or highest

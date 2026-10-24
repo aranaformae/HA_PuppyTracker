@@ -153,6 +153,9 @@ The Owners card keeps one reusable contact with a separate dossier per litter
 for placement, payments and an optional top-three puppy shortlist with notes.
 Filter by litter or status, or search contacts. Sold puppies stay visible until
 placed; placed and archived dossiers remain available through the status filter.
+Rows show pickup dates and outstanding amounts, with relevant next actions.
+Sort the list, use quick contact actions, and check possible duplicate contacts
+without losing a draft or blocking legitimate shared contact details.
 Contacts can be assigned to a litter before a puppy is chosen, and reused for
 later litters without overwriting earlier payments. A puppy's chip number,
 registered/nest name, call name, coat colour and breed/type are separate

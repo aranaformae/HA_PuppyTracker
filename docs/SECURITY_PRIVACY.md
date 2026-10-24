@@ -63,6 +63,10 @@ deliberately expose privileged actions through an accessible trigger or script.
   text, require the current admin context and show local success/failure only;
   late completion cannot restore feedback after identity/permission changes.
   Clipboard contents or details already passed to an external app cannot be revoked.
+- Duplicate hints use only the admin-only loaded contact snapshot. Comparison
+  indexes are ephemeral, replaced on identity/permission changes and never
+  persisted or exposed through another API. They are advisory, not a server-side
+  uniqueness guarantee, and never merge contacts or overwrite shared partner data.
 - Care-result and acknowledgement controls reflect their backend write policy.
   The server remains authoritative if old frontend code still shows a button.
 - Weighing recovery and Undo WebSocket commands are admin-only. Recovery checks

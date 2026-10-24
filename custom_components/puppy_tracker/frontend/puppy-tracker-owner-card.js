@@ -155,6 +155,9 @@ const COPY = {
     copyContact: "Kopiëren",
     contactCopied: "Gekopieerd.",
     contactCopyFailed: "Kopiëren is niet gelukt. De gegevens blijven beschikbaar om handmatig te kopiëren.",
+    possibleDuplicate: "Dit contact bestaat mogelijk al",
+    duplicateMatches: "Overeenkomst op",
+    openExistingOwner: "Bestaand baasje openen",
     paymentMethod: "Betaalmethode",
     paymentDate: "Datum slotbetaling",
     markPaidInFull: "Volledig betaald registreren",
@@ -319,6 +322,9 @@ const COPY = {
     copyContact: "Copy",
     contactCopied: "Copied.",
     contactCopyFailed: "Copying failed. The details remain available to copy manually.",
+    possibleDuplicate: "Possible existing contact",
+    duplicateMatches: "Matching",
+    openExistingOwner: "Open existing owner",
     paymentMethod: "Payment method",
     paymentDate: "Final payment date",
     markPaidInFull: "Record payment in full",
@@ -457,6 +463,10 @@ function contactEmail(value) {
   return /^[^@\s<>?,;:#]+@[^@\s<>?,;:#]+$/.test(address) ? address : null;
 }
 
+function contactIdentity(field, value) {
+  return field === "phone" ? contactPhone(value) : contactEmail(value)?.toLowerCase() || null;
+}
+
 function csvFilename() {
   const stamp = new Date().toISOString().replaceAll("-", "").replaceAll(":", "").slice(0, 15);
   return `puppy-tracker-owners-${stamp}Z.csv`;
@@ -481,6 +491,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     this._editing = null;
     this._expandedOwnerId = null;
     this._ownerGroups = new Map();
+    this._duplicateIndexes = new WeakMap();
     this._editorGroups = { contact: true };
     this._showOwnerEditor = false;
     this._status = "";
@@ -607,6 +618,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     this._puppies = [];
     this._litters = [];
     this._ownerGroups.clear();
+    this._duplicateIndexes = new WeakMap();
     this._editorGroups = { contact: true };
     this._detailLitters.clear();
     this._editing = null;
@@ -821,6 +833,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       .forEach((button) => { button.disabled = blocked; });
     this.querySelectorAll("[data-delete], [data-assign-owner]").forEach((button) => { button.disabled = blocked || this._showEditor; });
     this.querySelectorAll("[data-copy-owner-contact]").forEach((button) => { button.disabled = blocked; });
+    this.querySelectorAll("[data-open-duplicate-owner]").forEach((button) => { button.disabled = blocked; });
     const link = this.querySelector("#link-save");
     if (link) link.disabled = blocked || this._showOwnerEditor || !this._selectedPuppy;
     const reload = this.querySelector("#reload-owner-conflict");
@@ -1625,6 +1638,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       <label><span>${escapeHtml(text(this, "phone"))}</span><input name="phone" autocomplete="tel" value="${escapeHtml(owner.phone || "")}"></label>
       ${selectField(this, "role", text(this, "role"), OWNER_ROLE_LABELS, owner.role || "owner")}
       ${selectField(this, "contact_preference", text(this, "contactPreference"), CONTACT_PREFERENCE_LABELS, owner.contact_preference || "none")}
+      <div class="owner-duplicates wide" role="status" aria-live="polite" hidden></div>
       `)}
       ${this._editorSection("address", `
       <label><span>${escapeHtml(text(this, "street"))}</span><input name="street" autocomplete="street-address" value="${escapeHtml(owner.street || owner.address || "")}"></label>
@@ -1672,6 +1686,57 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     if (!status) return;
     const message = this._formState.dirty ? text(this, "unsavedChanges") : "";
     if (status.textContent !== message) status.textContent = message;
+  }
+
+  _duplicateOwners() {
+    const form = this._formState.root;
+    if (!form) return [];
+    const keys = ["email", "phone"].map((field) => [field, contactIdentity(field, form.elements[field].value)]).filter(([, key]) => key);
+    if (!keys.length) return [];
+    let index = this._duplicateIndexes.get(this._owners);
+    if (!index) {
+      // Reload/save replaces owner snapshots; weak keys let old indexes expire.
+      index = { email: new Map(), phone: new Map(), owners: new Map() };
+      for (const owner of this._owners) {
+        index.owners.set(owner.id, owner);
+        for (const field of ["email", "phone"]) {
+          const key = contactIdentity(field, owner[field]);
+          if (!key) continue;
+          if (!index[field].has(key)) index[field].set(key, []);
+          index[field].get(key).push(owner.id);
+        }
+      }
+      this._duplicateIndexes.set(this._owners, index);
+    }
+    const matches = new Map();
+    for (const [field, key] of keys) {
+      for (const id of index[field].get(key) || []) {
+        if (id === this._editing) continue;
+        if (!matches.has(id)) matches.set(id, { owner: index.owners.get(id), fields: [] });
+        matches.get(id).fields.push(field);
+      }
+    }
+    return [...matches.values()];
+  }
+
+  _updateDuplicateWarning() {
+    const warning = this.querySelector(".owner-duplicates");
+    if (!warning || !this._isCurrent(this._context)) return;
+    const matches = this._duplicateOwners();
+    const signature = JSON.stringify(matches.map(({ owner, fields }) => [owner.id, owner.name, fields]));
+    if (warning.dataset.matches === signature) return;
+    warning.dataset.matches = signature;
+    warning.hidden = !matches.length;
+    warning.innerHTML = matches.length ? `<strong>${escapeHtml(text(this, "possibleDuplicate"))}</strong><div class="owner-duplicate-list">${matches.map(({ owner, fields }) => `<div class="owner-duplicate-match"><span><strong>${escapeHtml(owner.name)}</strong><small>${escapeHtml(text(this, "duplicateMatches"))}: ${escapeHtml(fields.map((field) => text(this, field)).join(", "))}</small></span><button type="button" class="secondary" data-open-duplicate-owner="${escapeHtml(owner.id)}" title="${escapeHtml(`${text(this, "openExistingOwner")}: ${owner.name}`)}" aria-label="${escapeHtml(`${text(this, "openExistingOwner")}: ${owner.name}`)}"><ha-icon icon="mdi:account-edit-outline" aria-hidden="true"></ha-icon>${escapeHtml(text(this, "openExistingOwner"))}</button></div>`).join("")}</div>` : "";
+    warning.querySelectorAll("[data-open-duplicate-owner]").forEach((button) => button.addEventListener("click", () => {
+      if (this._busy || !this._isCurrent(this._context)) return;
+      const owner = this._owners.find((item) => item.id === button.dataset.openDuplicateOwner);
+      if (!owner) return;
+      const litters = this._ownerLitterIds(owner);
+      const litterId = litters.includes(this._editingLitter) ? this._editingLitter : litters[0] || "";
+      this._openEditor(owner.id, { litterId, section: "contact" });
+    }));
+    this._updateActionState();
   }
 
   _ownerErrorMarkup() {
@@ -1779,6 +1844,14 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       .owner-editor-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;min-width:0;padding:4px 0 14px}
       .owner-editor-group summary:focus-visible,.owner-section-edit:focus-visible{outline:2px solid var(--primary-color);outline-offset:2px}
       .owner-draft-status{min-height:20px;line-height:20px;font-size:.8rem;color:var(--warning-color,var(--secondary-text-color))}
+      .owner-duplicates{min-width:0;padding:10px;border-left:3px solid var(--warning-color,var(--primary-color));background:var(--secondary-background-color);border-radius:6px;font-size:.8rem}
+      .owner-duplicates[hidden]{display:none}
+      .owner-duplicate-list{max-height:200px;overflow-y:auto;margin-top:5px}
+      .owner-duplicate-match{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 10px;padding:6px 0;min-width:0}
+      .owner-duplicate-match>span{min-width:0;overflow-wrap:anywhere}
+      .owner-duplicate-match strong,.owner-duplicate-match small{display:block}
+      .owner-duplicate-match small{margin-top:3px;color:var(--secondary-text-color)}
+      .owner-duplicate-match button{min-height:44px;max-width:100%;white-space:normal;overflow-wrap:anywhere;font-size:inherit}
       .owner-editor-actions{border-top:1px solid var(--divider-color);padding-top:10px}
       .owner-editor-actions button{min-height:44px;min-width:0;white-space:normal;overflow-wrap:anywhere}
       .form label,.link-form label{display:grid;gap:4px;color:var(--secondary-text-color);font-size:.78rem}
@@ -1958,7 +2031,8 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     this._syncPaymentStatus();
     const ownerForm = this._formState.root;
     if (ownerForm) {
-      for (const event of ["input", "change"]) ownerForm.addEventListener(event, () => this._updateOwnerDraftStatus());
+      this._updateDuplicateWarning();
+      for (const event of ["input", "change"]) ownerForm.addEventListener(event, () => { this._updateOwnerDraftStatus(); this._updateDuplicateWarning(); });
       ownerForm.querySelectorAll("[data-owner-editor-group]").forEach((group) => group.addEventListener("toggle", () => {
         if (group.isConnected && group.closest("form") === this._formState.root) this._editorGroups[group.dataset.ownerEditorGroup] = group.open;
       }));
