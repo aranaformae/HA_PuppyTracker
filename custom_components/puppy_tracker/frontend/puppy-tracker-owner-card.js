@@ -136,6 +136,8 @@ const COPY = {
     depositDate: "Datum aanbetaling",
     finalPaymentAmount: "Slotbetaling (berekend)",
     paymentBalance: "Werkelijk openstaand bedrag",
+    pickupSummary: "Ophalen",
+    balanceSummary: "Openstaand",
     paymentMethod: "Betaalmethode",
     paymentDate: "Datum slotbetaling",
     markPaidInFull: "Volledig betaald registreren",
@@ -287,6 +289,8 @@ const COPY = {
     depositDate: "Deposit date",
     finalPaymentAmount: "Final payment (calculated)",
     paymentBalance: "Actual outstanding amount",
+    pickupSummary: "Pickup",
+    balanceSummary: "Outstanding",
     paymentMethod: "Payment method",
     paymentDate: "Final payment date",
     markPaidInFull: "Record payment in full",
@@ -403,6 +407,16 @@ function finalPaymentAmount(values) {
   const result = Math.round((total - registrationFee - deposit + Number.EPSILON) * 100) / 100;
   if (result < 0) return "";
   return result.toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1");
+}
+
+function formattedAmount(card, value) {
+  const amount = numericAmount(value);
+  if (amount === null) return null;
+  const configuredCurrency = card._hass?.config?.currency;
+  const currency = /^[A-Z]{3}$/.test(configuredCurrency || "") ? configuredCurrency : "EUR";
+  return new Intl.NumberFormat(languageForHass(card._hass) === "en" ? "en-US" : "nl-NL", {
+    style: "currency", currency,
+  }).format(amount);
 }
 
 function csvFilename() {
@@ -1474,10 +1488,12 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       const linked = this._linkedPuppiesLabel(owner);
       const dossiers = this._visibleLitterIds(owner).map((id) => {
         const dossier = this._ownerForLitter(owner, id);
-        return [this._litterLabel(id), optionLabel(this, dossier.placement_status, PLACEMENT_STATUS_LABELS, "interested"), dossier.archived ? text(this, "archivedColumn") : ""].filter(Boolean).join(" · ");
-      }).join(", ");
+        const status = [this._litterLabel(id), optionLabel(this, dossier.placement_status, PLACEMENT_STATUS_LABELS, "interested"), dossier.archived ? text(this, "archivedColumn") : ""].filter(Boolean).join(" · ");
+        const balance = formattedAmount(this, dossier.payment_balance);
+        return `<small class="owner-dossier-summary" data-summary-litter="${escapeHtml(id)}"><span>${escapeHtml(status)}</span>${dossier.expected_pickup_date ? `<span>${escapeHtml(text(this, "pickupSummary"))}: ${escapeHtml(formattedDate(this, dossier.expected_pickup_date))}</span>` : ""}${balance !== null ? `<span>${escapeHtml(text(this, "balanceSummary"))}: ${escapeHtml(balance)}</span>` : ""}</small>`;
+      }).join("");
       return `<article class="owner" data-owner="${escapeHtml(owner.id)}">
-        <button type="button" class="owner-toggle" data-toggle-owner="${escapeHtml(owner.id)}" aria-expanded="${expanded}" aria-controls="owner-detail-${escapeHtml(owner.id)}"><span><strong>${escapeHtml(owner.name)}</strong><small>${escapeHtml(contact)}</small><small>${escapeHtml(dossiers)}</small>${linked ? `<small class="owner-puppies">${escapeHtml(text(this, "linkedPuppies"))}: ${escapeHtml(linked)}</small>` : ""}</span><ha-icon icon="mdi:chevron-${expanded ? "up" : "down"}"></ha-icon></button>
+        <button type="button" class="owner-toggle" data-toggle-owner="${escapeHtml(owner.id)}" aria-expanded="${expanded}" aria-controls="owner-detail-${escapeHtml(owner.id)}"><span><strong>${escapeHtml(owner.name)}</strong><small>${escapeHtml(contact)}</small>${dossiers}${linked ? `<small class="owner-puppies">${escapeHtml(text(this, "linkedPuppies"))}: ${escapeHtml(linked)}</small>` : ""}</span><ha-icon icon="mdi:chevron-${expanded ? "up" : "down"}"></ha-icon></button>
         <div class="owner-actions"><button type="button" data-edit="${escapeHtml(owner.id)}" title="${escapeHtml(text(this, "edit"))}" aria-label="${escapeHtml(text(this, "edit"))}"><ha-icon icon="mdi:pencil-outline"></ha-icon></button><button type="button" data-delete="${escapeHtml(owner.id)}" title="${escapeHtml(text(this, "remove"))}" aria-label="${escapeHtml(text(this, "remove"))}"><ha-icon icon="mdi:delete-outline"></ha-icon></button></div>
         ${expanded ? this._ownerDetails(owner) : ""}
       </article>`;
@@ -1680,6 +1696,8 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       .owner-toggle span{min-width:0}
       .owner-toggle strong,.owner-toggle small{display:block;overflow-wrap:anywhere}
       .owner-toggle small{color:var(--secondary-text-color);margin-top:2px;font-size:.78rem}
+      .owner-toggle .owner-dossier-summary{display:flex;flex-wrap:wrap;gap:2px 12px;margin-top:5px;line-height:1.5}
+      .owner-dossier-summary>span{overflow-wrap:anywhere}
       .owner-toggle .owner-puppies{color:var(--primary-text-color);margin-top:5px;font-weight:600}
       .owner-actions{display:flex;gap:5px}
       .owner-actions button{width:38px;padding:0}

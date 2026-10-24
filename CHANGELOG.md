@@ -12,6 +12,8 @@ they have not been reconstructed as a complete historical changelog.
 
 ### Added
 
+- Collapsed owner rows show pickup dates and explicit outstanding balances per
+  visible litter dossier, without treating unknown balances as zero.
 - One shared owner status filter for management and the preference matrix:
   active dossiers, all dossiers, each placement status or archived dossiers.
 

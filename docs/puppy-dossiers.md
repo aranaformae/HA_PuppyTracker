@@ -334,6 +334,10 @@ use the same explicit Save/Cancel workflow and discard confirmation.
 Assigned puppies are also visible in the collapsed owner row, with their call
 name, collar colour and litter name. All actual links are shown, including links
 across litters when **All litters** is selected; preferences alone are not assignments.
+Each visible litter dossier also shows its expected pickup date and recorded
+outstanding balance when present. Missing amounts stay absent, not zero; a
+recorded zero stays visible. Currency follows Home Assistant's configured
+currency, falling back to EUR. Different litters retain separate amounts/dates.
 The list starts on the first active litter. **Owners for** also offers all
 litters and **Without litter**. Search by contact name, email, phone or linked
 puppy. **Status filter** starts at **Active (including sold)**: interested,
