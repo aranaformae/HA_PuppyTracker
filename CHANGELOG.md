@@ -10,6 +10,8 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+## [0.31.2] - 2026-10-24
+
 ### Added
 
 - Owner management shows visible/total contact counts and clears litter, status
@@ -159,7 +161,8 @@ for explicit assignment. See [storage migrations](docs/storage-migrations.md#own
 
 - Separated daily execution from schedule management in Care workspace navigation.
 
-[Unreleased]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.31.1...HEAD
+[Unreleased]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.31.2...HEAD
+[0.31.2]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.31.1...v0.31.2
 [0.31.1]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.31.0...v0.31.1
 [0.31.0]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.30.0...v0.31.0
 [0.30.0]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.29.6...v0.30.0
