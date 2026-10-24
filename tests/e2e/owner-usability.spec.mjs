@@ -34,6 +34,38 @@ async function mount(page, language = "nl") {
 }
 
 for (const language of ["nl", "en"]) {
+  test(`contact actions preserve original values and give stable copy feedback (${language}) @cross-browser @tablet`, async ({ page }) => {
+    const card = await mount(page, language);
+    await page.evaluate(() => {
+      window.ownerUsability.copied = [];
+      Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (value) => {
+        if (window.ownerUsability.failCopy) throw new Error("Clipboard unavailable");
+        window.ownerUsability.copied.push(value);
+      } } });
+    });
+    await card.locator('[data-toggle-owner="alex"]').click();
+    const detail = card.locator("#owner-detail-alex");
+    await expect(detail.locator('[data-contact-kind="phone"] a')).toHaveAttribute("href", "tel:0612345678");
+    await expect(detail.locator('a[href^="https://wa.me/"]')).toHaveCount(0);
+    await expect(detail.locator('[data-contact-kind="email"] a')).toHaveAttribute("href", "mailto:alex%40example.com");
+    await detail.evaluate((element) => { element.original = element.querySelector('[data-contact-kind="phone"]'); });
+    await detail.locator('[data-contact-field="phone"]').click();
+    await expect(detail.locator("[data-contact-feedback]")).toHaveText(language === "nl" ? "Gekopieerd." : "Copied.");
+    expect(await detail.evaluate((element) => element.original === element.querySelector('[data-contact-kind="phone"]'))).toBe(true);
+    await detail.locator('[data-contact-field="email"]').click();
+    expect(await page.evaluate(() => window.ownerUsability.copied)).toEqual(["0612345678", "alex@example.com"]);
+    await page.evaluate(() => { window.ownerUsability.failCopy = true; });
+    await detail.locator('[data-contact-field="phone"]').click();
+    await expect(detail.locator("[data-contact-feedback]")).toContainText(language === "nl" ? "Kopiëren is niet gelukt" : "Copying failed");
+    await expect(detail.locator('[data-contact-kind="phone"]')).toContainText("0612345678");
+    await card.locator('[data-toggle-owner="blair"]').click();
+    await expect(card.locator('#owner-detail-blair a[href^="https://wa.me/"]')).toHaveAttribute("href", "https://wa.me/31687654321");
+    await expect(card.locator('#owner-detail-blair a[href^="https://wa.me/"]')).toHaveAttribute("rel", "noopener noreferrer");
+    await card.screenshot({ path: test.info().outputPath(`owner-contact-actions-${language}.png`) });
+    expect(await card.locator("ha-card").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    expect(await page.evaluate(() => window.ownerUsability.calls.some((call) => call.type.endsWith("/save")))).toBe(false);
+  });
+
   test(`owner sorting handles missing values, visible litters and CSV order (${language}) @cross-browser @tablet`, async ({ page }) => {
     const card = await mount(page, language);
     const ids = () => card.locator(".owner").evaluateAll((rows) => rows.map((row) => row.dataset.owner));
@@ -124,3 +156,35 @@ for (const language of ["nl", "en"]) {
     expect(await page.evaluate(() => window.ownerUsability.calls.some((call) => call.type.endsWith("/save")))).toBe(false);
   });
 }
+
+test("contact links reject unsafe text and normalize only explicit international numbers @cross-browser @tablet", async ({ page }) => {
+  const card = await mount(page);
+  await page.evaluate(() => {
+    window.ownerUsability.owners[0].phone = "00 31 (6) 1234-5678";
+    window.ownerUsability.owners[0].email = "person+puppy@example.com";
+  });
+  await card.evaluate((element) => element._load(true));
+  await card.locator('[data-toggle-owner="alex"]').click();
+  await expect(card.locator('#owner-detail-alex a[href^="tel:"]')).toHaveAttribute("href", "tel:+31612345678");
+  await expect(card.locator('#owner-detail-alex a[href^="https:"]')).toHaveAttribute("href", "https://wa.me/31612345678");
+  await expect(card.locator('#owner-detail-alex a[href^="mailto:"]')).toHaveAttribute("href", "mailto:person%2Bpuppy%40example.com");
+  await page.evaluate(() => {
+    window.ownerUsability.owners[0].phone = "javascript:alert(1)";
+    window.ownerUsability.owners[0].email = '<img src=x onerror="alert(1)">@example.com';
+  });
+  await card.evaluate((element) => element._load(true));
+  await expect(card.locator('#owner-detail-alex [data-contact-kind] a')).toHaveCount(0);
+  await expect(card.locator('#owner-detail-alex [data-copy-owner-contact]')).toHaveCount(2);
+  await expect(card.locator("#owner-detail-alex img")).toHaveCount(0);
+});
+
+test("late clipboard completion cannot restore private feedback after permissions change @cross-browser @tablet", async ({ page }) => {
+  const card = await mount(page);
+  await page.evaluate(() => Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: () => new Promise((resolve) => { window.finishOwnerCopy = resolve; }) } }));
+  await card.locator('[data-toggle-owner="alex"]').click();
+  await card.locator('[data-copy-owner-contact="alex"][data-contact-field="phone"]').click();
+  await card.evaluate((element) => { element.hass = { ...element._hass, user: { id: "viewer", is_admin: false } }; });
+  await page.evaluate(() => window.finishOwnerCopy());
+  await expect(card.locator("[data-contact-feedback]")).toHaveCount(0);
+  await expect(card).not.toContainText("alex@example.com");
+});

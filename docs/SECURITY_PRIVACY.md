@@ -57,6 +57,12 @@ deliberately expose privileged actions through an accessible trigger or script.
 - The owner and report cards show localized access messages for non-admins and
   avoid private reads/actions. Owner details are cleared on an observed role
   change; a late response cannot repopulate the removed information.
+- Owner contact actions never send a message automatically. Explicit clicks open
+  validated `tel:`/encoded `mailto:` links or an explicit international-number
+  WhatsApp URL (`noopener noreferrer`). Clipboard copies retain the original
+  text, require the current admin context and show local success/failure only;
+  late completion cannot restore feedback after identity/permission changes.
+  Clipboard contents or details already passed to an external app cannot be revoked.
 - Care-result and acknowledgement controls reflect their backend write policy.
   The server remains authoritative if old frontend code still shows a button.
 - Weighing recovery and Undo WebSocket commands are admin-only. Recovery checks

@@ -149,6 +149,12 @@ const COPY = {
     missingContact: "Contactgegevens ontbreken",
     missingPickup: "Ophaaldatum ontbreekt",
     outstandingPayment: "Betaling open",
+    callContact: "Bellen",
+    emailContact: "E-mail opstellen",
+    whatsappContact: "WhatsApp openen",
+    copyContact: "Kopiëren",
+    contactCopied: "Gekopieerd.",
+    contactCopyFailed: "Kopiëren is niet gelukt. De gegevens blijven beschikbaar om handmatig te kopiëren.",
     paymentMethod: "Betaalmethode",
     paymentDate: "Datum slotbetaling",
     markPaidInFull: "Volledig betaald registreren",
@@ -307,6 +313,12 @@ const COPY = {
     missingContact: "Contact details missing",
     missingPickup: "Pickup date missing",
     outstandingPayment: "Payment outstanding",
+    callContact: "Call",
+    emailContact: "Compose email",
+    whatsappContact: "Open WhatsApp",
+    copyContact: "Copy",
+    contactCopied: "Copied.",
+    contactCopyFailed: "Copying failed. The details remain available to copy manually.",
     paymentMethod: "Payment method",
     paymentDate: "Final payment date",
     markPaidInFull: "Record payment in full",
@@ -433,6 +445,16 @@ function formattedAmount(card, value) {
   return new Intl.NumberFormat(languageForHass(card._hass) === "en" ? "en-US" : "nl-NL", {
     style: "currency", currency,
   }).format(amount);
+}
+
+function contactPhone(value) {
+  const number = String(value || "").trim().replace(/[\s().-]/g, "").replace(/^00/, "+");
+  return /^(?:\+[1-9]\d{5,14}|\d{6,15})$/.test(number) ? number : null;
+}
+
+function contactEmail(value) {
+  const address = String(value || "").trim();
+  return /^[^@\s<>?,;:#]+@[^@\s<>?,;:#]+$/.test(address) ? address : null;
 }
 
 function csvFilename() {
@@ -798,6 +820,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     this.querySelectorAll('button[type="submit"], #add-owner, [data-edit], [data-edit-owner-section], [data-mark-paid], [data-add-dossier], [data-matrix-edit-owner]')
       .forEach((button) => { button.disabled = blocked; });
     this.querySelectorAll("[data-delete], [data-assign-owner]").forEach((button) => { button.disabled = blocked || this._showEditor; });
+    this.querySelectorAll("[data-copy-owner-contact]").forEach((button) => { button.disabled = blocked; });
     const link = this.querySelector("#link-save");
     if (link) link.disabled = blocked || this._showOwnerEditor || !this._selectedPuppy;
     const reload = this.querySelector("#reload-owner-conflict");
@@ -1462,6 +1485,37 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     return `<div class="${className}"><span>${escapeHtml(label)}</span><div>${escapeHtml(value ?? "—")}</div></div>`;
   }
 
+  _contactDetail(owner, field) {
+    const value = String(owner[field] || "");
+    if (!value.trim()) return this._detail(text(this, field), "—");
+    const links = [];
+    const phone = field === "phone" ? contactPhone(value) : null;
+    const email = field === "email" ? contactEmail(value) : null;
+    if (phone) links.push([`tel:${phone}`, "callContact", "mdi:phone-outline"]);
+    if (phone?.startsWith("+")) links.push([`https://wa.me/${phone.slice(1)}`, "whatsappContact", "mdi:whatsapp"]);
+    if (email) links.push([`mailto:${encodeURIComponent(email)}`, "emailContact", "mdi:email-outline"]);
+    const actions = links.map(([url, label, icon]) => `<a class="owner-contact-action" href="${escapeHtml(url)}" ${label === "whatsappContact" ? 'target="_blank" rel="noopener noreferrer"' : ""} title="${escapeHtml(text(this, label))}" aria-label="${escapeHtml(`${text(this, label)}: ${value}`)}"><ha-icon icon="${icon}" aria-hidden="true"></ha-icon></a>`).join("");
+    return `<div data-contact-kind="${field}"><span>${escapeHtml(text(this, field))}</span><div class="owner-contact-row"><span class="owner-contact-text">${escapeHtml(value)}</span><div class="owner-contact-actions">${actions}<button type="button" class="owner-contact-action" data-copy-owner-contact="${escapeHtml(owner.id)}" data-contact-field="${field}" title="${escapeHtml(`${text(this, "copyContact")}: ${text(this, field)}`)}" aria-label="${escapeHtml(`${text(this, "copyContact")}: ${text(this, field)}`)}"><ha-icon icon="mdi:content-copy" aria-hidden="true"></ha-icon></button></div></div></div>`;
+  }
+
+  async _copyContact(ownerId, field) {
+    const context = this._context;
+    if (!this._isCurrent(context) || this._busy || !["phone", "email"].includes(field)) return;
+    const owner = this._owners.find((item) => item.id === ownerId);
+    const value = String(owner?.[field] || "");
+    if (!value.trim()) return;
+    let message;
+    try {
+      await navigator.clipboard.writeText(value);
+      message = text(this, "contactCopied");
+    } catch (_error) {
+      message = text(this, "contactCopyFailed");
+    }
+    if (!this._isCurrent(context)) return;
+    const feedback = [...this.querySelectorAll("[data-contact-feedback]")].find((node) => node.dataset.contactFeedback === ownerId);
+    if (feedback) feedback.textContent = message;
+  }
+
   _ownerDetails(owner) {
     const litterId = this._detailLitter(owner);
     const contact = owner;
@@ -1483,9 +1537,10 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       ${group("contact", "contactDetails", `
       ${this._detail(text(this, "name"), owner.name)}
       ${this._detail(text(this, "role"), optionLabel(this, owner.role, OWNER_ROLE_LABELS, "owner"))}
-      ${this._detail(text(this, "email"), owner.email || "—")}
-      ${this._detail(text(this, "phone"), owner.phone || "—")}
+      ${this._contactDetail(owner, "email")}
+      ${this._contactDetail(owner, "phone")}
       ${this._detail(text(this, "contactPreference"), optionLabel(this, owner.contact_preference, CONTACT_PREFERENCE_LABELS, "none"))}
+      <div class="owner-contact-feedback wide" data-contact-feedback="${escapeHtml(owner.id)}" role="status" aria-live="polite"></div>
       `, true)}
       ${group("address", "addressDetails", `
       ${this._detail(text(this, "street"), owner.street || owner.address || "—")}
@@ -1773,6 +1828,13 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       .owner-detail .wide{grid-column:1/-1}
       .owner-detail .preformatted>div{white-space:pre-wrap;word-break:break-word}
       .owner-detail .notes>div{max-height:none;overflow:visible}
+      .owner-contact-row{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;min-width:0}
+      .owner-contact-row>.owner-contact-text{min-width:0;margin:0;color:var(--primary-text-color);font-size:inherit;overflow-wrap:anywhere;user-select:text}
+      .owner-contact-actions{display:flex;flex-wrap:wrap;gap:2px}
+      .owner-contact-action{display:inline-grid;place-items:center;width:44px;height:44px;box-sizing:border-box;padding:0;border:1px solid var(--divider-color);border-radius:6px;background:var(--secondary-background-color);color:var(--primary-color);text-decoration:none;cursor:pointer}
+      .owner-contact-action ha-icon{--mdc-icon-size:20px}
+      .owner-contact-action:focus-visible{outline:2px solid var(--primary-color);outline-offset:2px}
+      .owner-contact-feedback{min-height:20px;color:var(--secondary-text-color);font-size:.78rem}
       .checks{min-width:0;margin:2px 0 0;padding:10px;border:1px solid var(--divider-color);border-radius:8px;display:grid;gap:7px;max-height:260px;overflow-y:auto}
       .checks legend{padding:0 4px;color:var(--secondary-text-color);font-size:.78rem}
       .checks label{display:flex;align-items:center;gap:7px;color:var(--primary-text-color)}
@@ -1978,6 +2040,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
   }
 
   _bindOwnerRows() {
+    this.querySelectorAll("[data-copy-owner-contact]").forEach((button) => button.addEventListener("click", () => this._copyContact(button.dataset.copyOwnerContact, button.dataset.contactField)));
     this.querySelectorAll("[data-owner-group]").forEach((group) => group.addEventListener("toggle", () => {
       if (!group.isConnected) return;
       const state = this._ownerGroups.get(group.dataset.groupOwner) || {};

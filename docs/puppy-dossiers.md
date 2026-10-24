@@ -351,6 +351,14 @@ earliest pickup/phase or sum of known matching balances determines the order;
 ties use name and stable contact identity. Filters still apply first, management
 CSV follows this order, and the preference matrix retains its own name ordering.
 Sorting updates only the list, not focused controls or unsaved linking choices.
+Expanded contact details offer icon actions to call, compose email, open a
+WhatsApp chat or copy the original value. WhatsApp requires a saved international
+number (`+31...` or `0031...`); national numbers remain callable/copyable without
+guessing a country. Nothing is sent automatically. Links use validated contact
+values, with mail addresses safely encoded; unexpected text remains copyable
+without becoming an active link. Clipboard success/failure is shown locally
+without rebuilding the card. If clipboard access is denied, the text stays
+selectable for manual copying. These actions do not edit stored contact values.
 The list starts on the first active litter. **Owners for** also offers all
 litters and **Without litter**. Search by contact name, email, phone or linked
 puppy. **Status filter** starts at **Active (including sold)**: interested,

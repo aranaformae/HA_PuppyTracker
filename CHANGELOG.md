@@ -12,6 +12,8 @@ they have not been reconstructed as a complete historical changelog.
 
 ### Added
 
+- Owner contact details offer call, compose-email, explicit-international-number
+  WhatsApp and copy actions, with localized feedback and no automatic messages.
 - Owner management sorts by name, next pickup, placement phase or highest
   recorded outstanding balance; unknown dates/amounts sort last and CSV follows.
 - Phase-aware owner attention actions open the relevant litter/contact fields
