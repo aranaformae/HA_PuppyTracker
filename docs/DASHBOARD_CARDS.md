@@ -507,7 +507,12 @@ support only: use **Link owner to puppy** in the management view for an
 authoritative link.
 
 Management rows also show each visible dossier's pickup date and recorded
-outstanding amount. Phase-aware attention actions open the relevant fields;
+outstanding amount. A visible/total contact count and **Clear filters** reveal
+hidden contacts across all litters without resetting sorting or puppy-link drafts.
+The expandable **Pickup schedule** follows the management filters, groups dates
+and opens the corresponding placement editor. It excludes placed/archived
+dossiers and scrolls after 360px; past dates remain marked for review.
+Phase-aware attention actions open the relevant fields;
 name/pickup/status/balance sorting applies before CSV export. Expanded contact
 details offer call, mail, WhatsApp and copy actions. The contact editor warns
 about possible duplicate email/phone matches without blocking a legitimate

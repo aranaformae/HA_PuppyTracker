@@ -74,6 +74,14 @@ const COPY = {
     matrixLitter: "Nest voor vergelijking",
     placementFilter: "Statusfilter",
     ownerSort: "Sorteren op",
+    visibleOwners: "{visible} van {total} baasjes zichtbaar",
+    clearFilters: "Filters wissen",
+    allContactsCount: "Alle contacten, over alle nesten",
+    pickupAgenda: "Ophaalagenda",
+    pickupAgendaHint: "Volgt de filters hierboven. Geplaatste en gearchiveerde dossiers zijn niet opgenomen.",
+    noPickups: "Geen ophaaldatums binnen deze selectie.",
+    pickupPast: "Datum verstreken · controleer de plaatsing",
+    pickupToday: "Vandaag",
     onlyConflicts: "Alleen conflicten in eerste voorkeur",
     firstChoiceConflicts: "Conflicten eerste voorkeur",
     puppiesWithoutPreferences: "Pups zonder voorkeur",
@@ -241,6 +249,14 @@ const COPY = {
     matrixLitter: "Litter to compare",
     placementFilter: "Status filter",
     ownerSort: "Sort by",
+    visibleOwners: "{visible} of {total} owners visible",
+    clearFilters: "Clear filters",
+    allContactsCount: "All contacts, across all litters",
+    pickupAgenda: "Pickup schedule",
+    pickupAgendaHint: "Follows the filters above. Placed and archived dossiers are excluded.",
+    noPickups: "No pickup dates within this selection.",
+    pickupPast: "Date passed · check placement",
+    pickupToday: "Today",
     onlyConflicts: "First-choice conflicts only",
     firstChoiceConflicts: "First-choice conflicts",
     puppiesWithoutPreferences: "Puppies without preferences",
@@ -505,6 +521,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     this._ownerSearch = "";
     this._placementFilter = "active";
     this._ownerSort = "name";
+    this._pickupAgendaOpen = false;
     this._detailLitters = new Map();
     this._editingLitter = "";
     this._editingContact = null;
@@ -633,6 +650,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     this._placementFilter = "active";
     this._ownerSort = "name";
     this._lastSavedOwnerId = null;
+    this._pickupAgendaOpen = false;
     this._lastSavedLitter = "";
     this._selectedLitter = "";
     this._selectedPuppy = "";
@@ -834,6 +852,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     this.querySelectorAll("[data-delete], [data-assign-owner]").forEach((button) => { button.disabled = blocked || this._showEditor; });
     this.querySelectorAll("[data-copy-owner-contact]").forEach((button) => { button.disabled = blocked; });
     this.querySelectorAll("[data-open-duplicate-owner]").forEach((button) => { button.disabled = blocked; });
+    this.querySelectorAll("[data-pickup-owner]").forEach((button) => { button.disabled = blocked || this._showOwnerEditor; });
     const link = this.querySelector("#link-save");
     if (link) link.disabled = blocked || this._showOwnerEditor || !this._selectedPuppy;
     const reload = this.querySelector("#reload-owner-conflict");
@@ -1047,6 +1066,67 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     ].map(([id, label]) => `<option value="${escapeHtml(id)}" ${id === this._ownerScope ? "selected" : ""}>${escapeHtml(label)}</option>`).join("");
     const sortOptions = Object.keys(OWNER_SORT_LABELS).map((key) => `<option value="${key}" ${key === this._ownerSort ? "selected" : ""}>${escapeHtml(optionLabel(this, key, OWNER_SORT_LABELS))}</option>`).join("");
     return `<div class="owner-filters"><label><span>${escapeHtml(text(this, "ownerScope"))}</span><select id="owner-scope" ${disabled}>${options}</select></label>${this._placementFilterControl()}<label><span>${escapeHtml(text(this, "searchOwners"))}</span><input id="owner-search" type="search" value="${escapeHtml(this._ownerSearch)}" ${disabled}></label><label><span>${escapeHtml(text(this, "ownerSort"))}</span><select id="owner-sort" ${disabled}>${sortOptions}</select></label></div>`;
+  }
+
+  _filterSummary(owners) {
+    const count = text(this, "visibleOwners").replace("{visible}", owners.length).replace("{total}", this._owners.length);
+    const filtered = this._ownerScope !== "__all__" || this._placementFilter !== "all" || Boolean(this._ownerSearch);
+    return `<span id="owner-filter-count" role="status" aria-live="polite" tabindex="-1">${escapeHtml(count)}<small>${escapeHtml(text(this, "allContactsCount"))}</small></span><button type="button" id="clear-owner-filters" class="secondary" ${!filtered || this._busy || this._showOwnerEditor ? "disabled" : ""}>${escapeHtml(text(this, "clearFilters"))}</button>`;
+  }
+
+  _pickupAgenda(owners) {
+    const entries = owners.flatMap((owner) => this._visibleLitterIds(owner).flatMap((litterId) => {
+      const dossier = this._ownerForLitter(owner, litterId);
+      const date = dateOnly(dossier.expected_pickup_date);
+      if (!date || dossier.archived || dossier.placement_status === "placed") return [];
+      const puppies = this._linkedPuppies(owner.id).filter((puppy) => puppy.litter_id === litterId);
+      return [{ owner, litterId, date, puppies }];
+    })).sort((left, right) => left.date.localeCompare(right.date) || left.owner.name.localeCompare(right.owner.name) || left.litterId.localeCompare(right.litterId));
+    // Compare calendar dates in Home Assistant's zone, without parsing date-only
+    // values as UTC or adding a timer that rebuilds an open form at midnight.
+    const parts = new Intl.DateTimeFormat("en-US", { timeZone: this._hass?.config?.time_zone || undefined, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+    const dateParts = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+    const today = `${dateParts.year}-${dateParts.month}-${dateParts.day}`;
+    let previousDate = null;
+    const rows = entries.map(({ owner, litterId, date, puppies }) => {
+      const heading = date !== previousDate ? `<h4>${escapeHtml(formattedDate(this, date))}${date === today ? ` · ${escapeHtml(text(this, "pickupToday"))}` : ""}</h4>` : "";
+      previousDate = date;
+      const puppyNames = puppies.map((puppy) => puppySelectorLabel(puppy, text(this, "puppy"))).join(", ") || text(this, "noLinkedPuppies");
+      return `${heading}<button type="button" class="pickup-entry" data-pickup-owner="${escapeHtml(owner.id)}" data-pickup-litter="${escapeHtml(litterId)}" ${this._busy || this._showOwnerEditor ? "disabled" : ""}><span><strong>${escapeHtml(owner.name)}</strong><span>${escapeHtml(puppyNames)}</span><small>${escapeHtml(this._litterLabel(litterId))}</small>${date < today ? `<small class="pickup-past">${escapeHtml(text(this, "pickupPast"))}</small>` : ""}</span><ha-icon icon="mdi:pencil-outline" aria-hidden="true"></ha-icon><span class="pickup-edit-label">${escapeHtml(text(this, "editPlacement"))}</span></button>`;
+    }).join("");
+    return `<summary>${escapeHtml(text(this, "pickupAgenda"))} (${entries.length})</summary><p class="sub">${escapeHtml(text(this, "pickupAgendaHint"))}</p><div class="pickup-list">${rows || `<div class="empty">${escapeHtml(text(this, "noPickups"))}</div>`}</div>`;
+  }
+
+  _refreshOwnerResults() {
+    preserveScrollPosition(this, () => {
+      const list = this.querySelector(".list");
+      if (!list) return;
+      const owners = this._visibleOwners();
+      list.innerHTML = this._ownerList(owners);
+      list.scrollTop = 0;
+      this.querySelector(".owner-filter-summary").innerHTML = this._filterSummary(owners);
+      this.querySelector(".pickup-agenda").innerHTML = this._pickupAgenda(owners);
+      this._bindOwnerRows();
+      this._bindOwnerOverview();
+    });
+  }
+
+  _bindOwnerOverview() {
+    this.querySelector("#clear-owner-filters")?.addEventListener("click", () => {
+      if (this._busy || this._showOwnerEditor) return;
+      this._ownerScope = "__all__";
+      this._placementFilter = "all";
+      this._ownerSearch = "";
+      this._matrixSelection = null;
+      this.querySelector("#owner-scope").value = this._ownerScope;
+      this.querySelector("#owner-status-filter").value = this._placementFilter;
+      this.querySelector("#owner-search").value = "";
+      this._refreshOwnerResults();
+      this.querySelector("#owner-filter-count")?.focus({ preventScroll: true });
+    });
+    this.querySelectorAll("[data-pickup-owner]").forEach((button) => button.addEventListener("click", () => {
+      this._openEditor(button.dataset.pickupOwner, { section: "placement", litterId: button.dataset.pickupLitter });
+    }));
   }
 
   async _assignDossier(ownerId, litterId) {
@@ -1602,9 +1682,8 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     return actions.length ? `<div class="owner-attention" role="group" aria-label="${escapeHtml(text(this, "ownerAttention"))}">${actions.join("")}</div>` : "";
   }
 
-  _ownerList() {
+  _ownerList(owners = this._visibleOwners()) {
     if (!this._owners.length) return `<div class="empty">${escapeHtml(text(this, this._loading ? "loading" : "empty"))}</div>`;
-    const owners = this._visibleOwners();
     if (!owners.length) return `<div class="empty">${escapeHtml(text(this, "noMatchingOwners"))}</div>`;
     return owners.map((owner) => {
       const expanded = owner.id === this._expandedOwnerId;
@@ -1787,6 +1866,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     if (!this._config) return;
     this._captureEditorGroups();
     const listScroll = this.querySelector(".list")?.scrollTop || 0;
+    const pickupScroll = this.querySelector(".pickup-list")?.scrollTop || 0;
     this._formState.capture();
     this._linkFormState.capture();
     if (this._hass?.user?.is_admin === false) {
@@ -1811,7 +1891,8 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     const ownersView = this._activeView !== "matrix";
     const headerActions = `<div class="head-actions"><button type="button" id="export-owners-csv" class="secondary" ${!this._owners.length || this._loading ? "disabled" : ""}><ha-icon icon="mdi:file-delimited-outline"></ha-icon>${escapeHtml(text(this, "exportCsv"))}</button>${ownersView && !this._showOwnerEditor ? this._ownerForm() : ""}</div>`;
     const viewTabs = `<div class="view-tabs" role="tablist" aria-label="${escapeHtml(text(this, "title"))}"><button type="button" id="owners-view" role="tab" aria-selected="${ownersView}" class="${ownersView ? "active" : ""}"><ha-icon icon="mdi:account-multiple-outline"></ha-icon>${escapeHtml(text(this, "ownersView"))}</button><button type="button" id="matrix-view" role="tab" aria-selected="${!ownersView}" class="${ownersView ? "" : "active"}" ${this._showOwnerEditor ? "disabled" : ""}><ha-icon icon="mdi:table-large"></ha-icon>${escapeHtml(text(this, "matrixView"))}</button></div>`;
-    const ownersContent = `${this._showOwnerEditor ? this._ownerForm() : ""}${this._ownerFilters()}<section class="list" aria-live="polite">${this._ownerList()}</section>${this._linkSection(litterPuppies, puppy, linked, litterOptions, puppyOptions)}`;
+    const visibleOwners = ownersView ? this._visibleOwners() : [];
+    const ownersContent = ownersView ? `${this._showOwnerEditor ? this._ownerForm() : ""}${this._ownerFilters()}<div class="owner-filter-summary">${this._filterSummary(visibleOwners)}</div><details class="pickup-agenda" ${this._pickupAgendaOpen ? "open" : ""}>${this._pickupAgenda(visibleOwners)}</details><section class="list" aria-live="polite">${this._ownerList(visibleOwners)}</section>${this._linkSection(litterPuppies, puppy, linked, litterOptions, puppyOptions)}` : "";
     const content = ownersView ? ownersContent : this._matrixView();
     const subtitle = text(this, ownersView ? "subtitle" : "matrixSubtitle");
     this.innerHTML = `<ha-card><div class="head"><div><div class="title">${escapeHtml(this._config.title || text(this, "title"))}</div><div class="sub">${escapeHtml(subtitle)}</div></div>${headerActions}</div>${viewTabs}${content}${this._showOwnerEditor ? "" : this._ownerErrorMarkup()}<div id="owner-status" class="message" role="status" aria-live="polite">${escapeHtml(this._status)}</div></ha-card><style>
@@ -1867,6 +1948,18 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       .list{display:grid;gap:8px;margin-top:16px}
       .list{max-height:600px;overflow-y:auto;scrollbar-gutter:stable}
       .owner-filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:end;gap:10px;margin-top:16px}
+      .owner-filter-summary{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin:12px 0;font-size:.85rem}
+      .owner-filter-summary small{display:block;color:var(--secondary-text-color);margin-top:3px}
+      .pickup-agenda{border-block:1px solid var(--divider-color);margin:12px 0}
+      .pickup-agenda summary{padding:14px 0;cursor:pointer;font-weight:600;min-height:44px;box-sizing:border-box}
+      .pickup-agenda .sub{margin:0 0 10px}
+      .pickup-list{max-height:360px;overflow-y:auto;overflow-anchor:none}
+      .pickup-list h4{margin:12px 0 6px;font-size:.9rem}
+      .pickup-entry{display:flex;align-items:center;gap:12px;width:100%;text-align:start;padding:12px;margin-bottom:6px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color);font:inherit;cursor:pointer;overflow-wrap:anywhere}
+      .pickup-entry>span:first-child{flex:1;min-width:0;display:grid;gap:4px}
+      .pickup-entry small{color:var(--secondary-text-color)}
+      .pickup-entry .pickup-past{color:var(--warning-color,#765800)}
+      .pickup-edit-label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
       .owner-filters label,.dossier-select,.assign-dossier label{display:grid;gap:4px;min-width:0;color:var(--secondary-text-color);font-size:.78rem}
       .owner-filters select,.owner-filters input[type=search],.dossier-select select,.assign-dossier select{box-sizing:border-box;width:100%;min-height:42px;padding:8px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color);font:inherit}
       .form .completed-toggle{display:flex;align-items:center;gap:8px;grid-column:1/-1}
@@ -2027,6 +2120,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     </style>`;
 
     if (this.querySelector(".list")) this.querySelector(".list").scrollTop = listScroll;
+    if (this.querySelector(".pickup-list")) this.querySelector(".pickup-list").scrollTop = pickupScroll;
     this._formState.bind(this.querySelector(".owner-editor form"));
     this._syncPaymentStatus();
     const ownerForm = this._formState.root;
@@ -2051,6 +2145,10 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     this.querySelector("#owners-view")?.addEventListener("click", () => this._switchView("owners"));
     this.querySelector("#matrix-view")?.addEventListener("click", () => this._switchView("matrix"));
     this.querySelector("#add-owner")?.addEventListener("click", () => this._openEditor());
+    this._bindOwnerOverview();
+    this.querySelector(".pickup-agenda")?.addEventListener("toggle", (event) => {
+      if (event.currentTarget.isConnected) this._pickupAgendaOpen = event.currentTarget.open;
+    });
     this.querySelector("#owner-scope")?.addEventListener("change", (event) => {
       const scope = event.target.value;
       const litterId = ["__all__", "__unassigned__"].includes(scope) ? this._selectedLitter : scope;
@@ -2065,8 +2163,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     });
     this.querySelector("#owner-search")?.addEventListener("input", (event) => {
       this._ownerSearch = event.target.value;
-      this.querySelector(".list").innerHTML = this._ownerList();
-      this._bindOwnerRows();
+      this._refreshOwnerResults();
     });
     this.querySelector("#owner-sort")?.addEventListener("change", (event) => {
       this._ownerSort = event.target.value;

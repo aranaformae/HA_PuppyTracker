@@ -1015,8 +1015,8 @@ filter when the saved dossier still matches, otherwise selects its status/archiv
 view so confirmation never silently hides the saved dossier. This is presentation
 state only; neither status changes nor filters alter payments or puppy links. Explicit
 nest changes keep the linking section and matrix aligned and protect dirty link
-drafts. The 600px list retains its scroll offset across row redraws; search only
-replaces list content, keeping its input focused. Ancestor scroll restoration is
+drafts. The 600px list retains its scroll offset across row redraws; search
+updates the result regions, keeping its input focused. Ancestor scroll restoration is
 synchronous through the shared helper.
 
 Collapsed rows derive pickup/balance summaries separately for each visible
@@ -1034,6 +1034,20 @@ uses the earliest visible placement phase, and balance uses the sum of known
 visible balances. Unknown dates/balances sort last; names and IDs break ties.
 Sort changes replace only list content, keeping input/linking controls intact.
 Management CSV consumes that same order; matrix rows retain their own ordering.
+
+Management filter counts compare unique visible contacts with all loaded contacts.
+Clear filters sets scope/status to all and empties search, leaving sort, selected
+link litter/puppy and dirty link drafts unchanged. Search/reset refresh the list,
+count and agenda without replacing input or link controls. The matrix keeps its
+existing litter-bound selection and summary semantics.
+The collapsible pickup agenda projects the same visible dossier set, excluding
+placed/archived dossiers and missing dates. One row represents one contact/litter,
+with actual puppy links only. Date-only values sort lexically and today is derived
+in HA's configured zone, falling back to the browser zone. Labels refresh on the
+next render, with no midnight timer. Agenda actions use the existing placement
+editor/revision path. Open state and agenda scroll survive whole-card renders;
+filter changes refresh agenda results within the existing details element.
+This is presentation only: no new storage fields, services, exports or migrations.
 
 Contact icon actions use strict phone/email link validation, encoded mailto
 addresses and explicit international numbers for WhatsApp. No region is guessed

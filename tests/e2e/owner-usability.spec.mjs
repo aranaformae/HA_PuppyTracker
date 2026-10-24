@@ -34,6 +34,67 @@ async function mount(page, language = "nl") {
 }
 
 for (const language of ["nl", "en"]) {
+  test(`owner filter counts and reset preserve sorting and linking drafts (${language}) @cross-browser @tablet`, async ({ page }) => {
+    const card = await mount(page, language);
+    const count = (visible) => language === "nl" ? `${visible} van 4 baasjes zichtbaar` : `${visible} of 4 owners visible`;
+    await expect(card.locator(".owner-filter-summary")).toContainText(count(3));
+    await card.locator("#owner-sort").selectOption("pickup");
+    const link = card.locator('input[name="linked_owner"][value="blair"]');
+    await link.check();
+    await card.locator("#owner-search").fill("not found");
+    await expect(card.locator(".owner-filter-summary")).toContainText(count(0));
+    await expect(card.locator("#owner-search")).toBeFocused();
+    await expect(link).toBeChecked();
+    await card.locator("#clear-owner-filters").click();
+    await expect(card.locator(".owner-filter-summary")).toContainText(count(4));
+    await expect(card.locator("#owner-scope")).toHaveValue("__all__");
+    await expect(card.locator("#owner-status-filter")).toHaveValue("all");
+    await expect(card.locator("#owner-search")).toHaveValue("");
+    await expect(card.locator("#owner-sort")).toHaveValue("pickup");
+    await expect(card.locator("#clear-owner-filters")).toBeDisabled();
+    await expect(card.locator("#owner-filter-count")).toBeFocused();
+    await expect(link).toBeChecked();
+    await expect(card.locator("#link-litter")).toHaveValue("l1");
+    expect(await page.evaluate(() => window.ownerUsability.calls.some((call) => call.type.endsWith("/save") || call.type.endsWith("/link")))).toBe(false);
+  });
+
+  test(`pickup schedule groups dates and opens the exact litter dossier (${language}) @cross-browser @tablet`, async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-10-31T00:30:00Z"));
+    const card = await mount(page, language);
+    await card.evaluate((element) => { element.hass = { ...element._hass, config: { ...element._hass.config, time_zone: "America/New_York" } }; });
+    await page.evaluate(() => {
+      const owners = window.ownerUsability.owners;
+      owners.find((owner) => owner.id === "alex").placements.l1.expected_pickup_date = "2026-10-29";
+      owners.find((owner) => owner.id === "dana").placements.l1.expected_pickup_date = "2026-11-01";
+      owners.find((owner) => owner.id === "casey").placements.l1.expected_pickup_date = "2026-10-30";
+      owners.push({ id: "archive", name: "Archive", placements: { l1: { archived: true, expected_pickup_date: "2026-11-02" } }, unassigned_placement: null });
+    });
+    await card.evaluate(async (element) => { await element._load(true); });
+    await card.locator("#clear-owner-filters").click();
+    const agenda = card.locator(".pickup-agenda");
+    await agenda.locator("summary").click();
+    await expect(agenda.locator(".pickup-entry")).toHaveCount(4);
+    await expect(agenda.locator("h4")).toHaveCount(3);
+    expect(await agenda.locator(".pickup-list").evaluate((element) => element.clientHeight <= 360 && element.scrollHeight > element.clientHeight)).toBe(true);
+    await expect(agenda).toContainText(language === "nl" ? "Vandaag" : "Today");
+    await expect(agenda.locator(".pickup-past")).toHaveCount(1);
+    await expect(agenda.locator('[data-pickup-owner="alex"][data-pickup-litter="l1"]')).toContainText("Nova (paars)");
+    await expect(agenda.locator('[data-pickup-owner="alex"][data-pickup-litter="l2"]')).toContainText(language === "nl" ? "Geen gekoppelde pups" : "No linked puppies");
+    expect(await agenda.locator(".pickup-entry").evaluateAll((rows) => rows.map((row) => [row.dataset.pickupOwner, row.dataset.pickupLitter]))).toEqual([["alex", "l1"], ["blair", "l1"], ["casey", "l1"], ["alex", "l2"]]);
+    await card.screenshot({ path: test.info().outputPath(`owner-pickup-schedule-${language}.png`) });
+    expect(await card.locator("ha-card").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await agenda.locator('[data-pickup-owner="alex"][data-pickup-litter="l2"]').click();
+    await expect(card.locator("#owner-litter")).toHaveValue("l2");
+    await expect(card.locator('[data-owner-editor-group="placement"]')).toHaveAttribute("open", "");
+    await expect(card.locator('[name="expected_pickup_date"]')).toHaveValue("2026-11-15");
+    await card.locator("#cancel-owner").click();
+    await expect(agenda).toHaveAttribute("open", "");
+    await card.locator("#owner-search").fill("Dana");
+    await expect(agenda.locator(".pickup-entry")).toHaveCount(0);
+    await expect(agenda).toContainText(language === "nl" ? "Geen ophaaldatums" : "No pickup dates");
+    expect(await page.evaluate(() => window.ownerUsability.calls.some((call) => call.type.endsWith("/save")))).toBe(false);
+  });
+
   test(`duplicate hints preserve drafts and can open the existing contact for the right litter (${language}) @cross-browser @tablet`, async ({ page }) => {
     const card = await mount(page, language);
     await card.locator("#add-owner").click();

@@ -10,6 +10,14 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+### Added
+
+- Owner management shows visible/total contact counts and clears litter, status
+  and search filters without losing sorting or unsaved puppy-link choices.
+- A collapsible pickup schedule groups matching dossiers by expected date, with
+  owner, litter and linked puppy/collar labels, past-date hints and direct editing.
+  Placed/archived dossiers are excluded; long schedules scroll internally.
+
 ## [0.31.1] - 2026-10-24
 
 ### Added

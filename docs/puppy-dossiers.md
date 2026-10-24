@@ -351,6 +351,25 @@ earliest pickup/phase or sum of known matching balances determines the order;
 ties use name and stable contact identity. Filters still apply first, management
 CSV follows this order, and the preference matrix retains its own name ordering.
 Sorting updates only the list, not focused controls or unsaved linking choices.
+
+The management view shows **N of M owners visible**. M counts all saved contacts
+across all litters once, including contacts with placed/archived dossiers;
+N counts unique contacts matching litter, status and search. **Clear filters**
+selects all litters and all statuses and clears search. It keeps sorting and
+the puppy-link form intact; it never saves or changes a contact.
+
+Expand **Pickup schedule** to see the expected pickup dates for that same
+selection, grouped chronologically with owner, litter and actually linked
+puppies (name and collar colour). A preference is not presented as an assignment;
+unassigned puppies are explicitly indicated. Each contact/litter dossier has one
+schedule entry even when multiple puppies are linked. Placed and archived
+dossiers are excluded. Past dates stay visible with a request to check placement;
+they do not automatically change status. Today uses Home Assistant's time zone.
+Select an entry to edit placement in its exact litter dossier, then Save or
+Cancel normally. The schedule starts collapsed and scrolls after 360px.
+No extra setup is needed: dates come from **Expected pickup date**, with no
+separate appointment time, calendar integration or automatic notification.
+
 Expanded contact details offer icon actions to call, compose email, open a
 WhatsApp chat or copy the original value. WhatsApp requires a saved international
 number (`+31...` or `0031...`); national numbers remain callable/copyable without
