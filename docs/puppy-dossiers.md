@@ -344,6 +344,13 @@ date is flagged only once sold. Interested/option, placed and archived dossiers
 do not get these prompts. Unknown balances are never inferred. Selecting an
 action opens the relevant section and exact litter dossier as an unsaved draft;
 ordinary Save/Cancel still applies. These are dashboard hints, not notifications.
+**Sort by** defaults to name and also offers next pickup date, placement status
+(interest through placed), or highest recorded outstanding amount. Unknown dates
+and balances sort last, not as zero. With several matching litter dossiers, the
+earliest pickup/phase or sum of known matching balances determines the order;
+ties use name and stable contact identity. Filters still apply first, management
+CSV follows this order, and the preference matrix retains its own name ordering.
+Sorting updates only the list, not focused controls or unsaved linking choices.
 The list starts on the first active litter. **Owners for** also offers all
 litters and **Without litter**. Search by contact name, email, phone or linked
 puppy. **Status filter** starts at **Active (including sold)**: interested,

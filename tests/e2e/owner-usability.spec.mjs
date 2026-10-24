@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { readFile } from "node:fs/promises";
 
 async function mount(page, language = "nl") {
   await page.goto("/tests/e2e/cards.html?production");
@@ -33,6 +34,38 @@ async function mount(page, language = "nl") {
 }
 
 for (const language of ["nl", "en"]) {
+  test(`owner sorting handles missing values, visible litters and CSV order (${language}) @cross-browser @tablet`, async ({ page }) => {
+    const card = await mount(page, language);
+    const ids = () => card.locator(".owner").evaluateAll((rows) => rows.map((row) => row.dataset.owner));
+    expect(await ids()).toEqual(["alex", "blair", "casey"]);
+    await card.locator("#owner-sort").focus();
+    await card.locator("#owner-sort").selectOption("pickup");
+    expect(await ids()).toEqual(["blair", "alex", "casey"]);
+    await expect(card.locator("#owner-sort")).toBeFocused();
+    await card.locator("#owner-sort").selectOption("status");
+    expect(await ids()).toEqual(["casey", "blair", "alex"]);
+    await page.evaluate(() => window.ownerUsability.owners.push({ id: "evan", name: "Evan", placements: { l1: { placement_status: "sold", payment_balance: "1000" } }, unassigned_placement: null }));
+    await card.evaluate(async (element) => { element.getRootNode().activeElement?.blur(); await element._load(true); });
+    await card.locator("#owner-sort").selectOption("balance");
+    expect(await ids()).toEqual(["evan", "alex", "blair", "casey"]);
+    await card.locator("#owner-scope").selectOption("__all__");
+    await expect(card.locator("#owner-sort")).toHaveValue("balance");
+    expect(await ids()).toEqual(["alex", "evan", "blair", "casey"]);
+    await card.locator("#owner-status-filter").selectOption("sold");
+    expect(await ids()).toEqual(["evan", "alex"]);
+    const download = page.waitForEvent("download");
+    await card.locator("#export-owners-csv").click();
+    const csv = await readFile(await (await download).path(), "utf8");
+    expect(csv.indexOf('"Evan"')).toBeLessThan(csv.indexOf('"Alex"'));
+    await card.locator('[data-edit="alex"]').click();
+    await expect(card.locator("#owner-sort")).toBeDisabled();
+    await card.locator("#cancel-owner").click();
+    await expect(card.locator("#owner-sort")).toHaveValue("balance");
+    await card.screenshot({ path: test.info().outputPath(`owner-sort-${language}.png`) });
+    expect(await card.locator("ha-card").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    expect(await page.evaluate(() => window.ownerUsability.calls.some((call) => call.type.endsWith("/save")))).toBe(false);
+  });
+
   test(`collapsed owner rows show only each visible dossier's pickup and balance (${language}) @cross-browser @tablet`, async ({ page }) => {
     const card = await mount(page, language);
     const row = card.locator('[data-owner="alex"]');

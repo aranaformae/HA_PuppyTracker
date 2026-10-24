@@ -104,7 +104,7 @@ for (const language of ["nl", "en"]) {
     await expect(card.locator('[data-owner="status-placed"], [data-owner="archived"]')).toHaveCount(0);
     const cases = [
       ["interested", ["status-interested"]], ["option", ["status-option"]],
-      ["reserved", ["o1", "status-reserved", "archived"]], ["sold", ["status-sold"]],
+      ["reserved", ["o1", "archived", "status-reserved"]], ["sold", ["status-sold"]],
       ["placed", ["status-placed"]], ["archived", ["archived"]],
     ];
     for (const [status, ids] of cases) {

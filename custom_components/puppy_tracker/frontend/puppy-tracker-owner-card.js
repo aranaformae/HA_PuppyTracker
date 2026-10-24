@@ -30,6 +30,12 @@ const PLACEMENT_FILTER_LABELS = {
   ...PLACEMENT_STATUS_LABELS,
   archived: { nl: "Gearchiveerde dossiers", en: "Archived dossiers" },
 };
+const OWNER_SORT_LABELS = {
+  name: { nl: "Naam", en: "Name" },
+  pickup: { nl: "Eerstvolgende ophaaldatum", en: "Next pickup date" },
+  status: { nl: "Plaatsingsstatus", en: "Placement status" },
+  balance: { nl: "Hoogste openstaande bedrag", en: "Highest outstanding amount" },
+};
 const PAYMENT_STATUS_LABELS = {
   none: { nl: "Geen", en: "None" }, registration_fee: { nl: "Inschrijfgeld", en: "Registration fee" },
   deposit: { nl: "Aanbetaling", en: "Deposit" }, full: { nl: "Volledig betaald", en: "Paid in full" },
@@ -67,6 +73,7 @@ const COPY = {
     matrixSubtitle: "Vergelijk pupvoorkeuren en bestaande koppelingen per nest.",
     matrixLitter: "Nest voor vergelijking",
     placementFilter: "Statusfilter",
+    ownerSort: "Sorteren op",
     onlyConflicts: "Alleen conflicten in eerste voorkeur",
     firstChoiceConflicts: "Conflicten eerste voorkeur",
     puppiesWithoutPreferences: "Pups zonder voorkeur",
@@ -224,6 +231,7 @@ const COPY = {
     matrixSubtitle: "Compare puppy preferences and existing links per litter.",
     matrixLitter: "Litter to compare",
     placementFilter: "Status filter",
+    ownerSort: "Sort by",
     onlyConflicts: "First-choice conflicts only",
     firstChoiceConflicts: "First-choice conflicts",
     puppiesWithoutPreferences: "Puppies without preferences",
@@ -463,6 +471,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     this._ownerScope = null;
     this._ownerSearch = "";
     this._placementFilter = "active";
+    this._ownerSort = "name";
     this._detailLitters = new Map();
     this._editingLitter = "";
     this._editingContact = null;
@@ -588,6 +597,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     this._ownerScope = null;
     this._ownerSearch = "";
     this._placementFilter = "active";
+    this._ownerSort = "name";
     this._lastSavedOwnerId = null;
     this._lastSavedLitter = "";
     this._selectedLitter = "";
@@ -963,8 +973,27 @@ class PuppyTrackerOwnerCard extends HTMLElement {
 
   _visibleOwners() {
     const query = this._ownerSearch.trim().toLocaleLowerCase();
-    return this._owners.filter((owner) => this._visibleLitterIds(owner).length && (!query ||
+    const owners = this._owners.filter((owner) => this._visibleLitterIds(owner).length && (!query ||
       [owner.name, owner.email, owner.phone, this._linkedPuppiesLabel(owner)].join(" ").toLocaleLowerCase().includes(query)));
+    const collator = new Intl.Collator(languageForHass(this._hass) === "en" ? "en-US" : "nl-NL", { numeric: true, sensitivity: "base" });
+    return owners.map((owner) => ({ owner, key: this._ownerSortKey(owner) })).sort((left, right) => {
+      if (left.key === null && right.key !== null) return 1;
+      if (right.key === null && left.key !== null) return -1;
+      const difference = this._ownerSort === "balance" ? right.key - left.key : left.key - right.key;
+      return difference || collator.compare(left.owner.name, right.owner.name) || String(left.owner.id).localeCompare(String(right.owner.id));
+    }).map(({ owner }) => owner);
+  }
+
+  _ownerSortKey(owner) {
+    if (this._ownerSort === "name") return 0;
+    const dossiers = this._visibleLitterIds(owner).map((id) => this._ownerForLitter(owner, id));
+    if (this._ownerSort === "balance") {
+      const amounts = dossiers.map((dossier) => numericAmount(dossier.payment_balance)).filter((value) => value !== null);
+      return amounts.length ? amounts.reduce((total, amount) => total + amount, 0) : null;
+    }
+    if (this._ownerSort === "status") return Math.min(...dossiers.map((dossier) => Math.max(0, Object.keys(PLACEMENT_STATUS_LABELS).indexOf(dossier.placement_status || "interested"))));
+    const dates = dossiers.map((dossier) => dossier.expected_pickup_date ? new Date(`${dateOnly(dossier.expected_pickup_date)}T12:00:00`).getTime() : NaN).filter(Number.isFinite);
+    return dates.length ? Math.min(...dates) : null;
   }
 
   _detailLitter(owner) {
@@ -980,7 +1009,8 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       ...this._litters.map((litter) => [litter.id, litter.name]),
       ["__unassigned__", `${text(this, "unassigned")} (${this._owners.filter((owner) => this._ownerLitterIds(owner).includes("")).length})`],
     ].map(([id, label]) => `<option value="${escapeHtml(id)}" ${id === this._ownerScope ? "selected" : ""}>${escapeHtml(label)}</option>`).join("");
-    return `<div class="owner-filters"><label><span>${escapeHtml(text(this, "ownerScope"))}</span><select id="owner-scope" ${disabled}>${options}</select></label>${this._placementFilterControl()}<label class="wide"><span>${escapeHtml(text(this, "searchOwners"))}</span><input id="owner-search" type="search" value="${escapeHtml(this._ownerSearch)}" ${disabled}></label></div>`;
+    const sortOptions = Object.keys(OWNER_SORT_LABELS).map((key) => `<option value="${key}" ${key === this._ownerSort ? "selected" : ""}>${escapeHtml(optionLabel(this, key, OWNER_SORT_LABELS))}</option>`).join("");
+    return `<div class="owner-filters"><label><span>${escapeHtml(text(this, "ownerScope"))}</span><select id="owner-scope" ${disabled}>${options}</select></label>${this._placementFilterControl()}<label><span>${escapeHtml(text(this, "searchOwners"))}</span><input id="owner-search" type="search" value="${escapeHtml(this._ownerSearch)}" ${disabled}></label><label><span>${escapeHtml(text(this, "ownerSort"))}</span><select id="owner-sort" ${disabled}>${sortOptions}</select></label></div>`;
   }
 
   async _assignDossier(ownerId, litterId) {
@@ -1708,7 +1738,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
       .list{display:grid;gap:8px;margin-top:16px}
       .list{max-height:600px;overflow-y:auto;scrollbar-gutter:stable}
-      .owner-filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:16px}
+      .owner-filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:end;gap:10px;margin-top:16px}
       .owner-filters label,.dossier-select,.assign-dossier label{display:grid;gap:4px;min-width:0;color:var(--secondary-text-color);font-size:.78rem}
       .owner-filters select,.owner-filters input[type=search],.dossier-select select,.assign-dossier select{box-sizing:border-box;width:100%;min-height:42px;padding:8px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color);font:inherit}
       .form .completed-toggle{display:flex;align-items:center;gap:8px;grid-column:1/-1}
@@ -1900,6 +1930,13 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     this.querySelector("#owner-search")?.addEventListener("input", (event) => {
       this._ownerSearch = event.target.value;
       this.querySelector(".list").innerHTML = this._ownerList();
+      this._bindOwnerRows();
+    });
+    this.querySelector("#owner-sort")?.addEventListener("change", (event) => {
+      this._ownerSort = event.target.value;
+      const list = this.querySelector(".list");
+      list.innerHTML = this._ownerList();
+      list.scrollTop = 0;
       this._bindOwnerRows();
     });
     this.querySelector("#owner-litter")?.addEventListener("change", (event) => {
