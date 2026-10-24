@@ -335,7 +335,7 @@ for (const [section, field] of [["contact", "name"], ["address", "street"], ["pl
     await card.locator('[data-toggle-owner="o1"]').click();
     await card.locator('[data-owner-dossier="o1"]').selectOption("l2");
     await expect(card.locator('[data-owner-group="history"] [data-edit-owner-section]')).toHaveCount(0);
-    await card.locator(`[data-section-owner="o1"][data-edit-owner-section="${section}"]`).click();
+    await card.locator(`.owner-detail [data-section-owner="o1"][data-edit-owner-section="${section}"]`).click();
     await expect(card.locator("#owner-litter")).toHaveValue("l2");
     await expect(card.locator("[data-owner-editor-group][open]")).toHaveCount(1);
     await expect(card.locator(`[data-owner-editor-group="${section}"]`)).toHaveJSProperty("open", true);

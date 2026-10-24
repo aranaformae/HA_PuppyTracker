@@ -53,4 +53,41 @@ for (const language of ["nl", "en"]) {
     expect(await card.locator("ha-card").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     expect(await page.evaluate(() => window.ownerUsability.calls.some((call) => call.type.endsWith("/save")))).toBe(false);
   });
+
+  test(`owner attention follows the phase and opens only the correct litter fields (${language}) @cross-browser @tablet`, async ({ page }) => {
+    const card = await mount(page, language);
+    await expect(card.locator('[data-owner="alex"] .owner-attention-action')).toHaveCount(1);
+    await expect(card.locator('[data-owner="alex"] .owner-attention')).toContainText(language === "nl" ? "Betaling open" : "Payment outstanding");
+    await expect(card.locator('[data-owner="casey"] .owner-attention')).toHaveCount(0);
+    await expect(card.locator('[data-owner="blair"] .owner-attention')).toHaveCount(0);
+    await page.evaluate(() => {
+      const alex = window.ownerUsability.owners[0];
+      alex.email = null; alex.phone = null; alex.placements.l1.expected_pickup_date = null;
+    });
+    await card.evaluate((element) => element._load(true));
+    await expect(card.locator('[data-owner="alex"] .owner-attention-action')).toHaveCount(3);
+    await card.locator("#owner-scope").selectOption("__all__");
+    await expect(card.locator('[data-owner="alex"] .owner-attention-action')).toHaveCount(5);
+    await card.screenshot({ path: test.info().outputPath(`owner-attention-${language}.png`) });
+    expect(await card.locator("ha-card").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await card.locator('[data-section-owner="alex"][data-section-litter="l2"][data-edit-owner-section="financial"]').click();
+    await expect(card.locator("#owner-litter")).toHaveValue("l2");
+    await expect(card.locator('[name="payment_balance"]')).toHaveValue("900");
+    await expect(card.locator('[data-owner-editor-group="financial"]')).toHaveJSProperty("open", true);
+    await expect(card.locator('[name="payment_status"]')).toBeFocused();
+    await card.locator("#cancel-owner").click();
+    await card.locator('[data-section-owner="alex"][data-section-litter="l1"][data-edit-owner-section="placement"]').click();
+    await expect(card.locator("#owner-litter")).toHaveValue("l1");
+    await expect(card.locator('[data-owner-editor-group="placement"]')).toHaveJSProperty("open", true);
+    await card.locator("#cancel-owner").click();
+    await card.locator("#owner-status-filter").selectOption("all");
+    await expect(card.locator('[data-owner="dana"] .owner-attention')).toHaveCount(0);
+    await page.evaluate(() => {
+      const alex = window.ownerUsability.owners[0];
+      alex.placements.l1.archived = true; alex.placements.l2.placement_status = "option";
+    });
+    await card.evaluate(async (element) => { element.getRootNode().activeElement?.blur(); await element._load(true); });
+    await expect(card.locator('[data-owner="alex"] .owner-attention')).toHaveCount(0);
+    expect(await page.evaluate(() => window.ownerUsability.calls.some((call) => call.type.endsWith("/save")))).toBe(false);
+  });
 }

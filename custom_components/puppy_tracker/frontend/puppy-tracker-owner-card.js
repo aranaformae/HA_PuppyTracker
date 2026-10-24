@@ -138,6 +138,10 @@ const COPY = {
     paymentBalance: "Werkelijk openstaand bedrag",
     pickupSummary: "Ophalen",
     balanceSummary: "Openstaand",
+    ownerAttention: "Nog te regelen",
+    missingContact: "Contactgegevens ontbreken",
+    missingPickup: "Ophaaldatum ontbreekt",
+    outstandingPayment: "Betaling open",
     paymentMethod: "Betaalmethode",
     paymentDate: "Datum slotbetaling",
     markPaidInFull: "Volledig betaald registreren",
@@ -291,6 +295,10 @@ const COPY = {
     paymentBalance: "Actual outstanding amount",
     pickupSummary: "Pickup",
     balanceSummary: "Outstanding",
+    ownerAttention: "To arrange",
+    missingContact: "Contact details missing",
+    missingPickup: "Pickup date missing",
+    outstandingPayment: "Payment outstanding",
     paymentMethod: "Payment method",
     paymentDate: "Final payment date",
     markPaidInFull: "Record payment in full",
@@ -1478,6 +1486,24 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     </div>`;
   }
 
+  _ownerAttention(owner) {
+    const visible = this._visibleLitterIds(owner);
+    const actions = [];
+    for (const litterId of visible) {
+      const dossier = this._ownerForLitter(owner, litterId);
+      if (dossier.archived || !["reserved", "sold"].includes(dossier.placement_status)) continue;
+      const issues = [];
+      if (!String(owner.email || "").trim() && !String(owner.phone || "").trim()) issues.push(["contact", "missingContact", "mdi:account-alert-outline"]);
+      if (dossier.placement_status === "sold" && !dossier.expected_pickup_date) issues.push(["placement", "missingPickup", "mdi:calendar-alert"]);
+      if (dossier.payment_status !== "full" && numericAmount(dossier.payment_balance) > 0) issues.push(["financial", "outstandingPayment", "mdi:cash-clock"]);
+      for (const [section, key, icon] of issues) {
+        const label = [visible.length > 1 ? this._litterLabel(litterId) : "", text(this, key)].filter(Boolean).join(" · ");
+        actions.push(`<button type="button" class="owner-attention-action" data-edit-owner-section="${section}" data-section-owner="${escapeHtml(owner.id)}" data-section-litter="${escapeHtml(litterId)}" title="${escapeHtml(`${owner.name} · ${this._litterLabel(litterId)} · ${text(this, key)}`)}"><ha-icon icon="${icon}" aria-hidden="true"></ha-icon>${escapeHtml(label)}</button>`);
+      }
+    }
+    return actions.length ? `<div class="owner-attention" role="group" aria-label="${escapeHtml(text(this, "ownerAttention"))}">${actions.join("")}</div>` : "";
+  }
+
   _ownerList() {
     if (!this._owners.length) return `<div class="empty">${escapeHtml(text(this, this._loading ? "loading" : "empty"))}</div>`;
     const owners = this._visibleOwners();
@@ -1495,6 +1521,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       return `<article class="owner" data-owner="${escapeHtml(owner.id)}">
         <button type="button" class="owner-toggle" data-toggle-owner="${escapeHtml(owner.id)}" aria-expanded="${expanded}" aria-controls="owner-detail-${escapeHtml(owner.id)}"><span><strong>${escapeHtml(owner.name)}</strong><small>${escapeHtml(contact)}</small>${dossiers}${linked ? `<small class="owner-puppies">${escapeHtml(text(this, "linkedPuppies"))}: ${escapeHtml(linked)}</small>` : ""}</span><ha-icon icon="mdi:chevron-${expanded ? "up" : "down"}"></ha-icon></button>
         <div class="owner-actions"><button type="button" data-edit="${escapeHtml(owner.id)}" title="${escapeHtml(text(this, "edit"))}" aria-label="${escapeHtml(text(this, "edit"))}"><ha-icon icon="mdi:pencil-outline"></ha-icon></button><button type="button" data-delete="${escapeHtml(owner.id)}" title="${escapeHtml(text(this, "remove"))}" aria-label="${escapeHtml(text(this, "remove"))}"><ha-icon icon="mdi:delete-outline"></ha-icon></button></div>
+        ${this._ownerAttention(owner)}
         ${expanded ? this._ownerDetails(owner) : ""}
       </article>`;
     }).join("");
@@ -1702,6 +1729,10 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       .owner-actions{display:flex;gap:5px}
       .owner-actions button{width:38px;padding:0}
       .owner-actions ha-icon{--mdc-icon-size:19px}
+      .owner-attention{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;min-width:0}
+      .owner-attention-action{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;max-width:100%;padding:6px 10px;border:1px solid var(--divider-color);border-radius:6px;background:var(--secondary-background-color);color:var(--warning-color,var(--primary-text-color));font:inherit;font-size:.78rem;text-align:left;overflow-wrap:anywhere;cursor:pointer}
+      .owner-attention-action ha-icon{flex:0 0 18px;--mdc-icon-size:18px}
+      .owner-attention-action:focus-visible{outline:2px solid var(--primary-color);outline-offset:2px}
       .owner-detail{grid-column:1/-1;min-width:0;font-size:.85rem}
       .owner-detail-group{border-top:1px solid var(--divider-color)}
       .owner-detail-group summary{padding:4px 2px;color:var(--primary-text-color);font-weight:600;overflow-wrap:anywhere}

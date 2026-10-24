@@ -338,6 +338,12 @@ Each visible litter dossier also shows its expected pickup date and recorded
 outstanding balance when present. Missing amounts stay absent, not zero; a
 recorded zero stays visible. Currency follows Home Assistant's configured
 currency, falling back to EUR. Different litters retain separate amounts/dates.
+For reserved/sold dossiers, compact **To arrange** actions identify missing
+contact details or a recorded positive outstanding balance. A missing pickup
+date is flagged only once sold. Interested/option, placed and archived dossiers
+do not get these prompts. Unknown balances are never inferred. Selecting an
+action opens the relevant section and exact litter dossier as an unsaved draft;
+ordinary Save/Cancel still applies. These are dashboard hints, not notifications.
 The list starts on the first active litter. **Owners for** also offers all
 litters and **Without litter**. Search by contact name, email, phone or linked
 puppy. **Status filter** starts at **Active (including sold)**: interested,
