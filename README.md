@@ -151,10 +151,11 @@ configured to appear in Attention. See
 
 The Owners card keeps one reusable contact with a separate dossier per litter
 for placement, payments and an optional top-three puppy shortlist with notes.
-Filter by litter, search contacts or reveal completed dossiers. Contacts can be
-assigned to a litter before a puppy is chosen, and reused for later litters
-without overwriting earlier payments. A puppy's chip
-number, registered/nest name, call name, coat colour and breed/type are separate
+Filter by litter or status, or search contacts. Sold puppies stay visible until
+placed; placed and archived dossiers remain available through the status filter.
+Contacts can be assigned to a litter before a puppy is chosen, and reused for
+later litters without overwriting earlier payments. A puppy's chip number,
+registered/nest name, call name, coat colour and breed/type are separate
 profile fields. Parent profiles can store registered/call names, birth date,
 breed/type, WALA number and microchip number. Owner addresses use separate street,
 postal-code and city fields; these contract-ready values are available in owner

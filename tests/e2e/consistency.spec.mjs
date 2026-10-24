@@ -65,7 +65,7 @@ async function mountOwnerMatrix(page, { width = "", language = "en", details = f
       },
       { id: "o3", name: "Family Smit", role: "co_owner", placement_status: "reserved", puppy_preferences: [] },
       {
-        id: "o4", name: "Family Placed", role: "owner", placement_status: "sold",
+        id: "o4", name: "Family Placed", role: "owner", placement_status: "placed",
         puppy_preferences: [{ puppy_id: "p2", note: "Placement completed" }],
       },
     ];
@@ -478,7 +478,7 @@ test("owner preference matrix compares ranks, conflicts, notes and existing link
   await expect(card.locator(".matrix-desktop .preference-matrix thead th")).toHaveCount(2);
   await expect(card.locator(".matrix-desktop .preference-matrix tbody tr")).toHaveCount(2);
   await card.locator("#matrix-only-conflicts").uncheck();
-  await card.locator("#matrix-show-resolved").check();
+  await card.locator("#owner-status-filter").selectOption("all");
   await expect(card.locator(".matrix-desktop .preference-matrix tbody tr")).toHaveCount(4);
 
   await card.locator('.matrix-desktop [data-matrix-owner="o1"][data-matrix-puppy="p1"]').click();

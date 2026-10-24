@@ -10,6 +10,21 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+### Added
+
+- One shared owner status filter for management and the preference matrix:
+  active dossiers, all dossiers, each placement status or archived dossiers.
+
+### Changed
+
+- Sold dossiers stay visible in the default active view until the puppy is
+  placed. Only placed and archived dossiers start hidden. Status and payments
+  remain independent; filtering never changes stored data.
+- Owner CSV follows the open view's selection, including matrix litter/status
+  and conflict filters. Management search and linked-puppy labels use only the
+  matching litter dossiers. Saving a status change reveals the saved dossier
+  when it would otherwise fall outside the current status filter.
+
 ## [0.31.0] - 2026-10-23
 
 **Breaking API change:** interactive owner updates/deletions now require the

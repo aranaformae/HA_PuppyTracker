@@ -336,8 +336,14 @@ name, collar colour and litter name. All actual links are shown, including links
 across litters when **All litters** is selected; preferences alone are not assignments.
 The list starts on the first active litter. **Owners for** also offers all
 litters and **Without litter**. Search by contact name, email, phone or linked
-puppy. Completed (sold/placed) and archived dossiers start hidden; use the
-checkbox to show them. Long lists scroll inside the card at a 600px maximum.
+puppy. **Status filter** starts at **Active (including sold)**: interested,
+option, reserved and sold dossiers remain visible until placed or archived.
+**Sold** means the sale is agreed; **Placed** means the puppy has moved to its
+new home. Neither changes payments or puppy links automatically. Choose one
+placement status, **All dossiers**, or **Archived dossiers** to find other
+dossiers. A specific status also includes archived dossiers with that status;
+the archived label remains visible. The same selection is retained when switching
+to the preference matrix. Long lists scroll inside the card at a 600px maximum.
 
 One contact can have a separate dossier for each litter. Contact details and
 general contact notes are shared; placement status, pickup date, top-three
@@ -419,8 +425,9 @@ second and third choices.
 The summary highlights shared first choices, puppies without preferences,
 owners who have not selected a puppy for the litter and existing owner-puppy
 links. **First-choice conflicts only** reduces the matrix to the affected pups
-and owners. Sold, placed and archived dossiers are hidden initially and can be revealed with
-the adjacent switch. Select a cell to read the complete preference note or open
+and owners. The shared **Status filter** includes sold dossiers by default and
+offers each individual status, all dossiers or archived dossiers. Select a cell
+to read the complete preference note or open
 that owner in the editor.
 
 On a narrow card, the matrix automatically becomes a per-puppy list. Choose a
@@ -462,9 +469,13 @@ YAML or the visual card editor. An owner linked to two puppies therefore has two
 rows with the payment and preference data of the corresponding litter dossier.
 An unlinked candidate receives one row per visible litter dossier, with the
 litter name but empty puppy columns. A contact without a litter receives an
-unassigned row with empty litter and puppy columns. The litter filter, search
-and completed/archive checkbox also apply to this export; select **All litters**,
-clear search and enable completed dossiers for a complete list.
+unassigned row with empty litter and puppy columns. In management, the litter,
+search and status filters also apply to this export; select **All litters**,
+clear search and choose **All dossiers** for a complete list. In the matrix,
+CSV exports matching dossiers for the selected litter/status, respecting
+**First-choice conflicts only** when enabled. Hidden management search/scope
+settings do not affect matrix exports. The mobile puppy/owner selector focuses
+the comparison; it does not narrow the dossier export to one match.
 Contact, placement, payment, notes, the three puppy preferences with their notes
 and status history are included, together with litter notes and archive state.
 Linked rows also contain the litter, puppy

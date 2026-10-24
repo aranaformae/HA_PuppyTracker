@@ -54,10 +54,14 @@ has a puppy link in this litter. An empty shortlist or an owner/co-owner role
 alone no longer adds a contact to every litter. Preferences, status and
 financial data belong to the selected litter dossier, not the shared contact.
 
-Sold, placed and archived dossiers are hidden initially. Enable
-**Show sold, placed and archived dossiers** to include them. All counts and
-conflict detection are recalculated for the owners currently included by this
-setting.
+**Status filter** is shared with management and starts at **Active (including
+sold)**. Sold dossiers remain visible while the puppy is awaiting handover;
+placed and archived dossiers start hidden. Choose one of the five placement
+statuses, **All dossiers**, or **Archived dossiers**. A specific status includes
+archived dossiers with that status too. All counts and conflict detection are
+recalculated for the included dossiers. Switching between management and the
+matrix retains the status selection. This filter replaces the former
+show-completed switches and does not change any stored status, payment or link.
 
 ## Reading the desktop matrix
 
@@ -92,7 +96,7 @@ puppy and owner headings remain visible while scrolling.
 ## Summary and filters
 
 The four summary values are calculated for all puppies in the selected litter
-and the owners currently included by the sold/placed setting:
+and the owners currently included by the status filter:
 
 | Summary | Exact meaning |
 | --- | --- |
@@ -145,8 +149,11 @@ matching state from becoming stale.
 
 - A full JSON backup includes contacts, all litter dossiers, unassigned legacy
   dossiers, ranked preferences and puppy links.
-- Owner CSV export includes all three preferences and notes for each visible
-  litter dossier; it follows the owner-list filters, not the matrix switches.
+- Owner CSV export includes all three preferences and notes for each matching
+  litter dossier. In management it follows litter/search/status filters; in
+  the matrix it follows the selected litter, status and conflicts-only owner
+  selection. Hidden management filters never narrow a matrix export. The mobile
+  owner/puppy selector focuses the comparison but does not narrow this export.
 - The matrix view and its active filters are presentation state and are not
   backed up.
 - Owner preferences are currently not printed in PDF reports; use owner CSV
@@ -164,7 +171,8 @@ because there is no valid puppy column for it.
 **An owner is missing**
 
 Check the selected litter, the owner's shortlist and existing puppy links. If
-the dossier is sold, placed or archived, enable **Show sold, placed and archived dossiers**.
+the dossier is placed or archived, choose its status or **All dossiers** in
+**Status filter**. Sold dossiers are included in the default active view.
 Add a litter dossier first if the contact is still under **Without litter** or
 has a dossier only for another litter.
 

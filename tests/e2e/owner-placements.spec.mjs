@@ -64,7 +64,7 @@ for (const language of ["nl", "en"]) {
     await card.locator("#owner-search").fill("");
     await card.locator("#owner-scope").selectOption("__all__");
     await expect(card.locator(".owner")).toHaveCount(3);
-    await card.locator("#owner-show-completed").check();
+    await card.locator("#owner-status-filter").selectOption("all");
     await expect(card.locator(".owner")).toHaveCount(4);
     await card.locator('[data-toggle-owner="o1"]').click();
     await card.locator('[data-owner-dossier="o1"]').selectOption("l2");
@@ -74,6 +74,118 @@ for (const language of ["nl", "en"]) {
     await expect(card.locator('[data-owner-group="notes"]')).not.toContainText("First dossier note");
     expect(await card.locator("ha-card").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     await card.screenshot({ path: test.info().outputPath(`owner-placement-details-${language}.png`) });
+  });
+}
+
+async function addStatusDossiers(page, card) {
+  await page.evaluate(() => {
+    const { owners } = window.ownerPlacementFixture;
+    for (const status of ["interested", "option", "reserved", "sold", "placed"]) owners.push({
+      id: `status-${status}`, name: `Status ${status}`, placements: { l1: {
+        placement_status: status, puppy_preferences: [{ puppy_id: "p1", note: status }], placement_notes: `Only ${status}`,
+      } }, unassigned_placement: null,
+    });
+    owners.push({ id: "archived", name: "Archived candidate", placements: {
+      l1: { placement_status: "reserved", archived: true, puppy_preferences: [{ puppy_id: "p1", note: "Archived" }] },
+    }, unassigned_placement: null });
+  });
+  await card.evaluate((element) => element._load(true));
+}
+
+for (const language of ["nl", "en"]) {
+  test(`placement status filters include sold dossiers and stay shared between views (${language}) @cross-browser @tablet`, async ({ page }) => {
+    const card = await mount(page, language);
+    await addStatusDossiers(page, card);
+    const filter = card.getByRole("combobox", { name: language === "nl" ? "Statusfilter" : "Status filter", exact: true });
+    await expect(filter).toHaveValue("active");
+    await expect(filter.locator("option:checked")).toHaveText(language === "nl" ? "Actief (inclusief verkocht)" : "Active (including sold)");
+    await expect(card.locator(".owner")).toHaveCount(5);
+    await expect(card.locator('[data-owner="status-sold"]')).toBeVisible();
+    await expect(card.locator('[data-owner="status-placed"], [data-owner="archived"]')).toHaveCount(0);
+    const cases = [
+      ["interested", ["status-interested"]], ["option", ["status-option"]],
+      ["reserved", ["o1", "status-reserved", "archived"]], ["sold", ["status-sold"]],
+      ["placed", ["status-placed"]], ["archived", ["archived"]],
+    ];
+    for (const [status, ids] of cases) {
+      await filter.selectOption(status);
+      expect(await card.locator(".owner").evaluateAll((rows) => rows.map((row) => row.dataset.owner))).toEqual(ids);
+      await expect(filter).toBeFocused();
+      await card.locator("#matrix-view").click();
+      await expect(filter).toHaveValue(status);
+      await expect(card.locator(".preference-matrix tbody tr")).toHaveCount(ids.length);
+      await card.locator("#owners-view").click();
+      await expect(filter).toHaveValue(status);
+    }
+    await filter.selectOption("all");
+    await expect(card.locator(".owner")).toHaveCount(7);
+    await card.locator("#owner-scope").selectOption("__all__");
+    await filter.selectOption("reserved");
+    await expect(card.locator('[data-owner="o1"] .owner-puppies')).toContainText("Nova (paars)");
+    await expect(card.locator('[data-owner="o1"] .owner-puppies')).not.toContainText("Boris");
+    await card.locator("#owner-search").fill("boris");
+    await expect(card.locator(".owner")).toHaveCount(0);
+    await expect(card.locator(".list")).toContainText(language === "nl" ? "Geen baasjes binnen deze selectie." : "No owners match this selection.");
+    await card.locator("#owner-search").fill("");
+    await filter.selectOption("sold");
+    await card.screenshot({ path: test.info().outputPath(`owner-status-filter-${language}.png`) });
+    expect(await card.locator("ha-card").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    expect(await page.evaluate(() => window.ownerPlacementFixture.calls.some((call) => call.type.endsWith("/save")))).toBe(false);
+  });
+
+  test(`CSV follows the open view's status and litter selection (${language}) @cross-browser @tablet`, async ({ page }) => {
+    const card = await mount(page, language);
+    await addStatusDossiers(page, card);
+    await card.locator("#owner-scope").selectOption("__all__");
+    await card.locator("#owner-status-filter").selectOption("reserved");
+    await card.locator("#owner-search").fill("Alex");
+    async function downloadCsv() {
+      const download = page.waitForEvent("download");
+      await card.locator("#export-owners-csv").click();
+      return readFile(await (await download).path(), "utf8");
+    }
+    const managementCsv = await downloadCsv();
+    expect(managementCsv).toContain("First dossier note");
+    expect(managementCsv).not.toContain("Second dossier note");
+    expect(managementCsv).not.toContain('"Status reserved"');
+    await card.locator("#owner-scope").selectOption("l2");
+    await card.locator("#owner-status-filter").selectOption("sold");
+    await expect(card.locator(".owner")).toHaveCount(0);
+    await card.locator("#matrix-view").click();
+    await card.locator("#matrix-litter").selectOption("l1");
+    const matrixCsv = await downloadCsv();
+    expect(matrixCsv).toContain('"Status sold"');
+    expect(matrixCsv).toContain("Only sold");
+    expect(matrixCsv).not.toContain('"Alex"');
+    expect(matrixCsv).not.toContain("Second dossier note");
+    await card.locator("#matrix-only-conflicts").check();
+    expect((await downloadCsv()).trim().split("\r\n")).toHaveLength(1);
+    await card.locator("#matrix-only-conflicts").uncheck();
+    await card.locator("#owner-status-filter").selectOption("active");
+    await card.screenshot({ path: test.info().outputPath(`matrix-status-filter-${language}.png`) });
+    expect(await card.locator("ha-card").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  });
+
+  test(`saving placement changes keeps the dossier visible without changing payments (${language}) @cross-browser @tablet`, async ({ page }) => {
+    const card = await mount(page, language);
+    const before = await page.evaluate(() => structuredClone(window.ownerPlacementFixture.owners[0].placements));
+    for (const [status, archived, filter] of [["sold", false, "active"], ["placed", false, "placed"], ["placed", true, "placed"], ["sold", true, "archived"], ["option", false, "option"]]) {
+      await card.locator('[data-edit="o1"]').click();
+      await openOwnerSection(card, "placement");
+      await expect(card.locator("#owner-status-filter")).toBeDisabled();
+      await card.locator('[name="placement_status"]').selectOption(status);
+      await card.locator('[name="archived"]').setChecked(archived);
+      await card.locator('.owner-editor button[type="submit"]').click();
+      await expect(card.locator(".owner-editor")).toHaveCount(0);
+      await expect(card.locator("#owner-status-filter")).toHaveValue(filter);
+      await expect(card.locator('[data-owner="o1"]')).toBeVisible();
+      const after = await page.evaluate(() => window.ownerPlacementFixture.owners[0].placements);
+      expect(after.l1.placement_status).toBe(status);
+      expect(after.l1.archived).toBe(archived);
+      expect(after.l1.payment_amount).toBe(before.l1.payment_amount);
+      expect(after.l1.payment_balance).toBe(before.l1.payment_balance);
+      expect(after.l2).toEqual(before.l2);
+    }
   });
 }
 

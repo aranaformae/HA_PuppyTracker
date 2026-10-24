@@ -186,11 +186,15 @@ by an update.
 - **CSV** contains effective weight measurements for the selected litter or
   puppy and selected period. It is intended for external analysis.
 - **Owners CSV** is downloaded with **Export selection (CSV)** in the Owners card.
-  It follows the litter/search/completed filters and contains one row per visible
+  In management it follows litter/search/status filters; in the preference
+  matrix it uses the selected litter/status and matching owner rows, including
+  the conflicts-only filter. Hidden management search/scope settings do not
+  affect matrix downloads. The mobile owner/puppy selector focuses the
+  comparison, not the exported dossiers. It contains one row per matching
   owner-puppy link, or one row per visible unlinked litter dossier. A dossier
   without a puppy retains the litter name; unassigned contacts have blank litter
-  and puppy columns. For a complete list select all litters, clear search and
-  show completed dossiers. The card's
+  and puppy columns. For a complete list use management, select all litters,
+  clear search and choose **All dossiers** in **Status filter**. The card's
   `csv_delimiter` option selects `comma` (default, including Nextcloud) or
   `semicolon` (useful for some regional Excel settings). Delimiters, quotes and
   line breaks inside values are safely quoted. It includes contact and placement

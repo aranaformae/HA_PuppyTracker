@@ -465,8 +465,14 @@ selectors include puppies from all available litters and label them with litter
 and call name. Puppy linking remains a separate step. **Export CSV** downloads
 one Word/Excel-friendly row per owner-puppy link
 and retains unlinked candidates once per visible litter dossier, with empty
-puppy columns. **Export selection (CSV)** follows the litter/search/archive
-filters and uses each row's own litter payment data. Set `csv_delimiter` to
+puppy columns. The shared **Status filter** defaults to **Active (including
+sold)**. Placed and archived dossiers start hidden; select any individual status,
+**All dossiers** or **Archived dossiers** to include them. Specific statuses
+include archived dossiers with that status. Sold and placed describe sale versus
+handover; payment status remains separate. **Export selection (CSV)** follows
+the open view: litter/search/status in management, selected litter/status and
+matching owner rows in the matrix (including its conflicts-only filter).
+Each row uses its own litter payment data. Set `csv_delimiter` to
 `comma` (default and suitable for Nextcloud) or `semicolon`; both choices are
 also available in the visual editor. Address entry is split into street/house
 number, postal code and city. Linked rows include the complete puppy and parent
@@ -489,8 +495,9 @@ owners on rows and puppies on columns. Cells show first, second or third choice,
 whether a note exists and whether that owner is already linked to the puppy.
 Puppy headers use their collar colours. The summary identifies puppies with
 multiple first choices, puppies without any choice, owners without a choice and
-existing links. Optional switches reveal sold/placed/archived dossiers or reduce the table
-to first-choice conflicts. Selecting a populated cell exposes its complete note
+existing links. The status filter is shared with management and retains its
+selection across tabs. An optional switch reduces the table to first-choice
+conflicts. Selecting a populated cell exposes its complete note
 and an edit action without rerendering the matrix.
 
 At narrow card widths the same information becomes a puppy-focused list with a

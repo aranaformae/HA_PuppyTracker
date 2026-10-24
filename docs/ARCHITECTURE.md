@@ -1005,7 +1005,15 @@ the view, current open states are captured; entries for deleted owners are prune
 Full-width notes retain their complete text. The create/edit form, CSV and PDF
 views use the chosen dossier, while contact/address fields stay shared. The
 management list defaults to the first active litter and supports all/unassigned
-filters, contact/puppy search and revealing completed/archived dossiers. Explicit
+filters and contact/puppy search. One card-local placement filter is shared by
+management and the matrix. Its active default excludes only placed/archived
+dossiers, not sold ones; alternatives select all dossiers, one exact status
+(including archived matches), or only archived dossiers. One predicate handles
+all dossier inclusion, including management CSV and the matrix model. Search
+and linked-puppy row labels use only visible litter dossiers. Saving retains the
+filter when the saved dossier still matches, otherwise selects its status/archive
+view so confirmation never silently hides the saved dossier. This is presentation
+state only; neither status changes nor filters alter payments or puppy links. Explicit
 nest changes keep the linking section and matrix aligned and protect dirty link
 drafts. The 600px list retains its scroll offset across row redraws; search only
 replaces list content, keeping its input focused. Ancestor scroll restoration is
@@ -1024,8 +1032,9 @@ shortlists, litter puppy metadata and each puppy's authoritative `owner_ids`.
 No matrix, conflict or aggregate count is persisted. A conflict means more than
 one currently visible contact has the same puppy as first choice. Membership
 requires that litter's dossier or an actual puppy link; an empty global
-shortlist no longer adds candidates to every litter. Sold, placed and archived
-dossiers are excluded unless explicitly shown. Wide cards render a scrollable
+shortlist no longer adds candidates to every litter. Placed and archived
+dossiers are excluded by the default active status filter; sold dossiers remain
+visible. Wide cards render a scrollable
 owner-by-puppy table with sticky headers. At 1000px card width, a fixed side
 column holds selected details without resizing the table. A container query
 replaces the table at 620px or less with compact lists by puppy or by owner,
@@ -1058,8 +1067,12 @@ names, while mother identity remains reusable across litters. Missing breed
 values normalize to `Multi-generation Australian Labradoodle`; user-entered
 values remain editable and authoritative.
 
-The Owners-card presentation CSV follows the management litter/search/archive
-filters, enumerates visible dossiers and joins their puppy links at export time.
+The Owners-card presentation CSV follows the open view. Management uses its
+litter/search/status filters; the matrix uses its filtered owner model and
+selected litter, including conflicts-only membership, never hidden management
+search/scope state. The mobile perspective selector focuses one comparison but
+does not change matrix dossier membership. Export enumerates those dossiers and
+joins their puppy links at export time.
 Each row uses its own dossier's payment/preferences/history. An unlinked dossier
 retains the litter name with empty puppy fields; an unassigned contact has a
 single blank-litter row. Litter notes and archive state are separate columns.

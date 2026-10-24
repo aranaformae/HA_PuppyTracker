@@ -24,6 +24,12 @@ const PLACEMENT_STATUS_LABELS = {
   interested: { nl: "Interesse", en: "Interested" }, option: { nl: "Optie", en: "Option" },
   reserved: { nl: "Gereserveerd", en: "Reserved" }, sold: { nl: "Verkocht", en: "Sold" }, placed: { nl: "Geplaatst", en: "Placed" },
 };
+const PLACEMENT_FILTER_LABELS = {
+  active: { nl: "Actief (inclusief verkocht)", en: "Active (including sold)" },
+  all: { nl: "Alle dossiers", en: "All dossiers" },
+  ...PLACEMENT_STATUS_LABELS,
+  archived: { nl: "Gearchiveerde dossiers", en: "Archived dossiers" },
+};
 const PAYMENT_STATUS_LABELS = {
   none: { nl: "Geen", en: "None" }, registration_fee: { nl: "Inschrijfgeld", en: "Registration fee" },
   deposit: { nl: "Aanbetaling", en: "Deposit" }, full: { nl: "Volledig betaald", en: "Paid in full" },
@@ -60,7 +66,7 @@ const COPY = {
     defaultView: "Standaardweergave",
     matrixSubtitle: "Vergelijk pupvoorkeuren en bestaande koppelingen per nest.",
     matrixLitter: "Nest voor vergelijking",
-    showResolved: "Toon verkochte, geplaatste en gearchiveerde dossiers",
+    placementFilter: "Statusfilter",
     onlyConflicts: "Alleen conflicten in eerste voorkeur",
     firstChoiceConflicts: "Conflicten eerste voorkeur",
     puppiesWithoutPreferences: "Pups zonder voorkeur",
@@ -182,7 +188,6 @@ const COPY = {
     allLitters: "Alle nesten",
     unassigned: "Zonder nest",
     searchOwners: "Zoeken op naam, contactgegevens of pup",
-    showCompleted: "Afgeronde en gearchiveerde dossiers tonen",
     noMatchingOwners: "Geen baasjes binnen deze selectie.",
     dossierLitter: "Dossier voor nest",
     placementNotes: "Notities bij dit nest",
@@ -212,7 +217,7 @@ const COPY = {
     defaultView: "Default view",
     matrixSubtitle: "Compare puppy preferences and existing links per litter.",
     matrixLitter: "Litter to compare",
-    showResolved: "Show sold, placed and archived dossiers",
+    placementFilter: "Status filter",
     onlyConflicts: "First-choice conflicts only",
     firstChoiceConflicts: "First-choice conflicts",
     puppiesWithoutPreferences: "Puppies without preferences",
@@ -334,7 +339,6 @@ const COPY = {
     allLitters: "All litters",
     unassigned: "Without litter",
     searchOwners: "Search by name, contact details or puppy",
-    showCompleted: "Show completed and archived dossiers",
     noMatchingOwners: "No owners match this selection.",
     dossierLitter: "Dossier for litter",
     placementNotes: "Notes for this litter",
@@ -417,7 +421,6 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     this._selectedPuppy = "";
     this._selectedLitter = "";
     this._activeView = null;
-    this._matrixShowResolved = false;
     this._matrixOnlyConflicts = false;
     this._matrixSelectedPuppy = "";
     this._matrixSelectedOwner = "";
@@ -437,7 +440,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     this._linkFormState = new FormState(this);
     this._ownerScope = null;
     this._ownerSearch = "";
-    this._showCompleted = false;
+    this._placementFilter = "active";
     this._detailLitters = new Map();
     this._editingLitter = "";
     this._editingContact = null;
@@ -562,6 +565,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     this._matrixSelection = null;
     this._ownerScope = null;
     this._ownerSearch = "";
+    this._placementFilter = "active";
     this._lastSavedOwnerId = null;
     this._lastSavedLitter = "";
     this._selectedLitter = "";
@@ -851,7 +855,8 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       this._lastSavedOwnerId = result?.owner?.id || this._editing;
       this._lastSavedLitter = this._editingLitter;
       this._ownerScope = this._editingLitter || "__unassigned__";
-      if (data.archived || ["sold", "placed"].includes(data.placement_status)) this._showCompleted = true;
+      const dossier = this._ownerForLitter(result.owner, this._editingLitter);
+      if (!this._matchesPlacementFilter(dossier)) this._placementFilter = dossier.archived ? "archived" : dossier.placement_status || "interested";
       this._formState.reset();
       this._editing = null;
       this._editingContact = null;
@@ -890,8 +895,9 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     return this._puppies.filter((puppy) => (puppy.owner_ids || []).includes(ownerId));
   }
 
-  _linkedPuppiesLabel(ownerId) {
-    return this._linkedPuppies(ownerId).filter((puppy) => [null, "__all__"].includes(this._ownerScope) || puppy.litter_id === this._ownerScope).map((puppy) => {
+  _linkedPuppiesLabel(owner) {
+    const visibleLitters = new Set(this._visibleLitterIds(owner));
+    return this._linkedPuppies(owner.id).filter((puppy) => visibleLitters.has(puppy.litter_id)).map((puppy) => {
       const label = puppySelectorLabel(puppy, text(this, "puppy"));
       return puppy.litter_name ? `${label} (${puppy.litter_name})` : label;
     }).join(", ");
@@ -915,15 +921,28 @@ class PuppyTrackerOwnerCard extends HTMLElement {
   _visibleLitterIds(owner) {
     return this._ownerLitterIds(owner).filter((id) => {
       if (this._ownerScope !== "__all__" && id !== (this._ownerScope === "__unassigned__" ? "" : this._ownerScope)) return false;
-      const dossier = this._ownerForLitter(owner, id);
-      return this._showCompleted || (!dossier.archived && !["sold", "placed"].includes(dossier.placement_status));
+      return this._matchesPlacementFilter(this._ownerForLitter(owner, id));
     });
+  }
+
+  _matchesPlacementFilter(dossier) {
+    if (this._placementFilter === "all") return true;
+    if (this._placementFilter === "archived") return Boolean(dossier.archived);
+    const status = dossier.placement_status || "interested";
+    if (this._placementFilter === "active") return !dossier.archived && status !== "placed";
+    return status === this._placementFilter;
+  }
+
+  _placementFilterControl() {
+    const disabled = this._busy || this._showOwnerEditor ? "disabled" : "";
+    const options = Object.keys(PLACEMENT_FILTER_LABELS).map((key) => `<option value="${key}" ${key === this._placementFilter ? "selected" : ""}>${escapeHtml(optionLabel(this, key, PLACEMENT_FILTER_LABELS))}</option>`).join("");
+    return `<label><span>${escapeHtml(text(this, "placementFilter"))}</span><select id="owner-status-filter" ${disabled}>${options}</select></label>`;
   }
 
   _visibleOwners() {
     const query = this._ownerSearch.trim().toLocaleLowerCase();
     return this._owners.filter((owner) => this._visibleLitterIds(owner).length && (!query ||
-      [owner.name, owner.email, owner.phone, this._linkedPuppies(owner.id).map((puppy) => puppySelectorLabel(puppy)).join(" ")].join(" ").toLocaleLowerCase().includes(query)));
+      [owner.name, owner.email, owner.phone, this._linkedPuppiesLabel(owner)].join(" ").toLocaleLowerCase().includes(query)));
   }
 
   _detailLitter(owner) {
@@ -939,7 +958,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       ...this._litters.map((litter) => [litter.id, litter.name]),
       ["__unassigned__", `${text(this, "unassigned")} (${this._owners.filter((owner) => this._ownerLitterIds(owner).includes("")).length})`],
     ].map(([id, label]) => `<option value="${escapeHtml(id)}" ${id === this._ownerScope ? "selected" : ""}>${escapeHtml(label)}</option>`).join("");
-    return `<div class="owner-filters"><label><span>${escapeHtml(text(this, "ownerScope"))}</span><select id="owner-scope" ${disabled}>${options}</select></label><label><span>${escapeHtml(text(this, "searchOwners"))}</span><input id="owner-search" type="search" value="${escapeHtml(this._ownerSearch)}" ${disabled}></label><label class="completed-toggle"><input id="owner-show-completed" type="checkbox" ${this._showCompleted ? "checked" : ""} ${disabled}>${escapeHtml(text(this, "showCompleted"))}</label></div>`;
+    return `<div class="owner-filters"><label><span>${escapeHtml(text(this, "ownerScope"))}</span><select id="owner-scope" ${disabled}>${options}</select></label>${this._placementFilterControl()}<label class="wide"><span>${escapeHtml(text(this, "searchOwners"))}</span><input id="owner-search" type="search" value="${escapeHtml(this._ownerSearch)}" ${disabled}></label></div>`;
   }
 
   async _assignDossier(ownerId, litterId) {
@@ -1004,7 +1023,6 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     const puppyIds = new Set(allPuppies.map((puppy) => puppy.id));
     const preferencesByOwner = new Map();
     const linksByOwner = new Map();
-    const resolvedStatuses = new Set(["sold", "placed"]);
 
     const owners = this._owners.map((owner) => this._ownerForLitter(owner, this._selectedLitter)).filter((owner) => {
       const allPreferences = Array.isArray(owner.puppy_preferences) ? owner.puppy_preferences : [];
@@ -1021,7 +1039,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       );
       const belongsInLitter = Boolean(owner.placements?.[this._selectedLitter]) || linkedPuppyIds.size > 0;
       if (!belongsInLitter) return false;
-      if (!this._matrixShowResolved && (owner.archived || resolvedStatuses.has(owner.placement_status))) return false;
+      if (!this._matchesPlacementFilter(owner)) return false;
       preferencesByOwner.set(owner.id, preferences);
       linksByOwner.set(owner.id, linkedPuppyIds);
       return true;
@@ -1205,7 +1223,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     const model = this._matrixModel();
     const litterOptions = this._litters.map((litter) => `<option value="${escapeHtml(litter.id)}" ${litter.id === this._selectedLitter ? "selected" : ""}>${escapeHtml(litter.name || text(this, "litter"))}</option>`).join("");
     const details = this._matrixDetailsMarkup();
-    return `<section class="matrix-view"><div class="matrix-controls"><label><span>${escapeHtml(text(this, "matrixLitter"))}</span><select id="matrix-litter">${litterOptions}</select></label><label class="matrix-toggle"><input id="matrix-show-resolved" type="checkbox" ${this._matrixShowResolved ? "checked" : ""}><span>${escapeHtml(text(this, "showResolved"))}</span></label><label class="matrix-toggle"><input id="matrix-only-conflicts" type="checkbox" ${this._matrixOnlyConflicts ? "checked" : ""}><span>${escapeHtml(text(this, "onlyConflicts"))}</span></label></div>${model.allPuppies.length ? this._matrixSummary(model) : ""}<div class="matrix-layout">${this._matrixDesktop(model)}${this._matrixMobile(model)}<div class="matrix-detail-region"><section id="matrix-detail" class="matrix-detail" ${details ? "" : "hidden"}>${details}</section></div></div></section>`;
+    return `<section class="matrix-view"><div class="matrix-controls"><label><span>${escapeHtml(text(this, "matrixLitter"))}</span><select id="matrix-litter">${litterOptions}</select></label>${this._placementFilterControl()}<label class="matrix-toggle"><input id="matrix-only-conflicts" type="checkbox" ${this._matrixOnlyConflicts ? "checked" : ""}><span>${escapeHtml(text(this, "onlyConflicts"))}</span></label></div>${model.allPuppies.length ? this._matrixSummary(model) : ""}<div class="matrix-layout">${this._matrixDesktop(model)}${this._matrixMobile(model)}<div class="matrix-detail-region"><section id="matrix-detail" class="matrix-detail" ${details ? "" : "hidden"}>${details}</section></div></div></section>`;
   }
 
   _selectMatrixCell(ownerId, puppyId) {
@@ -1267,8 +1285,10 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       "motherCallName", "motherBirthDate", "motherBreed", "motherWala", "motherChipNumber", "placementNotes", "archivedColumn",
     ].map((key) => text(this, key));
     const rows = [headers];
-    for (const contact of this._visibleOwners()) {
-      for (const litterId of this._visibleLitterIds(contact)) {
+    const matrixView = this._activeView === "matrix";
+    const contacts = matrixView ? this._matrixModel().owners : this._visibleOwners();
+    for (const contact of contacts) {
+      for (const litterId of matrixView ? [this._selectedLitter] : this._visibleLitterIds(contact)) {
         const owner = this._ownerForLitter(contact, litterId);
         const history = (owner.status_history || []).map((entry) => {
           const status = optionLabel(this, entry.status, PLACEMENT_STATUS_LABELS, entry.status);
@@ -1451,7 +1471,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     return owners.map((owner) => {
       const expanded = owner.id === this._expandedOwnerId;
       const contact = [owner.email, owner.phone].filter(Boolean).join(" · ") || text(this, "noContact");
-      const linked = this._linkedPuppiesLabel(owner.id);
+      const linked = this._linkedPuppiesLabel(owner);
       const dossiers = this._visibleLitterIds(owner).map((id) => {
         const dossier = this._ownerForLitter(owner, id);
         return [this._litterLabel(id), optionLabel(this, dossier.placement_status, PLACEMENT_STATUS_LABELS, "interested"), dossier.archived ? text(this, "archivedColumn") : ""].filter(Boolean).join(" · ");
@@ -1648,7 +1668,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       .owner-filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:16px}
       .owner-filters label,.dossier-select,.assign-dossier label{display:grid;gap:4px;min-width:0;color:var(--secondary-text-color);font-size:.78rem}
       .owner-filters select,.owner-filters input[type=search],.dossier-select select,.assign-dossier select{box-sizing:border-box;width:100%;min-height:42px;padding:8px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color);font:inherit}
-      .owner-filters .completed-toggle,.form .completed-toggle{display:flex;align-items:center;gap:8px;grid-column:1/-1}
+      .form .completed-toggle{display:flex;align-items:center;gap:8px;grid-column:1/-1}
       .completed-toggle input{width:18px;height:18px;min-height:18px;accent-color:var(--primary-color)}
       .dossier-select{margin-bottom:12px}
       .dossier-controls{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px}
@@ -1682,8 +1702,8 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       .error{color:var(--error-color)}
       .matrix-view{margin-top:14px}
       .matrix-controls{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
-      .matrix-controls>label:first-child,.mobile-puppy-select{display:grid;gap:4px;color:var(--secondary-text-color);font-size:.78rem}
-      .matrix-controls>label:first-child{flex:1 1 220px}
+      .matrix-controls>label:not(.matrix-toggle),.mobile-puppy-select{display:grid;gap:4px;min-width:0;color:var(--secondary-text-color);font-size:.78rem}
+      .matrix-controls>label:not(.matrix-toggle){flex:1 1 220px}
       .matrix-controls select,.mobile-puppy-select select{box-sizing:border-box;width:100%;min-height:42px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color);padding:0 9px;font:inherit}
       .matrix-toggle{display:flex;align-items:center;gap:7px;min-height:42px;color:var(--primary-text-color);font-size:.8rem}
       .matrix-toggle input{width:18px;height:18px;accent-color:var(--primary-color)}
@@ -1821,7 +1841,13 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       const litterId = ["__all__", "__unassigned__"].includes(scope) ? this._selectedLitter : scope;
       if (!this._changeLitter(litterId, scope)) event.target.value = this._ownerScope;
     });
-    this.querySelector("#owner-show-completed")?.addEventListener("change", (event) => { this._showCompleted = event.target.checked; this._render(); });
+    this.querySelector("#owner-status-filter")?.addEventListener("change", (event) => {
+      this._placementFilter = event.target.value;
+      this._matrixSelection = null;
+      this._render();
+      this.querySelector("#owner-status-filter")?.focus({ preventScroll: true });
+      this._scheduleRefresh();
+    });
     this.querySelector("#owner-search")?.addEventListener("input", (event) => {
       this._ownerSearch = event.target.value;
       this.querySelector(".list").innerHTML = this._ownerList();
@@ -1852,7 +1878,6 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     this.querySelector("#link-puppy")?.addEventListener("change", (event) => { if (!this._linkFormState.discard()) { event.target.value = this._selectedPuppy; return; } this._selectedPuppy = event.target.value; this._render(); this._scheduleRefresh(); });
     this.querySelector("#link-save")?.addEventListener("click", () => this._link());
     this.querySelector("#matrix-litter")?.addEventListener("change", (event) => { if (!this._changeLitter(event.target.value)) event.target.value = this._selectedLitter; });
-    this.querySelector("#matrix-show-resolved")?.addEventListener("change", (event) => { this._matrixShowResolved = event.target.checked; this._matrixSelection = null; this._render(); });
     this.querySelector("#matrix-only-conflicts")?.addEventListener("change", (event) => { this._matrixOnlyConflicts = event.target.checked; this._matrixSelection = null; this._render(); });
     this.querySelector("#matrix-puppy")?.addEventListener("change", (event) => { this._matrixSelectedPuppy = event.target.value; this._matrixSelection = null; this._render(); });
     this.querySelector("#matrix-owner")?.addEventListener("change", (event) => { this._matrixSelectedOwner = event.target.value; this._matrixSelection = null; this._render(); });
