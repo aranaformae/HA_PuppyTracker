@@ -15,7 +15,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN, SIGNAL_DASHBOARD_UPDATE
-from .document_templates import BUILTIN_TEMPLATE_ID, FIELDS, IDENTIFIER, MAX_DOCUMENTS, MAX_TEMPLATES, built_in_template, document_context, fingerprint, normalize_template, template_fields, validate_document_settings
+from .document_templates import BUILTIN_TEMPLATE_ID, FIELDS, IDENTIFIER, MAX_DOCUMENTS, MAX_TEMPLATES, built_in_template, document_context, fingerprint, normalize_template, template_fields, template_uses_logo, validate_document_settings
 from .document_pdf import build_document_pdf
 from .dog_identity import puppy_selector_label
 from .managed_files import validate_manifest
@@ -49,7 +49,7 @@ async def _selection(hass, runtime, msg):
     snapshot = {"template": template, "template_revision": fingerprint(template), "values": values}
     breeder = runtime.storage.get_breeder()
     logo = None
-    if template["logo"]:
+    if template_uses_logo(template):
         if breeder.get("logo_file_id"):
             logo = await runtime.storage.files.async_read(breeder["logo_file_id"])
         else:
@@ -151,7 +151,7 @@ async def websocket_template_preview(hass, connection, msg):
         language_index = 0 if template["language"] == "nl" else 1
         snapshot = {"template": template, "values": {key: f"[{labels[language_index]}]" for key, labels in FIELDS.items()}}
         logo = None
-        if template["logo"]:
+        if template_uses_logo(template):
             async with runtime.storage._lock:
                 logo_id = runtime.storage.get_breeder().get("logo_file_id")
                 if logo_id:

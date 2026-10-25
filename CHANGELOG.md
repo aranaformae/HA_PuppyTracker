@@ -10,6 +10,17 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+### Changed
+
+- Document PDFs have a calmer print layout: title and logo aligned side by side,
+  clearer section hierarchy, shaded data labels, more readable text spacing and
+  separate seller/buyer signature and initials areas. Small data groups stay
+  together; large values paginate without entering the footer. Archived PDFs
+  retain their original appearance.
+- Document templates can use custom watermark text or the configured breeder
+  logo, faintly on every page. Header logos remain independently selectable;
+  watermark settings are retained in template downloads, backups and previews.
+
 ## [0.32.1] - 2026-10-25
 
 ### Fixed

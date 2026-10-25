@@ -120,7 +120,23 @@ mutation coordinator. A SHA-256 fingerprint covers the template, values,
 parties and logo. Save recalculates it before writing, preventing use of stale
 previews. A client request ID makes successful document saves retryable without
 duplicates. `document_pdf.py` uses the existing PDF writer in an executor, with
-page furniture, bounded logos, labelled fields and signature space.
+page furniture, bounded logos, labelled fields and signature space. Its document
+subclass owns typography, the aligned title/logo header, ruled section headings,
+shaded data labels and separate seller/buyer signature and initials areas; the
+general report layout is independent. Pagination measures heading and row groups
+before drawing, keeps ordinary identities together, and splits oversized values
+by line within the body bounds. Decoration and JSON schema options remain
+independent of presentation, and archived PDF bytes are never restyled.
+
+Templates can carry optional `watermark_type` (`text`/`logo`) and literal
+`watermark_text` (150 characters). Missing keys preserve old normalized template
+revisions; the existing `watermark` flag remains the enable switch. The editor
+presents a single none/text/logo selector. Backend logo resolution and preview
+requests include the branding asset when either the header or logo watermark
+requires it. The PDF writer registers an ExtGState for 7.5% opacity; each page's
+watermark uses isolated graphics state and is prepended behind its content.
+The same image resource is reused for header and watermark, without duplicating
+the image bytes or changing report exports that have no graphics states.
 
 The archive in `settings.documents` stores only identity/link metadata and
 content-addressed references. Each document has an exact PDF blob and a JSON

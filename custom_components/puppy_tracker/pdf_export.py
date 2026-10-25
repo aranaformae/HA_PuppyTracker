@@ -620,6 +620,7 @@ class _PdfReport:
         self.y = MARGIN
         self.logo = logo
         self._pending_text: list[_TextBlock] = []
+        self.graphics_states: dict[str, float] = {}
 
     def brand_logo(self) -> None:
         """Place a bounded logo without distorting its aspect ratio."""
@@ -859,6 +860,8 @@ class _PdfReport:
 
         font_regular = add_object(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>")
         font_bold = add_object(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>")
+        graphics_refs = {name: add_object(f"<< /Type /ExtGState /ca {alpha:.3f} /CA {alpha:.3f} >>".encode("ascii"))
+                         for name, alpha in self.graphics_states.items()}
         logo_ref = None
         if self.logo:
             width, height = _jpeg_dimensions(self.logo)
@@ -873,6 +876,8 @@ class _PdfReport:
             stream = bytes(page.operations)
             content_ref = add_object(b"<< /Length " + str(len(stream)).encode("ascii") + b" >>\nstream\n" + stream + b"endstream")
             resources = f"/Font << /F1 {font_regular} 0 R /F2 {font_bold} 0 R >>"
+            if graphics_refs:
+                resources += " /ExtGState << " + " ".join(f"/{name} {ref} 0 R" for name, ref in graphics_refs.items()) + " >>"
             if logo_ref:
                 resources += f" /XObject << /Im1 {logo_ref} 0 R >>"
             page_ref = add_object(

@@ -64,6 +64,8 @@ export class DocumentTemplateEditor {
     const issues = [], template = this.template;
     const add = (code, index = null) => issues.push({ code, index });
     if (typeof template.name !== "string" || !template.name.trim() || template.name.trim().length > 150) add("nameRequired");
+    if (template.watermark_text !== undefined && (typeof template.watermark_text !== "string" || template.watermark_text.length > 150)) add("invalid_template");
+    if (template.watermark_type !== undefined && !["text", "logo"].includes(template.watermark_type)) add("invalid_template");
     if (!template.blocks.length || template.blocks.length > 200) add("blockLimit");
     if (new TextEncoder().encode(JSON.stringify(template)).length > 150000) add("templateTooLarge");
     for (const [index, block] of template.blocks.entries()) {
@@ -171,11 +173,15 @@ export class DocumentTemplateEditor {
   render(capture = true) {
     if (capture) this.capture();
     const template = this.template;
+    const watermarkMode = template.watermark ? template.watermark_type || "text" : "none";
     preserveScrollPosition(this.root, () => {
       this.root.innerHTML = `<section class="editor"><p>${esc(this.t("editorHint"))}</p>
         <div class="grid"><label>${esc(this.t("name"))}<input id="template-name" maxlength="150" value="${esc(template.name)}"></label>
         <label>${esc(this.t("language"))}<select id="template-language"><option value="nl" ${template.language === "nl" ? "selected" : ""}>Nederlands</option><option value="en" ${template.language === "en" ? "selected" : ""}>English</option></select></label></div>
-        <div class="flags">${["logo", "watermark", "initials"].map(key => `<label><input type="checkbox" data-template-flag="${key}" ${template[key] ? "checked" : ""}>${esc(this.t(key))}</label>`).join("")}</div>
+        <div class="flags">${["logo", "initials"].map(key => `<label><input type="checkbox" data-template-flag="${key}" ${template[key] ? "checked" : ""}>${esc(this.t(key))}</label>`).join("")}</div>
+        <div class="grid watermark-settings"><label>${esc(this.t("watermark"))}<select id="template-watermark">${[["none", "watermarkNone"], ["text", "watermarkTextMode"], ["logo", "watermarkLogoMode"]].map(([mode, key]) => `<option value="${mode}" ${watermarkMode === mode ? "selected" : ""}>${esc(this.t(key))}</option>`).join("")}</select></label>
+        <label id="watermark-text-field" ${watermarkMode !== "text" ? "hidden" : ""}>${esc(this.t("watermarkText"))}<input id="watermark-text" maxlength="150" value="${esc(template.watermark_text || "")}"><small>${esc(this.t("watermarkTextHint"))}</small></label></div>
+        <p id="watermark-logo-hint" ${watermarkMode !== "logo" ? "hidden" : ""}>${esc(this.t("watermarkLogoHint"))}</p>
         <div class="actions"><button type="button" id="preview-template">${esc(this.t("previewTemplate"))}</button><button type="button" id="download-draft">${esc(this.t("downloadDraft"))}</button></div>
         <p>${esc(this.t("previewTemplateHint"))}</p><div id="template-errors" class="actions" role="alert"></div>
         <label>${esc(this.t("jumpBlock"))} (${this.keys.length}/200)<select id="jump-block"><option value="">${esc(this.t("choose"))}</option>${this.keys.map((key, index) => `<option value="${key}" data-index="${index}">${esc(this.title(index))}</option>`).join("")}</select></label>
@@ -197,6 +203,15 @@ export class DocumentTemplateEditor {
     on("#template-name", "input", e => { this.template.name = e.target.value; this.changed(); });
     on("#template-language", "change", e => { this.template.language = e.target.value; this.changed(); });
     on("[data-template-flag]", "change", (e, node) => { this.template[node.dataset.templateFlag] = node.checked; this.changed(); });
+    on("#template-watermark", "change", e => {
+      const mode = e.target.value;
+      this.template.watermark = mode !== "none";
+      if (mode !== "none") this.template.watermark_type = mode;
+      this.root.querySelector("#watermark-text-field").hidden = mode !== "text";
+      this.root.querySelector("#watermark-logo-hint").hidden = mode !== "logo";
+      this.changed();
+    });
+    on("#watermark-text", "input", e => { this.template.watermark_text = e.target.value; this.changed(); });
     on("[data-block-text]", "input", (e, node) => { this.template.blocks[Number(node.dataset.blockText)].text = node.value; this.changed(); });
     on("[data-bold]", "change", (e, node) => { this.template.blocks[Number(node.dataset.bold)].bold = node.checked; this.changed(); });
     on("#optional-fields", "change", e => {

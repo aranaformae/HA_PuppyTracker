@@ -48,6 +48,7 @@ Build / packaging
 
 build/
 dist/
+/output/pdf/
 *.egg-info/
 
 Home Assistant local files

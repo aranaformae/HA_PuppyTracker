@@ -88,7 +88,7 @@ def template_fields(template: dict) -> set[str]:
 def normalize_template(value: Any) -> dict:
     if not isinstance(value, dict) or len(json.dumps(value, ensure_ascii=False).encode()) > MAX_TEMPLATE_BYTES:
         raise ValueError("invalid_template")
-    if set(value) - {"format", "version", "name", "language", "blocks", "optional_fields", "logo", "watermark", "initials"}:
+    if set(value) - {"format", "version", "name", "language", "blocks", "optional_fields", "logo", "watermark", "watermark_type", "watermark_text", "initials"}:
         raise ValueError("invalid_template")
     if value.get("format") != FORMAT or type(value.get("version")) is not int or value["version"] != VERSION:
         raise ValueError("unsupported_template_version")
@@ -127,8 +127,20 @@ def normalize_template(value: Any) -> dict:
         flags[key] = value.get(key, default)
         if type(flags[key]) is not bool:
             raise ValueError("invalid_template")
+    decoration = {}
+    # Leave older normalized templates byte-for-byte stable for revision checks.
+    if "watermark_type" in value:
+        if value["watermark_type"] not in ("text", "logo"):
+            raise ValueError("invalid_template")
+        decoration["watermark_type"] = value["watermark_type"]
+    if "watermark_text" in value:
+        decoration["watermark_text"] = " ".join(_text(value["watermark_text"], 150).split())
     return {"format": FORMAT, "version": VERSION, "name": name, "language": value["language"],
-            "blocks": normalized, "optional_fields": sorted(set(optional)), **flags}
+            "blocks": normalized, "optional_fields": sorted(set(optional)), **flags, **decoration}
+
+
+def template_uses_logo(template: dict) -> bool:
+    return bool(template.get("logo") or (template.get("watermark") and template.get("watermark_type") == "logo"))
 
 
 def built_in_template() -> dict:

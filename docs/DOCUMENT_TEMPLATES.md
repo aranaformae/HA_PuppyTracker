@@ -59,8 +59,27 @@ Data blocks have an ordered field list with individual move/remove buttons;
 the displayed order is also the order in the PDF. Article
 numbers and cross-references are ordinary text: they are not renumbered.
 Long text continues on another page; headers, page numbers and optional initials
-space are generated automatically. Logo and a faint **text** watermark can be
-switched independently. There is no image-background/watermark editor.
+space are generated automatically. The editor offers **No watermark**, **Text**
+or **Logo**. Text appears faintly and diagonally on every page; enter a custom
+label such as `CONCEPT`, or leave it empty to use the document title. Logo mode
+centres a faint copy of your configured breeder logo, with the Puppy Tracker
+logo as fallback. Upload/change the breeder logo through the integration's
+**Breeder information** settings.
+
+The **Header logo** checkbox is independent: a logo watermark also works with
+the header logo switched off. Watermarks are drawn behind document content
+and retain fixed light transparency so the text remains readable. These choices
+are saved in the template and included in JSON template downloads and full
+backups. They apply to the layout preview and final PDF; archived PDFs retain
+their existing appearance.
+
+The PDF uses a print-friendly layout with a large title, an optional logo beside
+it, section dividers and aligned data rows with a lightly shaded label column.
+Ordinary data groups stay together where they fit; long values continue safely
+on the next page. Signatures have separate seller and buyer areas, and the
+optional initials footer provides space for both parties. Templates do not need
+to be reimported for layout improvements. Previously archived PDFs keep their
+original bytes and appearance.
 
 All fields used by a template are required unless explicitly selected under
 **Fields allowed to remain empty**. An empty optional field prints `n.v.t.` in
@@ -131,6 +150,22 @@ include its imported templates and must remain private.
 Templates are plain text with substitution, not HTML, Markdown, Jinja or DOCX.
 There are no executable expressions, loops or external file includes. Unknown
 fields, invalid blocks and unsupported format versions are rejected.
+
+Optional watermark settings within version 1:
+
+```json
+"logo": false,
+"watermark": true,
+"watermark_type": "text",
+"watermark_text": "CONCEPT"
+```
+
+`watermark_type` accepts `text` or `logo`; `watermark: false` switches either
+off. `watermark_text` is literal text (up to 150 characters), not a substituted
+data field. An omitted/empty text uses the document title. Existing templates
+without these optional keys keep their previous text-watermark behaviour and
+revision. Import templates using the new keys into a version that supports
+these options.
 
 | Prefix | Available field suffixes |
 | --- | --- |

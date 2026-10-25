@@ -242,6 +242,39 @@ test("Import distinguishes file reading, JSON syntax and editor failures @cross-
   await expect(panel.locator("#import-template")).toBeEnabled();
 });
 
+for (const language of ["nl", "en"]) test(`Watermark choices retain text and load logo independently from header (${language}) @cross-browser @tablet`, async ({ page }) => {
+  const { panel } = await mountDocuments(page, language);
+  await panel.evaluate(el => { el.loadLogo = async () => "test-logo-base64"; });
+  await panel.locator("#edit-template").click();
+  await expect(panel.locator("#watermark-text")).toBeHidden();
+  await panel.locator("#template-watermark").selectOption("text");
+  await panel.locator("#watermark-text").fill("CONCEPT");
+  await expect(panel.locator("#watermark-text")).toBeFocused();
+  await panel.locator("#template-watermark").selectOption("logo");
+  await expect(panel.locator("#watermark-text")).toBeHidden();
+  await expect(panel.locator("#watermark-logo-hint")).toBeVisible();
+  await expect(panel.locator("[data-template-flag='logo']")).not.toBeChecked();
+  const preview = page.waitForEvent("download");
+  await panel.locator("#preview-template").click(); await preview;
+  const call = await page.evaluate(() => window.__docs.calls.find(c => c.type.endsWith("template/preview")));
+  expect(call.logo_base64).toBe("test-logo-base64");
+  expect(call.template).toMatchObject({ logo: false, watermark: true, watermark_type: "logo", watermark_text: "CONCEPT" });
+  await panel.locator("#template-watermark").selectOption("text");
+  await expect(panel.locator("#watermark-text")).toHaveValue("CONCEPT");
+  await panel.screenshot({ path: test.info().outputPath("document-watermark-settings.png") });
+  await panel.locator("#save-template").click();
+  await panel.locator("#edit-template").click();
+  await expect(panel.locator("#template-watermark")).toHaveValue("text");
+  await expect(panel.locator("#watermark-text")).toHaveValue("CONCEPT");
+  await panel.locator("#template-watermark").selectOption("none");
+  await expect(panel.locator("#watermark-text")).toBeHidden();
+  const noWatermark = page.waitForEvent("download");
+  await panel.locator("#preview-template").click(); await noWatermark;
+  const last = await page.evaluate(() => window.__docs.calls.filter(c => c.type.endsWith("template/preview")).at(-1));
+  expect(last.template.watermark).toBe(false);
+  expect(last.logo_base64).toBeUndefined();
+});
+
 test("Revoked admin permission discards a delayed preview", async ({ page }) => {
   const { report, panel } = await mountDocuments(page);
   const downloads = []; page.on("download", d => downloads.push(d));
