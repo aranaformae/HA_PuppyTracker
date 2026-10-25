@@ -10,6 +10,8 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+## [0.32.1] - 2026-10-25
+
 ### Fixed
 
 - Document template import, editing and contract saving now work on local HTTP
