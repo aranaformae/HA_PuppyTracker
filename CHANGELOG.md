@@ -10,6 +10,8 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-10-25
+
 ### Added
 
 - Report & export now includes document templates and per-puppy contracts, with
