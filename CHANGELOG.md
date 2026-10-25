@@ -10,6 +10,8 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+## [0.32.2] - 2026-10-25
+
 ### Changed
 
 - Document PDFs have a calmer print layout: title and logo aligned side by side,
