@@ -156,6 +156,12 @@ an unsaved template server-side and substitutes registry labels, without reading
 buyer values or persisting anything. It does not authorize final document saving;
 that still requires a fresh actual-data preview and fingerprint.
 
+Document request IDs, template IDs and editor block IDs use the shared
+`createUuid()` helper backed by `crypto.getRandomValues`, which also works on
+local HTTP origins. They do not depend on secure-context-only `randomUUID`.
+Import runs inside the component's guarded asynchronous operation lifecycle;
+read/JSON/format errors remain distinct from editor failures.
+
 `storage_lock.py` coordinates all main, owner and scheduling-store writes.
 A full restore waits for existing writes (including nested cross-store
 executions), then holds an exclusive write barrier through commit or rollback.

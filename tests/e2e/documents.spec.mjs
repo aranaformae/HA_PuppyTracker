@@ -200,6 +200,48 @@ test("Import safe template JSON and retain unsaved draft on cancelled discard", 
   await expect(panel.locator("#template-name")).toHaveValue("Imported");
 });
 
+test("Document import, block editing and archive IDs work without secure-context UUID API @cross-browser @tablet", async ({ page }) => {
+  const { panel } = await mountDocuments(page);
+  await page.evaluate(() => { Object.defineProperty(window.crypto, "randomUUID", { value: undefined, configurable: true }); });
+  await panel.locator("#template-file").setInputFiles({ name: "synthetic.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({
+    format: "puppy_tracker_document_template", version: 1, name: "Local HTTP template", language: "nl",
+    blocks: Array.from({ length: 100 }, (_, i) => ({ type: "text", text: `Example ${i + 1}` })),
+  })) });
+  await expect(panel.locator("#template-name")).toHaveValue("Local HTTP template");
+  await panel.locator("[data-block='0'] > summary").click();
+  await panel.locator("[data-duplicate='0']").click();
+  expect(await panel.evaluate(el => new Set(el._templateEditor.keys).size)).toBe(101);
+  await panel.locator("#save-template").click();
+  await panel.locator("#document-buyer").selectOption("o1");
+  await panel.locator("#document-place").fill("Teststad");
+  const preview = page.waitForEvent("download");
+  await panel.locator("#preview-document").click(); await preview;
+  await expect(panel.locator("#save-document")).toBeEnabled();
+  const saved = page.waitForEvent("download");
+  await panel.locator("#save-document").click(); await saved;
+  const ids = await page.evaluate(() => window.__docs.calls.flatMap(c => c.type.endsWith("template/save") ? [c.template_id] : c.request_id ? [c.request_id] : []));
+  expect(ids).toHaveLength(2);
+  for (const id of ids) expect(id).toMatch(/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/);
+  expect(new Set(ids).size).toBe(2);
+});
+
+test("Import distinguishes file reading, JSON syntax and editor failures @cross-browser", async ({ page }) => {
+  const { panel } = await mountDocuments(page);
+  await panel.evaluate(el => el._import({ size: 20, text: async () => { throw new DOMException("unavailable", "NotReadableError"); } }));
+  await expect(panel.locator("#document-error")).toContainText("bestand kon niet worden gelezen");
+  await panel.locator("#template-file").setInputFiles({ name: "broken.json", mimeType: "application/json", buffer: Buffer.from("{unfinished") });
+  await expect(panel.locator("#document-error")).toContainText("geen geldige JSON");
+  await panel.evaluate(async el => {
+    const edit = el._edit;
+    el._edit = () => { throw Error("unexpected editor failure"); };
+    await el._import({ size: 100, text: async () => JSON.stringify({ format: "puppy_tracker_document_template", version: 1, name: "Valid", language: "nl", blocks: [{ type: "text", text: "Example" }] }) });
+    el._edit = edit;
+  });
+  await expect(panel.locator("#document-error")).toContainText("De opdracht is niet gelukt");
+  await expect(panel.locator("#document-error")).not.toContainText("sjabloonbestand");
+  await expect(panel.locator("#import-template")).toBeEnabled();
+});
+
 test("Revoked admin permission discards a delayed preview", async ({ page }) => {
   const { report, panel } = await mountDocuments(page);
   const downloads = []; page.on("download", d => downloads.push(d));

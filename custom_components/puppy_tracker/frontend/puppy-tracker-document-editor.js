@@ -1,4 +1,4 @@
-import { escapeHtml as esc, preserveScrollPosition } from "./puppy-tracker-card-common.js";
+import { escapeHtml as esc, preserveScrollPosition, createUuid } from "./puppy-tracker-card-common.js";
 
 export const DOCUMENT_BLOCK_KINDS = ["heading", "text", "data", "signature", "page_break"];
 const tokenPattern = () => /{{\s*([a-z_]+\.[a-z_]+)\s*}}/g;
@@ -11,7 +11,7 @@ export class DocumentTemplateEditor {
     this.language = language;
     this.t = text;
     this.actions = { changed, save, cancel, preview, download };
-    this.keys = template.blocks.map(() => crypto.randomUUID());
+    this.keys = template.blocks.map(() => createUuid());
     this.open = new Set();
     this.removed = [];
     this.issues = [];
@@ -143,7 +143,7 @@ export class DocumentTemplateEditor {
   }
   add(kind, after = this.keys.length - 1, source = null) {
     if (this.keys.length >= 200) return;
-    const key = crypto.randomUUID();
+    const key = createUuid();
     this.structural(() => {
       this.keys.splice(after + 1, 0, key);
       this.template.blocks.splice(after + 1, 0, source ? structuredClone(source) : { type: kind, text: "", fields: [], bold: false });

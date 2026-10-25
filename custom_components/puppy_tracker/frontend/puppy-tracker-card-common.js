@@ -1,6 +1,16 @@
 export const DOMAIN = "puppy_tracker";
 export const LITTER_CHANGE_EVENT = "puppy-tracker-litter-change";
 
+export function createUuid() {
+  // getRandomValues also works on local HTTP Home Assistant connections,
+  // where the secure-context-only randomUUID API is unavailable.
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 export function puppySelectorLabel(puppy, fallback = "Puppy") {
   const name = String(puppy?.name || fallback).trim() || fallback;
   const collar = String(puppy?.collar_color || "").trim();

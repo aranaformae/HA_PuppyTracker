@@ -10,6 +10,12 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+### Fixed
+
+- Document template import, editing and contract saving now work on local HTTP
+  Home Assistant connections without the secure-context-only `randomUUID` API.
+  File reading, invalid JSON and editor errors are reported separately.
+
 ## [0.32.0] - 2026-10-25
 
 ### Added

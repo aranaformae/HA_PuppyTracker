@@ -93,6 +93,12 @@ installation. The JSON contains wording and field identifiers, not filled buyer
 data. Text you manually enter in a template is included in that download.
 Removing a custom template does not remove already saved contracts.
 
+Template editing and contract saving also work when Home Assistant is opened
+through a local HTTP address. If importing fails, the card distinguishes an
+unreadable file, invalid JSON and an unsupported template. For an unreadable
+iCloud file, download it fully in Files and select it again. An editor error is
+not reported as a problem with the template file.
+
 ## Template format
 
 The format is `puppy_tracker_document_template`, version `1`. A small working

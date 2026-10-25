@@ -1,8 +1,9 @@
 import { DocumentTemplateEditor, DOCUMENT_BLOCK_KINDS as KINDS } from "./puppy-tracker-document-editor.js";
-import { escapeHtml as esc, languageForHass, puppySelectorLabel, downloadExportFile, preserveScrollPosition } from "./puppy-tracker-card-common.js";
+import { escapeHtml as esc, languageForHass, puppySelectorLabel, downloadExportFile, preserveScrollPosition, createUuid } from "./puppy-tracker-card-common.js";
 
 const COPY = {
   nl: {
+    importReadError: "Het bestand kon niet worden gelezen. Download het eerst volledig in Bestanden en selecteer het opnieuw.", importJsonError: "Het bestand bevat geen geldige JSON. Kies het originele sjabloonbestand of controleer de JSON-opmaak.",
     duplicate: "Dupliceren", restoreBlock: "Verwijderd onderdeel herstellen", jumpBlock: "Ga naar onderdeel", block: "Onderdeel", addField: "Gegevensveld toevoegen", noUsedFields: "Dit sjabloon gebruikt nog geen invulvelden.",
     nameRequired: "Vul een sjabloonnaam in (maximaal 150 tekens).", blockLimit: "Een sjabloon heeft 1 tot 200 onderdelen nodig.", templateTooLarge: "Het sjabloon is groter dan 150 kB. Kort de tekst in of splits het document.", emptyDataBlock: "Voeg minstens één gegevensveld toe.", invalid_document_text: "Gebruik maximaal 12.000 tekens per onderdeel, zonder ongeldige besturingstekens.",
     previewTemplate: "Opmaakvoorbeeld (PDF)", downloadDraft: "Concept downloaden", previewTemplateHint: "Het opmaakvoorbeeld gebruikt veldnamen als voorbeeldwaarden en slaat niets op. Controleer later ook de PDF met de werkelijke gegevens.", previewTemplateDone: "Opmaakvoorbeeld gedownload. Het sjabloon is niet opgeslagen.",
@@ -21,6 +22,7 @@ const COPY = {
     choose_document_parties: "Kies een pup en gekoppelde koper(s).", unknown_template_field: "Er staat een onbekend of ongeldig invulveld in het sjabloon. Gebruik de veldkiezer.", invalid_template: "Controleer de sjabloonnaam, taal en onderdelen.", invalid_template_block: "Controleer de onderdelen. Een gegevensblok heeft minstens één veld nodig.", unsupported_template_version: "Dit sjabloonformaat wordt niet ondersteund.", document_limit: "De document- of sjabloonlimiet is bereikt. Verwijder ongebruikte items voordat je verdergaat.", importError: "Kies een geldig Puppy Tracker-sjabloonbestand van maximaal 150 kB.",
   },
   en: {
+    importReadError: "The file could not be read. Download it fully in Files, then select it again.", importJsonError: "The file does not contain valid JSON. Choose the original template file or check its JSON syntax.",
     duplicate: "Duplicate", restoreBlock: "Restore deleted block", jumpBlock: "Go to block", block: "Block", addField: "Add data field", noUsedFields: "This template does not use any placeholders yet.",
     nameRequired: "Enter a template name (up to 150 characters).", blockLimit: "A template needs 1 to 200 blocks.", templateTooLarge: "The template exceeds 150 kB. Shorten the text or split the document.", emptyDataBlock: "Add at least one data field.", invalid_document_text: "Use up to 12,000 characters per block without invalid control characters.",
     previewTemplate: "Layout preview (PDF)", downloadDraft: "Download draft", previewTemplateHint: "The layout preview uses field names as sample values and saves nothing. Also check the PDF with actual data later.", previewTemplateDone: "Layout preview downloaded. The template has not been saved.",
@@ -118,7 +120,7 @@ class PuppyTrackerDocuments extends HTMLElement {
       if (logo) selection.logo_base64 = logo;
       const preview = await hass.callWS({ type: "puppy_tracker/documents/preview", ...selection });
       if (!current()) return;
-      this._preview = { ...preview, selection }; this._requestId = crypto.randomUUID();
+      this._preview = { ...preview, selection }; this._requestId = createUuid();
       downloadExportFile(preview.download);
     });
   }
@@ -135,7 +137,7 @@ class PuppyTrackerDocuments extends HTMLElement {
     });
   }
   _edit(value, id = null, revision = null) {
-    this._editor = { template: structuredClone(value), id: id || crypto.randomUUID(), revision };
+    this._editor = { template: structuredClone(value), id: id || createUuid(), revision };
     this._templateEditor = new DocumentTemplateEditor(this._editor.template, {
       fields: this._model.fields, language: () => this.language, text: key => this.t(key),
       changed: () => { this._dirty = true; },
@@ -176,16 +178,17 @@ class PuppyTrackerDocuments extends HTMLElement {
   }
   async _import(file) {
     if (!file) return;
-    if (file.size > 150000) { this._error = this.t("importError"); this._render(); return; }
-    const epoch = this._epoch;
-    try {
-      const value = JSON.parse(await file.text());
-      if (!this.isConnected || epoch !== this._epoch) return;
-      if (value.format !== "puppy_tracker_document_template" || value.version !== 1 || !Array.isArray(value.blocks) || value.blocks.length > 200 || value.blocks.some(b => !KINDS.includes(b?.type) || (b.text !== undefined && typeof b.text !== "string") || (b.fields && (!Array.isArray(b.fields) || b.fields.some(f => !this._model.fields[f])))) || (value.optional_fields !== undefined && !Array.isArray(value.optional_fields))) throw Error();
+    return this._run(async (_hass, current) => {
+      if (file.size > 150000) throw Error("importError");
+      let content, value;
+      try { content = await file.text(); } catch { throw Error("importReadError"); }
+      if (!current()) return;
+      try { value = JSON.parse(content); } catch { throw Error("importJsonError"); }
+      if (!value || value.format !== "puppy_tracker_document_template" || value.version !== 1 || !Array.isArray(value.blocks) || value.blocks.length > 200 || value.blocks.some(b => !KINDS.includes(b?.type) || (b.text !== undefined && typeof b.text !== "string") || (b.fields && (!Array.isArray(b.fields) || b.fields.some(f => !this._model.fields[f])))) || (value.optional_fields !== undefined && !Array.isArray(value.optional_fields))) throw Error("importError");
       this._edit({ logo: true, watermark: false, initials: true, optional_fields: [], ...value,
         blocks: value.blocks.map(block => ({ text: "", fields: [], bold: false, ...block })) });
       this._dirty = true;
-    } catch { if (epoch === this._epoch) { this._error = this.t("importError"); this._render(); } }
+    });
   }
   _deleteTemplate(selected) {
     if (!selected || selected.builtin || !confirm(this.t("deleteTemplateConfirm"))) return;
