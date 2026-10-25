@@ -10,6 +10,8 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+## [0.32.3] - 2026-10-25
+
 ### Added
 
 - Template edits are automatically kept as a local concept per HA user/browser,
