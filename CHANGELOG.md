@@ -12,10 +12,18 @@ they have not been reconstructed as a complete historical changelog.
 
 ### Fixed
 
-- CI and releases share a browser-test job using matching preinstalled
+- Browser CI uses matching preinstalled
   Playwright browsers and system dependencies. This avoids slow package-mirror
   downloads timing out and leaving an `apt-get` lock that blocks installation
   retries. Frontend dependencies now install from the exact npm lockfile.
+
+### Changed
+
+- Releases reuse successful CI for the exact commit instead of repeating all
+  checks. Publication resumes automatically when CI completes; compact status
+  and bounded failure output replace agent polling and full-log dumps.
+- Browser CI runs in four parallel shards with the same complete test coverage.
+  Release notes come from the curated changelog, and publication is idempotent.
 
 ## [0.32.3] - 2026-10-25
 

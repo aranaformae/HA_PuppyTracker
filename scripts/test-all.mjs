@@ -59,5 +59,7 @@ for (const file of javascriptFiles) {
   run(`Check JavaScript syntax: ${file.slice(root.length + 1)}`, "node", ["--check", file]);
 }
 
+run("Check release status command syntax", "node", ["--check", "scripts/release-status.mjs"]);
+run("Check release gating behavior", "node", ["--test", "tests/release-gate.test.cjs"]);
 run("Run Playwright tests", process.platform === "win32" ? "npm.cmd" : "npm", ["run", "test:e2e"]);
 console.log("\nAll local checks passed.");

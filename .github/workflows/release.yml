@@ -1,4 +1,5 @@
 name: Create GitHub Release
+run-name: Release ${{ github.event.workflow_run.head_sha || inputs.tag || github.ref_name }}
 
 on:
   push:
@@ -6,291 +7,49 @@ on:
       - "v*"
     branches:
       - "release/v*"
+  workflow_run:
+    workflows: ["Puppy Tracker CI"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to publish after its CI succeeds
+        required: true
+        type: string
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: publish-${{ github.event.workflow_run.head_sha || github.event.after || inputs.tag || github.sha }}
+  cancel-in-progress: false
 
 jobs:
-  backend-tests:
-    name: Backend tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    env:
-      PYTHONUNBUFFERED: "1"
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-          cache: pip
-          cache-dependency-path: requirements_test.txt
-
-      - name: Install test dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements_test.txt
-
-      - name: Compile Python sources
-        run: python -m compileall -q custom_components/puppy_tracker tests
-
-      - name: Run pytest
-        timeout-minutes: 3
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -c 'import sys; from importlib.metadata import version; print(sys.version); print("Home Assistant:", version("homeassistant")); print("Test harness:", version("pytest-homeassistant-custom-component"))'
-          python -m pytest -v --junitxml=pytest-results.xml 2>&1 | tee pytest-output.log
-
-      - name: Upload backend test diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-test-diagnostics
-          path: |
-            pytest-output.log
-            pytest-results.xml
-          if-no-files-found: ignore
-
-  metadata-and-tag:
-    name: Metadata and release ref validation
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.manifest.outputs.version }}
-      tag: ${{ steps.manifest.outputs.tag }}
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-
-      - name: Validate JSON files
-        shell: bash
-        run: |
-          set -euo pipefail
-          python - <<'PY'
-          import json
-          from pathlib import Path
-
-          paths = [
-              Path("hacs.json"),
-              Path("custom_components/puppy_tracker/manifest.json"),
-              Path("custom_components/puppy_tracker/strings.json"),
-          ]
-          paths.extend(sorted(Path("custom_components/puppy_tracker/translations").glob("*.json")))
-
-          for path in paths:
-              with path.open("r", encoding="utf-8") as handle:
-                  json.load(handle)
-              print(f"OK: {path}")
-          PY
-
-      - name: Read and validate Puppy Tracker metadata
-        id: manifest
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          MANIFEST="custom_components/puppy_tracker/manifest.json"
-          CONST_FILE="custom_components/puppy_tracker/const.py"
-          HACS_FILE="hacs.json"
-
-          test -f "$MANIFEST" || { echo "❌ manifest.json not found"; exit 1; }
-          test -f "$CONST_FILE" || { echo "❌ const.py not found"; exit 1; }
-          test -f "$HACS_FILE" || { echo "❌ hacs.json not found"; exit 1; }
-
-          DOMAIN=$(jq -er '.domain' "$MANIFEST")
-          NAME=$(jq -er '.name' "$MANIFEST")
-          VERSION=$(jq -er '.version' "$MANIFEST")
-          HACS_NAME=$(jq -er '.name' "$HACS_FILE")
-          CONST_VERSION=$(sed -n 's/^VERSION = "\([^"]*\)"$/\1/p' "$CONST_FILE")
-
-          test "$DOMAIN" = "puppy_tracker" || { echo "❌ Manifest domain mismatch: $DOMAIN"; exit 1; }
-          test "$NAME" = "Puppy Tracker" || { echo "❌ Manifest name mismatch: $NAME"; exit 1; }
-          test "$HACS_NAME" = "Puppy Tracker" || { echo "❌ HACS name mismatch: $HACS_NAME"; exit 1; }
-          test -n "$CONST_VERSION" || { echo "❌ Could not read VERSION from const.py"; exit 1; }
-          test "$CONST_VERSION" = "$VERSION" || {
-            echo "❌ Version mismatch between manifest.json and const.py"
-            echo "Manifest: $VERSION"
-            echo "const.py: $CONST_VERSION"
-            exit 1
-          }
-
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
-          echo "✅ Puppy Tracker metadata is consistent for version $VERSION"
-
-      - name: Validate release ref
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          VERSION="${{ steps.manifest.outputs.version }}"
-          EXPECTED_TAG="v${VERSION}"
-          EXPECTED_BRANCH="release/v${VERSION}"
-
-          echo "Git ref:           ${GITHUB_REF}"
-          echo "Expected tag:      ${EXPECTED_TAG}"
-          echo "Expected branch:   ${EXPECTED_BRANCH}"
-          echo "Manifest version:  ${VERSION}"
-
-          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
-            test "${GITHUB_REF_NAME}" = "${EXPECTED_TAG}" || {
-              echo "❌ Release tag must match manifest.json exactly."
-              exit 1
-            }
-          elif [ "${GITHUB_REF_TYPE}" = "branch" ]; then
-            test "${GITHUB_REF_NAME}" = "${EXPECTED_BRANCH}" || {
-              echo "❌ Release branch must match manifest.json exactly."
-              exit 1
-            }
-          else
-            echo "❌ Unsupported release ref type: ${GITHUB_REF_TYPE}"
-            exit 1
-          fi
-
-          echo "✅ Release ref matches manifest version."
-
-  hassfest:
-    name: Hassfest
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-
-      - name: Hassfest validation
-        uses: home-assistant/actions/hassfest@master
-
-  hacs:
-    name: HACS validation
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-
-      - name: HACS validation
-        uses: hacs/action@main
-        with:
-          category: integration
-
-  frontend:
-    name: Frontend JavaScript syntax
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-
-      - name: Check JavaScript syntax
-        shell: bash
-        run: |
-          set -euo pipefail
-          find custom_components/puppy_tracker/frontend -type f -name '*.js' -print0 \
-            | xargs -0 -n1 node --check
-
-  frontend-e2e:
-    name: Frontend browser E2E
-    uses: ./.github/workflows/browser-tests.yml
-
   release:
-    name: Publish GitHub Release
+    name: Publish after CI
+    if: >-
+      (github.event_name != 'push' || !github.event.deleted) &&
+      (github.event_name != 'workflow_run' ||
+       ((github.event.workflow_run.event == 'push' || github.event.workflow_run.event == 'workflow_dispatch') &&
+        github.event.workflow_run.head_repository.full_name == github.repository))
     runs-on: ubuntu-latest
-    needs:
-      - backend-tests
-      - metadata-and-tag
-      - hassfest
-      - hacs
-      - frontend
-      - frontend-e2e
-
+    permissions:
+      contents: write
+      actions: write
     steps:
-      - name: Checkout repository with full history
+      # workflow_run can carry privileged credentials: execute only the trusted
+      # default-branch gate, never scripts/artifacts from the completed run.
+      - name: Checkout release gate
         uses: actions/checkout@v5
         with:
-          fetch-depth: 0
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
 
-      - name: Generate release summary
-        shell: bash
+      - name: Reuse matching CI and publish
+        uses: actions/github-script@v8
         env:
-          RELEASE_TAG: ${{ needs.metadata-and-tag.outputs.tag }}
-        run: |
-          set -euo pipefail
-
-          git fetch --force --tags
-
-          PREVIOUS_TAG=$(git tag --merged HEAD --sort=-version:refname \
-            | grep -v -F "$RELEASE_TAG" \
-            | head -n 1 || true)
-
-          if [ -n "$PREVIOUS_TAG" ]; then
-            RANGE="$PREVIOUS_TAG..HEAD"
-          else
-            RANGE="HEAD"
-          fi
-
-          mapfile -t COMMITS < <(git log --no-merges --format='%s' "$RANGE")
-          USER_CHANGES=()
-          MAINTENANCE=()
-
-          for SUBJECT in "${COMMITS[@]}"; do
-            LOWER=$(printf '%s' "$SUBJECT" | tr '[:upper:]' '[:lower:]')
-
-            case "$LOWER" in
-              "sync puppy tracker version constant"|"sync puppy tracker version"*|"bump version"*|"prepare release"*|"release v"*)
-                continue
-                ;;
-            esac
-
-            if [[ "$LOWER" =~ (^test|^add.*test|^update.*test|^fix.*test|^ci|workflow|hassfest|hacs|release[[:space:]]workflow|metadata) ]]; then
-              MAINTENANCE+=("$SUBJECT")
-            else
-              USER_CHANGES+=("$SUBJECT")
-            fi
-          done
-
-          {
-            echo "## What's changed"
-            echo
-            if [ ${#USER_CHANGES[@]} -gt 0 ]; then
-              for SUBJECT in "${USER_CHANGES[@]}"; do
-                printf -- '- %s\n' "$SUBJECT"
-              done
-            else
-              echo "- Maintenance and internal improvements."
-            fi
-
-            if [ ${#MAINTENANCE[@]} -gt 0 ]; then
-              echo
-              echo "## Maintenance"
-              echo
-              for SUBJECT in "${MAINTENANCE[@]}"; do
-                printf -- '- %s\n' "$SUBJECT"
-              done
-            fi
-
-            if [ -n "$PREVIOUS_TAG" ]; then
-              echo
-              printf '**Full Changelog**: https://github.com/%s/compare/%s...%s\n' \
-                "$GITHUB_REPOSITORY" "$PREVIOUS_TAG" "$RELEASE_TAG"
-            fi
-          } > release-notes.md
-
-          echo "Generated release notes:"
-          cat release-notes.md
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v3
+          RELEASE_TAG: ${{ inputs.tag }}
         with:
-          name: ${{ needs.metadata-and-tag.outputs.tag }}
-          tag_name: ${{ needs.metadata-and-tag.outputs.tag }}
-          target_commitish: ${{ github.sha }}
-          body_path: release-notes.md
+          script: |
+            const { publishRelease } = require('./scripts/release-gate.cjs');
+            await publishRelease({ github, context, core, manualTag: process.env.RELEASE_TAG });

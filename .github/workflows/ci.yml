@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - "release/v*"
   pull_request:
     branches:
       - main
@@ -13,7 +14,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
 
 jobs:
@@ -36,9 +37,7 @@ jobs:
           cache-dependency-path: requirements_test.txt
 
       - name: Install test dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements_test.txt
+        run: python -m pip install --disable-pip-version-check -r requirements_test.txt
 
       - name: Compile Python sources
         run: python -m compileall -q custom_components/puppy_tracker tests
@@ -155,6 +154,11 @@ jobs:
           set -euo pipefail
           find custom_components/puppy_tracker/frontend -type f -name '*.js' -print0 \
             | xargs -0 -n1 node --check
+
+      - name: Check release gating behavior
+        run: |
+          node --check scripts/release-status.mjs
+          node --test tests/release-gate.test.cjs
 
   frontend-e2e:
     name: Frontend browser E2E

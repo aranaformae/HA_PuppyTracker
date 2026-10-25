@@ -13,8 +13,12 @@ permissions:
 
 jobs:
   browser-tests:
-    name: Chromium and WebKit
+    name: Chromium and WebKit (${{ matrix.shard }}/4)
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     container:
       image: mcr.microsoft.com/playwright:v${{ inputs.playwright_version }}-noble
       options: --ipc=host
@@ -55,12 +59,13 @@ jobs:
           JS
 
       - name: Run Playwright card tests
-        run: npm run test:e2e
+        run: npm run test:e2e -- --shard=${{ matrix.shard }}/4
 
       - name: Upload Playwright report on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: playwright-report/
           if-no-files-found: ignore
+          retention-days: 7

@@ -134,8 +134,9 @@ This runs Python compilation, all backend tests, JavaScript syntax checks and th
 The runner prefers the repository's `.venv` interpreter even without shell
 activation; install dependencies there rather than in the system Python.
 Hassfest and HACS validation run separately in GitHub Actions. CI runs browser
-tests with one worker, compared with two locally, so timings can differ.
-CI and release validation share `.github/workflows/browser-tests.yml`. That job
+tests in four shards with one worker each, compared with two workers locally,
+so timings can differ. CI owns `.github/workflows/browser-tests.yml`; release
+publication reuses the same commit's successful CI instead of repeating tests. The job
 uses the official Playwright Ubuntu Noble container with browsers and system
 dependencies already installed, rather than retrying `apt` inside the job.
 It installs npm dependencies from the lockfile and verifies that the Playwright
@@ -143,7 +144,10 @@ package version matches the image and that Chromium/WebKit are executable.
 When updating Playwright, update `package.json`, `package-lock.json` and the
 shared workflow's `playwright_version` default together. Python is installed
 separately for the local fixture server. Failed browser runs retain their HTML
-report in both CI and release validation.
+report per failed shard. `--shard=1/4` through `--shard=4/4` together run the same
+tests as an unsharded run, without enabling `fullyParallel` within test files.
+`node --test tests/release-gate.test.cjs` checks release gating, wrong-SHA/failed
+CI rejection, event ordering, fork/PR exclusion, idempotency and retry behavior.
 `scripts/serve-test-fixtures.py` binds only to localhost and provides a larger
 connection queue for concurrent module loads. A reset test-server connection
 must not be mistaken for an unregistered production card.
@@ -402,7 +406,7 @@ Whenever possible, keep tests deterministic. Freeze the current time with `monke
 
 ## Before a release
 
-Run the complete local gate:
+For a complete local check (reuse completed checks when the code is unchanged):
 
 ```bash
 npm run test:all
@@ -417,10 +421,12 @@ A release should not proceed when a test failure is unexplained. If behavior is 
 
 Keep `VERSION` in `custom_components/puppy_tracker/const.py` and the manifest
 version identical. `frontend.py` derives its cache version from that constant.
-The release workflow starts on a `v<version>` tag or `release/v<version>` branch
-and checks that the ref matches the manifest. Publication waits for backend,
-browser, syntax, metadata, Hassfest and HACS checks. A pushed tag alone is not
-confirmation that a GitHub Release was published.
+The release workflow starts on a `v<version>` tag or `release/v<version>` branch,
+checks the ref/version and reuses successful CI for that exact commit. A running
+CI returns `pending`; its completion event resumes publication without polling
+or rerunning the checks. Backend, browser, syntax, metadata, Hassfest and HACS
+remain required in CI. A pushed tag alone is not confirmation of publication.
+See [Release conventions](../docs/RELEASING.md) for compact status/error commands.
 
 ## Troubleshooting
 

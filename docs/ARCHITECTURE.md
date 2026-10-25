@@ -1954,6 +1954,16 @@ Regression tests should protect data meaning and cross-surface contracts, includ
 
 Manual release testing should additionally cover HACS upgrade, browser refresh/cache behaviour, phone/tablet interaction, mother selection, reminder completion from real dossier logging, age-based care completion, notification-off production testing, explicit test-notification delivery and restart behaviour.
 
+CI is the single validation authority for a commit. Its browser matrix uses
+four file-level shards in matching preinstalled Playwright containers, retaining
+one worker per shard and every existing project/viewport test. Release
+publication reuses a successful same-repository, same-SHA push/manual CI run;
+pending CI resumes publication through `workflow_run` rather than a waiting job
+or agent poll loop. The privileged gate executes only trusted default-branch
+code, rejects PR/fork authorization, validates immutable refs/metadata, and uses
+curated changelog notes. Event ordering, retries and duplicate publication are
+covered by executable Node tests. See [Release conventions](RELEASING.md).
+
 ## Future modules and extension rules
 
 The generic dossier envelope, generic recurring-reminder engine and age-based program model should support future workflows such as medication courses, feeding, veterinary follow-up, tests and milestones without creating parallel per-feature task engines.
