@@ -111,6 +111,17 @@ Already downloaded files and previously displayed information cannot be revoked.
 
 ## File Actions, Logos and Future Attachments
 
+The document-template editor keeps a local recovery copy in browser storage,
+separated by the authenticated HA user ID and origin. It contains template text,
+which may include private wording entered by the user, but no resolved buyer
+data or generated PDFs. It is restored only in that user's administrator UI.
+This namespace is not encryption or an access boundary against someone with
+access to the browser profile, developer tools or same-origin scripts. The copy
+is removed on explicit discard/successful template save, and is not transferred
+through HA backups or synchronized to another device. Clearing browser site data
+also removes it. Runtime editor state and pending writes are separated when the
+HA principal changes.
+
 `backup_to_file` checks the resolved destination stays inside the HA configuration
 directory, rejects non-JSON destinations, and rejects `/config/www` including
 symlinks resolving into it. A temporary file is atomically replaced; temporary-file

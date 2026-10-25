@@ -14,7 +14,7 @@ async function mountDocuments(page, language = "nl") {
     };
     window.__docs = { calls: [], failSave: false, holdPreview: false };
     const state = window.__docs;
-    el.hass = { ...el._hass, callWS: async message => {
+    el.hass = { ...el._hass, user: { id: "documents-admin", is_admin: true }, callWS: async message => {
       if (!message.type.startsWith("puppy_tracker/documents/")) return original(message);
       state.calls.push(structuredClone(message));
       const download = { filename: "contract.pdf", mime_type: "application/pdf", encoding: "base64", content: btoa("%PDF-1.4\n%%EOF") };
@@ -39,7 +39,7 @@ async function mountDocuments(page, language = "nl") {
   expect(await page.evaluate(() => window.__docs.calls)).toHaveLength(0);
   await report.locator("#contract-documents > summary").click();
   const panel = report.locator("puppy-tracker-documents");
-  await expect(panel.locator("#document-buyer")).toBeVisible();
+  await expect(panel.locator("#document-buyer, #template-name")).toBeVisible();
   return { report, panel };
 }
 
@@ -273,6 +273,133 @@ for (const language of ["nl", "en"]) test(`Watermark choices retain text and loa
   const last = await page.evaluate(() => window.__docs.calls.filter(c => c.type.endsWith("template/preview")).at(-1));
   expect(last.template.watermark).toBe(false);
   expect(last.logo_base64).toBeUndefined();
+});
+
+for (const language of ["nl", "en"]) test(`Template drafts recover after reload, including edits before the save timer (${language}) @cross-browser @tablet`, async ({ page }) => {
+  let { panel } = await mountDocuments(page, language);
+  await panel.locator("#new-template").click();
+  await panel.locator("#template-name").fill("Local recovery");
+  await panel.locator("[data-block='0'] > summary").click();
+  await panel.locator("[data-block-text='0']").fill("{{ unfinished");
+  await expect(panel.locator("#draft-status")).toContainText(language === "nl" ? "Concept lokaal bewaard" : "Draft saved locally");
+  await expect(panel.locator("[data-block-text='0']")).toBeFocused();
+  const id = await panel.evaluate(el => el._editor.id);
+  // Reload immediately after another change: pagehide must flush the pending edit.
+  await panel.locator("[data-block-text='0']").fill("{{ unfinished latest");
+  ({ panel } = await mountDocuments(page, language));
+  await expect(panel.locator("#template-name")).toHaveValue("Local recovery");
+  await expect(panel.locator("[data-block-text='0']")).toBeVisible();
+  await expect(panel.locator("[data-block-text='0']")).toHaveValue("{{ unfinished latest");
+  expect(await panel.evaluate(el => el._editor.id)).toBe(id);
+  await expect(panel.locator("#draft-status")).toContainText(language === "nl" ? "hersteld" : "restored");
+  expect(await page.evaluate(() => window.__docs.calls.some(c => c.type.endsWith("template/save")))).toBe(false);
+  await panel.locator("[data-block-text='0']").fill("Ready to save");
+  await page.evaluate(() => { window.__docs.failSave = true; });
+  await panel.locator("#save-template").click();
+  await expect(panel.locator("#document-error")).not.toBeEmpty();
+  await expect(panel.locator("#draft-status")).toContainText(language === "nl" ? "Concept lokaal bewaard" : "Draft saved locally");
+  await page.evaluate(() => { window.__docs.failSave = false; });
+  await panel.locator("#save-template").click();
+  await expect(panel.locator("#document-buyer")).toBeVisible();
+  expect(await page.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith("puppy_tracker.document_draft.")))).toEqual([]);
+  ({ panel } = await mountDocuments(page, language));
+  await expect(panel.locator("#document-buyer")).toBeVisible();
+});
+
+test("Discarding a draft clears the recovery copy and does not resurrect after reload @cross-browser", async ({ page }) => {
+  let { panel } = await mountDocuments(page);
+  await panel.locator("#edit-template").click();
+  await panel.locator("#template-name").fill("Discard me");
+  await expect(panel.locator("#draft-status")).toContainText("Concept lokaal bewaard");
+  page.once("dialog", dialog => dialog.dismiss());
+  await panel.locator("#cancel-template").click();
+  await expect(panel.locator("#template-name")).toHaveValue("Discard me");
+  await panel.locator("#template-name").fill("Last change before discard");
+  page.once("dialog", dialog => dialog.accept());
+  await panel.locator("#cancel-template").click();
+  ({ panel } = await mountDocuments(page));
+  await expect(panel.locator("#document-buyer")).toBeVisible();
+});
+
+test("Local drafts stay isolated between HA users @cross-browser @tablet", async ({ page }) => {
+  const { report, panel } = await mountDocuments(page);
+  await panel.locator("#edit-template").click();
+  await panel.locator("#template-name").fill("Private draft A");
+  await report.evaluate(el => { el.hass = { ...el._hass, user: { id: "other-admin", is_admin: true } }; });
+  await expect(panel.locator("#document-buyer")).toBeVisible();
+  await expect(panel).not.toContainText("Private draft A");
+  await panel.locator("#edit-template").click();
+  await panel.locator("#template-name").fill("Private draft B");
+  await report.evaluate(el => { el.hass = { ...el._hass, user: { id: "documents-admin", is_admin: true } }; });
+  await expect(panel.locator("#template-name")).toHaveValue("Private draft A");
+  await report.evaluate(el => { el.hass = { ...el._hass, user: { id: "other-admin", is_admin: true } }; });
+  await expect(panel.locator("#template-name")).toHaveValue("Private draft B");
+});
+
+test("Storage failures keep input and download available without claiming draft saved @cross-browser", async ({ page }) => {
+  const { panel } = await mountDocuments(page);
+  await page.evaluate(() => {
+    const set = Storage.prototype.setItem;
+    Storage.prototype.setItem = function(key, value) {
+      if (key.startsWith("puppy_tracker.document_draft.")) throw new DOMException("quota", "QuotaExceededError");
+      return set.call(this, key, value);
+    };
+  });
+  await panel.locator("#edit-template").click();
+  await panel.locator("#template-name").fill("Keep my input");
+  await expect(panel.locator("#draft-status")).toContainText("Automatisch bewaren is niet gelukt");
+  await expect(panel.locator("#template-name")).toBeFocused();
+  await expect(panel.locator("#template-name")).toHaveValue("Keep my input");
+  const download = page.waitForEvent("download");
+  await panel.locator("#download-draft").click();
+  expect((await download).suggestedFilename()).toBe("puppy-tracker-template-draft.json");
+});
+
+test("A second tab cannot overwrite or discard the newer recovery copy @cross-browser", async ({ page, context }) => {
+  const first = (await mountDocuments(page)).panel;
+  await first.locator("#edit-template").click();
+  await first.locator("#template-name").fill("First draft");
+  await expect(first.locator("#draft-status")).toContainText("Concept lokaal bewaard");
+  const other = await context.newPage();
+  try {
+    const second = (await mountDocuments(other)).panel;
+    await expect(second.locator("#template-name")).toHaveValue("First draft");
+    await first.locator("#template-name").fill("Newer first draft");
+    await expect(first.locator("#draft-status")).toContainText("Concept lokaal bewaard");
+    await second.locator("#template-name").fill("Do not overwrite from second");
+    await expect(second.locator("#draft-status")).toContainText("Een ander tabblad");
+    await expect(second.locator("#template-name")).toHaveValue("Do not overwrite from second");
+    other.once("dialog", dialog => dialog.accept());
+    await second.locator("#cancel-template").click();
+    const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("puppy_tracker.document_draft.v1.documents-admin")));
+    expect(stored.editor.template.name).toBe("Newer first draft");
+  } finally { await other.close(); }
+});
+
+test("Restored edits keep the original server revision for conflict checks @cross-browser", async ({ page }) => {
+  let { panel } = await mountDocuments(page);
+  await panel.locator("#edit-template").click();
+  await panel.locator("#save-template").click();
+  await panel.locator("#edit-template").click();
+  await panel.locator("#template-name").fill("Work on existing template");
+  ({ panel } = await mountDocuments(page));
+  await expect(panel.locator("#template-name")).toHaveValue("Work on existing template");
+  await page.evaluate(() => { window.__docs.failSave = true; });
+  await panel.locator("#save-template").click();
+  await expect(panel.locator("#document-error")).toContainText("gewijzigd");
+  const call = await page.evaluate(() => window.__docs.calls.find(c => c.type.endsWith("template/save")));
+  expect(call.expected_revision).toBe("saved");
+  await expect(panel.locator("#template-name")).toHaveValue("Work on existing template");
+});
+
+test("Malformed local recovery data does not prevent starting a new draft @cross-browser", async ({ page }) => {
+  await mountDocuments(page);
+  await page.evaluate(() => localStorage.setItem("puppy_tracker.document_draft.v1.documents-admin", JSON.stringify({ version: 1, editor: { template: { blocks: [null] } } })));
+  const { panel } = await mountDocuments(page);
+  await expect(panel.locator("#draft-status")).toContainText("kon niet worden hersteld");
+  await panel.locator("#new-template").click();
+  await panel.locator("#template-name").fill("New recoverable draft");
+  await expect(panel.locator("#draft-status")).toContainText("Concept lokaal bewaard");
 });
 
 test("Revoked admin permission discards a delayed preview", async ({ page }) => {

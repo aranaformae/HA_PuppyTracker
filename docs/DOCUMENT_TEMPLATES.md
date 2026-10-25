@@ -103,9 +103,26 @@ using that draft as a saved template.
 **Document language** controls field labels, dates and empty-field markers;
 it does not translate the contract text. The interface follows HA's Dutch or
 English language. Editing keeps the draft during dashboard refreshes and failed
-saves; cancelling a changed draft asks before discarding it. Drafts are not saved
-across browser reloads. A conflicting template edit never silently overwrites
-another editor's changes.
+saves. Changes are also automatically kept as a **local concept** after a short
+typing pause. When you return in the same browser with the same Home Assistant
+user, the editor restores the template, incomplete text and open parts. Pending
+changes are flushed when the page is hidden or left. Autosaving does not replace
+the focused input or save the shared Home Assistant template.
+
+**Draft saved locally** and **Template saved** are different: only **Save
+template** stores the template in Home Assistant for use on other devices and
+in full backups. Local concepts belong to this browser/profile and are not
+included in those backups. Clearing browser site data removes them. Cancelling
+a changed draft asks before discarding it and its local copy; successfully
+saving the template removes that recovery copy too.
+
+If local storage is unavailable/full, the card preserves the open editor and
+shows a message to keep the page open or download the draft. If another tab
+changes the recovery copy, the current editor does not overwrite it; download
+your current draft before closing that tab. A restored edit retains its original
+server revision, so a conflicting shared-template edit still cannot silently
+overwrite another editor's changes. Contract selections, buyer data and final
+document previews are not automatically saved as local concepts.
 
 Download a template as JSON to edit it externally or import it into another
 installation. The JSON contains wording and field identifiers, not filled buyer

@@ -163,6 +163,20 @@ its own actions while working, clears private state on principal changes and
 rejects late responses after disconnect/revocation. PDF report settings and
 document selections remain independent.
 
+`puppy-tracker-document-draft.js` maintains one bounded (500 kB) local recovery
+copy per HA user ID and browser origin. A 600 ms debounce avoids writes and DOM
+replacement on each keystroke. `pagehide`, hidden-page visibility and component
+disconnect flush pending edits; listeners/timers are removed on disconnect or
+principal changes. The copy contains the editor's template, stable ID/original
+revision and open-block/inner-scroll state, never the buyer selection or a final
+PDF preview. Restore validates the envelope and block shapes before rendering.
+The copy remains until explicit discard or successful template save. A stored
+value comparison prevents a tab from overwriting/removing another tab's newer
+copy; storage failures leave in-memory input and JSON download available. Local
+recovery is not an HA store or part of integration backups, and read-only users
+cannot activate the document UI. No browser persistence uses an anonymous user
+key when HA has not supplied an ID.
+
 `puppy-tracker-document-editor.js` owns block editing as a controller within that
 component. Ephemeral block IDs preserve expansion state across reordering and
 never enter template JSON. Deletion recovery retains up to 20 removed blocks;

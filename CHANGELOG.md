@@ -10,6 +10,14 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+### Added
+
+- Template edits are automatically kept as a local concept per HA user/browser,
+  including incomplete text, open parts and the original template revision.
+  Reloading restores the concept; explicit discard or successful template save
+  clears it. Clear status distinguishes local recovery from an HA template save,
+  with recovery downloads available on storage failures or another-tab conflicts.
+
 ## [0.32.2] - 2026-10-25
 
 ### Changed
