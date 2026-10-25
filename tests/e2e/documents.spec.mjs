@@ -1,0 +1,215 @@
+import { expect, test } from "@playwright/test";
+import { mountAsyncCard } from "./helpers/async-card.mjs";
+
+async function mountDocuments(page, language = "nl") {
+  const report = await mountAsyncCard(page, "report", { language });
+  await report.evaluate(el => {
+    const original = el._hass.callWS;
+    const template = { format: "puppy_tracker_document_template", version: 1, name: "Voorbeeldcontract", language: "nl", logo: false, watermark: false, initials: true, optional_fields: [], blocks: [{ type: "text", text: "{{ pup.naam }}", fields: [], bold: false }] };
+    const model = {
+      fields: { "pup.naam": { nl: "Roepnaam pup", en: "Puppy call name" }, "contract.plaats": { nl: "Plaats ondertekening", en: "Signing location" } },
+      templates: [{ id: "handover-example-nl", template, builtin: true, revision: "original" }],
+      litters: [{ id: "a", name: "Luna 2026", puppies: [{ id: "a1", name: "Nova", collar_color: "paars", owner_ids: ["o1", "o2"] }, { id: "a2", name: "Groen", collar_color: "groen", owner_ids: ["o3"] }] }],
+      owners: [{ id: "o1", name: "Alex" }, { id: "o2", name: "Sam" }, { id: "o3", name: "Robin" }], documents: [],
+    };
+    window.__docs = { calls: [], failSave: false, holdPreview: false };
+    const state = window.__docs;
+    el.hass = { ...el._hass, callWS: async message => {
+      if (!message.type.startsWith("puppy_tracker/documents/")) return original(message);
+      state.calls.push(structuredClone(message));
+      const download = { filename: "contract.pdf", mime_type: "application/pdf", encoding: "base64", content: btoa("%PDF-1.4\n%%EOF") };
+      switch (message.type.split("documents/")[1]) {
+        case "list": return structuredClone(model);
+        case "template/preview": return download;
+        case "preview": {
+          const result = { fingerprint: "checked", missing: message.details.place ? [] : ["contract.plaats"], download };
+          if (state.holdPreview) return new Promise(resolve => { state.releasePreview = () => resolve(result); });
+          return result;
+        }
+        case "save": return { document: { id: message.request_id, name: "Voorbeeldcontract", puppy_name: "Nova", created_at: "2026-10-24T10:00:00Z" }, download };
+        case "template/save":
+          if (state.failSave) throw Error("document_conflict");
+          return { id: message.template_id, revision: "saved", template: message.template };
+        case "download": return download;
+        case "delete": case "template/delete": return { ok: true };
+        default: throw Error(`Unexpected document request ${message.type}`);
+      }
+    } };
+  });
+  expect(await page.evaluate(() => window.__docs.calls)).toHaveLength(0);
+  await report.locator("#contract-documents > summary").click();
+  const panel = report.locator("puppy-tracker-documents");
+  await expect(panel.locator("#document-buyer")).toBeVisible();
+  return { report, panel };
+}
+
+for (const language of ["nl", "en"]) {
+  test(`Contract preview, missing fields, save and archive (${language}) @cross-browser @tablet`, async ({ page }) => {
+    const { panel } = await mountDocuments(page, language);
+    await expect(panel.locator("#document-puppy option").filter({ hasText: "Nova (paars)" })).toHaveCount(1);
+    await expect(panel.locator("#preview-document")).toBeDisabled();
+    await panel.locator("#document-buyer").selectOption("o1");
+    let download = page.waitForEvent("download");
+    await panel.locator("#preview-document").click(); await download;
+    await expect(panel.locator("#document-checks")).toContainText(language === "nl" ? "Nog invullen" : "Still missing");
+    await expect(panel.locator("#save-document")).toBeDisabled();
+    await panel.locator("#document-place").fill("Teststad");
+    download = page.waitForEvent("download");
+    await panel.locator("#preview-document").click(); await download;
+    await expect(panel.locator("#save-document")).toBeEnabled();
+    await panel.screenshot({ path: test.info().outputPath("document-preview.png") });
+    download = page.waitForEvent("download");
+    await panel.locator("#save-document").click(); await download;
+    await expect(panel.locator(".archive article")).toContainText("Nova");
+    const saved = await page.evaluate(() => window.__docs.calls.find(c => c.type.endsWith("documents/save")));
+    expect(saved).toMatchObject({ expected_fingerprint: "checked", puppy_id: "a1", owner_ids: ["o1"], details: { place: "Teststad" } });
+    page.once("dialog", dialog => dialog.accept());
+    await panel.locator("[data-delete]").click();
+    await expect(panel.locator(".archive article")).toHaveCount(0);
+  });
+}
+
+test("Template draft and focus survive dashboard refresh; failed save keeps changes @cross-browser @tablet", async ({ page }) => {
+  const { report, panel } = await mountDocuments(page);
+  await panel.locator("#edit-template").click();
+  await panel.locator(".block > summary").click();
+  const input = panel.locator("[data-block-text='0']");
+  await input.fill("Aangepaste tekst");
+  await report.evaluate(el => { el.hass = { ...el._hass }; el._render(); });
+  await expect(input).toBeFocused();
+  await expect(input).toHaveValue("Aangepaste tekst");
+  await input.pressSequentially(" met aanvulling");
+  await panel.screenshot({ path: test.info().outputPath("document-editor.png") });
+  await page.evaluate(() => { window.__docs.failSave = true; });
+  await panel.locator("#save-template").click();
+  await expect(panel.locator("#document-error")).toContainText("gewijzigd");
+  await expect(input).toHaveValue("Aangepaste tekst met aanvulling");
+  await page.evaluate(() => { window.__docs.failSave = false; });
+  await panel.locator("#save-template").click();
+  await expect(panel.locator("#document-status")).toHaveText("Sjabloon opgeslagen.");
+  const calls = await page.evaluate(() => window.__docs.calls.filter(c => c.type.endsWith("template/save")));
+  expect(calls[0].template_id).toBe(calls[1].template_id);
+  expect(calls[1].template.blocks[0].text).toBe("Aangepaste tekst met aanvulling");
+  const download = page.waitForEvent("download");
+  await panel.locator("#export-template").click();
+  expect((await download).suggestedFilename()).toBe("puppy-tracker-document-template.json");
+  page.once("dialog", dialog => dialog.accept());
+  await panel.locator("#delete-template").click();
+  await expect(panel.locator("#document-status")).toHaveText("Sjabloon verwijderd.");
+});
+
+test("Template block identities, deletion recovery and explicit field order @cross-browser @tablet", async ({ page }) => {
+  const { panel } = await mountDocuments(page);
+  await panel.locator("#template-file").setInputFiles({ name: "template.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({
+    format: "puppy_tracker_document_template", version: 1, name: "Ordered", language: "nl",
+    blocks: [{ type: "text", text: "First" }, { type: "text", text: "Second" }, { type: "data", fields: ["contract.plaats", "pup.naam"] }],
+  })) });
+  await panel.locator("[data-block='0'] > summary").click();
+  await panel.locator("[data-move='0'][data-direction='1']").click();
+  await expect(panel.locator("[data-block-text='1']")).toBeVisible();
+  await panel.locator("[data-block-text='1']").fill("First moved");
+  await panel.locator("[data-remove='1']").click();
+  await panel.locator("[data-block='0'] > summary").click();
+  await panel.locator("[data-block-text='0']").fill("Second edited after deletion");
+  await panel.locator("#restore-block").click();
+  await expect(panel.locator("[data-block-text='1']")).toHaveValue("First moved");
+  await panel.locator("[data-duplicate='1']").click();
+  await panel.locator("[data-block-text='2']").fill("Independent copy");
+  await panel.locator("[data-block='3'] > summary").click();
+  await expect(panel.locator(".selected-fields li span")).toHaveText(["Plaats ondertekening", "Roepnaam pup"]);
+  await panel.locator("[data-field-up='1']").click();
+  await expect(panel.locator(".selected-fields li span")).toHaveText(["Roepnaam pup", "Plaats ondertekening"]);
+  await panel.locator("#save-template").click();
+  const saved = await page.evaluate(() => window.__docs.calls.find(c => c.type.endsWith("template/save")).template);
+  expect(saved.blocks.map(b => b.text)).toEqual(["Second edited after deletion", "First moved", "Independent copy", ""]);
+  expect(saved.blocks[3].fields).toEqual(["pup.naam", "contract.plaats"]);
+  expect(JSON.stringify(saved)).not.toMatch(/nextKey|data-key|removed/);
+});
+
+test("Editor validates locally, updates optional fields without losing focus and previews unsaved layout @cross-browser @tablet", async ({ page }) => {
+  const { panel } = await mountDocuments(page);
+  await panel.locator("#edit-template").click();
+  await panel.locator("[data-block='0'] > summary").click();
+  const input = panel.locator("[data-block-text='0']");
+  await input.fill("{{ pup.unknown }}");
+  await panel.locator("#save-template").click();
+  await expect(panel.locator("#template-errors button")).toHaveCount(1);
+  expect(await page.evaluate(() => window.__docs.calls.some(c => c.type.endsWith("template/save")))).toBe(false);
+  await input.fill("{{ contract.plaats }}");
+  await expect(input).toBeFocused();
+  await expect(panel.locator("#template-errors button")).toHaveCount(0);
+  await panel.locator("#optional-fields > summary").click();
+  await expect(panel.locator("[data-optional]")).toHaveCount(1);
+  await panel.locator("[data-optional='contract.plaats']").check();
+  const pdf = page.waitForEvent("download");
+  await panel.locator("#preview-template").click();
+  expect((await pdf).suggestedFilename()).toBe("contract.pdf");
+  await expect(input).toHaveValue("{{ contract.plaats }}");
+  const calls = await page.evaluate(() => window.__docs.calls);
+  expect(calls.filter(c => c.type.endsWith("template/preview"))[0].template.optional_fields).toEqual(["contract.plaats"]);
+  expect(calls.some(c => c.type.endsWith("/save"))).toBe(false);
+  await input.fill("{{ unfinished");
+  const draft = page.waitForEvent("download");
+  await panel.locator("#download-draft").click();
+  const downloaded = await draft;
+  expect(downloaded.suggestedFilename()).toBe("puppy-tracker-template-draft.json");
+  const chunks = []; for await (const chunk of await downloaded.createReadStream()) chunks.push(chunk);
+  expect(JSON.parse(Buffer.concat(chunks).toString()).blocks[0].text).toBe("{{ unfinished");
+  await panel.screenshot({ path: test.info().outputPath("template-editor-tools.png") });
+});
+
+test("Long template navigation scrolls inside the block list @cross-browser @tablet", async ({ page }) => {
+  const { panel } = await mountDocuments(page);
+  await panel.locator("#template-file").setInputFiles({ name: "long.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({
+    format: "puppy_tracker_document_template", version: 1, name: "Long example", language: "nl",
+    blocks: Array.from({ length: 100 }, (_, i) => ({ type: "text", text: `Example paragraph ${i + 1}` })),
+  })) });
+  await panel.locator("#jump-block").scrollIntoViewIfNeeded();
+  const before = await page.evaluate(() => scrollY);
+  const key = await panel.locator("#jump-block option[data-index='95']").getAttribute("value");
+  await panel.locator("#jump-block").selectOption(key);
+  await expect(panel.locator("[data-block-text='95']")).toBeFocused();
+  await expect.poll(() => panel.locator(".blocks").evaluate(el => el.scrollTop)).toBeGreaterThan(1000);
+  await expect.poll(() => page.evaluate(() => scrollY)).toBeCloseTo(before, 0);
+  await panel.locator("[data-block-text='95']").fill("Edited late paragraph");
+  await expect(panel.locator("[data-block-text='0']")).toHaveValue("Example paragraph 1");
+});
+
+test("Changing puppy clears foreign buyers and checked previews @cross-browser", async ({ page }) => {
+  const { panel } = await mountDocuments(page);
+  await panel.locator("#document-buyer").selectOption("o1");
+  await panel.locator("#document-others").selectOption("o2");
+  await panel.locator("#document-place").fill("Teststad");
+  const download = page.waitForEvent("download");
+  await panel.locator("#preview-document").click(); await download;
+  await expect(panel.locator("#save-document")).toBeEnabled();
+  await panel.locator("#document-puppy").selectOption("a2");
+  await expect(panel.locator("#document-buyer")).toHaveValue("");
+  await expect(panel.locator("#document-others option")).toHaveCount(1);
+  await expect(panel.locator("#save-document")).toBeDisabled();
+});
+
+test("Import safe template JSON and retain unsaved draft on cancelled discard", async ({ page }) => {
+  const { panel } = await mountDocuments(page);
+  await panel.locator("#template-file").setInputFiles({ name: "template.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({ format: "puppy_tracker_document_template", version: 1, name: "Imported", language: "en", blocks: [{ type: "text", text: "<img src=x onerror=alert(1)>" }, { type: "page_break" }] })) });
+  await expect(panel.locator("#template-name")).toHaveValue("Imported");
+  await expect(panel.locator("[data-template-flag='logo']")).toBeChecked();
+  expect(await panel.locator(".blocks img").count()).toBe(0);
+  page.once("dialog", dialog => dialog.dismiss());
+  await panel.locator("#cancel-template").click();
+  await expect(panel.locator("#template-name")).toHaveValue("Imported");
+});
+
+test("Revoked admin permission discards a delayed preview", async ({ page }) => {
+  const { report, panel } = await mountDocuments(page);
+  const downloads = []; page.on("download", d => downloads.push(d));
+  await panel.locator("#document-buyer").selectOption("o1");
+  await page.evaluate(() => { window.__docs.holdPreview = true; });
+  await panel.locator("#preview-document").click();
+  await expect.poll(() => page.evaluate(() => typeof window.__docs.releasePreview)).toBe("function");
+  await report.evaluate(el => { el.hass = { ...el._hass, user: { id: "viewer", is_admin: false } }; });
+  await page.evaluate(() => window.__docs.releasePreview());
+  await expect(panel).toHaveCount(0);
+  expect(downloads).toHaveLength(0);
+  expect(await report.evaluate(el => el._documentPanel._model)).toBeNull();
+});

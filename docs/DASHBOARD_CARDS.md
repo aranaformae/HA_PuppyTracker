@@ -526,6 +526,12 @@ are documented in
 
 Report also remains separate:
 
+Its collapsible **Documents and contracts** panel creates and archives
+per-puppy contracts from editable text/field templates. It has its own litter,
+puppy and buyer selections, independent of the PDF dossier's period and section
+switches. No extra card type or YAML options are needed. See
+[Document templates](DOCUMENT_TEMPLATES.md).
+
 ```yaml
 type: custom:puppy-tracker-report-card
 title: Rapporten

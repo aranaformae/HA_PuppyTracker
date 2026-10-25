@@ -1046,7 +1046,7 @@ class PuppyTrackerStorage:
                 manifest[file_id] = {"name": "breeder-logo.jpg", "content_type": "image/jpeg", "size": len(logo_content)}
                 normalized["logo_file_id"] = file_id
             file_id = normalized.get("logo_file_id")
-            if file_id and file_id not in manifest:
+            if file_id and manifest.get(file_id, {}).get("content_type") != "image/jpeg":
                 raise ValueError("Unknown managed logo")
             old_id = self.get_breeder().get("logo_file_id")
             if old_id and old_id != file_id:

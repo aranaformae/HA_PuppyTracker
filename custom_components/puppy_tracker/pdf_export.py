@@ -10,6 +10,7 @@ import re
 import unicodedata
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,7 @@ from homeassistant.util import dt as dt_util
 from .behavior import BEHAVIOR_GROUPS, BEHAVIOR_RECORD_TYPE, build_behavior_profile
 from .dog_identity import parent_details_for_litter
 from .measurements import puppy_measurements
+from .managed_files import normalize_logo
 from .metrics import calculate_puppy_metrics
 from .owners import final_payment_amount, owner_address_parts, owner_for_litter
 from .storage import PuppyTrackerStorage
@@ -27,7 +29,7 @@ PAGE_WIDTH = 595.28
 PAGE_HEIGHT = 841.89
 MARGIN = 42.0
 CONTENT_WIDTH = PAGE_WIDTH - 2 * MARGIN
-LOGO_PATH = Path(__file__).parent / "brand" / "logo.jpg"
+LOGO_PATH = Path(__file__).parent / "brand" / "icon@2x.png"
 
 _COLLAR_COLOR_GROUPS = (
     (("lichtblauw", "lightblue", "skyblue"), "#42a5f5"),
@@ -533,6 +535,12 @@ def _jpeg_dimensions(data: bytes) -> tuple[int, int]:
     raise ValueError("Invalid logo JPEG")
 
 
+@lru_cache(maxsize=1)
+def _bundled_logo() -> bytes | None:
+    """Reuse the integration icon; convert once for the PDF writer's JPEG format."""
+    return normalize_logo(LOGO_PATH.read_bytes()) if LOGO_PATH.is_file() else None
+
+
 def _report_logo(encoded: str | None) -> bytes | None:
     """Accept bounded inline image bytes only; never read caller paths or URLs."""
     if isinstance(encoded, str) and len(encoded) <= 700_000:
@@ -544,7 +552,7 @@ def _report_logo(encoded: str | None) -> bytes | None:
             return logo
         except ValueError:
             pass
-    return LOGO_PATH.read_bytes() if LOGO_PATH.is_file() else None
+    return _bundled_logo()
 
 
 def _wrap(text: str, size: float, width: float, bold: bool = False) -> list[str]:

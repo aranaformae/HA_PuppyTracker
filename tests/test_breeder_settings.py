@@ -16,7 +16,10 @@ from custom_components.puppy_tracker.config_flow import PuppyTrackerOptionsFlow
 from custom_components.puppy_tracker.const import DOMAIN
 from custom_components.puppy_tracker.runtime import PuppyTrackerRuntimeData
 
-BREEDER = {"name": "Milky Way", "contact": "private@example.com", "logo_url": "/local/logo.png"}
+BREEDER = {"name": "Milky Way", "contact": "private@example.com", "logo_url": "/local/logo.png",
+           "representatives": "Alex Example", "street": "Example 1", "postal_code": "1234 AB", "city": "Teststad",
+           "phone": "0612345678", "email": "private@example.com", "registration": "REG-1", "ubn": "0000001",
+           "iban": "NL00EXAMPLE", "account_holder": "Example"}
 
 
 def attach_storage(hass, storage):

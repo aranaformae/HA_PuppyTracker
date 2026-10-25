@@ -4,6 +4,8 @@ from typing import Any
 from urllib.parse import urlsplit
 from .managed_files import validate_file_id
 
+CONTRACT_BREEDER_FIELDS = ("representatives", "street", "postal_code", "city", "phone", "email", "registration", "ubn", "iban", "account_holder")
+
 
 def normalize_breeder(value: Any = None) -> dict[str, str]:
     """Validate editable text and a same-origin logo path."""
@@ -18,6 +20,12 @@ def normalize_breeder(value: Any = None) -> dict[str, str]:
             raise ValueError(f"Invalid breeder {key}")
         result[key] = raw.strip()
     logo = result["logo_url"]
+    for key in CONTRACT_BREEDER_FIELDS:
+        raw = value.get(key, "")
+        if not isinstance(raw, str) or len(raw) > 300 or any(ord(c) < 32 for c in raw):
+            raise ValueError(f"Invalid breeder {key}")
+        if raw.strip():
+            result[key] = raw.strip()
     if logo:
         parsed = urlsplit(logo)
         if (

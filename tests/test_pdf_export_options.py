@@ -75,11 +75,13 @@ async def test_branding_and_profile_note_visibility(storage, install_litter):
 
 @pytest.mark.parametrize("encoded", ["not base64", "", "A" * 700_001, base64.b64encode(b"not a jpeg").decode(), base64.b64encode(b"\xff\xd8\xff\xe0\x00\x00\xff\xd9").decode()], ids=["invalid-base64", "empty", "oversized", "not-jpeg", "invalid-segment"])
 def test_invalid_custom_logo_uses_bundled_fallback(encoded):
-    assert pdf_export._report_logo(encoded) == pdf_export.LOGO_PATH.read_bytes()
+    assert pdf_export._report_logo(encoded) == pdf_export.normalize_logo(pdf_export.LOGO_PATH.read_bytes())
 
 
 def test_logo_preserves_aspect_ratio_and_accepts_valid_inline_jpeg():
-    logo = pdf_export.LOGO_PATH.read_bytes()
+    assert pdf_export.LOGO_PATH.name == "icon@2x.png"
+    assert not (pdf_export.LOGO_PATH.parent / "logo.jpg").exists()
+    logo = pdf_export._report_logo(None)
     assert pdf_export._report_logo(base64.b64encode(logo).decode()) == logo
     report = pdf_export._PdfReport(logo)
     report.brand_logo()

@@ -20,6 +20,7 @@ The current suite covers the main backend, frontend contract and browser flows.
 | `test_integrity.py` | Safe integrity repairs, duplicate IDs, dangling references and ambiguous correction branches |
 | `test_exports.py` / `test_pdf_export_options.py` | CSV filtering, complete JSON history, direct PDF generation and every PDF selection/section contract |
 | `test_contract_identity.py` | Puppy and parent registered/call names, dates, breed/type, coat colour, chip and WALA persistence |
+| `test_documents.py` / `tests/e2e/documents.spec.mjs` | Template validation/editor, stable block reordering/deletion recovery, explicit field order, unsaved layout previews/draft downloads, long-template navigation, buyer/litter financial isolation, missing/stale preview guards, immutable PDF/JSON archives, retry/rollback, full backup restore, admin access and retained mobile input focus |
 | `test_config_flow.py` / `test_options_actions.py` / `test_litter_growth_settings.py` | Valid management-form prefills, read-only opening, saving/clearing profile and growth fields, timestamp precision and monitoring/notification setting isolation |
 | `test_options_actions.py` / `tests/e2e/puppy-selectors.spec.mjs` | Name/collar labels across HA management forms and frontend selectors, missing/duplicate labels, unchanged puppy IDs and owner/preference selection |
 | `test_translations.py` / `test_options_actions.py` | Complete NL/EN key and placeholder coverage, translated management-form fields and selector options, and parent identity labels loaded through Home Assistant |

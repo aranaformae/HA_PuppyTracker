@@ -15,6 +15,7 @@ import {
   subscribeUpdates,
 } from "./puppy-tracker-card-common.js";
 import { recordTypeLabel } from "./puppy-tracker-dossier-schema.js";
+import "./puppy-tracker-documents.js";
 
 const REPORT_TEXT = {
   nl: {
@@ -224,6 +225,7 @@ class PuppyTrackerReportCard extends HTMLElement {
     const reconnected = this._hass && this._hass.connection !== hass?.connection;
     if (reconnected) this.disconnectedCallback();
     this._hass = hass;
+    if (this._documentPanel) this._documentPanel.hass = hass;
     if (hass?.user?.is_admin === false) {
       this._data = null;
       this._litters = [];
@@ -522,6 +524,7 @@ class PuppyTrackerReportCard extends HTMLElement {
   }
 
   _render() {
+    this._documentsOpen = this.shadowRoot.querySelector("#contract-documents")?.open ?? this._documentsOpen ?? false;
     if (this._hass?.user?.is_admin === false) {
       this.shadowRoot.innerHTML = `<ha-card style="display:block;padding:16px"><div role="status">${escapeHtml(reportText(this._hass, "adminOnly"))}</div></ha-card>`;
       return;
@@ -553,7 +556,7 @@ class PuppyTrackerReportCard extends HTMLElement {
     const selectedScope = this._selectedPuppyId === LITTER_VALUE ? reportText(this._hass, "wholeLitter") : puppySelectorLabel(selected[0], reportText(this._hass, "selectedPuppy"));
     const periodLabel = { "24h": "hours24", "3d": "days3", "7d": "days7", "14d": "days14", "30d": "days30", all: "all" }[this._range] || "all";
     const languageLabel = this._pdfLanguage === "auto" ? reportText(this._hass, "automaticLanguage") : reportText(this._hass, this._pdfLanguage === "en" ? "englishLanguage" : "dutchLanguage");
-    this.shadowRoot.innerHTML = `
+    const reportMarkup = `
       <ha-card><style>
         ha-card{padding:16px;container-type:inline-size;container-name:report-card}.title{font-size:18px;font-weight:600;margin-bottom:3px}.sub{font-size:12px;color:var(--secondary-text-color);margin-bottom:12px}.controls{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}.field{min-width:0}.field label{display:block;font-size:11px;color:var(--secondary-text-color);margin:0 0 4px 2px}.field select{width:100%;min-width:0;min-height:42px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color);padding:0 9px;font-size:14px}.pdf-sections,.filter-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px}.pdf-sections label,.filter-row label{font-size:12px;display:flex;align-items:center;gap:5px}.pdf-sections input,.filter-row input{accent-color:var(--primary-color)}.dossier-filters{margin-top:10px;border-top:1px solid var(--divider-color);padding-top:10px;font-size:12px}.dossier-filters summary{cursor:pointer;font-weight:600}.filter-row strong{font-size:11px;color:var(--secondary-text-color)}.small-button{border:1px solid var(--divider-color);background:var(--secondary-background-color);color:var(--primary-text-color);min-height:32px;border-radius:6px;padding:0 9px;cursor:pointer}.preview{margin-top:12px;border-top:1px solid var(--divider-color);padding-top:10px}.preview-summary{font-size:12px;line-height:1.5}.preview-summary span{display:block;color:var(--secondary-text-color)}.preview-counts{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin-top:8px}.box{min-width:0;border:1px solid var(--divider-color);border-radius:8px;padding:10px}.box span{display:block;font-size:11px;color:var(--secondary-text-color)}.box b{display:block;margin-top:3px;font-size:16px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.actions button{min-height:42px;border:0;border-radius:8px;padding:0 13px;font-weight:600;cursor:pointer;background:var(--primary-color);color:var(--text-primary-color,#fff)}.actions button.secondary{background:var(--secondary-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color)}.status{font-size:12px;color:var(--secondary-text-color);margin-top:9px}.error{color:var(--error-color)}.note{font-size:11px;color:var(--secondary-text-color);margin-top:10px;line-height:1.4}
         @container report-card (max-width:600px){.controls{grid-template-columns:1fr}.preview-counts{grid-template-columns:repeat(2,minmax(0,1fr))}.actions button{flex:1 1 auto}}
@@ -567,6 +570,22 @@ class PuppyTrackerReportCard extends HTMLElement {
       <div class="actions">${motherSelected ? "" : `<button id="pdf">${escapeHtml(reportText(this._hass, "pdf"))}</button><button class="secondary" id="csv">${escapeHtml(reportText(this._hass, "csv"))}</button>`}<button class="secondary" id="json">${escapeHtml(reportText(this._hass, motherSelected ? "motherJson" : "json"))}</button></div>
       <div class="status" role="status">${escapeHtml(this._status)}</div><div class="note">${escapeHtml(reportText(this._hass, motherSelected ? "motherNote" : "note"))}</div>
       </ha-card>`;
+
+    // Keep the independent document editor mounted during report refreshes.
+    // Moving even the same element through innerHTML would drop mobile focus.
+    const markup = document.createElement("template");
+    markup.innerHTML = reportMarkup;
+    let reportControls = this.shadowRoot.querySelector("#report-controls");
+    if (reportControls) {
+      reportControls.replaceChildren(...markup.content.querySelector("ha-card").childNodes);
+    } else {
+      this.shadowRoot.replaceChildren(markup.content);
+      const card = this.shadowRoot.querySelector("ha-card");
+      reportControls = document.createElement("div");
+      reportControls.id = "report-controls";
+      reportControls.append(...card.childNodes);
+      card.append(reportControls);
+    }
 
     this.shadowRoot.querySelector("ha-card")?.setAttribute("aria-busy", String(this._loading || this._exporting));
     this.shadowRoot.querySelectorAll("#puppy,#pdf,#csv,#json").forEach((control) => { control.disabled = this._loading || !this._data; });
@@ -592,6 +611,37 @@ class PuppyTrackerReportCard extends HTMLElement {
     listen("#pdf", "click", () => this._export("pdf"));
     listen("#csv", "click", () => this._export("csv"));
     listen("#json", "click", () => this._export("json"));
+    let documents = this.shadowRoot.querySelector("#contract-documents");
+    if (documents) {
+      documents.querySelector("summary").textContent = languageForHass(this._hass) === "nl" ? "Documenten en contracten" : "Documents and contracts";
+      return;
+    }
+    documents = document.createElement("details");
+    documents.id = "contract-documents";
+    documents.open = this._documentsOpen;
+    documents.style.cssText = "margin-top:16px;border-top:1px solid var(--divider-color);padding-top:8px";
+    const summary = document.createElement("summary");
+    summary.textContent = languageForHass(this._hass) === "nl" ? "Documenten en contracten" : "Documents and contracts";
+    summary.style.cssText = "padding:12px 0;cursor:pointer;font-weight:600";
+    documents.append(summary);
+    const mount = () => {
+      if (!this._documentPanel) {
+        this._documentPanel = document.createElement("puppy-tracker-documents");
+        this._documentPanel.loadLogo = async (hass) => {
+          const configured = await fetchReportLogo(hass);
+          return await reportLogo(configured.logo_url) || await reportLogo(configured.fallback_url);
+        };
+      }
+      this._documentPanel.hass = this._hass;
+      if (this._documentPanel.parentElement !== documents) documents.append(this._documentPanel);
+    };
+    documents.addEventListener("toggle", () => {
+      if (!documents.isConnected) return;
+      this._documentsOpen = documents.open;
+      if (documents.open) mount();
+    });
+    this.shadowRoot.querySelector("ha-card").append(documents);
+    if (this._documentPanel || this._documentsOpen) mount();
   }
 }
 

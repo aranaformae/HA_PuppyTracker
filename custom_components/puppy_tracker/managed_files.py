@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import json
 from hashlib import sha256
 from io import BytesIO
 import os
@@ -17,7 +18,9 @@ from homeassistant.core import HomeAssistant
 
 MAX_UPLOAD_BYTES = 2_000_000
 MAX_FILE_BYTES = 512_000
-MAX_FILES = 16
+MAX_PDF_BYTES = 2_000_000
+MAX_TOTAL_BYTES = 32_000_000
+MAX_FILES = 256
 FILE_ID = re.compile(r"^[a-f0-9]{64}$")
 
 
@@ -64,9 +67,14 @@ def validate_manifest(value: Any) -> dict[str, dict[str, Any]]:
         size = metadata["size"]
         if not isinstance(name, str) or not name or len(name) > 100 or any(char in name for char in "/\\\r\n"):
             raise ValueError("Invalid display filename")
-        if metadata["content_type"] != "image/jpeg" or type(size) is not int or not 0 < size <= MAX_FILE_BYTES:
+        if not isinstance(metadata["content_type"], str):
+            raise ValueError("Invalid managed file type")
+        limit = {"image/jpeg": MAX_FILE_BYTES, "application/pdf": MAX_PDF_BYTES, "application/json": MAX_FILE_BYTES}.get(metadata["content_type"], 0)
+        if type(size) is not int or not 0 < size <= limit:
             raise ValueError("Unsupported managed file type or size")
         result[file_id] = dict(metadata)
+    if sum(item["size"] for item in result.values()) > MAX_TOTAL_BYTES:
+        raise ValueError("Managed files exceed the total size limit")
     return result
 
 
@@ -77,7 +85,7 @@ def validate_file_backup(manifest: Any, contents: Any) -> dict[str, bytes]:
         raise ValueError("Backup must contain exactly the referenced managed files")
     decoded = {}
     for file_id, encoded in contents.items():
-        if not isinstance(encoded, str) or len(encoded) > ((MAX_FILE_BYTES + 2) // 3) * 4:
+        if not isinstance(encoded, str) or len(encoded) > ((files[file_id]["size"] + 2) // 3) * 4:
             raise ValueError("Invalid managed file content size")
         try:
             content = base64.b64decode(encoded, validate=True)
@@ -85,6 +93,14 @@ def validate_file_backup(manifest: Any, contents: Any) -> dict[str, bytes]:
             raise ValueError("Invalid managed file encoding") from err
         if len(content) != files[file_id]["size"] or sha256(content).hexdigest() != file_id:
             raise ValueError("Managed file checksum mismatch")
+        if files[file_id]["content_type"] == "application/pdf":
+            validate_pdf(content)
+            decoded[file_id] = content
+            continue
+        if files[file_id]["content_type"] == "application/json":
+            validate_snapshot_file(content)
+            decoded[file_id] = content
+            continue
         if not content.startswith(b"\xff\xd8"):
             raise ValueError("Stored logo must be a JPEG")
         # Header checks are cheap enough for the synchronous preview validator.
@@ -97,6 +113,22 @@ def validate_file_backup(manifest: Any, contents: Any) -> dict[str, bytes]:
             raise ValueError("Invalid stored image") from err
         decoded[file_id] = content
     return decoded
+
+
+def validate_pdf(content: bytes) -> None:
+    """Bound archive blobs; downloads are attachments, not embedded executable content."""
+    if not content.startswith(b"%PDF-") or not content.rstrip().endswith(b"%%EOF") or len(content) > MAX_PDF_BYTES:
+        raise ValueError("Invalid stored PDF")
+
+
+def validate_snapshot_file(content: bytes) -> None:
+    from .document_templates import validate_snapshot
+    if len(content) > MAX_FILE_BYTES:
+        raise ValueError("Document snapshot exceeds size limit")
+    try:
+        validate_snapshot(json.loads(content))
+    except (UnicodeError, RecursionError) as err:
+        raise ValueError("Invalid document snapshot") from err
 
 
 class ManagedFiles:
@@ -118,7 +150,7 @@ class ManagedFiles:
 
     def read(self, file_id: str) -> bytes:
         path = self._path(file_id)
-        if path.stat().st_size > MAX_FILE_BYTES:
+        if path.stat().st_size > MAX_PDF_BYTES:
             raise ValueError("Managed file is too large")
         content = path.read_bytes()
         if sha256(content).hexdigest() != file_id:
@@ -126,9 +158,16 @@ class ManagedFiles:
         return content
 
     def _write(self, file_id: str, content: bytes) -> None:
-        if len(content) > MAX_FILE_BYTES or sha256(content).hexdigest() != file_id:
+        if len(content) > MAX_PDF_BYTES or sha256(content).hexdigest() != file_id:
             raise ValueError("Invalid managed file content")
-        normalize_logo(content)
+        if content.startswith(b"%PDF-"):
+            validate_pdf(content)
+        elif content.startswith(b"{"):
+            validate_snapshot_file(content)
+        else:
+            if len(content) > MAX_FILE_BYTES:
+                raise ValueError("Stored logo exceeds size limit")
+            normalize_logo(content)
         path = self._path(file_id)
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
         os.chmod(self.root, 0o700)

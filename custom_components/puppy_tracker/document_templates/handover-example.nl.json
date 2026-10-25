@@ -1,0 +1,16 @@
+{
+  "format": "puppy_tracker_document_template",
+  "version": 1,
+  "name": "Overdrachtsbewijs",
+  "language": "nl",
+  "logo": true,
+  "watermark": false,
+  "initials": true,
+  "optional_fields": [],
+  "blocks": [
+    {"type": "heading", "text": "Overdracht"},
+    {"type": "data", "text": "Pup", "fields": ["pup.naam", "pup.chipnummer"]},
+    {"type": "text", "text": "{{ koper.naam }} neemt {{ pup.naam }} over op {{ overdracht.datum }}."},
+    {"type": "signature", "text": "{{ contract.plaats }}, {{ contract.datum }}"}
+  ]
+}

@@ -296,17 +296,27 @@
       },
       "breeder": {
         "title": "Fokkersgegevens",
-        "description": "Deze gegevens gelden voor alle PDF-rapporten. Kies op de rapportkaart welke onderdelen zichtbaar zijn.\n\n{logo_preview}",
+        "description": "Deze centrale gegevens gelden voor PDF-dossiers en contracten. Kies de inhoud op de rapportkaart of in je documentsjabloon.\n\n{logo_preview}",
         "data": {
           "name": "Fokkersnaam / kennelnaam",
-          "contact": "Contactgegevens",
+          "contact": "Contacttekst voor rapporten",
+          "representatives": "Vertegenwoordigers / namen verkopers",
+          "street": "Straat en huisnummer",
+          "postal_code": "Postcode",
+          "city": "Plaats",
+          "phone": "Telefoon",
+          "email": "E-mail",
+          "registration": "Fokkerregistratie (bijvoorbeeld WALA)",
+          "ubn": "UBN",
+          "iban": "IBAN",
+          "account_holder": "Rekeninghouder",
           "logo_url": "Pad naar logo",
           "logo_upload": "Logo uploaden",
           "remove_logo": "Geüpload logo verwijderen"
         },
         "data_description": {
           "name": "Maximaal 200 tekens.",
-          "contact": "Bijvoorbeeld e-mail, telefoon en adres, maximaal 2000 tekens. Contactgegevens blijven standaard uit in het rapport.",
+          "contact": "Vrije tekst voor dossier-PDF’s, maximaal 2000 tekens. Contractsjablonen gebruiken de losse adres-, telefoon- en e-mailvelden hieronder.",
           "logo_url": "Optionele fallback, bijvoorbeeld /local/logo.png. Een geüpload logo krijgt voorrang; zonder beide wordt het ingebouwde logo gebruikt.",
           "logo_upload": "PNG/JPEG, maximaal 2 MB en 16 miljoen pixels. Wordt veilig opgeslagen en meegenomen in volledige backups.",
           "remove_logo": "Verwijdert alleen het geüploade logo. Het ingestelde logopad blijft als fallback beschikbaar. Niet combineren met uploaden."
@@ -434,7 +444,7 @@
       "unsupported_schema_version": "Deze back-up gebruikt een opslagschema dat deze versie niet veilig kan herstellen.",
       "invalid_import_mode": "Deze importmodus is niet geldig voor de geüploade back-up.",
       "invalid_import_target": "Het geselecteerde doelnest bestaat niet meer.",
-      "backup_too_large": "De back-up is groter dan de importlimiet van 20 MB.",
+      "backup_too_large": "De back-up is groter dan de importlimiet van 128 MB.",
       "storage_changed": "Puppy Tracker-data is na de voorvertoning gewijzigd. Controleer de back-up opnieuw voordat je importeert.",
       "invalid_logo": "Kies een geldige PNG/JPEG van maximaal 2 MB en 16 miljoen pixels. Kies uploaden óf verwijderen en selecteer het bestand opnieuw.",
       "logo_save_failed": "Logo kon niet worden opgeslagen. De vorige instellingen blijven behouden; selecteer het bestand opnieuw en probeer nogmaals."

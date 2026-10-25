@@ -296,17 +296,27 @@
       },
       "breeder": {
         "title": "Breeder information",
-        "description": "These details apply to all PDF reports. Choose which details to include on the Report card.\n\n{logo_preview}",
+        "description": "These central details apply to PDF dossiers and contracts. Choose the content in the Report card or document template.\n\n{logo_preview}",
         "data": {
           "name": "Breeder / kennel name",
-          "contact": "Contact details",
+          "contact": "Report contact text",
+          "representatives": "Representatives / seller names",
+          "street": "Street and house number",
+          "postal_code": "Postal code",
+          "city": "City",
+          "phone": "Phone",
+          "email": "Email",
+          "registration": "Breeder registration (for example WALA)",
+          "ubn": "UBN",
+          "iban": "IBAN",
+          "account_holder": "Account holder",
           "logo_url": "Logo path",
           "logo_upload": "Upload logo",
           "remove_logo": "Remove uploaded logo"
         },
         "data_description": {
           "name": "Up to 200 characters.",
-          "contact": "For example email, telephone and address, up to 2000 characters. Contact details default to hidden in reports.",
+          "contact": "Free text for dossier PDFs, up to 2000 characters. Contract templates use the separate address, phone and email fields below.",
           "logo_url": "Optional fallback, for example /local/logo.png. An uploaded logo takes precedence; with neither, the bundled logo is used.",
           "logo_upload": "PNG/JPEG, at most 2 MB and 16 million pixels. Stored privately and included in full backups.",
           "remove_logo": "Removes the uploaded logo only. The configured logo path remains as a fallback. Do not combine with uploading."
@@ -434,7 +444,7 @@
       "unsupported_schema_version": "This backup uses a storage schema that this version cannot restore safely.",
       "invalid_import_mode": "This import mode is not valid for the uploaded backup.",
       "invalid_import_target": "The selected destination litter no longer exists.",
-      "backup_too_large": "The backup is larger than the 20 MB import limit.",
+      "backup_too_large": "The backup is larger than the 128 MB import limit.",
       "storage_changed": "Puppy Tracker data changed after the preview. Review the backup again before importing it.",
       "invalid_logo": "Choose a valid PNG/JPEG of at most 2 MB and 16 million pixels. Choose upload or remove, and select the file again.",
       "logo_save_failed": "The logo could not be saved. Previous settings were retained; select the file again and retry."

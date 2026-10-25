@@ -34,7 +34,7 @@ from .devices import (
 )
 from .runtime import PuppyTrackerRuntimeData, reconcile_dashboard_selection
 
-MAX_BACKUP_BYTES = 20 * 1024 * 1024
+MAX_BACKUP_BYTES = 128 * 1024 * 1024
 
 
 class PuppyTrackerDataManagementMixin:

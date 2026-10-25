@@ -17,6 +17,7 @@ feature overview.
 | [Temperature](temperature-card.md) | Journal temperature view, entry and configuration |
 | [Behavior observations](BEHAVIOR.md) | Repeated puppy scoring, profile calculation and PDF output |
 | [Reports and exports](REPORTS_EXPORTS.md) | Per-puppy/litter PDF sections, profiles, filters, CSV and JSON behavior |
+| [Documents and contracts](DOCUMENT_TEMPLATES.md) | Template editor, buyer/puppy fields, checked PDFs, immutable archive and template exchange |
 | [Logo uploads and managed files](MANAGED_FILES.md) | Central breeder logo, private storage, backup and restore |
 | [Age-based care programs](CARE_PROGRAMS.md) | Programs, built-in templates and the template JSON format |
 | [Notifications](NOTIFICATIONS.md) | Reminder delivery, lead times, mobile clearing and test workflow |

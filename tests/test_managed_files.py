@@ -131,13 +131,18 @@ async def test_full_backup_contains_bytes_and_restores_to_empty_file_directory(f
     file_id = storage.get_breeder()["logo_file_id"]
     files = await storage.async_export_managed_files()
     document = full_backup(storage, files)
-    assert document["export_version"] == 6
+    assert document["export_version"] == 7
     assert document["file_data"][file_id] == base64.b64encode(await storage.files.async_read(file_id)).decode()
     with pytest.raises(ValueError):
         full_backup(storage, None)
     partial = build_export_document(storage, scope="litter", litter_id=litter_id)
     assert "file_data" not in partial
     parsed = parse_export_json(json.dumps(document))
+    # Version 6 logo backups remain portable after introducing document archives.
+    legacy = deepcopy(document)
+    legacy["export_version"] = 6
+    parse_export_json(json.dumps(legacy))
+    prepare_import(storage, legacy, mode="replace_all")
     await storage.async_update_breeder({})
     assert not (storage.files.root / file_id).exists()
     await async_apply_import(storage, prepare_import(storage, parsed, mode="replace_all"))

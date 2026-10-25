@@ -24,9 +24,10 @@ from .owners import normalize_owner_backup_data
 from .breeder import normalize_breeder
 from .feeding import normalize_feeding_settings
 from .managed_files import validate_manifest, validate_file_backup
+from .document_templates import validate_document_settings
 from .storage import PuppyTrackerStorage
 
-EXPORT_VERSION = 6
+EXPORT_VERSION = 7
 LEGACY_EXPORT_VERSION = 4
 SCHEDULER_BACKUP_VERSION = 1
 LEGACY_SCHEMA_VERSION = 7
@@ -34,7 +35,7 @@ CURRENT_SCHEMA_VERSION = MOTHER_SCHEMA_VERSION
 SUPPORTED_SCHEMA_VERSIONS = frozenset(
     {LEGACY_SCHEMA_VERSION, 8, CURRENT_SCHEMA_VERSION}
 )
-SUPPORTED_EXPORT_VERSIONS = frozenset({LEGACY_EXPORT_VERSION, 5, EXPORT_VERSION})
+SUPPORTED_EXPORT_VERSIONS = frozenset({LEGACY_EXPORT_VERSION, 5, 6, EXPORT_VERSION})
 VALID_SCOPES = frozenset({"full", "litter", "puppy"})
 VALID_IMPORT_MODES = {
     "full": frozenset({"replace_all", "merge_as_new"}),
@@ -301,6 +302,7 @@ def build_export_document(
         document["data"] = data
         manifest = data.get("settings", {}).get("files", {})
         validate_file_backup(manifest, file_data or {})
+        validate_document_settings(data.get("settings", {}))
         if manifest:
             document["file_data"] = deepcopy(file_data)
         document["care_reminders"] = _validate_care_reminder_settings(
@@ -454,6 +456,8 @@ def parse_export_json(content: str) -> dict[str, Any]:
             raise BackupValidationError("invalid_backup", "Full backup settings must be an object")
         if export_version < 6 and data.get("settings", {}).get("files"):
             raise BackupValidationError("invalid_backup", "Managed files require backup format 6")
+        if export_version < 7 and any(data.get("settings", {}).get(key) for key in ("documents", "document_templates")):
+            raise BackupValidationError("invalid_backup", "Documents require backup format 7")
         if not isinstance(data.get("audit_log"), list):
             raise BackupValidationError("invalid_backup", "Full backup audit log is invalid")
         try:
@@ -473,6 +477,7 @@ def parse_export_json(content: str) -> dict[str, Any]:
         )
         try:
             validate_file_backup(data.get("settings", {}).get("files", {}), document.get("file_data", {}))
+            validate_document_settings(data.get("settings", {}))
         except ValueError as err:
             raise BackupValidationError("invalid_backup", str(err)) from err
         if export_version == LEGACY_EXPORT_VERSION:
@@ -714,7 +719,8 @@ def _normalize_candidate_schema(candidate: dict[str, Any]) -> None:
             raise ValueError("Settings must be an object")
         settings["breeder"] = normalize_breeder(settings.get("breeder"))
         files = validate_manifest(settings.get("files", {}))
-        if settings["breeder"].get("logo_file_id") and settings["breeder"]["logo_file_id"] not in files:
+        validate_document_settings(settings)
+        if settings["breeder"].get("logo_file_id") and files.get(settings["breeder"]["logo_file_id"], {}).get("content_type") != "image/jpeg":
             raise ValueError("Managed logo is missing from the file manifest")
         for litter in candidate.get("litters", {}).values():
             if isinstance(litter, dict) and "feeding_settings" in litter:
@@ -859,6 +865,8 @@ def prepare_import(
             raise BackupValidationError("invalid_backup", "Full backup settings must be an object")
         if source_export_version < 6 and ("file_data" in document or source_data.get("settings", {}).get("files")):
             raise BackupValidationError("invalid_backup", "Managed files require backup format 6")
+        if source_export_version < 7 and any(source_data.get("settings", {}).get(key) for key in ("documents", "document_templates")):
+            raise BackupValidationError("invalid_backup", "Documents require backup format 7")
         try:
             validate_file_backup(source_data.get("settings", {}).get("files", {}), document.get("file_data", {}))
         except ValueError as err:

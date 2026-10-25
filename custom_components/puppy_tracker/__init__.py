@@ -42,6 +42,7 @@ from .mother_api import async_setup_mother_api
 from .mother_storage_integrity import MotherScopeIntegrityStorage
 from .notifications import PuppyNotificationManager
 from .owner_api import async_setup_owner_api
+from .document_api import async_setup_document_api
 from .owners import OwnerStore
 from .recurring_notifications import RecurringReminderNotificationManager
 from .recurring_reminder_api import async_setup_recurring_reminder_api
@@ -205,6 +206,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async_setup_care_program_api(hass)
     async_setup_attention_acknowledgement_api(hass)
     async_setup_owner_api(hass)
+    async_setup_document_api(hass)
     async_setup_onboarding_api(hass)
     await async_setup_frontend(hass)
 

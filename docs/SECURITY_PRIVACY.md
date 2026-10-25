@@ -19,6 +19,7 @@ notes: their free text is not automatically classified or redacted.
 | Read acknowledgement state; subscribe to update timestamps | Denied | Allowed | Allowed |
 | Read the selected breeder logo | Denied without a signed URL | Allowed | Allowed |
 | Read owners, addresses, contact methods, payments and puppy preferences | Denied | Denied | Allowed |
+| Document templates, previews and archived contract download/save/delete | Denied | Denied | Allowed |
 | CSV, JSON and PDF exports, regardless of section switches | Denied without an authorized signed URL | Denied | Allowed |
 | Complete/litter/puppy/mother backup HTTP downloads | Denied without an authorized signed URL | Denied | Allowed |
 | WebSocket dossier/measurement mutations, care completion, acknowledgement changes, feeding settings, program/template/reminder and owner management | Denied | Denied | Allowed |
@@ -76,6 +77,14 @@ deliberately expose privileged actions through an accessible trigger or script.
   Native station Start/Reset remain subject to the separate HA entity policy.
 
 ## Download Data Flow and Signed URLs
+
+Contract generation and archives use admin-only WebSocket commands. Private
+PDF and JSON snapshot files have no public URL; the branding route still serves
+only the currently configured logo. Archive contents and templates may contain
+personal information and are included in full v7 backups. Linking or unlinking
+a contact does not delete historical contracts; administrators must deliberately
+remove archive entries when appropriate. JSON templates are validated text with
+known field substitutions, never executed code or HTML.
 
 Backups are serialized on demand from runtime storage and downloaded directly;
 they are not staged in `/www`. Responses use attachment filenames,

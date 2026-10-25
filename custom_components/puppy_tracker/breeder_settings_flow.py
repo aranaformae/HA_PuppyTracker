@@ -10,6 +10,7 @@ from homeassistant.helpers import selector
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .const import SIGNAL_DASHBOARD_UPDATE
+from .breeder import CONTRACT_BREEDER_FIELDS
 from .managed_files import MAX_UPLOAD_BYTES
 from .managed_files_http import signed_file_path
 
@@ -33,6 +34,7 @@ class BreederSettingsMixin:
                             return path.read_bytes()
                     logo_content = await self.hass.async_add_executor_job(read_upload)
                 breeder = {key: user_input.get(key, "") for key in ("name", "contact", "logo_url")}
+                breeder.update({key: user_input.get(key, "") for key in CONTRACT_BREEDER_FIELDS})
                 current_id = storage.get_breeder().get("logo_file_id")
                 if current_id and not user_input.get("remove_logo"):
                     breeder["logo_file_id"] = current_id
@@ -52,7 +54,7 @@ class BreederSettingsMixin:
         schema = {
             vol.Optional(key, description={"suggested_value": values.get(key, "")}): selector.TextSelector(
                 selector.TextSelectorConfig(multiline=key == "contact")
-            ) for key in ("name", "contact", "logo_url")
+            ) for key in ("name", "contact", *CONTRACT_BREEDER_FIELDS, "logo_url")
         }
         schema[vol.Optional("logo_upload")] = selector.FileSelector(selector.FileSelectorConfig(accept=".png,.jpg,.jpeg,image/png,image/jpeg"))
         schema[vol.Optional("remove_logo", default=False)] = selector.BooleanSelector()

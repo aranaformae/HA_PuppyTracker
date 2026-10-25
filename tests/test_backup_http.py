@@ -81,7 +81,7 @@ async def test_full_download_includes_external_scheduler_store_snapshots(storage
     response = await backup_http._download_response(runtime, scope="full")
     payload = json.loads(response.text)
 
-    assert payload["export_version"] == 6
+    assert payload["export_version"] == 7
     assert payload["schedulers"] == {
         "version": 1,
         "care_programs": {"programs": {}},

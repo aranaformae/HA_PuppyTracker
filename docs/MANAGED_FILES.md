@@ -13,7 +13,7 @@ both. If saving fails, the previous logo stays active. Select the upload again
 before retrying, because Home Assistant consumes temporary uploaded files.
 
 An uploaded logo has priority over the local path. An unavailable image falls
-back to that path, then to the bundled logo. Turning Logo off in the Report
+back to that path, then to the Puppy Tracker integration icon. Turning Logo off in the Report
 card excludes every logo and skips loading them.
 
 ## Storage and Recovery
@@ -24,8 +24,8 @@ maximum side of 1024 pixels and a maximum stored size of 512 KB. Original EXIF
 and other image metadata are not carried into the normalized upload.
 
 Full Puppy Tracker backups, including the backup-to-file action, embed the
-managed image bytes in backup format **v6**. A full replacement restores the
-image and its reference together. Existing v4/v5 backups remain readable.
+managed image bytes in backup format **v7**. A full replacement restores the
+image and its reference together. Existing v4/v5/v6 backups remain readable.
 Litter/puppy imports and merge-as-new transfers do not replace the destination
 installation's breeder logo. Partial exports do not contain branding files.
 Keep full backups private: they also contain owner/contact information.
@@ -35,8 +35,11 @@ is stored; back up the actual `www` file separately with Home Assistant.
 
 ## Scope
 
-The storage, IDs, metadata validation, authenticated serving and full-backup
-foundation can be reused for future linked files. This first phase exposes
-**only breeder logos**. Uploading pup photos or dossier PDFs, a general file
-library, and attachment inclusion in puppy reports are not yet available.
-Those additions need their own linking, authorization and deletion rules.
+The same private storage also retains generated contract PDFs and their JSON
+template/data snapshots. Only admins can download or remove those documents
+through the document API; they are never exposed through the logo URL. Full v7
+backups carry the complete archive. See [Document templates](DOCUMENT_TEMPLATES.md).
+
+Uploading pup photos or arbitrary dossier PDFs, a general file library, and
+attachment inclusion in puppy dossier reports are not yet available. Those
+additions need their own linking, authorization and deletion rules.

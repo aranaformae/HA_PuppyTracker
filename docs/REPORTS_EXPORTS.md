@@ -9,6 +9,12 @@ JSON backup. The separate Owners card exports contact, placement and puppy
 preference data as a mail-merge CSV. PDF and CSV are presentation exports; JSON
 deliberately keeps the complete stored history so it can be restored later.
 
+The collapsible **Documents and contracts** section creates per-puppy contracts
+from editable templates, including linked buyers, parent identities and payment
+details. Its selection and archive are independent of the dossier report's
+period/profile/section switches. See [Document templates](DOCUMENT_TEMPLATES.md)
+for setup, the required-field check and immutable PDF snapshots.
+
 ```yaml
 type: custom:puppy-tracker-report-card
 title: Reports
@@ -128,7 +134,7 @@ Preview and report downloads use authenticated routes with short-lived signed
 URLs. The integration's metadata database contains references, not image bytes.
 
 Breeder information and the uploaded image are included in complete JSON
-and full backup-to-file exports (backup format v6). Full replace restores both
+and full backup-to-file exports (backup format v7). Full replace restores both
 metadata and the image, even on another installation; merge-as-new and
 partial pup/litter imports keep the existing central identity. Older full
 backups without breeder fields restore empty identity fields and the default
