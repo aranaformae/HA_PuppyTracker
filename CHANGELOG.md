@@ -10,6 +10,13 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+### Fixed
+
+- CI and releases share a browser-test job using matching preinstalled
+  Playwright browsers and system dependencies. This avoids slow package-mirror
+  downloads timing out and leaving an `apt-get` lock that blocks installation
+  retries. Frontend dependencies now install from the exact npm lockfile.
+
 ## [0.32.3] - 2026-10-25
 
 ### Added

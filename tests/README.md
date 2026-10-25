@@ -135,6 +135,15 @@ The runner prefers the repository's `.venv` interpreter even without shell
 activation; install dependencies there rather than in the system Python.
 Hassfest and HACS validation run separately in GitHub Actions. CI runs browser
 tests with one worker, compared with two locally, so timings can differ.
+CI and release validation share `.github/workflows/browser-tests.yml`. That job
+uses the official Playwright Ubuntu Noble container with browsers and system
+dependencies already installed, rather than retrying `apt` inside the job.
+It installs npm dependencies from the lockfile and verifies that the Playwright
+package version matches the image and that Chromium/WebKit are executable.
+When updating Playwright, update `package.json`, `package-lock.json` and the
+shared workflow's `playwright_version` default together. Python is installed
+separately for the local fixture server. Failed browser runs retain their HTML
+report in both CI and release validation.
 `scripts/serve-test-fixtures.py` binds only to localhost and provides a larger
 connection queue for concurrent module loads. A reset test-server connection
 must not be mistaken for an unregistered production card.
