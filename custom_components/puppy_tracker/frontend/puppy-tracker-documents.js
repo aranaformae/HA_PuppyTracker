@@ -16,11 +16,11 @@ const COPY = {
     nameRequired: "Vul een sjabloonnaam in (maximaal 150 tekens).", blockLimit: "Een sjabloon heeft 1 tot 200 onderdelen nodig.", templateTooLarge: "Het sjabloon is groter dan 150 kB. Kort de tekst in of splits het document.", emptyDataBlock: "Voeg minstens één gegevensveld toe.", invalid_document_text: "Gebruik maximaal 12.000 tekens per onderdeel, zonder ongeldige besturingstekens.",
     previewTemplate: "Voorbeeld bekijken", downloadDraft: "Concept downloaden", previewTemplateHint: "Het voorbeeld gebruikt veldnamen als voorbeeldwaarden en slaat niets op. Controleer later ook de PDF met de werkelijke gegevens.", previewTemplateDone: "Voorbeeld geladen. Het sjabloon is niet opgeslagen.",
     inlinePreview: "Documentvoorbeeld", previewLoading: "PDF-voorbeeld laden…", previewFailed: "Het PDF-voorbeeld kan hier niet worden getoond. Je kunt het bestand nog wel downloaden.", previewClose: "Sluiten", previousPage: "Vorige", nextPage: "Volgende", zoomOut: "Verkleinen", zoomIn: "Vergroten", downloadPreview: "PDF downloaden",
-    group_fokker: "Fokker", group_koper: "Koper(s)", group_nest: "Nest", group_pup: "Pup", group_vader: "Vader", group_moeder: "Moeder", group_betaling: "Betalingen", group_overdracht: "Overdracht", group_contract: "Ondertekening",
+    group_fokker: "Fokker", group_koper: "Koper(s)", group_nest: "Nest", group_pup: "Pup", group_vader: "Vader", group_moeder: "Moeder", group_betaling: "Betalingen", group_ontvangst: "Ontvangst", group_plaatsing: "Plaatsing", group_overdracht: "Overdracht", group_contract: "Ondertekening",
     working: "Bezig…",
     deleteTemplate: "Sjabloon verwijderen", deleteTemplateConfirm: "Dit sjabloon verwijderen? Opgeslagen documenten blijven behouden.", templateDeleted: "Sjabloon verwijderd.",
     title: "Document uit sjabloon", loading: "Documenten laden…", refresh: "Vernieuwen", template: "Sjabloon", litter: "Nest", puppy: "Pup", choose: "Maak een keuze",
-    buyer: "Hoofdkoper (betalingsgegevens)", others: "Overige kopers", buyerHint: "Alleen gekoppelde baasjes zijn beschikbaar. Bedragen en ophaaldatum komen uit het nestdossier van de hoofdkoper.",
+    buyer: "Hoofdkoper (betalingsgegevens)", others: "Overige kopers", buyerHint: "Alleen gekoppelde baasjes zijn beschikbaar. Bedragen en ophaaldatum komen uit het nestdossier van de hoofdkoper.", receipt: "Geregistreerde ontvangst", noReceipts: "Registreer eerst een betaling bij dit baasje en nest in de baasjeskaart.", choose_payment_receipt: "Kies eerst een geregistreerde ontvangst.", payment_receipt_missing: "Deze ontvangst is ingetrokken of hoort niet bij de geselecteerde hoofdkoper en het nest. Vernieuw de gegevens.",
     date: "Documentdatum", place: "Plaats ondertekening", preview: "Controleren en PDF-voorbeeld", saveDocument: "Document opslaan en downloaden", ready: "Alle gebruikte verplichte velden zijn ingevuld. Controleer het PDF-voorbeeld voordat je opslaat.", missing: "Nog invullen", edit: "Sjabloon aanpassen", copy: "Kopie maken en aanpassen", create: "Nieuw sjabloon", import: "Sjabloon importeren", export: "Sjabloon downloaden",
     archive: "Opgeslagen documenten", emptyArchive: "Nog geen documenten opgeslagen.", download: "Downloaden", remove: "Verwijderen", removeConfirm: "Dit opgeslagen document definitief verwijderen?",
     name: "Sjabloonnaam", language: "Documenttaal", logo: "Logo bovenaan", initials: "Paraafruimte per pagina", saveTemplate: "Sjabloon opslaan", cancel: "Annuleren", discard: "Dit concept verwerpen en de lokale kopie verwijderen?",
@@ -40,11 +40,11 @@ const COPY = {
     nameRequired: "Enter a template name (up to 150 characters).", blockLimit: "A template needs 1 to 200 blocks.", templateTooLarge: "The template exceeds 150 kB. Shorten the text or split the document.", emptyDataBlock: "Add at least one data field.", invalid_document_text: "Use up to 12,000 characters per block without invalid control characters.",
     previewTemplate: "View preview", downloadDraft: "Download draft", previewTemplateHint: "The preview uses field names as sample values and saves nothing. Also check the PDF with actual data later.", previewTemplateDone: "Preview loaded. The template has not been saved.",
     inlinePreview: "Document preview", previewLoading: "Loading PDF preview…", previewFailed: "The PDF preview cannot be displayed here. You can still download the file.", previewClose: "Close", previousPage: "Previous", nextPage: "Next", zoomOut: "Zoom out", zoomIn: "Zoom in", downloadPreview: "Download PDF",
-    group_fokker: "Breeder", group_koper: "Buyer(s)", group_nest: "Litter", group_pup: "Puppy", group_vader: "Father", group_moeder: "Mother", group_betaling: "Payments", group_overdracht: "Handover", group_contract: "Signing",
+    group_fokker: "Breeder", group_koper: "Buyer(s)", group_nest: "Litter", group_pup: "Puppy", group_vader: "Father", group_moeder: "Mother", group_betaling: "Payments", group_ontvangst: "Receipt", group_plaatsing: "Placement", group_overdracht: "Handover", group_contract: "Signing",
     working: "Working…",
     deleteTemplate: "Delete template", deleteTemplateConfirm: "Delete this template? Saved documents will be kept.", templateDeleted: "Template deleted.",
     title: "Document from template", loading: "Loading documents…", refresh: "Refresh", template: "Template", litter: "Litter", puppy: "Puppy", choose: "Choose an option",
-    buyer: "Primary buyer (payment details)", others: "Additional buyers", buyerHint: "Only linked contacts are available. Amounts and pickup date come from the primary buyer's litter dossier.",
+    buyer: "Primary buyer (payment details)", others: "Additional buyers", buyerHint: "Only linked contacts are available. Amounts and pickup date come from the primary buyer's litter dossier.", receipt: "Recorded payment", noReceipts: "First record a payment for this buyer and litter in the Owners card.", choose_payment_receipt: "First select a recorded payment.", payment_receipt_missing: "This payment was voided or does not belong to the selected primary buyer and litter. Refresh the data.",
     date: "Document date", place: "Signing location", preview: "Check and download PDF preview", saveDocument: "Save and download document", ready: "All required fields used in the template are filled. Review the PDF preview before saving.", missing: "Still missing", edit: "Edit template", copy: "Copy and edit", create: "New template", import: "Import template", export: "Download template",
     archive: "Saved documents", emptyArchive: "No saved documents yet.", download: "Download", remove: "Delete", removeConfirm: "Permanently delete this saved document?",
     name: "Template name", language: "Document language", logo: "Header logo", initials: "Initials on every page", saveTemplate: "Save template", cancel: "Cancel", discard: "Discard this draft and remove its local copy?",
@@ -61,7 +61,7 @@ class PuppyTrackerDocuments extends HTMLElement {
   constructor() {
     super(); this.attachShadow({ mode: "open" });
     this._epoch = 0; this._model = null; this._busy = false; this._error = ""; this._status = "";
-    this._template = ""; this._litter = ""; this._puppy = ""; this._buyer = ""; this._others = [];
+    this._template = ""; this._litter = ""; this._puppy = ""; this._buyer = ""; this._others = []; this._payment = "";
     this._details = { date: "", place: "" }; this._preview = null; this._requestId = null; this._editor = null; this._templateEditor = null; this._dirty = false;
     this._draftStore = null; this._draftState = ""; this._draftChecked = false;
     this._inlinePreview = new DocumentPdfPreview(key => this.t(key), () => this._closeInlinePreview());
@@ -83,7 +83,7 @@ class PuppyTrackerDocuments extends HTMLElement {
     this._principal = principal; this._hass = value;
     if (changed || value?.user?.is_admin === false) {
       this._epoch++; this._model = null; this._editor = null; this._templateEditor = null; this._dirty = false; this._preview = null; this._busy = false;
-      this._buyer = ""; this._others = []; this._requestId = null; this._details = { date: "", place: "" }; this._error = ""; this._status = "";
+      this._buyer = ""; this._others = []; this._payment = ""; this._requestId = null; this._details = { date: "", place: "" }; this._error = ""; this._status = "";
       this._render();
     } else if (reconnected) { this._epoch++; this._busy = false; this._preview = null; this._render(); }
     if (this.isConnected && !this._model && !this._busy && value?.user?.is_admin !== false) this._load();
@@ -182,13 +182,19 @@ class PuppyTrackerDocuments extends HTMLElement {
     const ids = puppies.find(p => p.id === this._puppy)?.owner_ids || [];
     if (!ids.includes(this._buyer)) this._buyer = "";
     this._others = this._others.filter(id => ids.includes(id) && id !== this._buyer);
+    if (!this._payments().some(p => p.id === this._payment)) this._payment = "";
   }
+  _needsPayment() {
+    const template = this._model?.templates.find(t => t.id === this._template)?.template;
+    return Boolean(template?.blocks.some(block => (block.fields || []).some(key => key.startsWith("ontvangst.")) || /{{\s*ontvangst\.[a-z_]+\s*}}/.test(block.text || "")));
+  }
+  _payments() { return this._model?.owners.find(o => o.id === this._buyer)?.payments?.[this._litter] || []; }
   _invalidate() {
     this._preview = null; this._requestId = null;
     const save = this.shadowRoot.querySelector("#save-document"); if (save) save.disabled = true;
     const checks = this.shadowRoot.querySelector("#document-checks"); if (checks) checks.replaceChildren();
   }
-  _selection() { return { template_id: this._template, litter_id: this._litter, puppy_id: this._puppy, owner_ids: [this._buyer, ...this._others].filter(Boolean), details: { ...this._details } }; }
+  _selection() { return { template_id: this._template, litter_id: this._litter, puppy_id: this._puppy, owner_ids: [this._buyer, ...this._others].filter(Boolean), details: { ...this._details }, ...(this._needsPayment() ? { payment_id: this._payment } : {}) }; }
   _check() {
     const selection = this._selection();
     this._run(async (hass, current) => {
@@ -311,6 +317,9 @@ class PuppyTrackerDocuments extends HTMLElement {
     const puppies = model?.litters.find(l => l.id === this._litter)?.puppies || [];
     const linked = puppies.find(p => p.id === this._puppy)?.owner_ids || [];
     const owners = (model?.owners || []).filter(o => linked.includes(o.id));
+    const needsPayment = this._needsPayment();
+    const payments = this._payments();
+    const paymentKinds = this.language === "nl" ? { registration_fee: "Inschrijfgeld", deposit: "Aanbetaling", final: "Slotbetaling", other: "Overig" } : { registration_fee: "Registration fee", deposit: "Deposit", final: "Final payment", other: "Other" };
     const checks = this._preview ? (this._preview.missing.length ? `<strong>${esc(this.t("missing"))}</strong><ul>${this._preview.missing.map(key => `<li>${esc(this._fieldLabel(key))}</li>`).join("")}</ul>` : esc(this.t("ready"))) : "";
     this.shadowRoot.innerHTML = `<style>
       :host{display:block;color:var(--primary-text-color,#212121)}fieldset{border:0;padding:0;margin:0;min-width:0}label{display:grid;gap:5px;font-size:.85rem}input:not([type=checkbox]),select,textarea{box-sizing:border-box;width:100%;min-width:0;border:1px solid var(--divider-color,#d5d9df);border-radius:6px;padding:9px;background:var(--card-background-color,#fff);color:var(--primary-text-color,#212121);font:inherit}textarea{resize:vertical}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px}.actions,.flags{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.flags label,.field-list label,label:has(input[type=checkbox]){display:flex;align-items:center;gap:6px}.actions select{width:auto;max-width:100%}button{min-height:42px;padding:8px 12px;border:1px solid var(--divider-color,#d5d9df);border-radius:7px;background:var(--secondary-background-color,#f5f7fa);color:var(--primary-text-color,#212121);font:inherit;cursor:pointer}.primary{background:var(--primary-color,#03a9f4);color:var(--text-primary-color,#fff)}button:disabled{opacity:.5;cursor:default}p{font-size:.85rem;color:var(--secondary-text-color,#666);line-height:1.5}summary{cursor:pointer;padding:12px 0;font-weight:600;overflow-wrap:anywhere}.blocks,.archive,.field-list{max-height:500px;overflow-y:auto;overflow-anchor:none}.block{border-top:1px solid var(--divider-color,#d5d9df);padding:0 4px 8px}.block label{margin:8px 0}.field-list{display:grid;gap:10px}.archive article{padding:10px 0;border-bottom:1px solid var(--divider-color,#d5d9df);overflow-wrap:anywhere}.archive small{display:block;color:var(--secondary-text-color,#666)}.error{color:var(--error-color,#b00020)}#document-status,#document-error{min-height:1.4em;font-size:.85rem;overflow-wrap:anywhere}h3{font-size:1rem}#draft-status{font-size:.85rem;line-height:1.4;min-height:4.2em;overflow-wrap:anywhere}#draft-status:empty{display:none}.selected-fields{padding-left:22px}.selected-fields li{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:5px 0}.selected-fields li span{overflow-wrap:anywhere;min-width:0}.selected-fields .actions{flex-wrap:nowrap;margin:0;gap:4px}.selected-fields button{min-width:42px}.block-error:empty,#template-errors:empty{display:none}#template-errors{display:grid}#template-errors button{text-align:left}.editor .blocks{margin-top:12px}#template-editor [hidden]{display:none}.watermark-settings small{color:var(--secondary-text-color,#666);font-weight:normal}
@@ -320,13 +329,15 @@ class PuppyTrackerDocuments extends HTMLElement {
       <div class="grid"><label>${esc(this.t("template"))}<select id="document-template">${this._templateOptions()}</select></label></div>
       <div class="actions"><button type="button" id="edit-template" ${!selected ? "disabled" : ""}>${esc(this.t(selected?.builtin ? "copy" : "edit"))}</button><button type="button" id="new-template">${esc(this.t("create"))}</button><button type="button" id="export-template" ${!selected ? "disabled" : ""}>${esc(this.t("export"))}</button><button type="button" id="import-template">${esc(this.t("import"))}</button><input id="template-file" type="file" accept=".json,application/json" hidden><button type="button" id="refresh-documents">${esc(this.t("refresh"))}</button></div>
       <div class="grid"><label>${esc(this.t("litter"))}<select id="document-litter">${this._options(model.litters.map(l => [l.id, l.name]), this._litter)}</select></label><label>${esc(this.t("puppy"))}<select id="document-puppy">${this._options(puppies.map(p => [p.id, puppySelectorLabel(p)]), this._puppy)}</select></label><label>${esc(this.t("buyer"))}<select id="document-buyer">${this._options(owners.map(o => [o.id, o.name]), this._buyer)}</select></label><label>${esc(this.t("others"))}<select multiple id="document-others" size="2">${owners.filter(o => o.id !== this._buyer).map(o => `<option value="${esc(o.id)}" ${this._others.includes(o.id) ? "selected" : ""}>${esc(o.name)}</option>`).join("")}</select></label><label>${esc(this.t("date"))}<input type="date" id="document-date" value="${esc(this._details.date)}"></label><label>${esc(this.t("place"))}<input id="document-place" maxlength="200" value="${esc(this._details.place)}"></label></div>
-      <p>${esc(this.t(owners.length ? "buyerHint" : "noBuyers"))}</p><div class="actions"><button type="button" id="preview-document" ${!this._buyer || !this._template ? "disabled" : ""}>${esc(this.t("preview"))}</button><button type="button" id="save-document" class="primary" ${!this._preview || this._preview.missing.length ? "disabled" : ""}>${esc(this.t("saveDocument"))}</button></div><div id="document-checks" role="status">${checks}</div>
+      ${needsPayment ? `<label>${esc(this.t("receipt"))}<select id="document-payment"><option value="">${esc(this.t("choose"))}</option>${payments.map(p => `<option value="${esc(p.id)}" ${p.id === this._payment ? "selected" : ""}>${esc(`${p.date} · € ${p.amount} · ${paymentKinds[p.kind] || p.kind}${p.reference ? ` · ${p.reference}` : ""}`)}</option>`).join("")}</select></label>${payments.length ? "" : `<p>${esc(this.t("noReceipts"))}</p>`}` : ""}
+      <p>${esc(this.t(owners.length ? "buyerHint" : "noBuyers"))}</p><div class="actions"><button type="button" id="preview-document" ${!this._buyer || !this._template || (needsPayment && !this._payment) ? "disabled" : ""}>${esc(this.t("preview"))}</button><button type="button" id="save-document" class="primary" ${!this._preview || this._preview.missing.length ? "disabled" : ""}>${esc(this.t("saveDocument"))}</button></div><div id="document-checks" role="status">${checks}</div>
       <h3>${esc(this.t("archive"))}</h3><div class="archive">${model.documents.map(d => `<article><strong>${esc(d.name)} · ${esc(d.puppy_name)}</strong><small>${esc(new Date(d.created_at).toLocaleString(this.language))}</small><div class="actions"><button type="button" data-download="${esc(d.id)}">${esc(this.t("download"))}</button><button type="button" data-delete="${esc(d.id)}">${esc(this.t("remove"))}</button></div></article>`).join("") || `<p>${esc(this.t("emptyArchive"))}</p>`}</div>`}</fieldset><div id="draft-status" role="status"></div><div id="document-status" role="status">${esc(this._status)}</div><div id="document-error" class="error" role="alert">${esc(this._error)}</div>`;
     const on = (selector, event, fn) => this.shadowRoot.querySelector(selector)?.addEventListener(event, fn);
     on("#refresh-documents", "click", () => this._load());
-    on("#document-template", "change", e => { this._template = e.target.value; this._invalidate(); this._render(); });
+    on("#document-template", "change", e => { this._template = e.target.value; this._payment = ""; this._invalidate(); this._render(); });
     for (const [id, key] of [["litter", "_litter"], ["puppy", "_puppy"], ["buyer", "_buyer"]]) on(`#document-${id}`, "change", e => { this[key] = e.target.value; this._syncSelection(); this._invalidate(); this._render(); });
     on("#document-others", "change", e => { this._others = [...e.target.selectedOptions].map(o => o.value); this._invalidate(); });
+    on("#document-payment", "change", e => { this._payment = e.target.value; this._invalidate(); this._render(); });
     for (const key of ["date", "place"]) on(`#document-${key}`, "input", e => { this._details[key] = e.target.value; this._invalidate(); });
     on("#preview-document", "click", () => this._check()); on("#save-document", "click", () => this._saveDocument());
     on("#edit-template", "click", () => this._edit(selected.template, selected.builtin ? null : selected.id, selected.builtin ? null : selected.revision, null, selected.builtin ? "simple" : "advanced"));

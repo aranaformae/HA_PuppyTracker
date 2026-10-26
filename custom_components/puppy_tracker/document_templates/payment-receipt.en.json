@@ -6,15 +6,52 @@
   "logo": true,
   "watermark": false,
   "initials": false,
-  "optional_fields": [],
+  "optional_fields": [
+    "ontvangst.referentie",
+    "ontvangst.notitie"
+  ],
   "blocks": [
-    {"type": "heading", "text": "Parties"},
-    {"type": "data", "text": "", "fields": ["fokker.naam", "koper.naam", "pup.naam", "contract.datum"]},
-    {"type": "heading", "text": "Payment received — complete by hand"},
-    {"type": "text", "text": "Amount actually received: € ____________________\nDate received: ____________________\nPayment method: ____________________\nDescription or payment reference: ____________________"},
-    {"type": "text", "text": "Enter the amount actually received and the date of receipt. Agreed instalments and the outstanding balance do not prove this payment."},
-    {"type": "heading", "text": "Confirmation"},
-    {"type": "text", "text": "Recipient's name: ____________________\nRecipient's signature: ____________________\nDate signed: ____________________"},
-    {"type": "text", "text": "This form becomes a receipt only after the amount received, date received and recipient's signature have been completed."}
+    {
+      "type": "heading",
+      "text": "Parties"
+    },
+    {
+      "type": "data",
+      "text": "",
+      "fields": [
+        "fokker.naam",
+        "koper.naam",
+        "pup.naam",
+        "contract.datum"
+      ]
+    },
+    {
+      "type": "heading",
+      "text": "Recorded payment"
+    },
+    {
+      "type": "data",
+      "text": "",
+      "fields": [
+        "ontvangst.bedrag",
+        "ontvangst.datum",
+        "ontvangst.soort",
+        "ontvangst.betaalwijze",
+        "ontvangst.referentie",
+        "ontvangst.notitie"
+      ]
+    },
+    {
+      "type": "text",
+      "text": "These details come from one selected, active receipt in the primary buyer’s litter record. Verify the payment before signing. Generating this PDF does not record a new payment."
+    },
+    {
+      "type": "heading",
+      "text": "Confirmation"
+    },
+    {
+      "type": "text",
+      "text": "Recipient's name: ____________________\nRecipient's signature: ____________________\nDate signed: ____________________"
+    }
   ]
 }

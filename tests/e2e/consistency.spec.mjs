@@ -175,9 +175,9 @@ for (const language of ["nl", "en"]) {
     await card.locator("#owners-view").click();
     await card.locator('[data-toggle-owner="o1"]').click();
     const group = (key) => card.locator(`[data-group-owner="o1"][data-owner-group="${key}"]`);
-    await expect(card.locator(".owner-detail-group")).toHaveCount(7);
+    await expect(card.locator(".owner-detail-group")).toHaveCount(8);
     for (const key of ["contact", "placement", "notes"]) await expect(group(key)).toHaveAttribute("open", "");
-    for (const key of ["address", "preferences", "financial", "history"]) await expect(group(key)).not.toHaveAttribute("open");
+    for (const key of ["address", "preferences", "financial", "payments", "history"]) await expect(group(key)).not.toHaveAttribute("open");
     await expect(group("address").locator("summary")).toHaveText(language === "nl" ? "Adresgegevens" : "Address details");
     await expect(group("financial").locator("summary")).toHaveText(language === "nl" ? "Financieel" : "Financial");
     await expect(group("contact")).toContainText("jansen@example.com");

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from functools import lru_cache
 from hashlib import sha256
@@ -48,10 +48,16 @@ FIELDS = {
     "koper.telefoon": ("Telefoon koper(s)", "Buyer phone"),
     "koper.email": ("E-mail koper(s)", "Buyer email"),
     "nest.naam": ("Nest", "Litter"),
+    "nest.geboortedatum": ("Geboortedatum nest", "Litter birth date"),
     "pup.nestnaam": ("Nestnaam pup", "Registered puppy name"),
     "pup.naam": ("Roepnaam pup", "Puppy call name"),
     "pup.bandkleur": ("Bandkleur", "Collar colour"),
     "pup.geboortedatum": ("Geboortedatum pup", "Puppy birth date"),
+    "pup.geboortetijd": ("Geboortetijd pup", "Puppy birth time"),
+    "pup.geboortegewicht": ("Geboortegewicht pup", "Puppy birth weight"),
+    "pup.huidig_gewicht": ("Laatst gemeten gewicht", "Last measured weight"),
+    "pup.gewicht_gemeten_op": ("Gewogen op", "Weighed on"),
+    "pup.profielnotitie": ("Profielnotitie pup", "Puppy profile note"),
     "pup.geslacht": ("Geslacht", "Sex"),
     "pup.vachtkleur": ("Vachtkleur", "Coat colour"),
     "pup.chipnummer": ("Chipnummer pup", "Puppy microchip"),
@@ -63,6 +69,14 @@ FIELDS = {
     "betaling.slotbetaling": ("Slotbetaling", "Final instalment"),
     "betaling.datum_slotbetaling": ("Datum slotbetaling", "Final payment date"),
     "betaling.openstaand": ("Werkelijk openstaand", "Actual outstanding balance"),
+    "ontvangst.bedrag": ("Ontvangen bedrag", "Amount received"),
+    "ontvangst.datum": ("Datum ontvangst", "Date received"),
+    "ontvangst.soort": ("Soort betaling", "Payment type"),
+    "ontvangst.betaalwijze": ("Betaalwijze ontvangst", "Receipt method"),
+    "ontvangst.referentie": ("Betalingsreferentie", "Payment reference"),
+    "ontvangst.notitie": ("Betalingsnotitie", "Payment note"),
+    "plaatsing.status": ("Plaatsingsstatus", "Placement status"),
+    "plaatsing.datum": ("Werkelijke plaatsingsdatum", "Actual placement date"),
     "overdracht.datum": ("Verwachte ophaaldatum", "Expected pickup date"),
     "contract.datum": ("Documentdatum", "Document date"),
     "contract.plaats": ("Plaats ondertekening", "Signing location"),
@@ -196,13 +210,15 @@ def validate_snapshot(snapshot: Any) -> None:
     if fingerprint(snapshot["template"]) != snapshot["template_revision"]:
         raise ValueError("invalid_document")
     values = snapshot["values"]
-    if not isinstance(values, dict) or set(values) != set(FIELDS):
+    # Archived snapshots predate additions to the field registry. Their saved
+    # PDF and known values stay valid without inventing values for new fields.
+    if not isinstance(values, dict) or not values or not set(values) <= set(FIELDS):
         raise ValueError("invalid_document")
-    for value in values.values():
-        _text(value, 4000)
+    for key, value in values.items():
+        _text(value, 12000 if key == "pup.profielnotitie" else 4000)
 
 
-def document_context(storage, owners, litter_id: str, puppy_id: str, owner_ids: list[str], details: dict, language: str) -> dict[str, str]:
+def document_context(storage, owners, litter_id: str, puppy_id: str, owner_ids: list[str], details: dict, language: str, payment_id: str | None = None, *, include_profile_note: bool = False) -> dict[str, str]:
     litter = storage.get_litter(litter_id)
     puppy = (litter or {}).get("puppies", {}).get(puppy_id)
     if not puppy or not owner_ids or len(owner_ids) > 4 or len(set(owner_ids)) != len(owner_ids):
@@ -225,7 +241,24 @@ def document_context(storage, owners, litter_id: str, puppy_id: str, owner_ids: 
         return date.fromisoformat(str(value)[:10]).strftime("%d-%m-%Y" if language == "nl" else "%Y-%m-%d")
     for nl, en in {"nestnaam": "registered_name", "naam": "name", "bandkleur": "collar_color", "vachtkleur": "coat_color", "chipnummer": "chip_number", "soort": "breed"}.items():
         values[f"pup.{nl}"] = puppy.get(en) or ""
+    values["nest.geboortedatum"] = formatted_date(litter.get("birth_date"))
     values["pup.geboortedatum"] = formatted_date(puppy.get("birth_time") or litter.get("birth_date"))
+    birth_time = puppy.get("birth_time")
+    values["pup.geboortetijd"] = datetime.fromisoformat(birth_time).strftime("%H:%M") if birth_time else ""
+    def grams(value):
+        if value is None or value == "":
+            return ""
+        weight = Decimal(str(value))
+        amount = f"{weight:,.0f}" if weight == weight.to_integral_value() else f"{weight:,.1f}"
+        return f"{amount.translate(str.maketrans(',.', '.,')) if language == 'nl' else amount} g"
+    values["pup.geboortegewicht"] = grams(puppy.get("birth_weight"))
+    measurements = storage.get_measurements(litter_id, puppy_id, include_inactive=False)
+    if measurements:
+        latest = measurements[0]
+        values["pup.huidig_gewicht"] = grams(latest.get("weight"))
+        stamp = latest.get("timestamp")
+        values["pup.gewicht_gemeten_op"] = f"{formatted_date(stamp)} {datetime.fromisoformat(stamp).strftime('%H:%M')}" if stamp else ""
+    values["pup.profielnotitie"] = (puppy.get("profile_note") or "") if include_profile_note else ""
     values["pup.geslacht"] = {"male": "Reu" if language == "nl" else "Male", "female": "Teef" if language == "nl" else "Female"}.get(puppy.get("sex"), "")
     for nl, en in (("vader", "father"), ("moeder", "mother")):
         parent = parent_details_for_litter(storage.get_data(), litter, en)
@@ -244,6 +277,30 @@ def document_context(storage, owners, litter_id: str, puppy_id: str, owner_ids: 
         values["betaling.slotbetaling"] = amount.translate(str.maketrans(",.", ".,")) if language == "nl" else amount
     for key, field in (("betaling.datum_aanbetaling", "deposit_date"), ("betaling.datum_slotbetaling", "payment_date"), ("overdracht.datum", "expected_pickup_date")):
         values[key] = formatted_date(primary.get(field))
+    values["plaatsing.datum"] = formatted_date(primary.get("placement_date"))
+    status = primary.get("placement_status")
+    values["plaatsing.status"] = {
+        "interested": ("Geïnteresseerd", "Interested"), "option": ("Optie", "Option"),
+        "reserved": ("Gereserveerd", "Reserved"), "sold": ("Verkocht", "Sold"),
+        "placed": ("Geplaatst", "Placed"),
+    }.get(status, ("", ""))[0 if language == "nl" else 1]
+    if payment_id is not None:
+        payment = next((event for event in primary.get("payment_events", []) if event["id"] == payment_id and not event["voided_at"]), None)
+        if payment is None:
+            raise ValueError("payment_receipt_missing")
+        amount = f"€ {Decimal(payment['amount']):,.2f}"
+        values["ontvangst.bedrag"] = amount.translate(str.maketrans(",.", ".,")) if language == "nl" else amount
+        values["ontvangst.datum"] = formatted_date(payment["date"])
+        values["ontvangst.soort"] = {
+            "registration_fee": ("Inschrijfgeld", "Registration fee"), "deposit": ("Aanbetaling", "Deposit"),
+            "final": ("Slotbetaling", "Final payment"), "other": ("Overig", "Other"),
+        }[payment["kind"]][0 if language == "nl" else 1]
+        values["ontvangst.betaalwijze"] = {
+            "none": ("Niet opgegeven", "Not specified"), "bank_transfer": ("Bankoverschrijving", "Bank transfer"),
+            "cash": ("Contant", "Cash"), "card": ("Pinpas", "Card"), "other": ("Overig", "Other"),
+        }[payment["method"]][0 if language == "nl" else 1]
+        values["ontvangst.referentie"] = payment["reference"]
+        values["ontvangst.notitie"] = payment["note"]
     if not isinstance(details, dict) or set(details) - {"date", "place"}:
         raise ValueError("invalid_document_details")
     values["contract.datum"] = formatted_date(details.get("date"))

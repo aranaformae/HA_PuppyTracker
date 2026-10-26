@@ -18,6 +18,8 @@ needed.
    explicitly select the **primary buyer**. Payment amounts and pickup date
    come from that buyer's dossier for the selected litter. Additional buyers
    must also be linked to the puppy; their contact details are included too.
+   For a payment receipt, select one active, recorded payment from that buyer's
+   litter dossier. Withdrawn payments are not offered.
 4. Fill the contract date and signing location. Choose **Check and download PDF
    preview**. The card lists missing required fields; the preview marks them.
 5. Complete missing source data, press **Refresh** and check again. Review the
@@ -37,11 +39,11 @@ Six neutral starter documents are included in **Dutch and English**:
 | Dutch | English | Purpose |
 | --- | --- | --- |
 | Overdrachtsbewijs | Puppy handover | Short handover record with puppy, buyer, date and signatures |
-| Pupgegevens | Puppy information | Puppy identity, breeder/owner contacts and a separate parent-information page |
+| Pupgegevens | Puppy information | Puppy identity, birth and latest valid weight with measurement date, breeder/owner contacts and a separate parent-information page |
 | Betalingsoverzicht | Payment overview | Agreed amounts, recorded payment dates and actual outstanding balance |
-| Betalingsbewijs | Payment receipt | Printable receipt with known parties and puppy filled in; actual amount, receipt date, payment method and signature are completed by hand |
+| Betalingsbewijs | Payment receipt | PDF for one selected, recorded payment with its amount, date, type, method and optional reference/note; space for recipient signature |
 | Reserveringsafspraken | Reservation notes | Contacts, puppy/planning, agreed instalments, space for additional arrangements and signatures |
-| Overdrachtschecklist | Handover checklist | A printable checklist and notes area for reviewing the handover together |
+| Overdrachtschecklist | Handover checklist | A printable checklist with expected pickup date, optional actual placement date and notes area |
 
 The selector groups standard documents by language and keeps your own templates
 separate. Its initial default follows the HA interface language; later explicit
@@ -56,16 +58,21 @@ yet microchipped or incomplete parent registration does not block those forms.
 The original short Dutch handover still requires the fields it previously used.
 
 Payment and reservation documents distinguish planned instalments from recorded
-receipts; they do not certify that the configured amounts were paid. The payment
-receipt likewise does **not** derive an individual payment from the agreed
-instalments or outstanding balance. Fill in the actual amount, date, method and
-recipient's signature on the printed form before using it as proof of receipt.
-Generating or archiving the blank form does not record a payment. The printed
-checklist starts unchecked and does not change dossier or care-program results.
-The Owners card can now record individual receipts per litter dossier, including
-partial payments and voided corrections. The printable payment receipt does not
-yet choose one of those entries automatically; its transaction details are
-still completed by hand.
+receipts; agreed amounts do not certify that they were paid. The payment receipt
+uses **one explicitly selected active payment** from the primary buyer's dossier
+for the selected litter, never the agreed price or balance. Review the payment
+and sign the receipt as needed. Generating the PDF does not record a new payment.
+If the selected payment is voided or changed after preview, saving requires a
+fresh check. The printed checklist starts unchecked and does not change dossier
+or care-program results.
+
+Additional fields in the template editor include actual placement date/status,
+litter birth date, puppy birth time and weight, latest active weight and its
+measurement date, and puppy profile note. The profile note is **not included in
+the standard puppy information template**; add it deliberately to a copy if the
+document should contain that personal note. The latest weight is the last valid
+measurement, not a live reading; include its date when using it. A receipt's
+amount/date/type/method/reference/note fields require selecting one payment.
 No private sales contract, legal clauses or personal breeder branding is bundled.
 Import your own contract template as JSON, or create a new one. The module fills
 and lays out your text; it does not assess its legal or veterinary contents.

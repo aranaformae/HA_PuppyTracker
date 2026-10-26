@@ -18,6 +18,7 @@ from .const import DOMAIN, SIGNAL_DASHBOARD_UPDATE
 from .document_templates import BUILTIN_TEMPLATE_IDS, FIELDS, IDENTIFIER, MAX_DOCUMENTS, MAX_TEMPLATES, built_in_templates, document_context, fingerprint, normalize_template, template_fields, template_uses_logo, validate_document_settings
 from .document_pdf import build_document_pdf
 from .dog_identity import puppy_selector_label
+from .owners import owner_for_litter
 from .managed_files import validate_manifest
 from .pdf_export import _report_logo
 from .runtime import get_runtime_data
@@ -45,7 +46,12 @@ async def _selection(hass, runtime, msg):
     if template is None:
         raise ValueError("template_missing")
     template = normalize_template(template)
-    values = document_context(runtime.storage, runtime.owners, msg["litter_id"], msg["puppy_id"], msg["owner_ids"], msg["details"], template["language"])
+    used_fields = template_fields(template)
+    needs_payment = any(key.startswith("ontvangst.") for key in used_fields)
+    payment_id = msg.get("payment_id") if needs_payment else None
+    if needs_payment and not payment_id:
+        raise ValueError("choose_payment_receipt")
+    values = document_context(runtime.storage, runtime.owners, msg["litter_id"], msg["puppy_id"], msg["owner_ids"], msg["details"], template["language"], payment_id, include_profile_note="pup.profielnotitie" in used_fields)
     snapshot = {"template": template, "template_revision": fingerprint(template), "values": values}
     breeder = runtime.storage.get_breeder()
     logo = None
@@ -56,8 +62,8 @@ async def _selection(hass, runtime, msg):
             # Local-path logos can be supplied by the authenticated frontend via
             # the same bounded JPEG validation used for ordinary PDF reports.
             logo = await hass.async_add_executor_job(_report_logo, msg.get("logo_base64"))
-    stamp = fingerprint({"snapshot": snapshot, "logo": sha256(logo or b"").hexdigest(), "logo_path": breeder.get("logo_url", ""), "litter_id": msg["litter_id"], "puppy_id": msg["puppy_id"], "owner_ids": msg["owner_ids"]})
-    missing = sorted(key for key in template_fields(template) if not values.get(key) and key not in template["optional_fields"])
+    stamp = fingerprint({"snapshot": snapshot, "logo": sha256(logo or b"").hexdigest(), "logo_path": breeder.get("logo_url", ""), "litter_id": msg["litter_id"], "puppy_id": msg["puppy_id"], "owner_ids": msg["owner_ids"], "payment_id": payment_id})
+    missing = sorted(key for key in used_fields if not values.get(key) and key not in template["optional_fields"])
     return snapshot, logo, stamp, missing
 
 
@@ -88,7 +94,11 @@ async def websocket_documents_list(hass, connection, msg):
         return {"fields": {key: {"nl": labels[0], "en": labels[1]} for key, labels in FIELDS.items()},
                 "templates": [{"id": key, "revision": fingerprint(value), "builtin": key in BUILTIN_TEMPLATE_IDS, "template": value} for key, value in templates.items()],
                 "litters": [{"id": key, "name": litter.get("name", ""), "puppies": [{"id": pid, "name": pup.get("name", ""), "collar_color": pup.get("collar_color", ""), "owner_ids": pup.get("owner_ids", [])} for pid, pup in litter.get("puppies", {}).items()]} for key, litter in runtime.storage.get_litters().items()],
-                "owners": [{"id": owner["id"], "name": owner["name"]} for owner in runtime.owners.get_all()],
+                "owners": [{"id": owner["id"], "name": owner["name"], "payments": {
+                    litter_id: [{"id": event["id"], "amount": event["amount"], "date": event["date"], "kind": event["kind"], "method": event["method"], "reference": event["reference"]}
+                                for event in owner_for_litter(owner, litter_id).get("payment_events", []) if not event["voided_at"]]
+                    for litter_id in runtime.storage.get_litters() if litter_id in owner.get("placements", {})}}
+                    for owner in runtime.owners.get_all()],
                 "documents": sorted((_public(d) for d in settings.get("documents", {}).values()), key=lambda d: d["created_at"], reverse=True)}
     await _handle(hass, connection, msg, operation)
 
@@ -165,6 +175,7 @@ async def websocket_template_preview(hass, connection, msg):
 
 SELECTION = {vol.Required("template_id"): str, vol.Required("litter_id"): str, vol.Required("puppy_id"): str,
              vol.Required("owner_ids"): vol.All([str], vol.Length(min=1, max=4)), vol.Required("details"): dict,
+             vol.Optional("payment_id"): str,
              vol.Optional("logo_base64"): vol.All(str, vol.Length(max=700000))}
 
 

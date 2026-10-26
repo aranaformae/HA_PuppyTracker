@@ -8,6 +8,7 @@
   "initials": false,
   "optional_fields": [
     "overdracht.datum",
+    "plaatsing.datum",
     "pup.chipnummer"
   ],
   "blocks": [
@@ -24,6 +25,7 @@
         "koper.naam",
         "fokker.naam",
         "overdracht.datum",
+        "plaatsing.datum",
         "contract.datum"
       ]
     },

@@ -13,8 +13,8 @@ from custom_components.puppy_tracker import document_api
 from custom_components.puppy_tracker.backup import BackupValidationError, async_apply_import, build_export_document, parse_export_json, prepare_import
 from custom_components.puppy_tracker.const import DOMAIN
 from custom_components.puppy_tracker.document_pdf import BODY_BOTTOM, DocumentPdf, build_document_pdf
-from custom_components.puppy_tracker.document_templates import BUILTIN_TEMPLATE_ID, BUILTIN_TEMPLATE_IDS, FIELDS, built_in_template, built_in_templates, document_context, fingerprint, normalize_template, render_text, template_fields, validate_document_settings
-from custom_components.puppy_tracker.owners import OwnerStore
+from custom_components.puppy_tracker.document_templates import BUILTIN_TEMPLATE_ID, BUILTIN_TEMPLATE_IDS, FIELDS, built_in_template, built_in_templates, document_context, fingerprint, normalize_template, render_text, template_fields, validate_document_settings, validate_snapshot
+from custom_components.puppy_tracker.owners import OwnerStore, owner_revision
 from custom_components.puppy_tracker.runtime import PuppyTrackerRuntimeData
 
 
@@ -103,14 +103,73 @@ def test_standard_template_catalog_is_valid_paired_and_safe_to_copy():
     assert built_in_templates()[BUILTIN_TEMPLATE_ID]["name"] == "Overdrachtsbewijs"
 
 
-def test_payment_receipt_requires_manual_confirmation_of_actual_payment():
-    for language, labels in (("nl", ("Werkelijk ontvangen bedrag", "Datum ontvangst", "Handtekening ontvanger")),
-                             ("en", ("Amount actually received", "Date received", "Recipient's signature"))):
+def test_payment_receipt_uses_one_registered_payment():
+    for language, labels in (("nl", ("Geregistreerde ontvangst", "Handtekening ontvanger")),
+                             ("en", ("Recorded payment", "Recipient's signature"))):
         template = built_in_template(f"payment-receipt-{language}")
-        assert template_fields(template) == {"fokker.naam", "koper.naam", "pup.naam", "contract.datum"}
+        assert template_fields(template) == {"fokker.naam", "koper.naam", "pup.naam", "contract.datum",
+            "ontvangst.bedrag", "ontvangst.datum", "ontvangst.soort", "ontvangst.betaalwijze", "ontvangst.referentie", "ontvangst.notitie"}
         text = "\n".join(block["text"] for block in template["blocks"])
         assert all(label in text for label in labels)
         assert "betaling.totaal" not in text and "betaling.slotbetaling" not in text
+
+
+def test_prior_archived_snapshot_remains_valid_after_new_fields():
+    template = simple_template()
+    snapshot = {"template": template, "template_revision": fingerprint(template),
+                "values": {key: "" for key in FIELDS if not key.startswith(("ontvangst.", "plaatsing.")) and key != "pup.huidig_gewicht"}}
+    validate_snapshot(snapshot)
+    assert build_document_pdf(snapshot).startswith(b"%PDF-")
+
+
+async def test_receipt_selection_is_litter_bound_and_voiding_invalidates_preview(document_client, setup_documents, storage):
+    owners, selection = setup_documents
+    receipt = {**selection, "template_id": "payment-receipt-nl", "payment_id": "paid-1"}
+    missing = await request(document_client, "preview", **{k: v for k, v in receipt.items() if k != "payment_id"})
+    assert not missing["success"] and missing["error"]["message"] == "choose_payment_receipt"
+    unknown = await request(document_client, "preview", **receipt)
+    assert not unknown["success"] and unknown["error"]["message"] == "payment_receipt_missing"
+    owner_id = selection["owner_ids"][0]
+    owner = owners.get(owner_id)
+    owner = await owners.async_record_payment(owner_id, selection["litter_id"], expected_revision=owner_revision(owner),
+        request_id="paid-1", amount="125.50", paid_date="2026-10-26", kind="deposit", method="bank_transfer", reference="TRX-1")
+    model = await request(document_client, "list")
+    assert model["result"]["owners"][0]["payments"][selection["litter_id"]][0]["id"] == "paid-1"
+    assert "other" not in model["result"]["owners"][0]["payments"]
+    values = document_context(storage, owners, selection["litter_id"], selection["puppy_id"], selection["owner_ids"], {}, "nl", "paid-1")
+    assert values["ontvangst.bedrag"] == "€ 125,50"
+    assert values["ontvangst.datum"] == "26-10-2026"
+    assert values["ontvangst.betaalwijze"] == "Bankoverschrijving"
+    storage._data["settings"]["breeder"] = {"name": "Example breeder"}
+    preview = await request(document_client, "preview", **receipt)
+    assert preview["success"] and preview["result"]["missing"] == []
+    await owners.async_void_payment(owner_id, selection["litter_id"], "paid-1", expected_revision=owner_revision(owner), reason="Wrong entry")
+    rejected = await request(document_client, "save", **receipt, expected_fingerprint=preview["result"]["fingerprint"], request_id="receipt-1")
+    assert not rejected["success"] and rejected["error"]["message"] == "payment_receipt_missing"
+    assert not storage.get_settings().get("documents")
+
+
+async def test_puppy_profile_fields_use_latest_active_weight_and_selected_litter(setup_documents, storage):
+    owners, selection = setup_documents
+    puppy = storage._data["litters"][selection["litter_id"]]["puppies"][selection["puppy_id"]]
+    puppy["profile_note"] = "Rustig bij bezoek"
+    puppy["measurements"] = [
+        {"id": "old", "weight": 810, "timestamp": "2026-09-01T12:00:00+00:00", "active": True},
+        {"id": "void", "weight": 999, "timestamp": "2026-09-03T12:00:00+00:00", "deleted": True},
+        {"id": "new", "weight": 840, "timestamp": "2026-09-02T12:30:00+00:00", "active": True},
+    ]
+    owner = owners.get(selection["owner_ids"][0])
+    await owners.async_upsert({"litter_id": selection["litter_id"], "placement_status": "placed", "placement_date": "2026-10-25"}, owner["id"])
+    values = document_context(storage, owners, selection["litter_id"], selection["puppy_id"], selection["owner_ids"], {}, "nl", include_profile_note=True)
+    assert values["nest.geboortedatum"] == "28-08-2026"
+    assert values["pup.geboortetijd"] == "10:00"
+    assert values["pup.geboortegewicht"] == "400 g"
+    assert values["pup.huidig_gewicht"] == "840 g"
+    assert values["pup.gewicht_gemeten_op"] == "02-09-2026 12:30"
+    assert values["pup.profielnotitie"] == "Rustig bij bezoek"
+    assert document_context(storage, owners, selection["litter_id"], selection["puppy_id"], selection["owner_ids"], {}, "nl")["pup.profielnotitie"] == ""
+    assert values["plaatsing.status"] == "Geplaatst" and values["plaatsing.datum"] == "25-10-2026"
+    assert "pup.profielnotitie" not in template_fields(built_in_template("puppy-profile-nl"))
 
 
 async def test_all_builtin_templates_are_protected_but_can_be_copied(document_client, storage):

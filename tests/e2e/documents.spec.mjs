@@ -46,6 +46,30 @@ async function mountDocuments(page, language = "nl") {
   return { report, panel };
 }
 
+test("Payment receipt requires an active receipt and clears it when the buyer changes @cross-browser", async ({ page }) => {
+  const { panel } = await mountDocuments(page);
+  await page.evaluate(() => {
+    const model = window.__docs.model;
+    model.templates.push({ id: "payment-receipt-nl", builtin: true, revision: "receipt", template: {
+      format: "puppy_tracker_document_template", version: 1, name: "Betalingsbewijs", language: "nl", logo: false,
+      blocks: [{ type: "data", text: "", fields: ["ontvangst.bedrag"] }], optional_fields: [],
+    } });
+    model.owners[0].payments = { a: [{ id: "p1", date: "2026-10-26", amount: "125.50", kind: "deposit", reference: "TRX" }] };
+    model.owners[1].payments = { a: [{ id: "p2", date: "2026-10-25", amount: "20.00", kind: "other", reference: "" }] };
+  });
+  await panel.locator("#refresh-documents").click();
+  await panel.locator("#document-template").selectOption("payment-receipt-nl");
+  await panel.locator("#document-buyer").selectOption("o1");
+  await expect(panel.locator("#preview-document")).toBeDisabled();
+  await expect(panel.locator("#document-payment option")).toHaveCount(2);
+  await panel.locator("#document-payment").selectOption("p1");
+  await expect(panel.locator("#preview-document")).toBeEnabled();
+  await panel.locator("#document-buyer").selectOption("o2");
+  await expect(panel.locator("#document-payment")).toHaveValue("");
+  await expect(panel.locator("#document-payment option[value='p1']")).toHaveCount(0);
+  await expect(panel.locator("#preview-document")).toBeDisabled();
+});
+
 for (const language of ["nl", "en"]) {
   test(`Contract preview, missing fields, save and archive (${language}) @cross-browser @tablet`, async ({ page }) => {
     const { panel } = await mountDocuments(page, language);

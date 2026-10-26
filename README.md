@@ -30,7 +30,7 @@ longitudinal behavior observations, reports and backups.
 - Store owner/contact, placement and payment information, record an ordered top
   three puppy shortlist with notes, and link contacts to puppies later.
 - Create configurable PDF reports with central breeder details and export CSV or JSON data.
-- Create puppy information sheets, payment overviews, printable payment receipts,
+- Create puppy information sheets, payment overviews, receipts for individual recorded payments,
   reservation notes, handover records and checklists from Dutch/English [document templates](docs/DOCUMENT_TEMPLATES.md).
   Check missing details and retain generated PDFs in a private archive.
 - Make validated manual or automated JSON backups.
