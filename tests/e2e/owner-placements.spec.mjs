@@ -41,6 +41,25 @@ async function mount(page, language = "nl") {
         if (state.failNext) { state.failNext = false; throw new Error("Temporary save failure"); }
         return saveOwner(owners, message);
       }
+      if (message.type === "puppy_tracker/owners/payment/add" || message.type === "puppy_tracker/owners/payment/void") {
+        if (state.failNext) { state.failNext = false; throw new Error("Temporary save failure"); }
+        const owner = owners.find(item => item.id === message.owner_id);
+        const placement = owner.placements[message.litter_id];
+        placement.payment_events ||= [];
+        if (message.type.endsWith("/add")) {
+          if (!placement.payment_events.some(item => item.id === message.request_id)) placement.payment_events.push({
+            id: message.request_id, amount: message.amount, date: message.date, kind: message.kind,
+            method: message.method, reference: message.reference, note: message.note,
+            created_at: "2026-10-26T10:00:00+00:00", voided_at: null, void_reason: null,
+          });
+        } else {
+          const payment = placement.payment_events.find(item => item.id === message.payment_id);
+          payment.voided_at = "2026-10-26T11:00:00+00:00";
+          payment.void_reason = message.reason;
+        }
+        owner.revision = `revision-${state.calls.length}`;
+        return { owner: structuredClone(owner) };
+      }
       throw new Error(message.type);
     } };
   }, language);
@@ -48,6 +67,35 @@ async function mount(page, language = "nl") {
   await expect(card.locator("#owner-scope")).toHaveValue("l1");
   return card;
 }
+
+test("Payment receipts stay with the selected litter and can be voided without disappearing @cross-browser @tablet", async ({ page }) => {
+  const card = await mount(page);
+  await card.locator('[data-toggle-owner="o1"]').click();
+  await card.locator('[data-owner-group="payments"] > summary').click();
+  await card.locator('[data-add-payment="o1"]').click();
+  await card.locator('.payment-event-form [name="amount"]').fill("125,50");
+  await card.locator('.payment-event-form [name="kind"]').selectOption("deposit");
+  await card.locator('.payment-event-form [name="reference"]').fill("TRX-123");
+  await page.evaluate(() => { window.ownerPlacementFixture.failNext = true; });
+  await card.locator('.payment-event-form [type="submit"]').click();
+  await expect(card.locator('.payment-event-form [name="amount"]')).toHaveValue("125,50");
+  await expect(card.locator('.payment-event-form [name="reference"]')).toHaveValue("TRX-123");
+  await card.locator('.payment-event-form [type="submit"]').click();
+  await expect(card.locator('.payment-history li')).toContainText("TRX-123");
+  await expect(card.locator('.payment-history')).toContainText("125,50");
+  await card.locator("#owner-scope").selectOption("__all__");
+  await card.locator('[data-owner-dossier="o1"]').selectOption("l2");
+  await expect(card.locator('.payment-history li')).toHaveCount(0);
+  await card.locator('[data-owner-dossier="o1"]').selectOption("l1");
+  await expect(card.locator('.payment-history li')).toHaveCount(1);
+  page.once("dialog", dialog => dialog.accept("Duplicate transfer"));
+  await card.locator('[data-void-payment]').click();
+  await expect(card.locator('.payment-history li.voided')).toContainText("Duplicate transfer");
+  await expect(card.locator('.payment-history')).toContainText("0,00");
+  const stored = await page.evaluate(() => window.ownerPlacementFixture.owners.find(owner => owner.id === "o1"));
+  expect(stored.placements.l1.payment_balance).toBe("1000");
+  expect(stored.placements.l2.payment_events).toBeUndefined();
+});
 
 for (const language of ["nl", "en"]) {
   test(`owners filter litters, search without losing focus and reveal completed dossiers (${language}) @cross-browser @tablet`, async ({ page }) => {

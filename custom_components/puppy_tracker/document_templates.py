@@ -19,7 +19,7 @@ FORMAT = "puppy_tracker_document_template"
 VERSION = 1
 BUILTIN_TEMPLATE_ID = "handover-example-nl"
 _BUILTIN_FILES = {f"{kind}-{language}": f"{kind}.{language}.json"
-                  for kind in ("handover-example", "puppy-profile", "payment-overview", "reservation-notes", "handover-checklist")
+                  for kind in ("handover-example", "puppy-profile", "payment-overview", "payment-receipt", "reservation-notes", "handover-checklist")
                   for language in ("nl", "en")}
 BUILTIN_TEMPLATE_IDS = frozenset(_BUILTIN_FILES)
 MAX_TEMPLATES = 30

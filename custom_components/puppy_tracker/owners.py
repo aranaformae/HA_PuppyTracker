@@ -14,6 +14,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
 from .const import DOMAIN
+from .payment_events import MAX_PAYMENT_EVENTS, PAYMENT_METHODS, new_payment_event, normalize_payment_events
 from .storage_lock import CoordinatedLock, mutation_coordinator
 
 STORE_KEY = f"{DOMAIN}_owners"
@@ -32,7 +33,6 @@ OWNER_ROLES = ("owner", "co_owner", "breeder", "veterinarian", "contact")
 PLACEMENT_STATUSES = ("interested", "option", "reserved", "sold", "placed")
 PAYMENT_STATUSES = ("none", "registration_fee", "deposit", "full")
 CONTACT_PREFERENCES = ("none", "email", "phone", "whatsapp")
-PAYMENT_METHODS = ("none", "bank_transfer", "cash", "card", "other")
 MAX_PUPPY_PREFERENCES = 3
 PUPPY_PREFERENCE_NOTE_MAX_LENGTH = 240
 AMOUNT_FIELDS = (
@@ -49,7 +49,7 @@ DATE_FIELDS = (
 )
 PLACEMENT_FIELDS = (
     "placement_status", "payment_status", "payment_method", "puppy_preferences",
-    "status_history", "placement_notes", "archived", *AMOUNT_FIELDS, *DATE_FIELDS,
+    "status_history", "placement_notes", "archived", "payment_events", *AMOUNT_FIELDS, *DATE_FIELDS,
 )
 CONTACT_FIELDS = (*OWNER_FIELDS, "role", "contact_preference", "created_at", "updated_at")
 
@@ -216,6 +216,7 @@ def _normalize(data: dict[str, Any], *, owner_id: str | None = None, existing: d
     dates = {field: _optional_date(source, field) for field in DATE_FIELDS}
     amounts = {field: _optional_amount(source, field) for field in AMOUNT_FIELDS}
     puppy_preferences = _puppy_preferences(source)
+    payment_events = normalize_payment_events(source.get("payment_events"))
     total = Decimal(amounts["payment_amount"]) if amounts["payment_amount"] is not None else None
     paid_before_final = Decimal(amounts["registration_fee_amount"] or 0) + Decimal(amounts["deposit_amount"] or 0)
     if total is not None and paid_before_final > total:
@@ -240,6 +241,7 @@ def _normalize(data: dict[str, Any], *, owner_id: str | None = None, existing: d
         "payment_balance": amounts["payment_balance"],
         "contact_preference": contact_preference,
         "puppy_preferences": puppy_preferences,
+        "payment_events": payment_events,
         "status_history": normalized_history,
         "placement_notes": str(source.get("placement_notes") or "").strip() or None,
         "archived": bool(source.get("archived", False)),
@@ -345,6 +347,8 @@ class OwnerStore:
 
     async def async_upsert(self, data: dict[str, Any], owner_id: str | None = None) -> dict[str, Any]:
         async with self._lock:
+            if "payment_events" in data:
+                raise ValueError("Record payments through the payment action")
             existing = self._data["owners"].get(owner_id) if owner_id else None
             if owner_id and "expected_revision" in data:
                 if existing is None or data["expected_revision"] != owner_revision(existing):
@@ -376,6 +380,61 @@ class OwnerStore:
             await self._store.async_save(candidate)
             self._data = candidate
             return deepcopy(owner)
+
+    async def async_record_payment(self, owner_id: str, litter_id: str, *, expected_revision: str,
+                                   request_id: str, amount: Any, paid_date: str, kind: str,
+                                   method: str, reference: str = "", note: str = "") -> dict[str, Any]:
+        """Append one receipt under the owner lock; the request ID makes retries safe."""
+        event = new_payment_event(identifier=request_id, amount=amount, paid_date=paid_date,
+                                  kind=kind, method=method, reference=reference, note=note, created_at=_now())
+        async with self._lock:
+            existing = self._data["owners"].get(owner_id)
+            placement = (existing or {}).get("placements", {}).get(litter_id)
+            if placement is None:
+                raise ValueError("Unknown owner litter dossier")
+            previous = next((item for item in placement["payment_events"] if item["id"] == request_id), None)
+            if previous:
+                if any(previous[key] != event[key] for key in ("amount", "date", "kind", "method", "reference", "note")):
+                    raise OwnerConflict("Payment request ID was used for another receipt")
+                return deepcopy(existing)
+            if owner_revision(existing) != expected_revision:
+                raise OwnerConflict("Contact changed; reload before recording a payment")
+            if len(placement["payment_events"]) >= MAX_PAYMENT_EVENTS:
+                raise ValueError("Payment history is full")
+            candidate = deepcopy(self._data)
+            candidate_owner = candidate["owners"][owner_id]
+            candidate_owner["placements"][litter_id]["payment_events"].append(event)
+            candidate_owner["updated_at"] = _now()
+            await self._store.async_save(candidate)
+            self._data = candidate
+            return deepcopy(candidate_owner)
+
+    async def async_void_payment(self, owner_id: str, litter_id: str, payment_id: str, *,
+                                 expected_revision: str, reason: str) -> dict[str, Any]:
+        """Preserve an incorrect receipt with its correction reason."""
+        if not isinstance(reason, str) or not reason.strip() or len(reason) > 240 or any(ord(ch) < 32 for ch in reason):
+            raise ValueError("Explain why the payment is being voided")
+        async with self._lock:
+            existing = self._data["owners"].get(owner_id)
+            placement = (existing or {}).get("placements", {}).get(litter_id)
+            if placement is None:
+                raise ValueError("Unknown owner litter dossier")
+            payment = next((item for item in placement["payment_events"] if item["id"] == payment_id), None)
+            if payment is None:
+                raise ValueError("Unknown payment")
+            if payment["voided_at"]:
+                return deepcopy(existing)
+            if owner_revision(existing) != expected_revision:
+                raise OwnerConflict("Contact changed; reload before correcting a payment")
+            candidate = deepcopy(self._data)
+            candidate_owner = candidate["owners"][owner_id]
+            target = next(item for item in candidate_owner["placements"][litter_id]["payment_events"] if item["id"] == payment_id)
+            target["voided_at"] = _now()
+            target["void_reason"] = reason.strip()
+            candidate_owner["updated_at"] = _now()
+            await self._store.async_save(candidate)
+            self._data = candidate
+            return deepcopy(candidate_owner)
 
     async def async_delete(self, owner_id: str, *, expected_revision: str | None = None) -> None:
         async with self._lock:

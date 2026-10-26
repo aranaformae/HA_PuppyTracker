@@ -32,13 +32,14 @@ create a duplicate document.
 
 ## Standard templates
 
-Five neutral starter documents are included in **Dutch and English**:
+Six neutral starter documents are included in **Dutch and English**:
 
 | Dutch | English | Purpose |
 | --- | --- | --- |
 | Overdrachtsbewijs | Puppy handover | Short handover record with puppy, buyer, date and signatures |
 | Pupgegevens | Puppy information | Puppy identity, breeder/owner contacts and a separate parent-information page |
 | Betalingsoverzicht | Payment overview | Agreed amounts, recorded payment dates and actual outstanding balance |
+| Betalingsbewijs | Payment receipt | Printable receipt with known parties and puppy filled in; actual amount, receipt date, payment method and signature are completed by hand |
 | Reserveringsafspraken | Reservation notes | Contacts, puppy/planning, agreed instalments, space for additional arrangements and signatures |
 | Overdrachtschecklist | Handover checklist | A printable checklist and notes area for reviewing the handover together |
 
@@ -55,8 +56,16 @@ yet microchipped or incomplete parent registration does not block those forms.
 The original short Dutch handover still requires the fields it previously used.
 
 Payment and reservation documents distinguish planned instalments from recorded
-receipts; they do not certify that the configured amounts were paid. The printed
+receipts; they do not certify that the configured amounts were paid. The payment
+receipt likewise does **not** derive an individual payment from the agreed
+instalments or outstanding balance. Fill in the actual amount, date, method and
+recipient's signature on the printed form before using it as proof of receipt.
+Generating or archiving the blank form does not record a payment. The printed
 checklist starts unchecked and does not change dossier or care-program results.
+The Owners card can now record individual receipts per litter dossier, including
+partial payments and voided corrections. The printable payment receipt does not
+yet choose one of those entries automatically; its transaction details are
+still completed by hand.
 No private sales contract, legal clauses or personal breeder branding is bundled.
 Import your own contract template as JSON, or create a new one. The module fills
 and lays out your text; it does not assess its legal or veterinary contents.

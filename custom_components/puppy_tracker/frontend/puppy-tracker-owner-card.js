@@ -1,4 +1,4 @@
-import { puppySelectorLabel, downloadExportFile, escapeHtml, languageForHass, preserveScrollPosition, subscribeUpdates } from "./puppy-tracker-card-common.js";
+import { puppySelectorLabel, downloadExportFile, escapeHtml, languageForHass, preserveScrollPosition, subscribeUpdates, createUuid } from "./puppy-tracker-card-common.js";
 import { FormState, SavedRecordRefresh, appendEditAction } from "./puppy-tracker-form-state.js";
 import { collarColor } from "./puppy-tracker-collar-chart-colors.js";
 
@@ -47,6 +47,12 @@ const CONTACT_PREFERENCE_LABELS = {
 const PAYMENT_METHOD_LABELS = {
   none: { nl: "Niet opgegeven", en: "Not specified" }, bank_transfer: { nl: "Bankoverschrijving", en: "Bank transfer" },
   cash: { nl: "Contant", en: "Cash" }, card: { nl: "Kaart", en: "Card" }, other: { nl: "Anders", en: "Other" },
+};
+const PAYMENT_KIND_LABELS = {
+  registration_fee: { nl: "Inschrijfgeld", en: "Registration fee" },
+  deposit: { nl: "Aanbetaling", en: "Deposit" },
+  final: { nl: "Slotbetaling", en: "Final payment" },
+  other: { nl: "Overig", en: "Other" },
 };
 const SEX_LABELS = {
   male: { nl: "Reu", en: "Male" },
@@ -134,6 +140,23 @@ const COPY = {
     duplicatePuppyPreference: "Kies elke pup maximaal één keer.",
     fillEarlierPreference: "Vul eerst de voorgaande pupvoorkeur in.",
     paymentDetails: "Betalingen",
+    paymentHistory: "Ontvangen betalingen",
+    paymentHistoryHint: "Alleen vanaf nu apart geregistreerde ontvangsten. Eerdere bedragen en het openstaande saldo blijven apart handmatig bijgehouden.",
+    noPaymentEvents: "Nog geen afzonderlijke ontvangsten geregistreerd.",
+    recordedTotal: "Totaal hier geregistreerd",
+    addPayment: "Ontvangst toevoegen",
+    savePayment: "Ontvangst opslaan",
+    paymentReceivedDate: "Datum ontvangst",
+    paymentKind: "Soort betaling",
+    paymentReference: "Referentie (optioneel)",
+    paymentNote: "Notitie (optioneel)",
+    paymentAmountReceived: "Ontvangen bedrag",
+    paymentSaved: "Ontvangst geregistreerd.",
+    paymentVoided: "Ontvangst ingetrokken.",
+    voidPayment: "Intrekken",
+    voidedPayment: "Ingetrokken",
+    voidPaymentPrompt: "Waarom wordt deze ontvangst ingetrokken? De oorspronkelijke registratie blijft zichtbaar.",
+    paymentInvalid: "Vul een positief bedrag met maximaal twee decimalen en een geldige datum in.",
     name: "Naam",
     email: "E-mail",
     phone: "Telefoon",
@@ -309,6 +332,23 @@ const COPY = {
     duplicatePuppyPreference: "Select each puppy no more than once.",
     fillEarlierPreference: "Fill the previous puppy preference first.",
     paymentDetails: "Payments",
+    paymentHistory: "Payments received",
+    paymentHistoryHint: "Only receipts recorded separately from now on. Earlier amounts and the outstanding balance remain tracked manually.",
+    noPaymentEvents: "No individual receipts recorded yet.",
+    recordedTotal: "Total recorded here",
+    addPayment: "Add receipt",
+    savePayment: "Save receipt",
+    paymentReceivedDate: "Date received",
+    paymentKind: "Payment type",
+    paymentReference: "Reference (optional)",
+    paymentNote: "Note (optional)",
+    paymentAmountReceived: "Amount received",
+    paymentSaved: "Receipt recorded.",
+    paymentVoided: "Receipt voided.",
+    voidPayment: "Void",
+    voidedPayment: "Voided",
+    voidPaymentPrompt: "Why is this receipt being voided? The original record will remain visible.",
+    paymentInvalid: "Enter a positive amount with up to two decimals and a valid date.",
     name: "Name",
     email: "Email",
     phone: "Phone",
@@ -525,6 +565,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     this._detailLitters = new Map();
     this._editingLitter = "";
     this._editingContact = null;
+    this._paymentDraft = null;
     this._linkBaseline = null;
     this._conflict = false;
     this._context = null;
@@ -641,6 +682,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     this._editing = null;
     this._editingContact = null;
     this._editingLitter = "";
+    this._paymentDraft = null;
     this._linkBaseline = null;
     this._showOwnerEditor = false;
     this._expandedOwnerId = null;
@@ -847,7 +889,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
 
   _updateActionState() {
     const blocked = this._busy || this._conflict || !this._isCurrent(this._context);
-    this.querySelectorAll('button[type="submit"], #add-owner, [data-edit], [data-edit-owner-section], [data-mark-paid], [data-add-dossier], [data-matrix-edit-owner]')
+    this.querySelectorAll('button[type="submit"], #add-owner, [data-edit], [data-edit-owner-section], [data-mark-paid], [data-add-dossier], [data-matrix-edit-owner], [data-add-payment], [data-void-payment], [data-cancel-payment]')
       .forEach((button) => { button.disabled = blocked; });
     this.querySelectorAll("[data-delete], [data-assign-owner]").forEach((button) => { button.disabled = blocked || this._showEditor; });
     this.querySelectorAll("[data-copy-owner-contact]").forEach((button) => { button.disabled = blocked; });
@@ -1659,9 +1701,65 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       ${this._detail(text(this, "paymentDate"), formattedDate(this, owner.payment_date))}
       ${owner.payment_status !== "full" ? `<div class="wide"><button type="button" class="secondary" data-mark-paid="${escapeHtml(owner.id)}" ${this._busy ? "disabled" : ""}><ha-icon icon="mdi:cash-check"></ha-icon>${escapeHtml(text(this, "markPaidInFull"))}</button></div>` : ""}
       `)}
+      ${litterId ? group("payments", "paymentHistory", this._paymentHistory(owner, litterId)) : ""}
       ${group("notes", "notesSection", `${this._detail(text(this, "notes"), owner.notes || "—", "wide notes preformatted")}${this._detail(text(this, "placementNotes"), owner.placement_notes || "—", "wide preformatted")}`, true)}
       ${group("history", "statusHistory", this._detail(text(this, "statusHistory"), history, "wide preformatted"))}
     </div>`;
+  }
+
+  _paymentHistory(owner, litterId) {
+    const entries = owner.payment_events || [];
+    const cents = entries.filter(entry => !entry.voided_at).reduce((sum, entry) => sum + Math.round(Number(entry.amount) * 100), 0);
+    const draft = this._paymentDraft?.ownerId === owner.id && this._paymentDraft.litterId === litterId ? this._paymentDraft : null;
+    const options = (labels, selected) => Object.entries(labels).map(([key]) => `<option value="${key}" ${key === selected ? "selected" : ""}>${escapeHtml(optionLabel(this, key, labels, key))}</option>`).join("");
+    const form = draft ? `<form class="payment-event-form" data-payment-form="${escapeHtml(owner.id)}" data-payment-litter="${escapeHtml(litterId)}">
+      <label>${escapeHtml(text(this, "paymentAmountReceived"))}<input name="amount" type="text" inputmode="decimal" required value="${escapeHtml(draft.amount)}"></label>
+      <label>${escapeHtml(text(this, "paymentReceivedDate"))}<input name="date" type="date" required value="${escapeHtml(draft.date)}"></label>
+      <label>${escapeHtml(text(this, "paymentKind"))}<select name="kind">${options(PAYMENT_KIND_LABELS, draft.kind)}</select></label>
+      <label>${escapeHtml(text(this, "paymentMethod"))}<select name="method">${options(PAYMENT_METHOD_LABELS, draft.method)}</select></label>
+      <label>${escapeHtml(text(this, "paymentReference"))}<input name="reference" maxlength="120" value="${escapeHtml(draft.reference)}"></label>
+      <label>${escapeHtml(text(this, "paymentNote"))}<input name="note" maxlength="240" value="${escapeHtml(draft.note)}"></label>
+      <div class="actions"><button type="button" class="secondary" data-cancel-payment>${escapeHtml(text(this, "cancel"))}</button><button type="submit" class="primary">${escapeHtml(text(this, "savePayment"))}</button></div>
+    </form>` : `<button type="button" class="secondary" data-add-payment="${escapeHtml(owner.id)}" data-payment-litter="${escapeHtml(litterId)}">${escapeHtml(text(this, "addPayment"))}</button>`;
+    return `<div class="payment-history wide"><p>${escapeHtml(text(this, "paymentHistoryHint"))}</p>
+      <strong>${escapeHtml(text(this, "recordedTotal"))}: ${escapeHtml(formattedAmount(this, (cents / 100).toFixed(2)))}</strong>
+      ${entries.length ? `<ul>${[...entries].reverse().map(entry => `<li class="${entry.voided_at ? "voided" : ""}"><div><strong>${escapeHtml(formattedAmount(this, entry.amount))}</strong> · ${escapeHtml(formattedDate(this, entry.date))} · ${escapeHtml(optionLabel(this, entry.kind, PAYMENT_KIND_LABELS, entry.kind))} · ${escapeHtml(optionLabel(this, entry.method, PAYMENT_METHOD_LABELS, "none"))}${entry.reference ? ` · ${escapeHtml(entry.reference)}` : ""}${entry.note ? `<small>${escapeHtml(entry.note)}</small>` : ""}${entry.voided_at ? `<small>${escapeHtml(text(this, "voidedPayment"))}: ${escapeHtml(entry.void_reason)}</small>` : ""}</div>${entry.voided_at ? "" : `<button type="button" class="secondary" data-void-payment="${escapeHtml(entry.id)}" data-payment-owner="${escapeHtml(owner.id)}" data-payment-litter="${escapeHtml(litterId)}">${escapeHtml(text(this, "voidPayment"))}</button>`}</li>`).join("")}</ul>` : `<p>${escapeHtml(text(this, "noPaymentEvents"))}</p>`}
+      ${form}</div>`;
+  }
+
+  async _savePayment(form) {
+    const draft = this._paymentDraft;
+    if (!draft || this._busy) return;
+    const data = Object.fromEntries(new FormData(form).entries());
+    Object.assign(draft, data);
+    const amount = Number(data.amount.replace(",", "."));
+    if (!Number.isFinite(amount) || amount <= 0 || !/^\d+(?:[.,]\d{1,2})?$/.test(data.amount) || !/^\d{4}-\d{2}-\d{2}$/.test(data.date)) {
+      this._error = text(this, "paymentInvalid");
+      this._render();
+      return;
+    }
+    const owner = this._owners.find(item => item.id === draft.ownerId);
+    await this._runMutation({ type: "puppy_tracker/owners/payment/add", owner_id: draft.ownerId,
+      litter_id: draft.litterId, expected_revision: owner?.revision || "", request_id: draft.requestId,
+      amount: data.amount, date: data.date, kind: data.kind, method: data.method,
+      reference: data.reference, note: data.note }, result => {
+      this._owners = this._owners.filter(item => item.id !== result.owner.id).concat(result.owner);
+      this._paymentDraft = null;
+      this._status = text(this, "paymentSaved");
+    });
+  }
+
+  async _voidPayment(button) {
+    if (this._busy) return;
+    const reason = window.prompt(text(this, "voidPaymentPrompt"));
+    if (!reason?.trim()) return;
+    const owner = this._owners.find(item => item.id === button.dataset.paymentOwner);
+    await this._runMutation({ type: "puppy_tracker/owners/payment/void", owner_id: owner?.id,
+      litter_id: button.dataset.paymentLitter, payment_id: button.dataset.voidPayment,
+      expected_revision: owner?.revision || "", reason: reason.trim() }, result => {
+      this._owners = this._owners.filter(item => item.id !== result.owner.id).concat(result.owner);
+      this._status = text(this, "paymentVoided");
+    });
   }
 
   _ownerAttention(owner) {
@@ -1989,6 +2087,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
       .owner-detail-group summary{padding:4px 2px;color:var(--primary-text-color);font-weight:600;overflow-wrap:anywhere}
       .owner-detail-group summary:focus-visible{outline:2px solid var(--primary-color);outline-offset:2px}
       .owner-detail-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:2px 2px 14px}
+      .payment-history{display:grid;gap:10px}.payment-history p{margin:0;color:var(--secondary-text-color);font-size:.85rem}.payment-history ul{list-style:none;margin:0;padding:0}.payment-history li{display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid var(--divider-color);padding:8px 0}.payment-history li>div{min-width:0;overflow-wrap:anywhere}.payment-history li small{display:block;color:var(--secondary-text-color)}.payment-history li.voided{opacity:.65}.payment-event-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.payment-event-form label{display:grid;gap:4px}.payment-event-form .actions{grid-column:1/-1}
       .owner-detail-fields>div{min-width:0;overflow-wrap:anywhere}
       .owner-detail span{display:block;color:var(--secondary-text-color);font-size:.72rem;margin-bottom:3px}
       .owner-detail .wide{grid-column:1/-1}
@@ -2110,7 +2209,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
         .head-actions{display:grid;justify-content:stretch}
         .head-actions button{width:100%}
         .view-tabs{display:grid}
-        .form,.link-form,.owner-detail-fields,.owner-editor-fields,.preference-row,.owner-filters{grid-template-columns:1fr}
+        .form,.link-form,.owner-detail-fields,.owner-editor-fields,.preference-row,.owner-filters,.payment-event-form{grid-template-columns:1fr}
         .wide,.checks,.owner-detail .wide{grid-column:auto}
         .owner{grid-template-columns:minmax(0,1fr) auto}
         .owner-actions{flex-direction:column}
@@ -2211,6 +2310,22 @@ class PuppyTrackerOwnerCard extends HTMLElement {
   }
 
   _bindOwnerRows() {
+    this.querySelectorAll("[data-add-payment]").forEach(button => button.addEventListener("click", () => {
+      const now = new Date();
+      this._paymentDraft = { ownerId: button.dataset.addPayment, litterId: button.dataset.paymentLitter,
+        requestId: createUuid(), amount: "", date: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`,
+        kind: "other", method: "bank_transfer", reference: "", note: "" };
+      this._render();
+      this.querySelector(".payment-event-form [name=amount]")?.focus({ preventScroll: true });
+    }));
+    this.querySelectorAll("[data-payment-form]").forEach(form => {
+      const capture = () => { if (this._paymentDraft) Object.assign(this._paymentDraft, Object.fromEntries(new FormData(form).entries())); };
+      form.addEventListener("input", capture);
+      form.addEventListener("change", capture);
+      form.addEventListener("submit", event => { event.preventDefault(); this._savePayment(form); });
+      form.querySelector("[data-cancel-payment]")?.addEventListener("click", () => { this._paymentDraft = null; this._render(); });
+    });
+    this.querySelectorAll("[data-void-payment]").forEach(button => button.addEventListener("click", () => this._voidPayment(button)));
     this.querySelectorAll("[data-copy-owner-contact]").forEach((button) => button.addEventListener("click", () => this._copyContact(button.dataset.copyOwnerContact, button.dataset.contactField)));
     this.querySelectorAll("[data-owner-group]").forEach((group) => group.addEventListener("toggle", () => {
       if (!group.isConnected) return;

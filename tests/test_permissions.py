@@ -98,6 +98,11 @@ async def test_authenticated_reader_cannot_get_owners_or_exports(hass, private_r
     client = await hass_ws_client(hass, access_token=hass.auth.async_create_access_token(refresh))
     for command in (
         {"type": f"{DOMAIN}/owners/list"},
+        {"type": f"{DOMAIN}/owners/payment/add", "owner_id": PRIVATE, "litter_id": "litter-1",
+         "expected_revision": "x", "request_id": "r1", "amount": "1.00", "date": "2026-10-26",
+         "kind": "other", "method": "cash"},
+        {"type": f"{DOMAIN}/owners/payment/void", "owner_id": PRIVATE, "litter_id": "litter-1",
+         "payment_id": "r1", "expected_revision": "x", "reason": "error"},
         *({"type": f"{DOMAIN}/export", "litter_id": "litter-1", "format": fmt}
           for fmt in ("csv", "json", "pdf")),
         {"type": f"{DOMAIN}/mother/export_url", "litter_id": "litter-1"},

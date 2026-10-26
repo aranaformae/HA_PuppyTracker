@@ -11,6 +11,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.puppy_tracker import owner_api
 from custom_components.puppy_tracker.const import DOMAIN
 from custom_components.puppy_tracker.owners import OwnerConflict, OwnerStore, normalize_owner_backup_data, owner_for_litter, owner_revision
+from custom_components.puppy_tracker.payment_events import recorded_total
 from custom_components.puppy_tracker.runtime import PuppyTrackerRuntimeData
 
 
@@ -90,6 +91,56 @@ async def test_separate_nest_dossiers_preserve_payments_preferences_history_and_
     assert owners.get(renamed["id"]) == renamed
 
 
+async def test_receipts_are_per_litter_idempotent_and_corrections_keep_history(owners):
+    owner = await owners.async_upsert({"name": "Alex", "litter_id": "l1", "payment_amount": "2500", "payment_balance": "2000"})
+    owner = await owners.async_upsert({"litter_id": "l2", "payment_amount": "3000"}, owner["id"])
+    revision = owner_revision(owner)
+    args = dict(expected_revision=revision, request_id="receipt-1", amount="125,50", paid_date="2026-10-26",
+                kind="deposit", method="bank_transfer", reference="TRX-123", note="Partial payment")
+    recorded = await owners.async_record_payment(owner["id"], "l1", **args)
+    assert recorded["placements"]["l1"]["payment_events"][0]["amount"] == "125.50"
+    assert recorded["placements"]["l2"]["payment_events"] == []
+    assert recorded["placements"]["l1"]["payment_balance"] == "2000"  # Legacy balance is not fabricated from a partial ledger.
+    assert await owners.async_record_payment(owner["id"], "l1", **args) == recorded
+    with pytest.raises(OwnerConflict):
+        await owners.async_record_payment(owner["id"], "l1", **{**args, "amount": "126"})
+    second = await owners.async_record_payment(owner["id"], "l1", expected_revision=owner_revision(recorded),
+                                               request_id="receipt-2", amount="50", paid_date="2026-10-27",
+                                               kind="other", method="cash")
+    assert recorded_total(second["placements"]["l1"]["payment_events"]) == "175.50"
+    corrected = await owners.async_void_payment(owner["id"], "l1", "receipt-1",
+                                                 expected_revision=owner_revision(second), reason="Duplicate transfer")
+    events = corrected["placements"]["l1"]["payment_events"]
+    assert events[0]["voided_at"] and events[0]["void_reason"] == "Duplicate transfer"
+    assert recorded_total(events) == "50.00"
+    assert await owners.async_void_payment(owner["id"], "l1", "receipt-1",
+                                            expected_revision=owner_revision(second), reason="Duplicate transfer") == corrected
+    renamed = await owners.async_upsert({"name": "Alex Updated"}, owner["id"])
+    assert renamed["placements"]["l1"]["payment_events"] == events
+    snapshot = owners.get_backup_data()
+    assert normalize_owner_backup_data(snapshot) == snapshot
+    await owners.async_restore_backup_data(snapshot)
+    assert owners.get(owner["id"])["placements"]["l1"]["payment_events"] == events
+
+
+async def test_payment_write_validation_and_failed_persistence_leave_owner_unchanged(owners):
+    owner = await owners.async_upsert({"name": "Alex", "litter_id": "l1"})
+    before = owners.get_backup_data()
+    base = dict(expected_revision=owner_revision(owner), request_id="r1", amount="25.00",
+                paid_date="2026-10-26", kind="deposit", method="cash")
+    for changes in ({"amount": "0"}, {"amount": "1.234"}, {"paid_date": "2026-02-30"},
+                    {"kind": "unknown"}, {"reference": "x" * 121}):
+        with pytest.raises(ValueError):
+            await owners.async_record_payment(owner["id"], "l1", **{**base, **changes})
+    with pytest.raises(ValueError):
+        await owners.async_record_payment(owner["id"], "missing", **base)
+    assert owners.get_backup_data() == before
+    owners._store.async_save.side_effect = OSError("disk full")
+    with pytest.raises(OSError):
+        await owners.async_record_payment(owner["id"], "l1", **base)
+    assert owners.get_backup_data() == before
+
+
 async def test_assigning_old_dossier_moves_it_without_overwriting_other_nests(owners):
     await owners.async_restore_backup_data({"owners": {"o1": legacy_owner()}})
     contact = await owners.async_upsert({"litter_id": "l2", "payment_amount": "1000"}, "o1")
@@ -161,6 +212,29 @@ async def test_websocket_requires_explicit_litter_and_rejects_foreign_preference
     response = await owner_client.receive_json()
     assert response["success"]
     assert response["result"]["owner"]["placements"][litter_id]["placement_notes"] == "Nest notes"
+
+
+async def test_payment_actions_record_and_void_one_receipt_without_changing_legacy_balance(owner_client, owners, install_litter):
+    litter_id, _ = install_litter()
+    owner = await owners.async_upsert({"name": "Alex", "litter_id": litter_id,
+                                       "payment_amount": "2500", "payment_balance": "2000"})
+    add = {"type": "puppy_tracker/owners/payment/add", "owner_id": owner["id"],
+           "litter_id": litter_id, "expected_revision": owner_revision(owner), "request_id": "receipt-1",
+           "amount": "125.50", "date": "2026-10-26", "kind": "deposit", "method": "bank_transfer"}
+    await owner_client.send_json_auto_id(add)
+    response = await owner_client.receive_json()
+    assert response["success"]
+    updated = response["result"]["owner"]
+    assert updated["placements"][litter_id]["payment_events"][0]["id"] == "receipt-1"
+    assert updated["placements"][litter_id]["payment_balance"] == "2000"
+    await owner_client.send_json_auto_id(add)
+    assert (await owner_client.receive_json())["success"]
+    await owner_client.send_json_auto_id({"type": "puppy_tracker/owners/payment/void", "owner_id": owner["id"],
+                                         "litter_id": litter_id, "payment_id": "receipt-1",
+                                         "expected_revision": updated["revision"], "reason": "Duplicate"})
+    corrected = await owner_client.receive_json()
+    assert corrected["success"]
+    assert corrected["result"]["owner"]["placements"][litter_id]["payment_events"][0]["void_reason"] == "Duplicate"
 
 
 async def test_link_creates_membership_without_copying_unassigned_money(owner_client, owners, storage, install_litter):

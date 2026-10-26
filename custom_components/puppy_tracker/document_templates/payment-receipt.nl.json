@@ -1,0 +1,20 @@
+{
+  "format": "puppy_tracker_document_template",
+  "version": 1,
+  "name": "Betalingsbewijs",
+  "language": "nl",
+  "logo": true,
+  "watermark": false,
+  "initials": false,
+  "optional_fields": [],
+  "blocks": [
+    {"type": "heading", "text": "Betrokkenen"},
+    {"type": "data", "text": "", "fields": ["fokker.naam", "koper.naam", "pup.naam", "contract.datum"]},
+    {"type": "heading", "text": "Ontvangen betaling — handmatig invullen"},
+    {"type": "text", "text": "Werkelijk ontvangen bedrag: € ____________________\nDatum ontvangst: ____________________\nBetaalwijze: ____________________\nOmschrijving of betalingsreferentie: ____________________"},
+    {"type": "text", "text": "Vul het werkelijk ontvangen bedrag en de ontvangstdatum in. Afgesproken termijnen en het openstaande saldo zijn geen bewijs van deze betaling."},
+    {"type": "heading", "text": "Bevestiging"},
+    {"type": "text", "text": "Naam ontvanger: ____________________\nHandtekening ontvanger: ____________________\nDatum ondertekening: ____________________"},
+    {"type": "text", "text": "Dit formulier is pas een bewijs van ontvangst nadat het ontvangen bedrag, de ontvangstdatum en de handtekening van de ontvanger zijn ingevuld."}
+  ]
+}

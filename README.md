@@ -30,8 +30,8 @@ longitudinal behavior observations, reports and backups.
 - Store owner/contact, placement and payment information, record an ordered top
   three puppy shortlist with notes, and link contacts to puppies later.
 - Create configurable PDF reports with central breeder details and export CSV or JSON data.
-- Create puppy information sheets, payment overviews, reservation notes,
-  handover records and checklists from Dutch/English [document templates](docs/DOCUMENT_TEMPLATES.md).
+- Create puppy information sheets, payment overviews, printable payment receipts,
+  reservation notes, handover records and checklists from Dutch/English [document templates](docs/DOCUMENT_TEMPLATES.md).
   Check missing details and retain generated PDFs in a private archive.
 - Make validated manual or automated JSON backups.
 
@@ -168,6 +168,11 @@ profile fields. Parent profiles can store registered/call names, birth date,
 breed/type, WALA number and microchip number. Owner addresses use separate street,
 postal-code and city fields; these contract-ready values are available in owner
 CSV and PDF reports.
+
+Within a litter dossier, **Payments received** records each new payment with
+its actual amount, date, type, method and optional reference. Mistakes can be
+voided with a reason; the original entry stays visible. Older payment figures
+and the outstanding balance remain separate until you reconcile them manually.
 
 The shortlist is planning information only: it does not reserve a puppy, change
 its placement status or create the final owner link. Switch the Owners card to

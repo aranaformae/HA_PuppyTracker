@@ -98,10 +98,11 @@ puppy/record documents are still future work (issue #19).
 field registry. Substitution accepts only known `{{ group.field }}` tokens;
 there is no evaluator, HTML renderer or external include. The built-in neutral
 handover example is a packaged JSON resource; users copy it into
-`settings.document_templates`. A fixed, cached public catalog contains five
-starter types in Dutch/English; copies are returned so a caller cannot mutate
-the cache. All built-in IDs are protected from template writes/deletion and
-custom-backup collisions. The original Dutch handover ID/content remains stable.
+`settings.document_templates`. A fixed, cached public catalog contains six
+starter types in Dutch/English, including a printable payment receipt; copies
+are returned so a caller cannot mutate the cache. All built-in IDs are
+protected from template writes/deletion and custom-backup collisions. The
+original Dutch handover ID/content remains stable.
 Built-ins do not consume custom-template slots. The UI groups standard templates
 by language, defaults to the HA language and keeps custom templates separate.
 Custom template edits/deletes use revision fingerprints, and identical save
@@ -1019,6 +1020,17 @@ expected pickup date, payment status, total amount, registration
 fee, deposit amount/date, actual outstanding amount, final-payment date/method,
 an ordered `puppy_preferences` shortlist, status history, `placement_notes` and
 an `archived` flag. No payment/preference fields remain on the shared contact.
+Each dossier also has a bounded `payment_events` list. Every new receipt stores
+a stable request ID, cent-exact amount, date, type, method, optional reference
+and note, plus creation time. Corrections set `voided_at` and `void_reason`
+without deleting the original. The admin-only add/void commands check the full
+owner revision inside the store lock; duplicate add requests with the same ID
+return the existing event. Event history is part of the owner backup and stays
+within its original litter. Older dossiers normalize to an empty event list
+without inferring receipts from agreed instalments or manually entered balances.
+The event total is explicitly the sum of active *newly recorded* receipts;
+legacy `payment_balance` and `payment_status` remain separately editable. A
+payment event does not silently change those historical fields or create a PDF.
 The shortlist
 contains at most three unique `{puppy_id, note}` entries; list order is the rank
 and each optional note is limited to 240 characters. It is explicitly separate

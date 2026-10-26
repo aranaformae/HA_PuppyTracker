@@ -135,6 +135,75 @@ async def websocket_delete_owner(hass: HomeAssistant, connection, msg: dict[str,
 
 @websocket_api.require_admin
 @websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/owners/payment/add",
+    vol.Required("owner_id"): str,
+    vol.Required("litter_id"): str,
+    vol.Required("expected_revision"): str,
+    vol.Required("request_id"): str,
+    vol.Required("amount"): str,
+    vol.Required("date"): str,
+    vol.Required("kind"): str,
+    vol.Required("method"): str,
+    vol.Optional("reference"): str,
+    vol.Optional("note"): str,
+})
+@websocket_api.async_response
+async def websocket_add_owner_payment(hass: HomeAssistant, connection, msg: dict[str, Any]) -> None:
+    owners = _owners(hass)
+    if owners is None:
+        connection.send_error(msg["id"], "not_loaded", "Puppy Tracker is not loaded")
+        return
+    try:
+        async with mutation_coordinator(hass).operation():
+            owner = await owners.async_record_payment(
+                msg["owner_id"], msg["litter_id"], expected_revision=msg["expected_revision"],
+                request_id=msg["request_id"], amount=msg["amount"], paid_date=msg["date"],
+                kind=msg["kind"], method=msg["method"], reference=msg.get("reference", ""),
+                note=msg.get("note", ""),
+            )
+    except OwnerConflict as err:
+        connection.send_error(msg["id"], "owner_conflict", str(err))
+        return
+    except ValueError as err:
+        connection.send_error(msg["id"], "invalid_payment", str(err))
+        return
+    async_dispatcher_send(hass, SIGNAL_DASHBOARD_UPDATE)
+    connection.send_result(msg["id"], {"owner": owner_response(owner)})
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/owners/payment/void",
+    vol.Required("owner_id"): str,
+    vol.Required("litter_id"): str,
+    vol.Required("payment_id"): str,
+    vol.Required("expected_revision"): str,
+    vol.Required("reason"): str,
+})
+@websocket_api.async_response
+async def websocket_void_owner_payment(hass: HomeAssistant, connection, msg: dict[str, Any]) -> None:
+    owners = _owners(hass)
+    if owners is None:
+        connection.send_error(msg["id"], "not_loaded", "Puppy Tracker is not loaded")
+        return
+    try:
+        async with mutation_coordinator(hass).operation():
+            owner = await owners.async_void_payment(
+                msg["owner_id"], msg["litter_id"], msg["payment_id"],
+                expected_revision=msg["expected_revision"], reason=msg["reason"],
+            )
+    except OwnerConflict as err:
+        connection.send_error(msg["id"], "owner_conflict", str(err))
+        return
+    except ValueError as err:
+        connection.send_error(msg["id"], "invalid_payment", str(err))
+        return
+    async_dispatcher_send(hass, SIGNAL_DASHBOARD_UPDATE)
+    connection.send_result(msg["id"], {"owner": owner_response(owner)})
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({
     vol.Required("type"): f"{DOMAIN}/owners/link",
     vol.Required("litter_id"): str,
     vol.Required("puppy_id"): str,
@@ -187,5 +256,7 @@ def async_setup_owner_api(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, websocket_list_owners)
     websocket_api.async_register_command(hass, websocket_save_owner)
     websocket_api.async_register_command(hass, websocket_delete_owner)
+    websocket_api.async_register_command(hass, websocket_add_owner_payment)
+    websocket_api.async_register_command(hass, websocket_void_owner_payment)
     websocket_api.async_register_command(hass, websocket_link_owners)
     hass.data[key] = True

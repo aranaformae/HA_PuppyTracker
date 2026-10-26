@@ -89,7 +89,7 @@ def test_original_dutch_handover_example_remains_unchanged():
 
 def test_standard_template_catalog_is_valid_paired_and_safe_to_copy():
     catalog = built_in_templates()
-    assert len(catalog) == 10 and set(catalog) == BUILTIN_TEMPLATE_IDS
+    assert len(catalog) == 12 and set(catalog) == BUILTIN_TEMPLATE_IDS
     for key, template in catalog.items():
         assert normalize_template(template) == template
         assert set(template["optional_fields"]) <= template_fields(template)
@@ -101,6 +101,16 @@ def test_standard_template_catalog_is_valid_paired_and_safe_to_copy():
         assert sibling["optional_fields"] == template["optional_fields"]
     catalog[BUILTIN_TEMPLATE_ID]["name"] = "Modified copy"
     assert built_in_templates()[BUILTIN_TEMPLATE_ID]["name"] == "Overdrachtsbewijs"
+
+
+def test_payment_receipt_requires_manual_confirmation_of_actual_payment():
+    for language, labels in (("nl", ("Werkelijk ontvangen bedrag", "Datum ontvangst", "Handtekening ontvanger")),
+                             ("en", ("Amount actually received", "Date received", "Recipient's signature"))):
+        template = built_in_template(f"payment-receipt-{language}")
+        assert template_fields(template) == {"fokker.naam", "koper.naam", "pup.naam", "contract.datum"}
+        text = "\n".join(block["text"] for block in template["blocks"])
+        assert all(label in text for label in labels)
+        assert "betaling.totaal" not in text and "betaling.slotbetaling" not in text
 
 
 async def test_all_builtin_templates_are_protected_but_can_be_copied(document_client, storage):

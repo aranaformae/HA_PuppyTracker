@@ -10,6 +10,15 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+### Added
+
+- A bilingual printable payment receipt template fills in the known breeder,
+  buyer and puppy. The actual payment details and recipient signature are
+  completed on the form, so agreed amounts are never presented as received.
+- Individual payment receipts can be recorded per owner and litter with amount,
+  date, type, method and optional reference. Corrections retain the original
+  entry. Existing balances remain manual and are not inferred as past receipts.
+
 ## [0.32.5] - 2026-10-26
 
 ### Changed
