@@ -5,6 +5,9 @@ section. It creates a PDF for one puppy and its linked buyer(s), using reusable
 text and fields from Puppy Tracker. Only Home Assistant administrators can use
 the editor, generate documents or read the archive. No extra dashboard card is
 needed.
+The visible **Create document** section contains the template choice, parties,
+PDF check and saved documents. **Manage templates** sits below it and opens
+only when you need to copy, edit, create, import or download a template.
 
 ## First contract
 

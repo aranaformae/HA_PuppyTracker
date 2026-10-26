@@ -4,7 +4,7 @@ import { mountAsyncCard } from "./helpers/async-card.mjs";
 
 const previewContent = readFileSync(new URL("./fixtures/document-preview.pdf", import.meta.url)).toString("base64");
 
-async function mountDocuments(page, language = "nl") {
+async function mountDocuments(page, language = "nl", openManagement = true) {
   const report = await mountAsyncCard(page, "report", { language });
   await report.evaluate((el, examplePdf) => {
     const original = el._hass.callWS;
@@ -43,8 +43,24 @@ async function mountDocuments(page, language = "nl") {
   await report.locator("#contract-documents > summary").click();
   const panel = report.locator("puppy-tracker-documents");
   await expect(panel.locator("#document-buyer, #template-name")).toBeVisible();
+  if (openManagement && await panel.locator("#template-management > summary").count()) await panel.locator("#template-management > summary").click();
   return { report, panel };
 }
+
+test("Document creation stays in front while template actions are separate and collapsed @cross-browser @tablet", async ({ page }) => {
+  const { panel } = await mountDocuments(page, "nl", false);
+  await expect(panel.locator("#create-document-heading")).toHaveText("Document maken");
+  await expect(panel.locator("#document-template")).toBeVisible();
+  await expect(panel.locator("#preview-document")).toBeVisible();
+  await expect(panel.locator("#template-management")).not.toHaveAttribute("open", "");
+  await expect(panel.locator("#new-template")).toBeHidden();
+  await panel.locator("#document-buyer").selectOption("o1");
+  await expect(panel.locator("#template-management")).not.toHaveAttribute("open", "");
+  await panel.locator("#template-management > summary").click();
+  await expect(panel.locator("#new-template")).toBeVisible();
+  await panel.locator("#document-template").selectOption("handover-example-nl");
+  await expect(panel.locator("#template-management")).toHaveAttribute("open", "");
+});
 
 test("Payment receipt requires an active receipt and clears it when the buyer changes @cross-browser", async ({ page }) => {
   const { panel } = await mountDocuments(page);
@@ -462,6 +478,7 @@ test("Local drafts stay isolated between HA users @cross-browser @tablet", async
   await report.evaluate(el => { el.hass = { ...el._hass, user: { id: "other-admin", is_admin: true } }; });
   await expect(panel.locator("#document-buyer")).toBeVisible();
   await expect(panel).not.toContainText("Private draft A");
+  await panel.locator("#template-management > summary").click();
   await panel.locator("#edit-template").click(); await panel.locator("#editor-mode").selectOption("advanced");
   await panel.locator("#template-name").fill("Private draft B");
   await report.evaluate(el => { el.hass = { ...el._hass, user: { id: "documents-admin", is_admin: true } }; });

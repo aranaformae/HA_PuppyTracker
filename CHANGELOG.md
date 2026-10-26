@@ -10,6 +10,11 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+### Changed
+
+- The document card keeps document creation and the archive together, with
+  template management in a separate collapsed section below the workflow.
+
 ## [0.32.6] - 2026-10-26
 
 ### Added
