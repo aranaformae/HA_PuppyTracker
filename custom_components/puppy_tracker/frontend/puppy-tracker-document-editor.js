@@ -3,6 +3,10 @@ import { escapeHtml as esc, preserveScrollPosition, createUuid } from "./puppy-t
 export const DOCUMENT_BLOCK_KINDS = ["heading", "text", "data", "signature", "page_break"];
 const tokenPattern = () => /{{\s*([a-z_]+\.[a-z_]+)\s*}}/g;
 
+// The simple editor uses a normal textarea for stable iOS selection and focus.
+// Human labels are UI-only; the saved template retains the same field tokens.
+const escapedPattern = value => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 // UI-only identities and removed blocks never enter exported template JSON.
 export class DocumentTemplateEditor {
   constructor(template, { fields, language, text, changed, save, cancel, preview, download }) {
@@ -17,11 +21,20 @@ export class DocumentTemplateEditor {
     this.issues = [];
     this.scroll = 0;
     this.optionalOpen = false;
+    this.layoutOpen = false;
+    this.mode = "advanced";
   }
 
   label(key) { return this.fields[key]?.[this.language()] || key; }
   title(index) {
     const block = this.template.blocks[index];
+    if (this.mode === "simple") {
+      const text = this.displayText(block.text || "");
+      const label = block.type === "page_break" ? this.t("page_break")
+        : ["heading", "data"].includes(block.type) ? text || this.t(block.type)
+          : `${this.t(block.type)}: ${text.slice(0, 60)}`;
+      return `${index + 1}. ${label}`;
+    }
     return `${index + 1}. ${this.t(block.type)}: ${(block.text || "").slice(0, 80)}`;
   }
   usedFields() {
@@ -30,9 +43,11 @@ export class DocumentTemplateEditor {
       ...(block.type === "data" ? block.fields || [] : []),
     ]).filter(key => this.fields[key]));
   }
-  fieldOptions(exclude = []) {
+  fieldOptions(exclude = [], query = "") {
     const groups = new Map();
-    for (const key of Object.keys(this.fields).filter(key => !exclude.includes(key))) {
+    const needle = query.trim().toLocaleLowerCase(this.language());
+    for (const key of Object.keys(this.fields).filter(key => !exclude.includes(key)
+      && (!needle || `${this.label(key)} ${key}`.toLocaleLowerCase(this.language()).includes(needle)))) {
       const group = key.split(".")[0];
       if (!groups.has(group)) groups.set(group, []);
       groups.get(group).push(key);
@@ -46,6 +61,7 @@ export class DocumentTemplateEditor {
     this.scroll = this.root.querySelector(".blocks")?.scrollTop || 0;
     this.open = new Set([...this.root.querySelectorAll("[data-key][open]")].map(node => node.dataset.key));
     this.optionalOpen = Boolean(this.root.querySelector("#optional-fields")?.open);
+    this.layoutOpen = Boolean(this.root.querySelector("#layout-settings")?.open);
   }
   mount(root) { this.root = root; this.render(false); }
   changed() {
@@ -72,7 +88,8 @@ export class DocumentTemplateEditor {
       const content = block.text || "";
       if (content.length > 12000 || /[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(content)) add("invalid_document_text", index);
       const remaining = content.replace(tokenPattern(), "");
-      if (/{{|}}|{%|{#/.test(remaining) || [...content.matchAll(tokenPattern())].some(m => !this.fields[m[1]])) add("unknown_template_field", index);
+      if (/{{|}}|{%|{#/.test(remaining) || (this.mode === "simple" && /⟦|⟧/.test(remaining))
+        || [...content.matchAll(tokenPattern())].some(m => !this.fields[m[1]])) add("unknown_template_field", index);
       if (block.type === "data" && !block.fields?.length) add("emptyDataBlock", index);
       if (block.fields?.some(key => !this.fields[key])) add("unknown_template_field", index);
     }
@@ -152,41 +169,85 @@ export class DocumentTemplateEditor {
     }, key);
   }
 
+  placeholder(key) {
+    if (this._placeholderLanguage !== this.language()) {
+      const labels = Object.fromEntries(Object.keys(this.fields).map(field => [field, this.label(field)]));
+      const counts = Object.values(labels).reduce((result, label) => (result[label] = (result[label] || 0) + 1, result), {});
+      this._placeholders = Object.fromEntries(Object.entries(labels).map(([field, label]) =>
+        [field, `⟦${counts[label] > 1 ? `${this.t(`group_${field.split(".")[0]}`)} · ` : ""}${label}⟧`]));
+      this._placeholderKeys = Object.fromEntries(Object.entries(this._placeholders).map(([field, text]) => [text, field]));
+      this._placeholderPattern = new RegExp(Object.keys(this._placeholderKeys).map(escapedPattern).join("|"), "g");
+      this._placeholderLanguage = this.language();
+    }
+    return this._placeholders[key];
+  }
+  displayText(value) {
+    return value.replace(tokenPattern(), (match, key) => this.fields[key] ? this.placeholder(key) : match);
+  }
+  storedText(value) {
+    this.placeholder(Object.keys(this.fields)[0]);
+    return value.replace(this._placeholderPattern, marker => `{{ ${this._placeholderKeys[marker]} }}`);
+  }
+  fieldBadges(index) {
+    const text = this.template.blocks[index].text || "";
+    return [...new Set([...text.matchAll(tokenPattern())].map(match => match[1]))]
+      .filter(key => this.fields[key]).map(key => `<span class="field-chip">${esc(this.label(key))}</span>`).join("");
+  }
+  updateFieldBadges(index) {
+    const row = this.root.querySelector(`[data-used-fields="${index}"]`);
+    if (row) row.innerHTML = this.fieldBadges(index);
+  }
+
+  searchMarkup(index, kind, exclude = []) {
+    return `<div class="field-picker"><label>${esc(this.t("searchField"))}<input type="search" data-field-search="${index}" data-search-kind="${kind}" autocomplete="off"></label>
+      <label>${esc(kind === "data" ? this.t("addField") : this.t("insert"))}<select data-${kind === "data" ? "add-field" : "insert"}="${index}">${this.fieldOptions(exclude)}</select></label></div>`;
+  }
+  insertMenu(after) {
+    if (this.keys.length >= 200) return "";
+    return `<details class="insert-menu"><summary>${esc(this.t("insertHere"))}</summary><div class="actions">${DOCUMENT_BLOCK_KINDS.map(kind =>
+      `<button type="button" data-add-after="${after}" data-add-kind="${kind}">${esc(this.t(kind))}</button>`).join("")}</div></details>`;
+  }
+
   blockMarkup(block, index) {
     const key = this.keys[index], fields = block.fields || [];
-    return `<details class="block" data-block="${index}" data-key="${key}" ${this.open.has(key) ? "open" : ""}>
-      <summary>${esc(this.title(index))}</summary><div class="actions">
+    return `<details class="block ${this.mode === "simple" ? "simple-block" : ""}" data-block="${index}" data-key="${key}" ${this.open.has(key) ? "open" : ""}>
+      <summary>${esc(this.title(index))}</summary>${this.mode === "simple" ? `<details class="block-tools"><summary>${esc(this.t("moreActions"))}</summary>` : ""}<div class="actions">
       <button type="button" data-move="${index}" data-direction="-1" ${index === 0 ? "disabled" : ""}>${esc(this.t("up"))}</button>
       <button type="button" data-move="${index}" data-direction="1" ${index === this.keys.length - 1 ? "disabled" : ""}>${esc(this.t("down"))}</button>
       <button type="button" data-duplicate="${index}" ${this.keys.length >= 200 ? "disabled" : ""}>${esc(this.t("duplicate"))}</button>
-      <button type="button" data-remove="${index}">${esc(this.t("remove"))}</button></div>
+      <button type="button" data-remove="${index}">${esc(this.t("remove"))}</button></div>${this.mode === "simple" ? "</details>" : ""}
       <p class="block-error error" role="status"></p>
-      ${block.type === "page_break" ? "" : `<label>${esc(this.t("content"))}<textarea data-block-text="${index}" rows="6" maxlength="12000">${esc(block.text)}</textarea></label><label>${esc(this.t("insert"))}<select data-insert="${index}">${this.fieldOptions()}</select></label>`}
+      ${block.type === "page_break" ? "" : this.mode === "simple"
+        ? `<label>${esc(["heading", "data"].includes(block.type) ? this.t("sectionTitle") : this.t("content"))}<textarea data-simple-text="${index}" rows="${["heading", "data"].includes(block.type) ? 2 : 6}" maxlength="12000">${esc(this.displayText(block.text || ""))}</textarea></label><div class="used-field-chips" data-used-fields="${index}">${this.fieldBadges(index)}</div>${["text", "signature"].includes(block.type) ? this.searchMarkup(index, "text") : ""}`
+        : `<label>${esc(this.t("content"))}<textarea data-block-text="${index}" rows="6" maxlength="12000">${esc(block.text)}</textarea></label>${this.searchMarkup(index, "text")}`}
       ${block.type === "text" ? `<label><input type="checkbox" data-bold="${index}" ${block.bold ? "checked" : ""}>${esc(this.t("bold"))}</label>` : ""}
       ${block.type === "data" ? `<h3>${esc(this.t("fields"))}</h3><ol class="selected-fields">${fields.map((field, position) => `<li><span>${esc(this.label(field))}</span><div class="actions">
         <button type="button" data-field-up="${position}" data-owner-block="${index}" ${position === 0 ? "disabled" : ""} aria-label="${esc(this.t("up") + ': ' + this.label(field))}">↑</button>
         <button type="button" data-field-down="${position}" data-owner-block="${index}" ${position === fields.length - 1 ? "disabled" : ""} aria-label="${esc(this.t("down") + ': ' + this.label(field))}">↓</button>
         <button type="button" data-field-remove="${position}" data-owner-block="${index}" aria-label="${esc(this.t("remove") + ': ' + this.label(field))}">×</button></div></li>`).join("")}</ol>
-        <label>${esc(this.t("addField"))}<select data-add-field="${index}">${this.fieldOptions(fields)}</select></label>` : ""}
-      </details>`;
+        ${this.searchMarkup(index, "data", fields)}` : ""}
+      </details>${this.mode === "simple" ? this.insertMenu(index) : ""}`;
   }
   render(capture = true) {
     if (capture) this.capture();
     const template = this.template;
     const watermarkMode = template.watermark ? template.watermark_type || "text" : "none";
     preserveScrollPosition(this.root, () => {
-      this.root.innerHTML = `<section class="editor"><p>${esc(this.t("editorHint"))}</p>
+      this.root.innerHTML = `<section class="editor"><div class="grid"><label>${esc(this.t("editorMode"))}<select id="editor-mode"><option value="simple" ${this.mode === "simple" ? "selected" : ""}>${esc(this.t("simpleMode"))}</option><option value="advanced" ${this.mode === "advanced" ? "selected" : ""}>${esc(this.t("advancedMode"))}</option></select></label></div>
+        ${this.mode === "advanced" ? `<p>${esc(this.t("editorHint"))}</p>` : `<p>${esc(this.t("fieldHint"))}</p>`}
         <div class="grid"><label>${esc(this.t("name"))}<input id="template-name" maxlength="150" value="${esc(template.name)}"></label>
         <label>${esc(this.t("language"))}<select id="template-language"><option value="nl" ${template.language === "nl" ? "selected" : ""}>Nederlands</option><option value="en" ${template.language === "en" ? "selected" : ""}>English</option></select></label></div>
+        ${this.mode === "simple" ? `<details id="layout-settings" ${this.layoutOpen ? "open" : ""}><summary>${esc(this.t("layoutSettings"))}</summary>` : ""}
         <div class="flags">${["logo", "initials"].map(key => `<label><input type="checkbox" data-template-flag="${key}" ${template[key] ? "checked" : ""}>${esc(this.t(key))}</label>`).join("")}</div>
         <div class="grid watermark-settings"><label>${esc(this.t("watermark"))}<select id="template-watermark">${[["none", "watermarkNone"], ["text", "watermarkTextMode"], ["logo", "watermarkLogoMode"]].map(([mode, key]) => `<option value="${mode}" ${watermarkMode === mode ? "selected" : ""}>${esc(this.t(key))}</option>`).join("")}</select></label>
         <label id="watermark-text-field" ${watermarkMode !== "text" ? "hidden" : ""}>${esc(this.t("watermarkText"))}<input id="watermark-text" maxlength="150" value="${esc(template.watermark_text || "")}"><small>${esc(this.t("watermarkTextHint"))}</small></label></div>
         <p id="watermark-logo-hint" ${watermarkMode !== "logo" ? "hidden" : ""}>${esc(this.t("watermarkLogoHint"))}</p>
+        ${this.mode === "simple" ? "</details>" : ""}
         <div class="actions"><button type="button" id="preview-template">${esc(this.t("previewTemplate"))}</button><button type="button" id="download-draft">${esc(this.t("downloadDraft"))}</button></div>
         <p>${esc(this.t("previewTemplateHint"))}</p><div id="template-errors" class="actions" role="alert"></div>
-        <label>${esc(this.t("jumpBlock"))} (${this.keys.length}/200)<select id="jump-block"><option value="">${esc(this.t("choose"))}</option>${this.keys.map((key, index) => `<option value="${key}" data-index="${index}">${esc(this.title(index))}</option>`).join("")}</select></label>
-        <div class="blocks">${template.blocks.map((block, index) => this.blockMarkup(block, index)).join("")}</div>
-        <div class="actions"><select id="add-kind" aria-label="${esc(this.t("add"))}">${DOCUMENT_BLOCK_KINDS.map(kind => `<option value="${kind}">${esc(this.t(kind))}</option>`).join("")}</select><button id="add-block" type="button" ${this.keys.length >= 200 ? "disabled" : ""}>${esc(this.t("add"))}</button>
+        <label>${esc(this.t(this.mode === "simple" ? "jumpSection" : "jumpBlock"))} (${this.keys.length}/200)<select id="jump-block"><option value="">${esc(this.t("choose"))}</option>${this.keys.map((key, index) => `<option value="${key}" data-index="${index}">${esc(this.title(index))}</option>`).join("")}</select></label>
+        <div class="blocks">${this.mode === "simple" ? this.insertMenu(-1) : ""}${template.blocks.map((block, index) => this.blockMarkup(block, index)).join("")}</div>
+        <div class="actions">${this.mode === "advanced" ? `<select id="add-kind" aria-label="${esc(this.t("add"))}">${DOCUMENT_BLOCK_KINDS.map(kind => `<option value="${kind}">${esc(this.t(kind))}</option>`).join("")}</select><button id="add-block" type="button" ${this.keys.length >= 200 ? "disabled" : ""}>${esc(this.t("add"))}</button>` : ""}
         <button id="restore-block" type="button" ${!this.removed.length || this.keys.length >= 200 ? "disabled" : ""}>${esc(this.t("restoreBlock"))}${this.removed.length ? ` (${this.removed.length})` : ""}</button></div>
         <details id="optional-fields" ${this.optionalOpen ? "open" : ""}><summary>${esc(this.t("optional"))}</summary><p>${esc(this.t("optionalHint"))}</p><div class="field-list">${[...this.usedFields()].map(key => `<label><input type="checkbox" data-optional="${esc(key)}" ${(template.optional_fields || []).includes(key) ? "checked" : ""}>${esc(this.label(key))}</label>`).join("") || esc(this.t("noUsedFields"))}</div></details>
         <div class="actions"><button type="button" id="save-template" class="primary">${esc(this.t("saveTemplate"))}</button><button type="button" id="cancel-template">${esc(this.t("cancel"))}</button></div></section>`;
@@ -200,6 +261,7 @@ export class DocumentTemplateEditor {
       if (this.root.closest("fieldset")?.disabled) return;
       callback(e, node);
     }));
+    on("#editor-mode", "change", e => { this.capture(); this.mode = e.target.value; this.render(false); this.actions.changed(); });
     on("#template-name", "input", e => { this.template.name = e.target.value; this.changed(); });
     on("#template-language", "change", e => { this.template.language = e.target.value; this.changed(); });
     on("[data-template-flag]", "change", (e, node) => { this.template[node.dataset.templateFlag] = node.checked; this.changed(); });
@@ -213,6 +275,11 @@ export class DocumentTemplateEditor {
     });
     on("#watermark-text", "input", e => { this.template.watermark_text = e.target.value; this.changed(); });
     on("[data-block-text]", "input", (e, node) => { this.template.blocks[Number(node.dataset.blockText)].text = node.value; this.changed(); });
+    on("[data-simple-text]", "input", (e, node) => {
+      const index = Number(node.dataset.simpleText);
+      this.template.blocks[index].text = this.storedText(node.value);
+      this.updateFieldBadges(index); this.changed();
+    });
     on("[data-bold]", "change", (e, node) => { this.template.blocks[Number(node.dataset.bold)].bold = node.checked; this.changed(); });
     on("#optional-fields", "change", e => {
       const node = e.target.closest("[data-optional]");
@@ -221,11 +288,20 @@ export class DocumentTemplateEditor {
       if (node.checked) fields.add(node.dataset.optional); else fields.delete(node.dataset.optional);
       this.template.optional_fields = [...fields]; this.changed();
     });
+    on("[data-field-search]", "input", (e, node) => {
+      const index = Number(node.dataset.fieldSearch), kind = node.dataset.searchKind;
+      const block = this.template.blocks[index];
+      const selector = kind === "data" ? `[data-add-field="${index}"]` : `[data-insert="${index}"]`;
+      this.root.querySelector(selector).innerHTML = this.fieldOptions(kind === "data" ? block.fields || [] : [], node.value);
+    });
     on("[data-insert]", "change", (e, node) => {
       if (!node.value) return;
-      const area = this.root.querySelector(`[data-block-text="${node.dataset.insert}"]`);
-      area.setRangeText(`{{ ${node.value} }}`, area.selectionStart, area.selectionEnd, "end");
-      this.template.blocks[Number(node.dataset.insert)].text = area.value;
+      const index = Number(node.dataset.insert);
+      const simple = this.mode === "simple";
+      const area = this.root.querySelector(`[data-${simple ? "simple" : "block"}-text="${index}"]`);
+      area.setRangeText(simple ? this.placeholder(node.value) : `{{ ${node.value} }}`, area.selectionStart, area.selectionEnd, "end");
+      this.template.blocks[index].text = simple ? this.storedText(area.value) : area.value;
+      if (simple) this.updateFieldBadges(index);
       node.value = ""; this.changed(); area.focus({ preventScroll: true });
     });
     on("[data-move]", "click", (e, node) => {
@@ -254,6 +330,7 @@ export class DocumentTemplateEditor {
     });
     on("#restore-block", "click", () => this.restore());
     on("#add-block", "click", () => this.add(this.root.querySelector("#add-kind").value));
+    on("[data-add-after]", "click", (e, node) => this.add(node.dataset.addKind, Number(node.dataset.addAfter)));
     on("#jump-block", "change", e => { if (e.target.value) this.goTo(e.target.value); });
     on("#save-template", "click", () => this.actions.save());
     on("#preview-template", "click", () => this.actions.preview());

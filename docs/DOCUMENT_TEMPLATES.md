@@ -63,8 +63,22 @@ and lays out your text; it does not assess its legal or veterinary contents.
 
 ## Edit or exchange a template
 
-Use **Copy and edit**, **New template**, or **Import template**. The editor
-supports these collapsible parts:
+Use **Copy and edit**, **New template**, or **Import template**. Copies of
+standard templates and new templates start in **Simple** mode. Imported
+templates start in **Advanced** mode. Switch modes at any time; both edit the
+same template, so no conversion or separate save is needed. A local recovery
+draft also restores the selected mode.
+
+Simple mode shows the document as named, collapsible sections. Data fields in
+text appear between `⟦...⟧` as readable labels instead of `{{ ... }}` codes. Search by a field's
+ordinary name (for example, *father microchip*), then select it to insert it at
+the cursor. The same search works for data-block rows and in Advanced mode.
+Use **Add section here** above or between sections to put a new part exactly
+where it belongs. **More actions** holds move, duplicate and delete controls.
+Advanced mode shows the underlying placeholder text and the original block
+controls when you need finer editing.
+
+The editor supports these collapsible parts:
 
 | Part | Purpose |
 | --- | --- |
@@ -74,7 +88,7 @@ supports these collapsible parts:
 | Signatures | Text followed by room for seller and buyer signatures |
 | Page break | Start the next part on a new page |
 
-Insert a field from the picker, or type its identifier inside double braces,
+In Advanced mode, insert a field from the picker or type its identifier inside double braces,
 for example `{{ pup.naam }}`. The field picker groups fields by buyer, puppy,
 parents, payment and other subjects. Move, duplicate or delete parts with their
 buttons. **Restore deleted block** restores the last deletion without undoing

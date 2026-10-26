@@ -71,7 +71,7 @@ for (const language of ["nl", "en"]) {
 
 test("Template draft and focus survive dashboard refresh; failed save keeps changes @cross-browser @tablet", async ({ page }) => {
   const { report, panel } = await mountDocuments(page);
-  await panel.locator("#edit-template").click();
+  await panel.locator("#edit-template").click(); await panel.locator("#editor-mode").selectOption("advanced");
   await panel.locator(".block > summary").click();
   const input = panel.locator("[data-block-text='0']");
   await input.fill("Aangepaste tekst");
@@ -96,6 +96,78 @@ test("Template draft and focus survive dashboard refresh; failed save keeps chan
   page.once("dialog", dialog => dialog.accept());
   await panel.locator("#delete-template").click();
   await expect(panel.locator("#document-status")).toHaveText("Sjabloon verwijderd.");
+});
+
+test("Simple template editor uses readable fields and inserts sections in place @cross-browser @tablet", async ({ page }) => {
+  const { panel } = await mountDocuments(page);
+  await panel.locator("#edit-template").click();
+  await expect(panel.locator("#editor-mode")).toHaveValue("simple");
+  await expect(panel.locator("[data-block='0'] > summary")).not.toContainText("{{");
+  await panel.locator("[data-block='0'] > summary").click();
+  await expect(panel.locator("[data-simple-text='0']")).toHaveValue("⟦Roepnaam pup⟧");
+  await panel.locator("[data-simple-text='0']").fill("Pup: ");
+  await panel.locator("[data-field-search='0']").fill("roepnaam");
+  await expect(panel.locator("[data-insert='0'] option")).toHaveCount(2);
+  await panel.locator("[data-insert='0']").selectOption("pup.naam");
+  await expect(panel.locator("[data-simple-text='0']")).toHaveValue("Pup: ⟦Roepnaam pup⟧");
+  await expect(panel.locator("[data-used-fields='0'] .field-chip")).toHaveText("Roepnaam pup");
+  expect(await panel.evaluate(el => el._editor.template.blocks[0].text)).toBe("Pup: {{ pup.naam }}");
+  await panel.locator("#editor-mode").selectOption("advanced");
+  await expect(panel.locator("[data-block-text='0']")).toHaveValue("Pup: {{ pup.naam }}");
+  await panel.locator("#editor-mode").selectOption("simple");
+  await expect(panel.locator("[data-simple-text='0']")).toHaveValue("Pup: ⟦Roepnaam pup⟧");
+  await panel.locator(".insert-menu").first().locator("summary").click();
+  await panel.locator("[data-add-after='-1'][data-add-kind='heading']").click();
+  await expect(panel.locator("[data-simple-text='0']")).toBeVisible();
+  await panel.locator("[data-simple-text='0']").fill("Pupgegevens");
+  await panel.locator(".insert-menu").nth(1).locator("summary").click();
+  await panel.locator("[data-add-after='0'][data-add-kind='data']").click();
+  await expect(panel.locator("[data-block]")).toHaveCount(3);
+  await panel.locator("[data-simple-text='1']").fill("Identiteit");
+  await panel.locator("[data-field-search='1']").last().fill("roepnaam");
+  await panel.locator("[data-add-field='1']").selectOption("pup.naam");
+  await panel.screenshot({ path: test.info().outputPath("simple-document-editor.png") });
+  await panel.locator("#save-template").click();
+  const saved = await page.evaluate(() => window.__docs.calls.find(c => c.type.endsWith("template/save")).template);
+  expect(saved.blocks.map(block => block.type)).toEqual(["heading", "data", "text"]);
+  expect(saved.blocks[1].fields).toEqual(["pup.naam"]);
+  expect(saved.blocks[2].text).toBe("Pup: {{ pup.naam }}");
+});
+
+test("Simple editor keeps mode, text and fields across draft recovery @cross-browser @tablet", async ({ page }) => {
+  let { panel } = await mountDocuments(page);
+  await panel.locator("#new-template").click();
+  await expect(panel.locator("#editor-mode")).toHaveValue("simple");
+  await panel.locator("#template-name").fill("Puppy letter");
+  await panel.locator("[data-block='0'] > summary").click();
+  await panel.locator("[data-simple-text='0']").fill("Hello ");
+  await panel.locator("[data-field-search='0']").fill("roepnaam");
+  await panel.locator("[data-insert='0']").selectOption("pup.naam");
+  await expect(panel.locator("#draft-status")).toContainText("Concept lokaal bewaard");
+  ({ panel } = await mountDocuments(page));
+  await expect(panel.locator("#editor-mode")).toHaveValue("simple");
+  await expect(panel.locator("[data-simple-text='0']")).toHaveValue("Hello ⟦Roepnaam pup⟧");
+  await expect(panel.locator("[data-used-fields='0'] .field-chip")).toHaveText("Roepnaam pup");
+  expect(await panel.evaluate(el => el._editor.template.blocks[0].text)).toBe("Hello {{ pup.naam }}");
+});
+
+test("Simple field insertion keeps caret position and multiline text @cross-browser @tablet", async ({ page }) => {
+  const { panel } = await mountDocuments(page);
+  await panel.locator("#new-template").click();
+  await panel.locator("#template-name").fill("Care letter");
+  await panel.locator("[data-block='0'] > summary").click();
+  await panel.locator("[data-simple-text='0']").fill("Hello puppy\nGoodbye");
+  await panel.locator("[data-simple-text='0']").evaluate(area => { area.focus(); area.setSelectionRange(6, 6); });
+  await panel.locator("[data-field-search='0']").fill("roepnaam");
+  await panel.locator("[data-insert='0']").selectOption("pup.naam");
+  expect(await panel.evaluate(el => el._editor.template.blocks[0].text)).toBe("Hello {{ pup.naam }}puppy\nGoodbye");
+  await panel.locator("#editor-mode").selectOption("advanced");
+  await expect(panel.locator("[data-block-text='0']")).toHaveValue("Hello {{ pup.naam }}puppy\nGoodbye");
+  await panel.locator("#editor-mode").selectOption("simple");
+  await panel.locator("[data-simple-text='0']").fill("⟦Unknown field⟧");
+  await panel.locator("#save-template").click();
+  await expect(panel.locator("#template-errors")).toContainText("onbekend of ongeldig invulveld");
+  expect(await page.evaluate(() => window.__docs.calls.some(c => c.type.endsWith("template/save")))).toBe(false);
 });
 
 test("Template block identities, deletion recovery and explicit field order @cross-browser @tablet", async ({ page }) => {
@@ -128,7 +200,7 @@ test("Template block identities, deletion recovery and explicit field order @cro
 
 test("Editor validates locally, updates optional fields without losing focus and previews unsaved layout @cross-browser @tablet", async ({ page }) => {
   const { panel } = await mountDocuments(page);
-  await panel.locator("#edit-template").click();
+  await panel.locator("#edit-template").click(); await panel.locator("#editor-mode").selectOption("advanced");
   await panel.locator("[data-block='0'] > summary").click();
   const input = panel.locator("[data-block-text='0']");
   await input.fill("{{ pup.unknown }}");
@@ -245,7 +317,7 @@ test("Import distinguishes file reading, JSON syntax and editor failures @cross-
 for (const language of ["nl", "en"]) test(`Watermark choices retain text and load logo independently from header (${language}) @cross-browser @tablet`, async ({ page }) => {
   const { panel } = await mountDocuments(page, language);
   await panel.evaluate(el => { el.loadLogo = async () => "test-logo-base64"; });
-  await panel.locator("#edit-template").click();
+  await panel.locator("#edit-template").click(); await panel.locator("#editor-mode").selectOption("advanced");
   await expect(panel.locator("#watermark-text")).toBeHidden();
   await panel.locator("#template-watermark").selectOption("text");
   await panel.locator("#watermark-text").fill("CONCEPT");
@@ -263,7 +335,7 @@ for (const language of ["nl", "en"]) test(`Watermark choices retain text and loa
   await expect(panel.locator("#watermark-text")).toHaveValue("CONCEPT");
   await panel.screenshot({ path: test.info().outputPath("document-watermark-settings.png") });
   await panel.locator("#save-template").click();
-  await panel.locator("#edit-template").click();
+  await panel.locator("#edit-template").click(); await panel.locator("#editor-mode").selectOption("advanced");
   await expect(panel.locator("#template-watermark")).toHaveValue("text");
   await expect(panel.locator("#watermark-text")).toHaveValue("CONCEPT");
   await panel.locator("#template-watermark").selectOption("none");
@@ -277,7 +349,7 @@ for (const language of ["nl", "en"]) test(`Watermark choices retain text and loa
 
 for (const language of ["nl", "en"]) test(`Template drafts recover after reload, including edits before the save timer (${language}) @cross-browser @tablet`, async ({ page }) => {
   let { panel } = await mountDocuments(page, language);
-  await panel.locator("#new-template").click();
+  await panel.locator("#new-template").click(); await panel.locator("#editor-mode").selectOption("advanced");
   await panel.locator("#template-name").fill("Local recovery");
   await panel.locator("[data-block='0'] > summary").click();
   await panel.locator("[data-block-text='0']").fill("{{ unfinished");
@@ -308,7 +380,7 @@ for (const language of ["nl", "en"]) test(`Template drafts recover after reload,
 
 test("Discarding a draft clears the recovery copy and does not resurrect after reload @cross-browser", async ({ page }) => {
   let { panel } = await mountDocuments(page);
-  await panel.locator("#edit-template").click();
+  await panel.locator("#edit-template").click(); await panel.locator("#editor-mode").selectOption("advanced");
   await panel.locator("#template-name").fill("Discard me");
   await expect(panel.locator("#draft-status")).toContainText("Concept lokaal bewaard");
   page.once("dialog", dialog => dialog.dismiss());
@@ -323,12 +395,12 @@ test("Discarding a draft clears the recovery copy and does not resurrect after r
 
 test("Local drafts stay isolated between HA users @cross-browser @tablet", async ({ page }) => {
   const { report, panel } = await mountDocuments(page);
-  await panel.locator("#edit-template").click();
+  await panel.locator("#edit-template").click(); await panel.locator("#editor-mode").selectOption("advanced");
   await panel.locator("#template-name").fill("Private draft A");
   await report.evaluate(el => { el.hass = { ...el._hass, user: { id: "other-admin", is_admin: true } }; });
   await expect(panel.locator("#document-buyer")).toBeVisible();
   await expect(panel).not.toContainText("Private draft A");
-  await panel.locator("#edit-template").click();
+  await panel.locator("#edit-template").click(); await panel.locator("#editor-mode").selectOption("advanced");
   await panel.locator("#template-name").fill("Private draft B");
   await report.evaluate(el => { el.hass = { ...el._hass, user: { id: "documents-admin", is_admin: true } }; });
   await expect(panel.locator("#template-name")).toHaveValue("Private draft A");
@@ -345,7 +417,7 @@ test("Storage failures keep input and download available without claiming draft 
       return set.call(this, key, value);
     };
   });
-  await panel.locator("#edit-template").click();
+  await panel.locator("#edit-template").click(); await panel.locator("#editor-mode").selectOption("advanced");
   await panel.locator("#template-name").fill("Keep my input");
   await expect(panel.locator("#draft-status")).toContainText("Automatisch bewaren is niet gelukt");
   await expect(panel.locator("#template-name")).toBeFocused();
@@ -357,7 +429,7 @@ test("Storage failures keep input and download available without claiming draft 
 
 test("A second tab cannot overwrite or discard the newer recovery copy @cross-browser", async ({ page, context }) => {
   const first = (await mountDocuments(page)).panel;
-  await first.locator("#edit-template").click();
+  await first.locator("#edit-template").click(); await first.locator("#editor-mode").selectOption("advanced");
   await first.locator("#template-name").fill("First draft");
   await expect(first.locator("#draft-status")).toContainText("Concept lokaal bewaard");
   const other = await context.newPage();
@@ -378,9 +450,9 @@ test("A second tab cannot overwrite or discard the newer recovery copy @cross-br
 
 test("Restored edits keep the original server revision for conflict checks @cross-browser", async ({ page }) => {
   let { panel } = await mountDocuments(page);
-  await panel.locator("#edit-template").click();
+  await panel.locator("#edit-template").click(); await panel.locator("#editor-mode").selectOption("advanced");
   await panel.locator("#save-template").click();
-  await panel.locator("#edit-template").click();
+  await panel.locator("#edit-template").click(); await panel.locator("#editor-mode").selectOption("advanced");
   await panel.locator("#template-name").fill("Work on existing template");
   ({ panel } = await mountDocuments(page));
   await expect(panel.locator("#template-name")).toHaveValue("Work on existing template");
@@ -397,7 +469,7 @@ test("Malformed local recovery data does not prevent starting a new draft @cross
   await page.evaluate(() => localStorage.setItem("puppy_tracker.document_draft.v1.documents-admin", JSON.stringify({ version: 1, editor: { template: { blocks: [null] } } })));
   const { panel } = await mountDocuments(page);
   await expect(panel.locator("#draft-status")).toContainText("kon niet worden hersteld");
-  await panel.locator("#new-template").click();
+  await panel.locator("#new-template").click(); await panel.locator("#editor-mode").selectOption("advanced");
   await panel.locator("#template-name").fill("New recoverable draft");
   await expect(panel.locator("#draft-status")).toContainText("Concept lokaal bewaard");
 });
@@ -422,7 +494,7 @@ for (const language of ["nl", "en"]) test(`Standard templates are grouped and de
   await expect(panel.locator("#delete-template")).toBeVisible();
   await panel.locator("#document-template").selectOption(builtin);
   await expect(panel.locator("#delete-template")).toHaveCount(0);
-  await panel.locator("#edit-template").click();
+  await panel.locator("#edit-template").click(); await panel.locator("#editor-mode").selectOption("advanced");
   await panel.locator("#template-name").fill("Personal copy");
   await panel.locator("#save-template").click();
   const saved = await page.evaluate(() => window.__docs.calls.find(c => c.type.endsWith("template/save")));

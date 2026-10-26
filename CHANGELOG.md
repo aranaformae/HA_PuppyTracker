@@ -10,6 +10,12 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+### Changed
+
+- Document template editing now offers a simple mode with readable field labels,
+  searchable field insertion and section insertion in place. The advanced block
+  editor remains available; both modes edit the same template and draft.
+
 ## [0.32.4] - 2026-10-26
 
 ### Added

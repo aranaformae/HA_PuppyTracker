@@ -11,6 +11,7 @@ const COPY = {
     watermark: "Watermerk", watermarkNone: "Geen watermerk", watermarkTextMode: "Tekst", watermarkLogoMode: "Logo", watermarkText: "Watermerktekst", watermarkTextHint: "Leeg laten om de documenttitel te gebruiken.", watermarkLogoHint: "Gebruikt het ingestelde fokkerlogo, of anders het Puppy Tracker-logo. Licht op iedere pagina, onafhankelijk van het logo bovenaan.",
     importReadError: "Het bestand kon niet worden gelezen. Download het eerst volledig in Bestanden en selecteer het opnieuw.", importJsonError: "Het bestand bevat geen geldige JSON. Kies het originele sjabloonbestand of controleer de JSON-opmaak.",
     duplicate: "Dupliceren", restoreBlock: "Verwijderd onderdeel herstellen", jumpBlock: "Ga naar onderdeel", block: "Onderdeel", addField: "Gegevensveld toevoegen", noUsedFields: "Dit sjabloon gebruikt nog geen invulvelden.",
+    simpleMode: "Eenvoudig", advancedMode: "Geavanceerd", editorMode: "Bewerkstand", searchField: "Zoek een veld", insertHere: "Onderdeel hier toevoegen", moreActions: "Meer acties", layoutSettings: "Opmaakinstellingen", sectionTitle: "Titel", jumpSection: "Ga naar sectie", fieldHint: "Zoek op een naam zoals chipnummer vader; het veld wordt op de cursorpositie ingevoegd.",
     nameRequired: "Vul een sjabloonnaam in (maximaal 150 tekens).", blockLimit: "Een sjabloon heeft 1 tot 200 onderdelen nodig.", templateTooLarge: "Het sjabloon is groter dan 150 kB. Kort de tekst in of splits het document.", emptyDataBlock: "Voeg minstens één gegevensveld toe.", invalid_document_text: "Gebruik maximaal 12.000 tekens per onderdeel, zonder ongeldige besturingstekens.",
     previewTemplate: "Opmaakvoorbeeld (PDF)", downloadDraft: "Concept downloaden", previewTemplateHint: "Het opmaakvoorbeeld gebruikt veldnamen als voorbeeldwaarden en slaat niets op. Controleer later ook de PDF met de werkelijke gegevens.", previewTemplateDone: "Opmaakvoorbeeld gedownload. Het sjabloon is niet opgeslagen.",
     group_fokker: "Fokker", group_koper: "Koper(s)", group_nest: "Nest", group_pup: "Pup", group_vader: "Vader", group_moeder: "Moeder", group_betaling: "Betalingen", group_overdracht: "Overdracht", group_contract: "Ondertekening",
@@ -33,6 +34,7 @@ const COPY = {
     watermark: "Watermark", watermarkNone: "No watermark", watermarkTextMode: "Text", watermarkLogoMode: "Logo", watermarkText: "Watermark text", watermarkTextHint: "Leave empty to use the document title.", watermarkLogoHint: "Uses the configured breeder logo, or the Puppy Tracker logo as fallback. Faintly on every page, independently of the header logo.",
     importReadError: "The file could not be read. Download it fully in Files, then select it again.", importJsonError: "The file does not contain valid JSON. Choose the original template file or check its JSON syntax.",
     duplicate: "Duplicate", restoreBlock: "Restore deleted block", jumpBlock: "Go to block", block: "Block", addField: "Add data field", noUsedFields: "This template does not use any placeholders yet.",
+    simpleMode: "Simple", advancedMode: "Advanced", editorMode: "Editing mode", searchField: "Find a field", insertHere: "Add section here", moreActions: "More actions", layoutSettings: "Layout settings", sectionTitle: "Title", jumpSection: "Go to section", fieldHint: "Search by a name such as father microchip; the field is inserted at the cursor.",
     nameRequired: "Enter a template name (up to 150 characters).", blockLimit: "A template needs 1 to 200 blocks.", templateTooLarge: "The template exceeds 150 kB. Shorten the text or split the document.", emptyDataBlock: "Add at least one data field.", invalid_document_text: "Use up to 12,000 characters per block without invalid control characters.",
     previewTemplate: "Layout preview (PDF)", downloadDraft: "Download draft", previewTemplateHint: "The layout preview uses field names as sample values and saves nothing. Also check the PDF with actual data later.", previewTemplateDone: "Layout preview downloaded. The template has not been saved.",
     group_fokker: "Breeder", group_koper: "Buyer(s)", group_nest: "Litter", group_pup: "Puppy", group_vader: "Father", group_moeder: "Mother", group_betaling: "Payments", group_overdracht: "Handover", group_contract: "Signing",
@@ -98,7 +100,7 @@ class PuppyTrackerDocuments extends HTMLElement {
     this._templateEditor.capture();
     return { editor: this._editor, view: {
       open: this._templateEditor.keys.flatMap((key, index) => this._templateEditor.open.has(key) ? [index] : []),
-      scroll: this._templateEditor.scroll, optional: this._templateEditor.optionalOpen,
+      scroll: this._templateEditor.scroll, optional: this._templateEditor.optionalOpen, layout: this._templateEditor.layoutOpen, mode: this._templateEditor.mode,
     } };
   }
   _draftStatus(state) {
@@ -198,7 +200,7 @@ class PuppyTrackerDocuments extends HTMLElement {
       downloadExportFile(result.download);
     });
   }
-  _edit(value, id = null, revision = null, view = null) {
+  _edit(value, id = null, revision = null, view = null, mode = "advanced") {
     this._editor = { template: structuredClone(value), id: id || createUuid(), revision };
     this._templateEditor = new DocumentTemplateEditor(this._editor.template, {
       fields: this._model.fields, language: () => this.language, text: key => this.t(key),
@@ -215,7 +217,9 @@ class PuppyTrackerDocuments extends HTMLElement {
       this._templateEditor.open = new Set(view.open.filter(index => Number.isInteger(index) && index >= 0 && index < this._templateEditor.keys.length).map(index => this._templateEditor.keys[index]));
       this._templateEditor.scroll = Number.isFinite(view.scroll) ? Math.max(0, Math.min(view.scroll, 1e7)) : 0;
       this._templateEditor.optionalOpen = view.optional === true;
+      this._templateEditor.layoutOpen = view.layout === true;
     }
+    this._templateEditor.mode = view?.mode === "simple" || view?.mode === "advanced" ? view.mode : mode;
     this._dirty = false; this._invalidate(); this._render();
   }
   _saveTemplate() {
@@ -293,6 +297,7 @@ class PuppyTrackerDocuments extends HTMLElement {
     const checks = this._preview ? (this._preview.missing.length ? `<strong>${esc(this.t("missing"))}</strong><ul>${this._preview.missing.map(key => `<li>${esc(this._fieldLabel(key))}</li>`).join("")}</ul>` : esc(this.t("ready"))) : "";
     this.shadowRoot.innerHTML = `<style>
       :host{display:block;color:var(--primary-text-color,#212121)}fieldset{border:0;padding:0;margin:0;min-width:0}label{display:grid;gap:5px;font-size:.85rem}input:not([type=checkbox]),select,textarea{box-sizing:border-box;width:100%;min-width:0;border:1px solid var(--divider-color,#d5d9df);border-radius:6px;padding:9px;background:var(--card-background-color,#fff);color:var(--primary-text-color,#212121);font:inherit}textarea{resize:vertical}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px}.actions,.flags{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.flags label,.field-list label,label:has(input[type=checkbox]){display:flex;align-items:center;gap:6px}.actions select{width:auto;max-width:100%}button{min-height:42px;padding:8px 12px;border:1px solid var(--divider-color,#d5d9df);border-radius:7px;background:var(--secondary-background-color,#f5f7fa);color:var(--primary-text-color,#212121);font:inherit;cursor:pointer}.primary{background:var(--primary-color,#03a9f4);color:var(--text-primary-color,#fff)}button:disabled{opacity:.5;cursor:default}p{font-size:.85rem;color:var(--secondary-text-color,#666);line-height:1.5}summary{cursor:pointer;padding:12px 0;font-weight:600;overflow-wrap:anywhere}.blocks,.archive,.field-list{max-height:500px;overflow-y:auto;overflow-anchor:none}.block{border-top:1px solid var(--divider-color,#d5d9df);padding:0 4px 8px}.block label{margin:8px 0}.field-list{display:grid;gap:10px}.archive article{padding:10px 0;border-bottom:1px solid var(--divider-color,#d5d9df);overflow-wrap:anywhere}.archive small{display:block;color:var(--secondary-text-color,#666)}.error{color:var(--error-color,#b00020)}#document-status,#document-error{min-height:1.4em;font-size:.85rem;overflow-wrap:anywhere}h3{font-size:1rem}#draft-status{font-size:.85rem;line-height:1.4;min-height:4.2em;overflow-wrap:anywhere}#draft-status:empty{display:none}.selected-fields{padding-left:22px}.selected-fields li{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:5px 0}.selected-fields li span{overflow-wrap:anywhere;min-width:0}.selected-fields .actions{flex-wrap:nowrap;margin:0;gap:4px}.selected-fields button{min-width:42px}.block-error:empty,#template-errors:empty{display:none}#template-errors{display:grid}#template-errors button{text-align:left}.editor .blocks{margin-top:12px}#template-editor [hidden]{display:none}.watermark-settings small{color:var(--secondary-text-color,#666);font-weight:normal}
+      .used-field-chips{display:flex;gap:5px;flex-wrap:wrap}.field-chip{display:inline-block;padding:1px 5px;border:1px solid var(--primary-color,#03a9f4);border-radius:4px;background:var(--secondary-background-color,#e8f2f7);font-size:.8rem;font-weight:600}.field-picker{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:8px}.simple-block{padding:8px 12px;margin:8px 0;border:1px solid var(--divider-color,#d5d9df);border-radius:8px}.block-tools{margin:6px 0}.insert-menu{margin:5px 0 12px}.insert-menu>summary{font-size:.85rem;color:var(--primary-color,#03a9f4);padding:5px 0}
       </style><fieldset ${this._busy ? "disabled" : ""}>${!model ? `<p>${esc(this.t("loading"))}</p><button type="button" id="refresh-documents">${esc(this.t("refresh"))}</button>` : this._editor ? '<div id="template-editor"></div>' : `
       <div class="grid"><label>${esc(this.t("template"))}<select id="document-template">${this._templateOptions()}</select></label></div>
       <div class="actions"><button type="button" id="edit-template" ${!selected ? "disabled" : ""}>${esc(this.t(selected?.builtin ? "copy" : "edit"))}</button><button type="button" id="new-template">${esc(this.t("create"))}</button><button type="button" id="export-template" ${!selected ? "disabled" : ""}>${esc(this.t("export"))}</button><button type="button" id="import-template">${esc(this.t("import"))}</button><input id="template-file" type="file" accept=".json,application/json" hidden><button type="button" id="refresh-documents">${esc(this.t("refresh"))}</button></div>
@@ -306,14 +311,14 @@ class PuppyTrackerDocuments extends HTMLElement {
     on("#document-others", "change", e => { this._others = [...e.target.selectedOptions].map(o => o.value); this._invalidate(); });
     for (const key of ["date", "place"]) on(`#document-${key}`, "input", e => { this._details[key] = e.target.value; this._invalidate(); });
     on("#preview-document", "click", () => this._check()); on("#save-document", "click", () => this._saveDocument());
-    on("#edit-template", "click", () => this._edit(selected.template, selected.builtin ? null : selected.id, selected.builtin ? null : selected.revision));
+    on("#edit-template", "click", () => this._edit(selected.template, selected.builtin ? null : selected.id, selected.builtin ? null : selected.revision, null, selected.builtin ? "simple" : "advanced"));
     if (model && !this._editor && selected && !selected.builtin) {
       const remove = document.createElement("button");
       remove.type = "button"; remove.id = "delete-template"; remove.textContent = this.t("deleteTemplate");
       remove.addEventListener("click", () => this._deleteTemplate(selected));
       this.shadowRoot.querySelector("#edit-template").parentElement.append(remove);
     }
-    on("#new-template", "click", () => this._edit({ format: "puppy_tracker_document_template", version: 1, name: "", language: this.language, logo: true, watermark: false, initials: true, optional_fields: [], blocks: [{ type: "text", text: "", fields: [] }] }));
+    on("#new-template", "click", () => this._edit({ format: "puppy_tracker_document_template", version: 1, name: "", language: this.language, logo: true, watermark: false, initials: true, optional_fields: [], blocks: [{ type: "text", text: "", fields: [] }] }, null, null, null, "simple"));
     on("#export-template", "click", () => downloadExportFile({ content: JSON.stringify(selected.template, null, 2), mime_type: "application/json", filename: "puppy-tracker-document-template.json" }));
     on("#import-template", "click", () => this.shadowRoot.querySelector("#template-file").click());
     on("#template-file", "change", e => this._import(e.target.files[0]));
