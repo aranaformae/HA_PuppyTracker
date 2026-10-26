@@ -10,6 +10,8 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+## [0.32.5] - 2026-10-26
+
 ### Changed
 
 - Document template editing now offers a simple mode with readable field labels,
@@ -251,7 +253,8 @@ for explicit assignment. See [storage migrations](docs/storage-migrations.md#own
 
 - Separated daily execution from schedule management in Care workspace navigation.
 
-[Unreleased]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.32.4...HEAD
+[Unreleased]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.32.5...HEAD
+[0.32.5]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.32.4...v0.32.5
 [0.32.4]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.32.3...v0.32.4
 [0.32.3]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.32.2...v0.32.3
 [0.32.2]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.32.1...v0.32.2
