@@ -10,14 +10,26 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+## [0.32.6] - 2026-10-26
+
 ### Added
 
-- A bilingual printable payment receipt template fills in the known breeder,
-  buyer and puppy. The actual payment details and recipient signature are
-  completed on the form, so agreed amounts are never presented as received.
 - Individual payment receipts can be recorded per owner and litter with amount,
   date, type, method and optional reference. Corrections retain the original
   entry. Existing balances remain manual and are not inferred as past receipts.
+- Document templates can use placement date and status, litter and puppy birth
+  details, latest valid puppy weight with measurement date, and an optional
+  puppy profile note.
+
+### Changed
+
+- The bilingual payment receipt now uses one explicitly selected, active
+  payment from the primary buyer's litter dossier. A corrected or withdrawn
+  payment cannot be saved from an outdated preview. The recipient signature
+  remains a manual confirmation on the PDF.
+- Puppy information templates include birth and latest weight details, and
+  handover checklists can show the actual placement date. Existing archived
+  documents and backups remain readable.
 
 ## [0.32.5] - 2026-10-26
 
@@ -262,7 +274,8 @@ for explicit assignment. See [storage migrations](docs/storage-migrations.md#own
 
 - Separated daily execution from schedule management in Care workspace navigation.
 
-[Unreleased]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.32.5...HEAD
+[Unreleased]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.32.6...HEAD
+[0.32.6]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.32.5...v0.32.6
 [0.32.5]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.32.4...v0.32.5
 [0.32.4]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.32.3...v0.32.4
 [0.32.3]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.32.2...v0.32.3
