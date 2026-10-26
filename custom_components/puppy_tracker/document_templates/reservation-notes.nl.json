@@ -1,0 +1,96 @@
+{
+  "format": "puppy_tracker_document_template",
+  "version": 1,
+  "name": "Reserveringsafspraken",
+  "language": "nl",
+  "logo": true,
+  "watermark": false,
+  "initials": true,
+  "optional_fields": [
+    "betaling.aanbetaling",
+    "betaling.inschrijfgeld",
+    "betaling.slotbetaling",
+    "fokker.email",
+    "fokker.telefoon",
+    "koper.email",
+    "koper.telefoon",
+    "nest.naam",
+    "overdracht.datum",
+    "pup.bandkleur",
+    "pup.chipnummer",
+    "pup.geboortedatum"
+  ],
+  "blocks": [
+    {
+      "type": "heading",
+      "text": "Contactgegevens"
+    },
+    {
+      "type": "data",
+      "text": "Fokker",
+      "fields": [
+        "fokker.naam",
+        "fokker.telefoon",
+        "fokker.email"
+      ]
+    },
+    {
+      "type": "data",
+      "text": "Koper(s)",
+      "fields": [
+        "koper.naam",
+        "koper.telefoon",
+        "koper.email"
+      ]
+    },
+    {
+      "type": "heading",
+      "text": "Pup en planning"
+    },
+    {
+      "type": "data",
+      "text": "",
+      "fields": [
+        "nest.naam",
+        "pup.naam",
+        "pup.geboortedatum",
+        "pup.bandkleur",
+        "pup.chipnummer",
+        "overdracht.datum"
+      ]
+    },
+    {
+      "type": "page_break"
+    },
+    {
+      "type": "heading",
+      "text": "Financiële afspraken"
+    },
+    {
+      "type": "data",
+      "text": "",
+      "fields": [
+        "betaling.totaal",
+        "betaling.inschrijfgeld",
+        "betaling.aanbetaling",
+        "betaling.slotbetaling"
+      ]
+    },
+    {
+      "type": "text",
+      "text": "Deze bedragen beschrijven de afgesproken termijnen; zij bevestigen niet dat deze al zijn ontvangen."
+    },
+    {
+      "type": "heading",
+      "text": "Aanvullende afspraken"
+    },
+    {
+      "type": "text",
+      "text": "____________________________________________________________\n\n____________________________________________________________"
+    },
+    {
+      "type": "signature",
+      "text": "Vastgelegd te {{ contract.plaats }} op {{ contract.datum }}."
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "format": "puppy_tracker_document_template",
+  "version": 1,
+  "name": "Overdrachtschecklist",
+  "language": "nl",
+  "logo": true,
+  "watermark": false,
+  "initials": false,
+  "optional_fields": [
+    "overdracht.datum",
+    "pup.chipnummer"
+  ],
+  "blocks": [
+    {
+      "type": "heading",
+      "text": "Gegevens"
+    },
+    {
+      "type": "data",
+      "text": "",
+      "fields": [
+        "pup.naam",
+        "pup.chipnummer",
+        "koper.naam",
+        "fokker.naam",
+        "overdracht.datum",
+        "contract.datum"
+      ]
+    },
+    {
+      "type": "heading",
+      "text": "Samen controleren"
+    },
+    {
+      "type": "text",
+      "text": "[ ] Identiteitsgegevens en chipnummer gecontroleerd.\n[ ] Dossier en beschikbare documenten doorgenomen.\n[ ] Voeding en dagelijks ritme besproken.\n[ ] Verzorgingsafspraken en contactgegevens doorgenomen.\n[ ] Betalingsafspraken gecontroleerd.\n[ ] Mee te geven spullen en vragen besproken."
+    },
+    {
+      "type": "heading",
+      "text": "Notities"
+    },
+    {
+      "type": "text",
+      "text": "____________________________________________________________\n\n____________________________________________________________"
+    },
+    {
+      "type": "text",
+      "text": "Deze afvinklijst wordt op papier ingevuld. Het maken van deze PDF wijzigt geen dossieritems of zorgprogrammaresultaten."
+    }
+  ]
+}

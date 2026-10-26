@@ -10,6 +10,14 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+### Added
+
+- Five standard document types in Dutch and English: puppy handover, puppy
+  information, payment overview, reservation notes and a printable handover
+  checklist. Standard templates are grouped by language and can be copied or
+  downloaded; custom templates remain separate. The original Dutch handover
+  remains unchanged. Document date/save labels now also suit non-contract forms.
+
 ### Fixed
 
 - Browser CI uses matching preinstalled

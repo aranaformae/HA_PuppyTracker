@@ -1,0 +1,72 @@
+{
+  "format": "puppy_tracker_document_template",
+  "version": 1,
+  "name": "Payment overview",
+  "language": "en",
+  "logo": true,
+  "watermark": false,
+  "initials": false,
+  "optional_fields": [
+    "betaling.aanbetaling",
+    "betaling.datum_aanbetaling",
+    "betaling.datum_slotbetaling",
+    "betaling.inschrijfgeld",
+    "betaling.slotbetaling",
+    "pup.chipnummer"
+  ],
+  "blocks": [
+    {
+      "type": "heading",
+      "text": "Parties and puppy"
+    },
+    {
+      "type": "data",
+      "text": "",
+      "fields": [
+        "fokker.naam",
+        "koper.naam",
+        "pup.naam",
+        "pup.chipnummer"
+      ]
+    },
+    {
+      "type": "heading",
+      "text": "Agreed amounts"
+    },
+    {
+      "type": "data",
+      "text": "",
+      "fields": [
+        "betaling.totaal",
+        "betaling.inschrijfgeld",
+        "betaling.aanbetaling",
+        "betaling.slotbetaling"
+      ]
+    },
+    {
+      "type": "text",
+      "text": "The final instalment is the agreed last payment: purchase price minus registration fee and deposit. The amounts above are agreements and do not confirm receipt of payment."
+    },
+    {
+      "type": "heading",
+      "text": "Payment record"
+    },
+    {
+      "type": "data",
+      "text": "",
+      "fields": [
+        "betaling.datum_aanbetaling",
+        "betaling.datum_slotbetaling",
+        "betaling.openstaand"
+      ]
+    },
+    {
+      "type": "text",
+      "text": "The actual outstanding balance reflects payments recorded as received in Puppy Tracker. This overview is not a payment receipt."
+    },
+    {
+      "type": "text",
+      "text": "Overview prepared on {{ contract.datum }}."
+    }
+  ]
+}

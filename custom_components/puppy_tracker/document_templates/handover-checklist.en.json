@@ -1,0 +1,51 @@
+{
+  "format": "puppy_tracker_document_template",
+  "version": 1,
+  "name": "Handover checklist",
+  "language": "en",
+  "logo": true,
+  "watermark": false,
+  "initials": false,
+  "optional_fields": [
+    "overdracht.datum",
+    "pup.chipnummer"
+  ],
+  "blocks": [
+    {
+      "type": "heading",
+      "text": "Details"
+    },
+    {
+      "type": "data",
+      "text": "",
+      "fields": [
+        "pup.naam",
+        "pup.chipnummer",
+        "koper.naam",
+        "fokker.naam",
+        "overdracht.datum",
+        "contract.datum"
+      ]
+    },
+    {
+      "type": "heading",
+      "text": "Review together"
+    },
+    {
+      "type": "text",
+      "text": "[ ] Identity details and microchip checked.\n[ ] Dossier and available documents reviewed.\n[ ] Feeding and daily routine discussed.\n[ ] Care arrangements and contact details reviewed.\n[ ] Payment arrangements checked.\n[ ] Items to take home and questions discussed."
+    },
+    {
+      "type": "heading",
+      "text": "Notes"
+    },
+    {
+      "type": "text",
+      "text": "____________________________________________________________\n\n____________________________________________________________"
+    },
+    {
+      "type": "text",
+      "text": "Complete this checklist on paper. Creating this PDF does not change dossier entries or care-program results."
+    }
+  ]
+}

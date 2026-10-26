@@ -15,7 +15,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN, SIGNAL_DASHBOARD_UPDATE
-from .document_templates import BUILTIN_TEMPLATE_ID, FIELDS, IDENTIFIER, MAX_DOCUMENTS, MAX_TEMPLATES, built_in_template, document_context, fingerprint, normalize_template, template_fields, template_uses_logo, validate_document_settings
+from .document_templates import BUILTIN_TEMPLATE_IDS, FIELDS, IDENTIFIER, MAX_DOCUMENTS, MAX_TEMPLATES, built_in_templates, document_context, fingerprint, normalize_template, template_fields, template_uses_logo, validate_document_settings
 from .document_pdf import build_document_pdf
 from .dog_identity import puppy_selector_label
 from .managed_files import validate_manifest
@@ -31,8 +31,8 @@ def _public(document):
 
 
 async def _templates(hass, storage):
-    default = await hass.async_add_executor_job(built_in_template)
-    return {BUILTIN_TEMPLATE_ID: default, **storage.get_settings().get("document_templates", {})}
+    defaults = await hass.async_add_executor_job(built_in_templates)
+    return {**defaults, **storage.get_settings().get("document_templates", {})}
 
 
 def _download(document, content):
@@ -86,7 +86,7 @@ async def websocket_documents_list(hass, connection, msg):
         templates = await _templates(hass, runtime.storage)
         settings = runtime.storage.get_settings()
         return {"fields": {key: {"nl": labels[0], "en": labels[1]} for key, labels in FIELDS.items()},
-                "templates": [{"id": key, "revision": fingerprint(value), "builtin": key == BUILTIN_TEMPLATE_ID, "template": value} for key, value in templates.items()],
+                "templates": [{"id": key, "revision": fingerprint(value), "builtin": key in BUILTIN_TEMPLATE_IDS, "template": value} for key, value in templates.items()],
                 "litters": [{"id": key, "name": litter.get("name", ""), "puppies": [{"id": pid, "name": pup.get("name", ""), "collar_color": pup.get("collar_color", ""), "owner_ids": pup.get("owner_ids", [])} for pid, pup in litter.get("puppies", {}).items()]} for key, litter in runtime.storage.get_litters().items()],
                 "owners": [{"id": owner["id"], "name": owner["name"]} for owner in runtime.owners.get_all()],
                 "documents": sorted((_public(d) for d in settings.get("documents", {}).values()), key=lambda d: d["created_at"], reverse=True)}
@@ -101,7 +101,7 @@ async def websocket_template_save(hass, connection, msg):
     async def operation(runtime):
         value = normalize_template(msg["template"])
         key = msg.get("template_id") or uuid4().hex
-        if key == BUILTIN_TEMPLATE_ID or not IDENTIFIER.fullmatch(key):
+        if key in BUILTIN_TEMPLATE_IDS or not IDENTIFIER.fullmatch(key):
             raise ValueError("copy_builtin_template")
         async with runtime.storage._mutation():
             templates = runtime.storage._data.setdefault("settings", {}).setdefault("document_templates", {})
@@ -126,7 +126,7 @@ async def websocket_template_save(hass, connection, msg):
 @websocket_api.async_response
 async def websocket_template_delete(hass, connection, msg):
     async def operation(runtime):
-        if msg["template_id"] == BUILTIN_TEMPLATE_ID:
+        if msg["template_id"] in BUILTIN_TEMPLATE_IDS:
             raise ValueError("copy_builtin_template")
         async with runtime.storage._mutation():
             templates = runtime.storage._data.setdefault("settings", {}).setdefault("document_templates", {})

@@ -22,7 +22,7 @@ needed.
    preview**. The card lists missing required fields; the preview marks them.
 5. Complete missing source data, press **Refresh** and check again. Review the
    downloaded PDF. Only a complete, current preview can be saved to the archive.
-6. Choose **Save and download contract**. The archive retains the exact PDF and
+6. Choose **Save and download document**. The archive retains the exact PDF and
    the template/data snapshot used to create it. Later edits do not change it.
 
 Changing the selection invalidates the previous check. If another dashboard
@@ -30,10 +30,35 @@ changes source data or the template after checking, final saving is refused
 until you check again. Retrying the same save after a lost response does not
 create a duplicate document.
 
-The included Dutch **Overdrachtsbewijs** is a short, neutral example showing
-fields and signature space. No private sales contract, legal clauses or breeder
-branding is bundled. Import your own contract template as JSON, or create a new
-one. The built-in example can be copied but not overwritten. The module fills
+## Standard templates
+
+Five neutral starter documents are included in **Dutch and English**:
+
+| Dutch | English | Purpose |
+| --- | --- | --- |
+| Overdrachtsbewijs | Puppy handover | Short handover record with puppy, buyer, date and signatures |
+| Pupgegevens | Puppy information | Puppy identity, breeder/owner contacts and a separate parent-information page |
+| Betalingsoverzicht | Payment overview | Agreed amounts, recorded payment dates and actual outstanding balance |
+| Reserveringsafspraken | Reservation notes | Contacts, puppy/planning, agreed instalments, space for additional arrangements and signatures |
+| Overdrachtschecklist | Handover checklist | A printable checklist and notes area for reviewing the handover together |
+
+The selector groups standard documents by language and keeps your own templates
+separate. Its initial default follows the HA interface language; later explicit
+selections are retained while the card is open. **Document date** is the date
+used by the `contract.datum` field, including in non-contract documents.
+
+Choose a standard template directly, or **Copy and edit** it to create your own
+version. Built-ins can be downloaded but not overwritten or deleted. Copies and
+imports count toward the 30-custom-template limit; built-ins do not. Optional
+identity/contact fields are marked accordingly in the starters, so a puppy not
+yet microchipped or incomplete parent registration does not block those forms.
+The original short Dutch handover still requires the fields it previously used.
+
+Payment and reservation documents distinguish planned instalments from recorded
+receipts; they do not certify that the configured amounts were paid. The printed
+checklist starts unchecked and does not change dossier or care-program results.
+No private sales contract, legal clauses or personal breeder branding is bundled.
+Import your own contract template as JSON, or create a new one. The module fills
 and lays out your text; it does not assess its legal or veterinary contents.
 
 ## Edit or exchange a template
@@ -139,7 +164,7 @@ not reported as a problem with the template file.
 
 The format is `puppy_tracker_document_template`, version `1`. A small working
 example is available in [document-template-example.json](examples/document-template-example.json).
-The built-in neutral example is in
+One built-in neutral example is in
 [handover-example.nl.json](../custom_components/puppy_tracker/document_templates/handover-example.nl.json).
 Private templates are imported into your own Home Assistant installation and
 are not distributed with Puppy Tracker. Full backups of that installation do

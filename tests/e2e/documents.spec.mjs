@@ -12,14 +12,14 @@ async function mountDocuments(page, language = "nl") {
       litters: [{ id: "a", name: "Luna 2026", puppies: [{ id: "a1", name: "Nova", collar_color: "paars", owner_ids: ["o1", "o2"] }, { id: "a2", name: "Groen", collar_color: "groen", owner_ids: ["o3"] }] }],
       owners: [{ id: "o1", name: "Alex" }, { id: "o2", name: "Sam" }, { id: "o3", name: "Robin" }], documents: [],
     };
-    window.__docs = { calls: [], failSave: false, holdPreview: false };
+    window.__docs = { calls: [], failSave: false, holdPreview: false, model };
     const state = window.__docs;
     el.hass = { ...el._hass, user: { id: "documents-admin", is_admin: true }, callWS: async message => {
       if (!message.type.startsWith("puppy_tracker/documents/")) return original(message);
       state.calls.push(structuredClone(message));
       const download = { filename: "contract.pdf", mime_type: "application/pdf", encoding: "base64", content: btoa("%PDF-1.4\n%%EOF") };
       switch (message.type.split("documents/")[1]) {
-        case "list": return structuredClone(model);
+        case "list": return structuredClone(state.model);
         case "template/preview": return download;
         case "preview": {
           const result = { fingerprint: "checked", missing: message.details.place ? [] : ["contract.plaats"], download };
@@ -400,6 +400,35 @@ test("Malformed local recovery data does not prevent starting a new draft @cross
   await panel.locator("#new-template").click();
   await panel.locator("#template-name").fill("New recoverable draft");
   await expect(panel.locator("#draft-status")).toContainText("Concept lokaal bewaard");
+});
+
+for (const language of ["nl", "en"]) test(`Standard templates are grouped and default to the UI language (${language}) @cross-browser @tablet`, async ({ page }) => {
+  const { panel } = await mountDocuments(page, language);
+  await page.evaluate(() => {
+    const source = window.__docs.model.templates[0];
+    window.__docs.model.templates = [
+      { ...source, id: "handover-example-nl", template: { ...source.template, name: "Overdrachtsbewijs", language: "nl" } },
+      { ...source, id: "puppy-profile-en", template: { ...source.template, name: "Puppy information", language: "en" } },
+      { ...source, id: "my-copy", builtin: false, template: { ...source.template, name: "My document", language: "en" } },
+    ];
+  });
+  await panel.evaluate(el => { el._template = ""; });
+  await panel.locator("#refresh-documents").click();
+  const builtin = language === "nl" ? "handover-example-nl" : "puppy-profile-en";
+  await expect(panel.locator("#document-template")).toHaveValue(builtin);
+  await expect(panel.locator("#document-template optgroup")).toHaveCount(3);
+  await expect(panel.locator("#document-template optgroup").first()).toHaveAttribute("label", language === "nl" ? "Standaard · Nederlands" : "Standard · English");
+  await panel.locator("#document-template").selectOption("my-copy");
+  await expect(panel.locator("#delete-template")).toBeVisible();
+  await panel.locator("#document-template").selectOption(builtin);
+  await expect(panel.locator("#delete-template")).toHaveCount(0);
+  await panel.locator("#edit-template").click();
+  await panel.locator("#template-name").fill("Personal copy");
+  await panel.locator("#save-template").click();
+  const saved = await page.evaluate(() => window.__docs.calls.find(c => c.type.endsWith("template/save")));
+  expect(saved.template_id).not.toBe(builtin);
+  expect(saved.expected_revision).toBeUndefined();
+  expect(saved.template.language).toBe(language);
 });
 
 test("Revoked admin permission discards a delayed preview", async ({ page }) => {

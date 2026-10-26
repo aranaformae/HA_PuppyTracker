@@ -5,6 +5,7 @@ from __future__ import annotations
 from copy import deepcopy
 from datetime import date
 from decimal import Decimal
+from functools import lru_cache
 from hashlib import sha256
 import json
 from pathlib import Path
@@ -17,6 +18,10 @@ from .owners import final_payment_amount, owner_for_litter
 FORMAT = "puppy_tracker_document_template"
 VERSION = 1
 BUILTIN_TEMPLATE_ID = "handover-example-nl"
+_BUILTIN_FILES = {f"{kind}-{language}": f"{kind}.{language}.json"
+                  for kind in ("handover-example", "puppy-profile", "payment-overview", "reservation-notes", "handover-checklist")
+                  for language in ("nl", "en")}
+BUILTIN_TEMPLATE_IDS = frozenset(_BUILTIN_FILES)
 MAX_TEMPLATES = 30
 MAX_DOCUMENTS = 100
 MAX_TEMPLATE_BYTES = 150_000
@@ -59,7 +64,7 @@ FIELDS = {
     "betaling.datum_slotbetaling": ("Datum slotbetaling", "Final payment date"),
     "betaling.openstaand": ("Werkelijk openstaand", "Actual outstanding balance"),
     "overdracht.datum": ("Verwachte ophaaldatum", "Expected pickup date"),
-    "contract.datum": ("Contractdatum", "Contract date"),
+    "contract.datum": ("Documentdatum", "Document date"),
     "contract.plaats": ("Plaats ondertekening", "Signing location"),
 }
 for role, en in (("vader", "Father"), ("moeder", "Mother")):
@@ -143,8 +148,18 @@ def template_uses_logo(template: dict) -> bool:
     return bool(template.get("logo") or (template.get("watermark") and template.get("watermark_type") == "logo"))
 
 
-def built_in_template() -> dict:
-    return normalize_template(json.loads((Path(__file__).parent / "document_templates" / "handover-example.nl.json").read_text()))
+@lru_cache(maxsize=1)
+def _builtin_catalog() -> dict[str, dict]:
+    directory = Path(__file__).parent / "document_templates"
+    return {key: normalize_template(json.loads((directory / filename).read_text())) for key, filename in _BUILTIN_FILES.items()}
+
+
+def built_in_templates() -> dict[str, dict]:
+    return deepcopy(_builtin_catalog())
+
+
+def built_in_template(template_id: str = BUILTIN_TEMPLATE_ID) -> dict:
+    return deepcopy(_builtin_catalog()[template_id])
 
 
 def validate_document_settings(settings: dict) -> None:
@@ -153,7 +168,7 @@ def validate_document_settings(settings: dict) -> None:
     if not isinstance(templates, dict) or len(templates) > MAX_TEMPLATES or not isinstance(archive, dict) or len(archive) > MAX_DOCUMENTS:
         raise ValueError("document_limit")
     for key, template in templates.items():
-        if not isinstance(key, str) or not IDENTIFIER.fullmatch(key) or key == BUILTIN_TEMPLATE_ID:
+        if not isinstance(key, str) or not IDENTIFIER.fullmatch(key) or key in BUILTIN_TEMPLATE_IDS:
             raise ValueError("invalid_template")
         normalize_template(template)
     files = settings.get("files", {})

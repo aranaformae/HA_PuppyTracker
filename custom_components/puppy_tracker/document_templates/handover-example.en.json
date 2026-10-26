@@ -1,0 +1,32 @@
+{
+  "format": "puppy_tracker_document_template",
+  "version": 1,
+  "name": "Puppy handover",
+  "language": "en",
+  "logo": true,
+  "watermark": false,
+  "initials": true,
+  "optional_fields": [],
+  "blocks": [
+    {
+      "type": "heading",
+      "text": "Handover"
+    },
+    {
+      "type": "data",
+      "text": "Puppy",
+      "fields": [
+        "pup.naam",
+        "pup.chipnummer"
+      ]
+    },
+    {
+      "type": "text",
+      "text": "{{ koper.naam }} takes over {{ pup.naam }} on {{ overdracht.datum }}."
+    },
+    {
+      "type": "signature",
+      "text": "{{ contract.plaats }}, {{ contract.datum }}"
+    }
+  ]
+}

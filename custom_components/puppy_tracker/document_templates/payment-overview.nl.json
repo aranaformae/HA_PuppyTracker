@@ -1,0 +1,72 @@
+{
+  "format": "puppy_tracker_document_template",
+  "version": 1,
+  "name": "Betalingsoverzicht",
+  "language": "nl",
+  "logo": true,
+  "watermark": false,
+  "initials": false,
+  "optional_fields": [
+    "betaling.aanbetaling",
+    "betaling.datum_aanbetaling",
+    "betaling.datum_slotbetaling",
+    "betaling.inschrijfgeld",
+    "betaling.slotbetaling",
+    "pup.chipnummer"
+  ],
+  "blocks": [
+    {
+      "type": "heading",
+      "text": "Partijen en pup"
+    },
+    {
+      "type": "data",
+      "text": "",
+      "fields": [
+        "fokker.naam",
+        "koper.naam",
+        "pup.naam",
+        "pup.chipnummer"
+      ]
+    },
+    {
+      "type": "heading",
+      "text": "Afgesproken bedragen"
+    },
+    {
+      "type": "data",
+      "text": "",
+      "fields": [
+        "betaling.totaal",
+        "betaling.inschrijfgeld",
+        "betaling.aanbetaling",
+        "betaling.slotbetaling"
+      ]
+    },
+    {
+      "type": "text",
+      "text": "De slotbetaling is de afgesproken laatste termijn: koopprijs min inschrijfgeld en aanbetaling. De bedragen hierboven zijn afspraken en bevestigen niet dat deze al zijn ontvangen."
+    },
+    {
+      "type": "heading",
+      "text": "Betalingsregistratie"
+    },
+    {
+      "type": "data",
+      "text": "",
+      "fields": [
+        "betaling.datum_aanbetaling",
+        "betaling.datum_slotbetaling",
+        "betaling.openstaand"
+      ]
+    },
+    {
+      "type": "text",
+      "text": "Het werkelijk openstaande bedrag volgt uit de betalingen die in Puppy Tracker als ontvangen zijn geregistreerd. Dit overzicht is geen ontvangstbewijs."
+    },
+    {
+      "type": "text",
+      "text": "Overzicht opgesteld op {{ contract.datum }}."
+    }
+  ]
+}

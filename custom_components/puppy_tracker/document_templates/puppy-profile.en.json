@@ -1,0 +1,108 @@
+{
+  "format": "puppy_tracker_document_template",
+  "version": 1,
+  "name": "Puppy information",
+  "language": "en",
+  "logo": true,
+  "watermark": false,
+  "initials": false,
+  "optional_fields": [
+    "fokker.email",
+    "fokker.telefoon",
+    "koper.email",
+    "koper.telefoon",
+    "moeder.chipnummer",
+    "moeder.geboortedatum",
+    "moeder.naam",
+    "moeder.nestnaam",
+    "moeder.registratie",
+    "moeder.soort",
+    "nest.naam",
+    "pup.bandkleur",
+    "pup.chipnummer",
+    "pup.geslacht",
+    "pup.nestnaam",
+    "pup.soort",
+    "pup.vachtkleur",
+    "vader.chipnummer",
+    "vader.geboortedatum",
+    "vader.naam",
+    "vader.nestnaam",
+    "vader.registratie",
+    "vader.soort"
+  ],
+  "blocks": [
+    {
+      "type": "heading",
+      "text": "The puppy"
+    },
+    {
+      "type": "data",
+      "text": "Identity",
+      "fields": [
+        "nest.naam",
+        "pup.nestnaam",
+        "pup.naam",
+        "pup.geboortedatum",
+        "pup.geslacht",
+        "pup.vachtkleur",
+        "pup.bandkleur",
+        "pup.chipnummer",
+        "pup.soort"
+      ]
+    },
+    {
+      "type": "heading",
+      "text": "Contacts"
+    },
+    {
+      "type": "data",
+      "text": "Breeder",
+      "fields": [
+        "fokker.naam",
+        "fokker.telefoon",
+        "fokker.email"
+      ]
+    },
+    {
+      "type": "data",
+      "text": "Owner(s)",
+      "fields": [
+        "koper.naam",
+        "koper.telefoon",
+        "koper.email"
+      ]
+    },
+    {
+      "type": "page_break"
+    },
+    {
+      "type": "heading",
+      "text": "Parent information"
+    },
+    {
+      "type": "data",
+      "text": "Father",
+      "fields": [
+        "vader.nestnaam",
+        "vader.naam",
+        "vader.geboortedatum",
+        "vader.chipnummer",
+        "vader.soort",
+        "vader.registratie"
+      ]
+    },
+    {
+      "type": "data",
+      "text": "Mother",
+      "fields": [
+        "moeder.nestnaam",
+        "moeder.naam",
+        "moeder.geboortedatum",
+        "moeder.chipnummer",
+        "moeder.soort",
+        "moeder.registratie"
+      ]
+    }
+  ]
+}

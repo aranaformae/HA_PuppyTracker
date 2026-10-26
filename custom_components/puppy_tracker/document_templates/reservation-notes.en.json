@@ -1,0 +1,96 @@
+{
+  "format": "puppy_tracker_document_template",
+  "version": 1,
+  "name": "Reservation notes",
+  "language": "en",
+  "logo": true,
+  "watermark": false,
+  "initials": true,
+  "optional_fields": [
+    "betaling.aanbetaling",
+    "betaling.inschrijfgeld",
+    "betaling.slotbetaling",
+    "fokker.email",
+    "fokker.telefoon",
+    "koper.email",
+    "koper.telefoon",
+    "nest.naam",
+    "overdracht.datum",
+    "pup.bandkleur",
+    "pup.chipnummer",
+    "pup.geboortedatum"
+  ],
+  "blocks": [
+    {
+      "type": "heading",
+      "text": "Contact details"
+    },
+    {
+      "type": "data",
+      "text": "Breeder",
+      "fields": [
+        "fokker.naam",
+        "fokker.telefoon",
+        "fokker.email"
+      ]
+    },
+    {
+      "type": "data",
+      "text": "Buyer(s)",
+      "fields": [
+        "koper.naam",
+        "koper.telefoon",
+        "koper.email"
+      ]
+    },
+    {
+      "type": "heading",
+      "text": "Puppy and planning"
+    },
+    {
+      "type": "data",
+      "text": "",
+      "fields": [
+        "nest.naam",
+        "pup.naam",
+        "pup.geboortedatum",
+        "pup.bandkleur",
+        "pup.chipnummer",
+        "overdracht.datum"
+      ]
+    },
+    {
+      "type": "page_break"
+    },
+    {
+      "type": "heading",
+      "text": "Financial arrangements"
+    },
+    {
+      "type": "data",
+      "text": "",
+      "fields": [
+        "betaling.totaal",
+        "betaling.inschrijfgeld",
+        "betaling.aanbetaling",
+        "betaling.slotbetaling"
+      ]
+    },
+    {
+      "type": "text",
+      "text": "These amounts describe the agreed instalments; they do not confirm that payment has been received."
+    },
+    {
+      "type": "heading",
+      "text": "Additional arrangements"
+    },
+    {
+      "type": "text",
+      "text": "____________________________________________________________\n\n____________________________________________________________"
+    },
+    {
+      "type": "signature",
+      "text": "Recorded in {{ contract.plaats }} on {{ contract.datum }}."
+    }
+  ]
+}

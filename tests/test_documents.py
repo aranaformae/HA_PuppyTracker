@@ -13,7 +13,7 @@ from custom_components.puppy_tracker import document_api
 from custom_components.puppy_tracker.backup import BackupValidationError, async_apply_import, build_export_document, parse_export_json, prepare_import
 from custom_components.puppy_tracker.const import DOMAIN
 from custom_components.puppy_tracker.document_pdf import BODY_BOTTOM, DocumentPdf, build_document_pdf
-from custom_components.puppy_tracker.document_templates import BUILTIN_TEMPLATE_ID, FIELDS, built_in_template, document_context, fingerprint, normalize_template, render_text, template_fields
+from custom_components.puppy_tracker.document_templates import BUILTIN_TEMPLATE_ID, BUILTIN_TEMPLATE_IDS, FIELDS, built_in_template, built_in_templates, document_context, fingerprint, normalize_template, render_text, template_fields, validate_document_settings
 from custom_components.puppy_tracker.owners import OwnerStore
 from custom_components.puppy_tracker.runtime import PuppyTrackerRuntimeData
 
@@ -80,11 +80,43 @@ def test_template_rejects_expressions_unknown_fields_and_invalid_structure():
     assert fingerprint(normalize_template(legacy)) == fingerprint(legacy)
 
 
-def test_builtin_template_is_only_a_neutral_handover_example():
+def test_original_dutch_handover_example_remains_unchanged():
     template = built_in_template()
     assert template["name"] == "Overdrachtsbewijs"
     assert [b["type"] for b in template["blocks"]] == ["heading", "data", "text", "signature"]
     assert template_fields(template) == {"koper.naam", "pup.naam", "pup.chipnummer", "overdracht.datum", "contract.plaats", "contract.datum"}
+
+
+def test_standard_template_catalog_is_valid_paired_and_safe_to_copy():
+    catalog = built_in_templates()
+    assert len(catalog) == 10 and set(catalog) == BUILTIN_TEMPLATE_IDS
+    for key, template in catalog.items():
+        assert normalize_template(template) == template
+        assert set(template["optional_fields"]) <= template_fields(template)
+        assert template["language"] == key.rsplit("-", 1)[1]
+        values = {field: label[0 if template["language"] == "nl" else 1] for field, label in FIELDS.items()}
+        assert build_document_pdf({"template": template, "values": values}).startswith(b"%PDF-")
+        sibling = catalog[key.rsplit("-", 1)[0] + ("-en" if template["language"] == "nl" else "-nl")]
+        assert template_fields(sibling) == template_fields(template)
+        assert sibling["optional_fields"] == template["optional_fields"]
+    catalog[BUILTIN_TEMPLATE_ID]["name"] = "Modified copy"
+    assert built_in_templates()[BUILTIN_TEMPLATE_ID]["name"] == "Overdrachtsbewijs"
+
+
+async def test_all_builtin_templates_are_protected_but_can_be_copied(document_client, storage):
+    for key, template in built_in_templates().items():
+        result = await request(document_client, "template/save", template_id=key, template=template)
+        assert not result["success"] and result["error"]["message"] == "copy_builtin_template"
+        result = await request(document_client, "template/delete", template_id=key, expected_revision=fingerprint(template))
+        assert not result["success"] and result["error"]["message"] == "copy_builtin_template"
+        with pytest.raises(ValueError):
+            validate_document_settings({"document_templates": {key: template}})
+    copied = built_in_template("payment-overview-en")
+    copied["name"] = "My payment overview"
+    result = await request(document_client, "template/save", template_id="my-copy", template=copied)
+    assert result["success"]
+    assert storage.get_settings()["document_templates"]["my-copy"]["name"] == "My payment overview"
+    assert built_in_template("payment-overview-en")["name"] == "Payment overview"
 
 
 async def test_context_uses_selected_litter_and_requires_every_buyer_contact(setup_documents, storage):
@@ -164,11 +196,12 @@ async def test_template_revision_delete_and_idempotent_creation(document_client,
     assert not (await request(document_client, "template/delete", template_id=BUILTIN_TEMPLATE_ID, expected_revision=""))["success"]
 
 
-async def test_template_catalog_contains_only_public_example_and_user_templates(document_client):
+async def test_template_catalog_contains_public_starters_and_user_templates(document_client):
     result = await request(document_client, "list")
     templates = result["result"]["templates"]
-    assert {t["id"] for t in templates} == {BUILTIN_TEMPLATE_ID, "test"}
-    assert [t["template"]["name"] for t in templates if t["builtin"]] == ["Overdrachtsbewijs"]
+    assert {t["id"] for t in templates} == BUILTIN_TEMPLATE_IDS | {"test"}
+    assert {t["id"] for t in templates if t["builtin"]} == BUILTIN_TEMPLATE_IDS
+    assert [t["id"] for t in templates if not t["builtin"]] == ["test"]
 
 
 async def test_unsaved_template_preview_uses_labels_without_mutating_data(document_client, setup_documents, storage):
