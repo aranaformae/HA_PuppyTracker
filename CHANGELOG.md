@@ -10,6 +10,8 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+## [0.32.4] - 2026-10-26
+
 ### Added
 
 - Five standard document types in Dutch and English: puppy handover, puppy
@@ -240,7 +242,12 @@ for explicit assignment. See [storage migrations](docs/storage-migrations.md#own
 
 - Separated daily execution from schedule management in Care workspace navigation.
 
-[Unreleased]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.31.2...HEAD
+[Unreleased]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.32.4...HEAD
+[0.32.4]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.32.3...v0.32.4
+[0.32.3]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.32.2...v0.32.3
+[0.32.2]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.32.1...v0.32.2
+[0.32.1]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.32.0...v0.32.1
+[0.32.0]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.31.2...v0.32.0
 [0.31.2]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.31.1...v0.31.2
 [0.31.1]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.31.0...v0.31.1
 [0.31.0]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.30.0...v0.31.0
