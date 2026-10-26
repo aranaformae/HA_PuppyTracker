@@ -1,9 +1,12 @@
 import { expect, test } from "@playwright/test";
+import { readFileSync } from "node:fs";
 import { mountAsyncCard } from "./helpers/async-card.mjs";
+
+const previewContent = readFileSync(new URL("./fixtures/document-preview.pdf", import.meta.url)).toString("base64");
 
 async function mountDocuments(page, language = "nl") {
   const report = await mountAsyncCard(page, "report", { language });
-  await report.evaluate(el => {
+  await report.evaluate((el, examplePdf) => {
     const original = el._hass.callWS;
     const template = { format: "puppy_tracker_document_template", version: 1, name: "Voorbeeldcontract", language: "nl", logo: false, watermark: false, initials: true, optional_fields: [], blocks: [{ type: "text", text: "{{ pup.naam }}", fields: [], bold: false }] };
     const model = {
@@ -12,7 +15,7 @@ async function mountDocuments(page, language = "nl") {
       litters: [{ id: "a", name: "Luna 2026", puppies: [{ id: "a1", name: "Nova", collar_color: "paars", owner_ids: ["o1", "o2"] }, { id: "a2", name: "Groen", collar_color: "groen", owner_ids: ["o3"] }] }],
       owners: [{ id: "o1", name: "Alex" }, { id: "o2", name: "Sam" }, { id: "o3", name: "Robin" }], documents: [],
     };
-    window.__docs = { calls: [], failSave: false, holdPreview: false, model };
+    window.__docs = { calls: [], failSave: false, holdPreview: false, badTemplatePreview: false, model };
     const state = window.__docs;
     el.hass = { ...el._hass, user: { id: "documents-admin", is_admin: true }, callWS: async message => {
       if (!message.type.startsWith("puppy_tracker/documents/")) return original(message);
@@ -20,7 +23,7 @@ async function mountDocuments(page, language = "nl") {
       const download = { filename: "contract.pdf", mime_type: "application/pdf", encoding: "base64", content: btoa("%PDF-1.4\n%%EOF") };
       switch (message.type.split("documents/")[1]) {
         case "list": return structuredClone(state.model);
-        case "template/preview": return download;
+        case "template/preview": return state.badTemplatePreview ? download : { ...download, content: examplePdf };
         case "preview": {
           const result = { fingerprint: "checked", missing: message.details.place ? [] : ["contract.plaats"], download };
           if (state.holdPreview) return new Promise(resolve => { state.releasePreview = () => resolve(result); });
@@ -35,7 +38,7 @@ async function mountDocuments(page, language = "nl") {
         default: throw Error(`Unexpected document request ${message.type}`);
       }
     } };
-  });
+  }, previewContent);
   expect(await page.evaluate(() => window.__docs.calls)).toHaveLength(0);
   await report.locator("#contract-documents > summary").click();
   const panel = report.locator("puppy-tracker-documents");
@@ -213,14 +216,33 @@ test("Editor validates locally, updates optional fields without losing focus and
   await panel.locator("#optional-fields > summary").click();
   await expect(panel.locator("[data-optional]")).toHaveCount(1);
   await panel.locator("[data-optional='contract.plaats']").check();
-  const pdf = page.waitForEvent("download");
   await panel.locator("#preview-template").click();
+  await expect(panel.locator("[data-preview-page]")).toHaveText("1 / 2");
+  await expect.poll(() => panel.locator("#inline-preview canvas").evaluate(canvas => canvas.width)).toBeGreaterThan(0);
+  await expect.poll(() => panel.locator("#inline-preview canvas").evaluate(canvas => {
+    const pixels = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data;
+    for (let index = 0; index < pixels.length; index += 16) if (pixels[index + 3] > 0 && pixels[index] < 100) return true;
+    return false;
+  })).toBe(true);
+  const initialWidth = await panel.locator("#inline-preview canvas").evaluate(canvas => parseFloat(canvas.style.width));
+  await panel.locator("[data-preview-zoom-in]").click();
+  await expect(panel.locator("[data-preview-zoom]")).toHaveText("150%");
+  await expect.poll(() => panel.locator("#inline-preview canvas").evaluate(canvas => parseFloat(canvas.style.width))).toBeGreaterThan(initialWidth * 1.4);
+  await panel.locator("[data-preview-zoom-out]").click();
+  await expect(panel.locator("[data-preview-zoom]")).toHaveText("100%");
+  await panel.screenshot({ path: test.info().outputPath("inline-document-preview.png") });
+  await panel.locator("[data-preview-next]").click();
+  await expect(panel.locator("[data-preview-page]")).toHaveText("2 / 2");
+  const pdf = page.waitForEvent("download");
+  await panel.locator("[data-preview-download]").click();
   expect((await pdf).suggestedFilename()).toBe("contract.pdf");
   await expect(input).toHaveValue("{{ contract.plaats }}");
   const calls = await page.evaluate(() => window.__docs.calls);
   expect(calls.filter(c => c.type.endsWith("template/preview"))[0].template.optional_fields).toEqual(["contract.plaats"]);
   expect(calls.some(c => c.type.endsWith("/save"))).toBe(false);
+  await panel.locator("[data-preview-close]").click();
   await input.fill("{{ unfinished");
+  expect(await panel.evaluate(el => el._inlinePreview.hasResult)).toBe(false);
   const draft = page.waitForEvent("download");
   await panel.locator("#download-draft").click();
   const downloaded = await draft;
@@ -228,6 +250,21 @@ test("Editor validates locally, updates optional fields without losing focus and
   const chunks = []; for await (const chunk of await downloaded.createReadStream()) chunks.push(chunk);
   expect(JSON.parse(Buffer.concat(chunks).toString()).blocks[0].text).toBe("{{ unfinished");
   await panel.screenshot({ path: test.info().outputPath("template-editor-tools.png") });
+});
+
+test("Inline PDF preview keeps a download fallback when rendering fails @cross-browser @tablet", async ({ page }) => {
+  const { panel } = await mountDocuments(page);
+  await page.evaluate(() => { window.__docs.badTemplatePreview = true; });
+  await panel.locator("#edit-template").click();
+  await panel.locator("#preview-template").click();
+  await expect(panel.locator("[data-preview-status]")).toContainText("kan hier niet worden getoond");
+  const download = page.waitForEvent("download");
+  await panel.locator("[data-preview-download]").click();
+  expect((await download).suggestedFilename()).toBe("contract.pdf");
+  await panel.locator("[data-preview-close]").click();
+  await expect(panel.locator("#preview-panel")).toBeHidden();
+  await panel.locator("#template-name").fill("Still editable");
+  await expect(panel.locator("#template-name")).toHaveValue("Still editable");
 });
 
 test("Long template navigation scrolls inside the block list @cross-browser @tablet", async ({ page }) => {
@@ -326,11 +363,12 @@ for (const language of ["nl", "en"]) test(`Watermark choices retain text and loa
   await expect(panel.locator("#watermark-text")).toBeHidden();
   await expect(panel.locator("#watermark-logo-hint")).toBeVisible();
   await expect(panel.locator("[data-template-flag='logo']")).not.toBeChecked();
-  const preview = page.waitForEvent("download");
-  await panel.locator("#preview-template").click(); await preview;
+  await panel.locator("#preview-template").click();
+  await expect(panel.locator("[data-preview-page]")).toHaveText("1 / 2");
   const call = await page.evaluate(() => window.__docs.calls.find(c => c.type.endsWith("template/preview")));
   expect(call.logo_base64).toBe("test-logo-base64");
   expect(call.template).toMatchObject({ logo: false, watermark: true, watermark_type: "logo", watermark_text: "CONCEPT" });
+  await panel.locator("[data-preview-close]").click();
   await panel.locator("#template-watermark").selectOption("text");
   await expect(panel.locator("#watermark-text")).toHaveValue("CONCEPT");
   await panel.screenshot({ path: test.info().outputPath("document-watermark-settings.png") });
@@ -340,8 +378,8 @@ for (const language of ["nl", "en"]) test(`Watermark choices retain text and loa
   await expect(panel.locator("#watermark-text")).toHaveValue("CONCEPT");
   await panel.locator("#template-watermark").selectOption("none");
   await expect(panel.locator("#watermark-text")).toBeHidden();
-  const noWatermark = page.waitForEvent("download");
-  await panel.locator("#preview-template").click(); await noWatermark;
+  await panel.locator("#preview-template").click();
+  await expect(panel.locator("[data-preview-page]")).toHaveText("1 / 2");
   const last = await page.evaluate(() => window.__docs.calls.filter(c => c.type.endsWith("template/preview")).at(-1));
   expect(last.template.watermark).toBe(false);
   expect(last.logo_base64).toBeUndefined();

@@ -261,7 +261,7 @@ export class DocumentTemplateEditor {
       if (this.root.closest("fieldset")?.disabled) return;
       callback(e, node);
     }));
-    on("#editor-mode", "change", e => { this.capture(); this.mode = e.target.value; this.render(false); this.actions.changed(); });
+    on("#editor-mode", "change", e => { this.capture(); this.mode = e.target.value; this.render(false); this.actions.changed(true); });
     on("#template-name", "input", e => { this.template.name = e.target.value; this.changed(); });
     on("#template-language", "change", e => { this.template.language = e.target.value; this.changed(); });
     on("[data-template-flag]", "change", (e, node) => { this.template[node.dataset.templateFlag] = node.checked; this.changed(); });

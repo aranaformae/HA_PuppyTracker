@@ -15,6 +15,9 @@ they have not been reconstructed as a complete historical changelog.
 - Document template editing now offers a simple mode with readable field labels,
   searchable field insertion and section insertion in place. The advanced block
   editor remains available; both modes edit the same template and draft.
+- Template layout previews open inside the document card with page and zoom controls
+  and a separate PDF download. The preview loads on demand, works as a mobile
+  overlay and is invalidated when the template changes.
 
 ## [0.32.4] - 2026-10-26
 

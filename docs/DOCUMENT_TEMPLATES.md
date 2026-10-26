@@ -131,11 +131,15 @@ The optional-field list shows only fields used in the current template. Before
 saving or previewing, the editor points to incomplete parts, unknown fields and
 size limits. Click an error to open the affected part.
 
-**Layout preview (PDF)** downloads the current draft with field labels in place
-of personal values. It works before choosing buyers and does not save a template
-or contract. Use it to check paragraphs, page breaks and field order. Actual
-names and addresses can change pagination, so still check the filled PDF before
-final saving. **Download draft** also works for an incomplete draft, so you
+**View preview** displays the current draft inside the document card, with field
+labels in place of personal values. On wide screens it appears beside the
+editor; on phones it opens in a full-screen overlay with page and zoom controls. It works
+before choosing buyers and does not save a template or contract. Use **Download
+PDF** in the preview for a separate copy. The PDF viewer loads only when needed;
+changes to the template close the older preview, so choose **View preview**
+again after editing. If the browser cannot display it, the download still works.
+Actual names and addresses can change pagination, so still check the filled PDF
+before final saving. **Download draft** also works for an incomplete draft, so you
 can keep a local copy before leaving the editor; correct validation errors before
 using that draft as a saved template.
 

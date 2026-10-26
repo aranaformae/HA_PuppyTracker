@@ -1,5 +1,6 @@
 import { DocumentTemplateEditor, DOCUMENT_BLOCK_KINDS as KINDS } from "./puppy-tracker-document-editor.js";
 import { DocumentDraftStore } from "./puppy-tracker-document-draft.js";
+import { DocumentPdfPreview } from "./puppy-tracker-document-preview.js";
 import { escapeHtml as esc, languageForHass, puppySelectorLabel, downloadExportFile, preserveScrollPosition, createUuid } from "./puppy-tracker-card-common.js";
 
 const templateUsesLogo = template => Boolean(template?.logo || (template?.watermark && template?.watermark_type === "logo"));
@@ -13,7 +14,8 @@ const COPY = {
     duplicate: "Dupliceren", restoreBlock: "Verwijderd onderdeel herstellen", jumpBlock: "Ga naar onderdeel", block: "Onderdeel", addField: "Gegevensveld toevoegen", noUsedFields: "Dit sjabloon gebruikt nog geen invulvelden.",
     simpleMode: "Eenvoudig", advancedMode: "Geavanceerd", editorMode: "Bewerkstand", searchField: "Zoek een veld", insertHere: "Onderdeel hier toevoegen", moreActions: "Meer acties", layoutSettings: "Opmaakinstellingen", sectionTitle: "Titel", jumpSection: "Ga naar sectie", fieldHint: "Zoek op een naam zoals chipnummer vader; het veld wordt op de cursorpositie ingevoegd.",
     nameRequired: "Vul een sjabloonnaam in (maximaal 150 tekens).", blockLimit: "Een sjabloon heeft 1 tot 200 onderdelen nodig.", templateTooLarge: "Het sjabloon is groter dan 150 kB. Kort de tekst in of splits het document.", emptyDataBlock: "Voeg minstens één gegevensveld toe.", invalid_document_text: "Gebruik maximaal 12.000 tekens per onderdeel, zonder ongeldige besturingstekens.",
-    previewTemplate: "Opmaakvoorbeeld (PDF)", downloadDraft: "Concept downloaden", previewTemplateHint: "Het opmaakvoorbeeld gebruikt veldnamen als voorbeeldwaarden en slaat niets op. Controleer later ook de PDF met de werkelijke gegevens.", previewTemplateDone: "Opmaakvoorbeeld gedownload. Het sjabloon is niet opgeslagen.",
+    previewTemplate: "Voorbeeld bekijken", downloadDraft: "Concept downloaden", previewTemplateHint: "Het voorbeeld gebruikt veldnamen als voorbeeldwaarden en slaat niets op. Controleer later ook de PDF met de werkelijke gegevens.", previewTemplateDone: "Voorbeeld geladen. Het sjabloon is niet opgeslagen.",
+    inlinePreview: "Documentvoorbeeld", previewLoading: "PDF-voorbeeld laden…", previewFailed: "Het PDF-voorbeeld kan hier niet worden getoond. Je kunt het bestand nog wel downloaden.", previewClose: "Sluiten", previousPage: "Vorige", nextPage: "Volgende", zoomOut: "Verkleinen", zoomIn: "Vergroten", downloadPreview: "PDF downloaden",
     group_fokker: "Fokker", group_koper: "Koper(s)", group_nest: "Nest", group_pup: "Pup", group_vader: "Vader", group_moeder: "Moeder", group_betaling: "Betalingen", group_overdracht: "Overdracht", group_contract: "Ondertekening",
     working: "Bezig…",
     deleteTemplate: "Sjabloon verwijderen", deleteTemplateConfirm: "Dit sjabloon verwijderen? Opgeslagen documenten blijven behouden.", templateDeleted: "Sjabloon verwijderd.",
@@ -36,7 +38,8 @@ const COPY = {
     duplicate: "Duplicate", restoreBlock: "Restore deleted block", jumpBlock: "Go to block", block: "Block", addField: "Add data field", noUsedFields: "This template does not use any placeholders yet.",
     simpleMode: "Simple", advancedMode: "Advanced", editorMode: "Editing mode", searchField: "Find a field", insertHere: "Add section here", moreActions: "More actions", layoutSettings: "Layout settings", sectionTitle: "Title", jumpSection: "Go to section", fieldHint: "Search by a name such as father microchip; the field is inserted at the cursor.",
     nameRequired: "Enter a template name (up to 150 characters).", blockLimit: "A template needs 1 to 200 blocks.", templateTooLarge: "The template exceeds 150 kB. Shorten the text or split the document.", emptyDataBlock: "Add at least one data field.", invalid_document_text: "Use up to 12,000 characters per block without invalid control characters.",
-    previewTemplate: "Layout preview (PDF)", downloadDraft: "Download draft", previewTemplateHint: "The layout preview uses field names as sample values and saves nothing. Also check the PDF with actual data later.", previewTemplateDone: "Layout preview downloaded. The template has not been saved.",
+    previewTemplate: "View preview", downloadDraft: "Download draft", previewTemplateHint: "The preview uses field names as sample values and saves nothing. Also check the PDF with actual data later.", previewTemplateDone: "Preview loaded. The template has not been saved.",
+    inlinePreview: "Document preview", previewLoading: "Loading PDF preview…", previewFailed: "The PDF preview cannot be displayed here. You can still download the file.", previewClose: "Close", previousPage: "Previous", nextPage: "Next", zoomOut: "Zoom out", zoomIn: "Zoom in", downloadPreview: "Download PDF",
     group_fokker: "Breeder", group_koper: "Buyer(s)", group_nest: "Litter", group_pup: "Puppy", group_vader: "Father", group_moeder: "Mother", group_betaling: "Payments", group_overdracht: "Handover", group_contract: "Signing",
     working: "Working…",
     deleteTemplate: "Delete template", deleteTemplateConfirm: "Delete this template? Saved documents will be kept.", templateDeleted: "Template deleted.",
@@ -61,6 +64,8 @@ class PuppyTrackerDocuments extends HTMLElement {
     this._template = ""; this._litter = ""; this._puppy = ""; this._buyer = ""; this._others = [];
     this._details = { date: "", place: "" }; this._preview = null; this._requestId = null; this._editor = null; this._templateEditor = null; this._dirty = false;
     this._draftStore = null; this._draftState = ""; this._draftChecked = false;
+    this._inlinePreview = new DocumentPdfPreview(key => this.t(key), () => this._closeInlinePreview());
+    this._inlinePreviewOpen = false;
     this._pageHide = () => this._flushDraft();
     this._visibility = () => { if (document.visibilityState === "hidden") this._flushDraft(); };
   }
@@ -73,6 +78,7 @@ class PuppyTrackerDocuments extends HTMLElement {
     if (changed || value?.user?.is_admin === false) {
       this._flushDraft(); this._draftStore?.dispose();
       this._draftStore = null; this._draftState = ""; this._draftChecked = false;
+      this._inlinePreview.destroy(); this._inlinePreviewOpen = false;
     }
     this._principal = principal; this._hass = value;
     if (changed || value?.user?.is_admin === false) {
@@ -90,6 +96,7 @@ class PuppyTrackerDocuments extends HTMLElement {
   disconnectedCallback() { queueMicrotask(() => {
     if (!this.isConnected) {
       this._flushDraft(); this._draftStore?.dispose();
+      this._inlinePreview.destroy(); this._inlinePreviewOpen = false;
       window.removeEventListener("pagehide", this._pageHide);
       document.removeEventListener("visibilitychange", this._visibility);
       this._epoch++; this._busy = false;
@@ -114,9 +121,16 @@ class PuppyTrackerDocuments extends HTMLElement {
     node.textContent = this._draftState ? this.t(this._draftState) : this._editor ? this.t("draftHint") : "";
     node.classList.toggle("error", ["draftUnavailable", "draftRestoreFailed", "draftConflict", "draftClearFailed"].includes(this._draftState));
   }
-  _draftChanged() {
+  _draftChanged(viewOnly = false) {
     this._dirty = true;
+    if (!viewOnly && this._inlinePreview.hasResult) this._closeInlinePreview();
     this._draftStore?.schedule(() => this._draftSnapshot());
+  }
+  _closeInlinePreview() {
+    this._inlinePreview.destroy();
+    this._inlinePreviewOpen = false;
+    this.shadowRoot.querySelector("#preview-panel")?.classList.remove("open");
+    this.shadowRoot.querySelector(".document-editor-layout")?.classList.remove("has-preview");
   }
   _flushDraft() { this._draftStore?.flush(() => this._draftSnapshot()); }
   _restoreDraft() {
@@ -201,14 +215,16 @@ class PuppyTrackerDocuments extends HTMLElement {
     });
   }
   _edit(value, id = null, revision = null, view = null, mode = "advanced") {
+    this._inlinePreview.clear(); this._inlinePreviewOpen = false;
     this._editor = { template: structuredClone(value), id: id || createUuid(), revision };
     this._templateEditor = new DocumentTemplateEditor(this._editor.template, {
       fields: this._model.fields, language: () => this.language, text: key => this.t(key),
-      changed: () => this._draftChanged(),
+      changed: viewOnly => this._draftChanged(viewOnly),
       save: () => this._saveTemplate(), preview: () => this._previewTemplate(), download: () => this._downloadDraft(),
       cancel: () => {
         if (!this._dirty || confirm(this.t("discard"))) {
           this._draftStore?.clear();
+          this._inlinePreview.destroy(); this._inlinePreviewOpen = false;
           this._editor = null; this._templateEditor = null; this._dirty = false; this._render();
         }
       },
@@ -230,6 +246,7 @@ class PuppyTrackerDocuments extends HTMLElement {
       if (!current()) return;
       this._model.templates = [...this._model.templates.filter(t => t.id !== result.id), { ...result, builtin: false }];
       this._draftStore?.clear();
+      this._inlinePreview.destroy(); this._inlinePreviewOpen = false;
       this._template = result.id; this._editor = null; this._templateEditor = null; this._dirty = false; this._status = this.t("templateSaved");
     });
   }
@@ -241,7 +258,7 @@ class PuppyTrackerDocuments extends HTMLElement {
       if (!current()) return;
       const result = await hass.callWS({ type: "puppy_tracker/documents/template/preview", template, ...(logo ? { logo_base64: logo } : {}) });
       if (!current()) return;
-      downloadExportFile(result);
+      this._inlinePreview.setResult(result); this._inlinePreviewOpen = true;
       this._status = this.t("previewTemplateDone");
     });
   }
@@ -298,7 +315,8 @@ class PuppyTrackerDocuments extends HTMLElement {
     this.shadowRoot.innerHTML = `<style>
       :host{display:block;color:var(--primary-text-color,#212121)}fieldset{border:0;padding:0;margin:0;min-width:0}label{display:grid;gap:5px;font-size:.85rem}input:not([type=checkbox]),select,textarea{box-sizing:border-box;width:100%;min-width:0;border:1px solid var(--divider-color,#d5d9df);border-radius:6px;padding:9px;background:var(--card-background-color,#fff);color:var(--primary-text-color,#212121);font:inherit}textarea{resize:vertical}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px}.actions,.flags{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.flags label,.field-list label,label:has(input[type=checkbox]){display:flex;align-items:center;gap:6px}.actions select{width:auto;max-width:100%}button{min-height:42px;padding:8px 12px;border:1px solid var(--divider-color,#d5d9df);border-radius:7px;background:var(--secondary-background-color,#f5f7fa);color:var(--primary-text-color,#212121);font:inherit;cursor:pointer}.primary{background:var(--primary-color,#03a9f4);color:var(--text-primary-color,#fff)}button:disabled{opacity:.5;cursor:default}p{font-size:.85rem;color:var(--secondary-text-color,#666);line-height:1.5}summary{cursor:pointer;padding:12px 0;font-weight:600;overflow-wrap:anywhere}.blocks,.archive,.field-list{max-height:500px;overflow-y:auto;overflow-anchor:none}.block{border-top:1px solid var(--divider-color,#d5d9df);padding:0 4px 8px}.block label{margin:8px 0}.field-list{display:grid;gap:10px}.archive article{padding:10px 0;border-bottom:1px solid var(--divider-color,#d5d9df);overflow-wrap:anywhere}.archive small{display:block;color:var(--secondary-text-color,#666)}.error{color:var(--error-color,#b00020)}#document-status,#document-error{min-height:1.4em;font-size:.85rem;overflow-wrap:anywhere}h3{font-size:1rem}#draft-status{font-size:.85rem;line-height:1.4;min-height:4.2em;overflow-wrap:anywhere}#draft-status:empty{display:none}.selected-fields{padding-left:22px}.selected-fields li{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:5px 0}.selected-fields li span{overflow-wrap:anywhere;min-width:0}.selected-fields .actions{flex-wrap:nowrap;margin:0;gap:4px}.selected-fields button{min-width:42px}.block-error:empty,#template-errors:empty{display:none}#template-errors{display:grid}#template-errors button{text-align:left}.editor .blocks{margin-top:12px}#template-editor [hidden]{display:none}.watermark-settings small{color:var(--secondary-text-color,#666);font-weight:normal}
       .used-field-chips{display:flex;gap:5px;flex-wrap:wrap}.field-chip{display:inline-block;padding:1px 5px;border:1px solid var(--primary-color,#03a9f4);border-radius:4px;background:var(--secondary-background-color,#e8f2f7);font-size:.8rem;font-weight:600}.field-picker{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:8px}.simple-block{padding:8px 12px;margin:8px 0;border:1px solid var(--divider-color,#d5d9df);border-radius:8px}.block-tools{margin:6px 0}.insert-menu{margin:5px 0 12px}.insert-menu>summary{font-size:.85rem;color:var(--primary-color,#03a9f4);padding:5px 0}
-      </style><fieldset ${this._busy ? "disabled" : ""}>${!model ? `<p>${esc(this.t("loading"))}</p><button type="button" id="refresh-documents">${esc(this.t("refresh"))}</button>` : this._editor ? '<div id="template-editor"></div>' : `
+      .document-editor-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}.document-editor-layout.has-preview{grid-template-columns:repeat(auto-fit,minmax(min(100%,430px),1fr))}#template-editor{min-width:0}#preview-panel{display:none;min-width:0;max-height:80vh;overflow:auto;border:1px solid var(--divider-color,#d5d9df);border-radius:8px;padding:12px;background:var(--card-background-color,#fff)}#preview-panel.open{display:block}.preview-toolbar,.preview-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:space-between}.preview-controls{margin:10px 0}.preview-controls span{font-size:.85rem}.preview-canvas{overflow:auto;max-height:65vh;text-align:center;background:var(--secondary-background-color,#f4f6f8);padding:4px}.preview-canvas canvas{display:block;margin:auto;touch-action:pan-x pan-y}@media(max-width:800px){#preview-panel.open{position:fixed;inset:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px);z-index:1000;max-height:none;border-radius:0;padding:16px;box-shadow:0 0 0 100vmax #0009}.preview-canvas{max-height:calc(100dvh - 160px)}}
+      </style><fieldset ${this._busy ? "disabled" : ""}>${!model ? `<p>${esc(this.t("loading"))}</p><button type="button" id="refresh-documents">${esc(this.t("refresh"))}</button>` : this._editor ? `<div class="document-editor-layout ${this._inlinePreviewOpen ? "has-preview" : ""}"><div id="template-editor"></div><aside id="preview-panel" class="${this._inlinePreviewOpen ? "open" : ""}"><div id="inline-preview"></div></aside></div>` : `
       <div class="grid"><label>${esc(this.t("template"))}<select id="document-template">${this._templateOptions()}</select></label></div>
       <div class="actions"><button type="button" id="edit-template" ${!selected ? "disabled" : ""}>${esc(this.t(selected?.builtin ? "copy" : "edit"))}</button><button type="button" id="new-template">${esc(this.t("create"))}</button><button type="button" id="export-template" ${!selected ? "disabled" : ""}>${esc(this.t("export"))}</button><button type="button" id="import-template">${esc(this.t("import"))}</button><input id="template-file" type="file" accept=".json,application/json" hidden><button type="button" id="refresh-documents">${esc(this.t("refresh"))}</button></div>
       <div class="grid"><label>${esc(this.t("litter"))}<select id="document-litter">${this._options(model.litters.map(l => [l.id, l.name]), this._litter)}</select></label><label>${esc(this.t("puppy"))}<select id="document-puppy">${this._options(puppies.map(p => [p.id, puppySelectorLabel(p)]), this._puppy)}</select></label><label>${esc(this.t("buyer"))}<select id="document-buyer">${this._options(owners.map(o => [o.id, o.name]), this._buyer)}</select></label><label>${esc(this.t("others"))}<select multiple id="document-others" size="2">${owners.filter(o => o.id !== this._buyer).map(o => `<option value="${esc(o.id)}" ${this._others.includes(o.id) ? "selected" : ""}>${esc(o.name)}</option>`).join("")}</select></label><label>${esc(this.t("date"))}<input type="date" id="document-date" value="${esc(this._details.date)}"></label><label>${esc(this.t("place"))}<input id="document-place" maxlength="200" value="${esc(this._details.place)}"></label></div>
@@ -324,7 +342,10 @@ class PuppyTrackerDocuments extends HTMLElement {
     on("#template-file", "change", e => this._import(e.target.files[0]));
     this.shadowRoot.querySelectorAll("[data-download]").forEach(b => b.addEventListener("click", () => this._run(async (hass, current) => { const r = await hass.callWS({ type: "puppy_tracker/documents/download", document_id: b.dataset.download }); if (current()) downloadExportFile(r); })));
     this.shadowRoot.querySelectorAll("[data-delete]").forEach(b => b.addEventListener("click", () => { if (confirm(this.t("removeConfirm"))) this._run(async (hass, current) => { await hass.callWS({ type: "puppy_tracker/documents/delete", document_id: b.dataset.delete }); if (current()) { this._model.documents = this._model.documents.filter(d => d.id !== b.dataset.delete); this._status = this.t("deleted"); } }); }));
-    if (this._editor) this._templateEditor.mount(this.shadowRoot.querySelector("#template-editor"));
+    if (this._editor) {
+      this._templateEditor.mount(this.shadowRoot.querySelector("#template-editor"));
+      if (this._inlinePreviewOpen) this._inlinePreview.mount(this.shadowRoot.querySelector("#inline-preview"));
+    }
     this._updateDraftStatus();
   }
 }

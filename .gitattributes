@@ -1,0 +1,2 @@
+tests/e2e/fixtures/*.pdf binary
+custom_components/puppy_tracker/frontend/vendor/pdfjs/*.mjs -diff
