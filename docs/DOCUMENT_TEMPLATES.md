@@ -96,6 +96,9 @@ Use **Add section here** above or between sections to put a new part exactly
 where it belongs. **More actions** holds move, duplicate and delete controls.
 Advanced mode shows the underlying placeholder text and the original block
 controls when you need finer editing.
+**Undo** and **Redo** restore text, field choices, layout flags and block
+operations within the current editing session. Consecutive typing is grouped;
+the local recovery draft still handles reopening the editor later.
 
 The editor supports these collapsible parts:
 

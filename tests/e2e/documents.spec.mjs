@@ -76,6 +76,27 @@ test("Unsaved template can preview selected puppy and buyer data without saving 
   expect(await page.evaluate(() => window.__docs.calls.some(c => c.type.endsWith("template/save")))).toBe(false);
 });
 
+test("Template undo and redo restore text and block changes @cross-browser @tablet", async ({ page }) => {
+  const { panel } = await mountDocuments(page);
+  await panel.locator("#edit-template").click();
+  await expect(panel.locator("#undo-template")).toBeDisabled();
+  const original = await panel.locator("#template-name").inputValue();
+  await panel.locator("#template-name").fill("Revised draft");
+  await panel.locator("#undo-template").click();
+  await expect(panel.locator("#template-name")).toHaveValue(original);
+  await panel.locator("#redo-template").click();
+  await expect(panel.locator("#template-name")).toHaveValue("Revised draft");
+  await panel.locator("#editor-mode").selectOption("advanced");
+  const blocks = await panel.locator("[data-block]").count();
+  await panel.locator("#add-block").click();
+  await expect(panel.locator("[data-block]")).toHaveCount(blocks + 1);
+  await panel.locator("#undo-template").click();
+  await expect(panel.locator("[data-block]")).toHaveCount(blocks);
+  await panel.locator("#redo-template").click();
+  await expect(panel.locator("[data-block]")).toHaveCount(blocks + 1);
+  expect(await panel.evaluate(el => el._editor.template.name)).toBe("Revised draft");
+});
+
 test("Payment receipt requires an active receipt and clears it when the buyer changes @cross-browser", async ({ page }) => {
   const { panel } = await mountDocuments(page);
   await page.evaluate(() => {

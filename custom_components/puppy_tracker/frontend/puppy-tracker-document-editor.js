@@ -23,6 +23,10 @@ export class DocumentTemplateEditor {
     this.optionalOpen = false;
     this.layoutOpen = false;
     this.mode = "advanced";
+    this.undoStack = [];
+    this.redoStack = [];
+    this.historyKind = null;
+    this.historyAt = 0;
   }
 
   label(key) { return this.fields[key]?.[this.language()] || key; }
@@ -135,8 +139,44 @@ export class DocumentTemplateEditor {
     list.scrollTop += block.getBoundingClientRect().top - list.getBoundingClientRect().top;
     (block.querySelector("textarea") || block.querySelector("select") || block.querySelector("button"))?.focus({ preventScroll: true });
   }
+  historySnapshot() {
+    this.capture();
+    return { template: structuredClone(this.template), keys: [...this.keys], removed: structuredClone(this.removed) };
+  }
+  historyControls() {
+    const undo = this.root?.querySelector("#undo-template"), redo = this.root?.querySelector("#redo-template");
+    if (undo) undo.disabled = !this.undoStack.length;
+    if (redo) redo.disabled = !this.redoStack.length;
+  }
+  record(kind = null) {
+    const now = performance.now();
+    if (!kind || this.historyKind !== kind || now - this.historyAt > 750) {
+      this.undoStack.push(this.historySnapshot());
+      if (this.undoStack.length > 50) this.undoStack.shift();
+    }
+    this.historyKind = kind;
+    this.historyAt = now;
+    this.redoStack = [];
+    this.historyControls();
+  }
+  travel(from, to, focus) {
+    if (!from.length) return;
+    to.push(this.historySnapshot());
+    if (to.length > 50) to.shift();
+    const snapshot = from.pop();
+    for (const key of Object.keys(this.template)) delete this.template[key];
+    Object.assign(this.template, snapshot.template);
+    this.keys = snapshot.keys;
+    this.removed = snapshot.removed;
+    this.historyKind = null;
+    this.issues = [];
+    this.actions.changed();
+    this.render(false);
+    this.root.querySelector(focus)?.focus({ preventScroll: true });
+  }
   structural(change, focusKey = null) {
     this.capture();
+    this.record();
     change();
     this.issues = [];
     this.actions.changed();
@@ -243,7 +283,7 @@ export class DocumentTemplateEditor {
         <label id="watermark-text-field" ${watermarkMode !== "text" ? "hidden" : ""}>${esc(this.t("watermarkText"))}<input id="watermark-text" maxlength="150" value="${esc(template.watermark_text || "")}"><small>${esc(this.t("watermarkTextHint"))}</small></label></div>
         <p id="watermark-logo-hint" ${watermarkMode !== "logo" ? "hidden" : ""}>${esc(this.t("watermarkLogoHint"))}</p>
         ${this.mode === "simple" ? "</details>" : ""}
-        <div class="actions"><button type="button" id="preview-template">${esc(this.t("previewTemplate"))}</button><button type="button" id="download-draft">${esc(this.t("downloadDraft"))}</button></div>
+        <div class="actions"><button type="button" id="undo-template" ${this.undoStack.length ? "" : "disabled"}>${esc(this.t("undo"))}</button><button type="button" id="redo-template" ${this.redoStack.length ? "" : "disabled"}>${esc(this.t("redo"))}</button><button type="button" id="preview-template">${esc(this.t("previewTemplate"))}</button><button type="button" id="download-draft">${esc(this.t("downloadDraft"))}</button></div>
         <p>${esc(this.t("previewTemplateHint"))}</p><div id="template-errors" class="actions" role="alert"></div>
         <label>${esc(this.t(this.mode === "simple" ? "jumpSection" : "jumpBlock"))} (${this.keys.length}/200)<select id="jump-block"><option value="">${esc(this.t("choose"))}</option>${this.keys.map((key, index) => `<option value="${key}" data-index="${index}">${esc(this.title(index))}</option>`).join("")}</select></label>
         <div class="blocks">${this.mode === "simple" ? this.insertMenu(-1) : ""}${template.blocks.map((block, index) => this.blockMarkup(block, index)).join("")}</div>
@@ -261,11 +301,15 @@ export class DocumentTemplateEditor {
       if (this.root.closest("fieldset")?.disabled) return;
       callback(e, node);
     }));
+    this.root.onfocusout = () => { this.historyKind = null; };
+    on("#undo-template", "click", () => this.travel(this.undoStack, this.redoStack, "#undo-template"));
+    on("#redo-template", "click", () => this.travel(this.redoStack, this.undoStack, "#redo-template"));
     on("#editor-mode", "change", e => { this.capture(); this.mode = e.target.value; this.render(false); this.actions.changed(true); });
-    on("#template-name", "input", e => { this.template.name = e.target.value; this.changed(); });
-    on("#template-language", "change", e => { this.template.language = e.target.value; this.changed(); });
-    on("[data-template-flag]", "change", (e, node) => { this.template[node.dataset.templateFlag] = node.checked; this.changed(); });
+    on("#template-name", "input", e => { this.record("name"); this.template.name = e.target.value; this.changed(); });
+    on("#template-language", "change", e => { this.record(); this.template.language = e.target.value; this.changed(); });
+    on("[data-template-flag]", "change", (e, node) => { this.record(); this.template[node.dataset.templateFlag] = node.checked; this.changed(); });
     on("#template-watermark", "change", e => {
+      this.record();
       const mode = e.target.value;
       this.template.watermark = mode !== "none";
       if (mode !== "none") this.template.watermark_type = mode;
@@ -273,17 +317,19 @@ export class DocumentTemplateEditor {
       this.root.querySelector("#watermark-logo-hint").hidden = mode !== "logo";
       this.changed();
     });
-    on("#watermark-text", "input", e => { this.template.watermark_text = e.target.value; this.changed(); });
-    on("[data-block-text]", "input", (e, node) => { this.template.blocks[Number(node.dataset.blockText)].text = node.value; this.changed(); });
+    on("#watermark-text", "input", e => { this.record("watermark-text"); this.template.watermark_text = e.target.value; this.changed(); });
+    on("[data-block-text]", "input", (e, node) => { this.record(`text:${this.keys[Number(node.dataset.blockText)]}`); this.template.blocks[Number(node.dataset.blockText)].text = node.value; this.changed(); });
     on("[data-simple-text]", "input", (e, node) => {
       const index = Number(node.dataset.simpleText);
+      this.record(`text:${this.keys[index]}`);
       this.template.blocks[index].text = this.storedText(node.value);
       this.updateFieldBadges(index); this.changed();
     });
-    on("[data-bold]", "change", (e, node) => { this.template.blocks[Number(node.dataset.bold)].bold = node.checked; this.changed(); });
+    on("[data-bold]", "change", (e, node) => { this.record(); this.template.blocks[Number(node.dataset.bold)].bold = node.checked; this.changed(); });
     on("#optional-fields", "change", e => {
       const node = e.target.closest("[data-optional]");
       if (!node) return;
+      this.record();
       const fields = new Set(this.template.optional_fields || []);
       if (node.checked) fields.add(node.dataset.optional); else fields.delete(node.dataset.optional);
       this.template.optional_fields = [...fields]; this.changed();
@@ -296,6 +342,7 @@ export class DocumentTemplateEditor {
     });
     on("[data-insert]", "change", (e, node) => {
       if (!node.value) return;
+      this.record();
       const index = Number(node.dataset.insert);
       const simple = this.mode === "simple";
       const area = this.root.querySelector(`[data-${simple ? "simple" : "block"}-text="${index}"]`);

@@ -14,6 +14,8 @@ they have not been reconstructed as a complete historical changelog.
 
 - Unsaved document templates can be previewed with a selected puppy, buyer and
   recorded payment, with missing required fields shown before saving.
+- The template editor supports undo and redo for text, field and block edits
+  during the current editing session.
 
 ### Changed
 
