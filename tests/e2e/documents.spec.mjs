@@ -23,6 +23,7 @@ async function mountDocuments(page, language = "nl", openManagement = true) {
       const download = { filename: "contract.pdf", mime_type: "application/pdf", encoding: "base64", content: btoa("%PDF-1.4\n%%EOF") };
       switch (message.type.split("documents/")[1]) {
         case "list": return structuredClone(state.model);
+        case "template/inspect": return { available: Object.fromEntries(message.fields.map(key => [key, key !== "koper.naam"])) };
         case "template/preview": return state.badTemplatePreview ? download : { ...download, content: examplePdf };
         case "preview": {
           const result = { fingerprint: "checked", missing: message.details.place ? [] : ["contract.plaats"], download };
@@ -95,6 +96,25 @@ test("Template undo and redo restore text and block changes @cross-browser @tabl
   await panel.locator("#redo-template").click();
   await expect(panel.locator("[data-block]")).toHaveCount(blocks + 1);
   expect(await panel.evaluate(el => el._editor.template.name)).toBe("Revised draft");
+});
+
+test("Editor shows each field source and selected data availability @cross-browser @tablet", async ({ page }) => {
+  const { panel } = await mountDocuments(page);
+  await page.evaluate(() => {
+    window.__docs.model.fields["pup.huidig_gewicht"] = { nl: "Laatst gemeten gewicht", en: "Last measured weight" };
+    window.__docs.model.fields["koper.naam"] = { nl: "Koper(s)", en: "Buyer(s)" };
+    window.__docs.model.templates[0].template.blocks = [{ type: "data", text: "", fields: ["pup.huidig_gewicht", "koper.naam"] }];
+  });
+  await panel.locator("#refresh-documents").click();
+  await panel.locator("#edit-template").click();
+  await panel.locator("#editor-mode").selectOption("advanced");
+  await panel.locator("[data-block] > summary").click();
+  await expect(panel.locator("[data-field-availability='pup.huidig_gewicht']")).toContainText("Kies pup en koper");
+  await expect(panel.locator(".selected-fields")).toContainText("Weegmetingen pup");
+  await panel.locator("#draft-buyer").selectOption("o1");
+  await expect(panel.locator("[data-field-availability='pup.huidig_gewicht']")).toHaveText("Beschikbaar");
+  await expect(panel.locator("[data-field-availability='koper.naam']")).toHaveText("Ontbreekt");
+  expect(await page.evaluate(() => window.__docs.calls.some(c => c.type.endsWith("template/preview")))).toBe(false);
 });
 
 test("Payment receipt requires an active receipt and clears it when the buyer changes @cross-browser", async ({ page }) => {

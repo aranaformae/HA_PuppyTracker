@@ -16,6 +16,8 @@ they have not been reconstructed as a complete historical changelog.
   recorded payment, with missing required fields shown before saving.
 - The template editor supports undo and redo for text, field and block edits
   during the current editing session.
+- Used document fields show their data source and whether the selected puppy
+  and buyer currently provide a value.
 
 ### Changed
 

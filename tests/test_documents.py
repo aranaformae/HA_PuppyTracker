@@ -308,6 +308,19 @@ async def test_unsaved_template_preview_can_use_selected_real_data_without_savin
     assert not invalid["success"] and invalid["error"]["message"] == "choose_document_parties"
 
 
+async def test_template_field_inspection_reports_only_availability(document_client, setup_documents, storage):
+    owners, selection = setup_documents
+    parties = {key: selection[key] for key in ("litter_id", "puppy_id", "owner_ids", "details")}
+    before = storage.get_data()
+    result = await request(document_client, "template/inspect", fields=["pup.geboortegewicht", "pup.huidig_gewicht", "koper.naam"], selection=parties)
+    assert result["success"] and result["result"] == {"available": {
+        "pup.geboortegewicht": True, "pup.huidig_gewicht": False, "koper.naam": True,
+    }}
+    assert storage.get_data() == before
+    invalid = await request(document_client, "template/inspect", fields=["pup.naam"], selection={**parties, "owner_ids": ["foreign"]})
+    assert not invalid["success"] and invalid["error"]["message"] == "choose_document_parties"
+
+
 async def test_failed_archive_write_rolls_back_files_and_metadata(document_client, setup_documents, storage):
     _, selection = setup_documents
     preview = (await request(document_client, "preview", **selection))["result"]

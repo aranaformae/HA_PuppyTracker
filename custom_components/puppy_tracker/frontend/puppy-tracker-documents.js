@@ -17,6 +17,7 @@ const COPY = {
     previewTemplate: "Voorbeeld bekijken", realPreview: "Voorbeeld met echte gegevens", realPreviewHint: "Kies een gekoppelde pup en koper. Dit voorbeeld slaat het sjabloon of document niet op.", downloadDraft: "Concept downloaden", previewTemplateHint: "Het gewone voorbeeld gebruikt veldnamen als voorbeeldwaarden. Gebruik hieronder echte gegevens voor de laatste controle.", previewTemplateDone: "Voorbeeld geladen. Het sjabloon is niet opgeslagen.",
     inlinePreview: "Documentvoorbeeld", previewLoading: "PDF-voorbeeld laden…", previewFailed: "Het PDF-voorbeeld kan hier niet worden getoond. Je kunt het bestand nog wel downloaden.", previewClose: "Sluiten", previousPage: "Vorige", nextPage: "Volgende", zoomOut: "Verkleinen", zoomIn: "Vergroten", downloadPreview: "PDF downloaden",
     group_fokker: "Fokker", group_koper: "Koper(s)", group_nest: "Nest", group_pup: "Pup", group_vader: "Vader", group_moeder: "Moeder", group_betaling: "Betalingen", group_ontvangst: "Ontvangst", group_plaatsing: "Plaatsing", group_overdracht: "Overdracht", group_contract: "Ondertekening",
+    source_fokker: "Integratie-instellingen · fokker", source_nest: "Nestgegevens", source_vader: "Gegevens vader", source_moeder: "Gegevens moeder", source_contract: "Documentformulier", source_ontvangst: "Gekozen ontvangst", sourcePuppy: "Pupgegevens", sourcePuppyProfile: "Profielnotitie pup", sourceMeasurements: "Weegmetingen pup", sourceOwnerContact: "Baasjeskaart · contact", sourceOwnerLitter: "Baasjeskaart · nestdossier", valueAvailable: "Beschikbaar", valueMissing: "Ontbreekt", valueUnknown: "Kies pup en koper",
     working: "Bezig…",
     deleteTemplate: "Sjabloon verwijderen", deleteTemplateConfirm: "Dit sjabloon verwijderen? Opgeslagen documenten blijven behouden.", templateDeleted: "Sjabloon verwijderd.",
     title: "Document uit sjabloon", createDocument: "Document maken", manageTemplates: "Sjablonen beheren", manageTemplatesHint: "Kopieer of bewerk het gekozen sjabloon, of maak en importeer een nieuw sjabloon.", loading: "Documenten laden…", refresh: "Vernieuwen", template: "Sjabloon", litter: "Nest", puppy: "Pup", choose: "Maak een keuze",
@@ -41,6 +42,7 @@ const COPY = {
     previewTemplate: "View preview", realPreview: "Preview with actual data", realPreviewHint: "Choose a linked puppy and buyer. This preview does not save the template or document.", downloadDraft: "Download draft", previewTemplateHint: "The ordinary preview uses field names as sample values. Use actual data below for a final check.", previewTemplateDone: "Preview loaded. The template has not been saved.",
     inlinePreview: "Document preview", previewLoading: "Loading PDF preview…", previewFailed: "The PDF preview cannot be displayed here. You can still download the file.", previewClose: "Close", previousPage: "Previous", nextPage: "Next", zoomOut: "Zoom out", zoomIn: "Zoom in", downloadPreview: "Download PDF",
     group_fokker: "Breeder", group_koper: "Buyer(s)", group_nest: "Litter", group_pup: "Puppy", group_vader: "Father", group_moeder: "Mother", group_betaling: "Payments", group_ontvangst: "Receipt", group_plaatsing: "Placement", group_overdracht: "Handover", group_contract: "Signing",
+    source_fokker: "Integration settings · breeder", source_nest: "Litter details", source_vader: "Father details", source_moeder: "Mother details", source_contract: "Document form", source_ontvangst: "Selected receipt", sourcePuppy: "Puppy details", sourcePuppyProfile: "Puppy profile note", sourceMeasurements: "Puppy measurements", sourceOwnerContact: "Owners card · contact", sourceOwnerLitter: "Owners card · litter record", valueAvailable: "Available", valueMissing: "Missing", valueUnknown: "Choose puppy and buyer",
     working: "Working…",
     deleteTemplate: "Delete template", deleteTemplateConfirm: "Delete this template? Saved documents will be kept.", templateDeleted: "Template deleted.",
     title: "Document from template", createDocument: "Create document", manageTemplates: "Manage templates", manageTemplatesHint: "Copy or edit the selected template, or create and import a new one.", loading: "Loading documents…", refresh: "Refresh", template: "Template", litter: "Litter", puppy: "Puppy", choose: "Choose an option",
@@ -62,7 +64,7 @@ class PuppyTrackerDocuments extends HTMLElement {
     super(); this.attachShadow({ mode: "open" });
     this._epoch = 0; this._model = null; this._busy = false; this._error = ""; this._status = "";
     this._template = ""; this._litter = ""; this._puppy = ""; this._buyer = ""; this._others = []; this._payment = ""; this._manageOpen = false;
-    this._details = { date: "", place: "" }; this._preview = null; this._requestId = null; this._editor = null; this._templateEditor = null; this._draftMissing = []; this._dirty = false;
+    this._details = { date: "", place: "" }; this._preview = null; this._requestId = null; this._editor = null; this._templateEditor = null; this._draftMissing = []; this._inspectGeneration = 0; this._inspectionKey = ""; this._dirty = false;
     this._draftStore = null; this._draftState = ""; this._draftChecked = false;
     this._inlinePreview = new DocumentPdfPreview(key => this.t(key), () => this._closeInlinePreview());
     this._inlinePreviewOpen = false;
@@ -76,6 +78,7 @@ class PuppyTrackerDocuments extends HTMLElement {
     const changed = this._principal !== undefined && this._principal !== principal;
     const reconnected = this._hass && this._hass.connection !== value?.connection;
     if (changed || value?.user?.is_admin === false) {
+      clearTimeout(this._inspectTimer); this._inspectGeneration++; this._inspectionKey = "";
       this._flushDraft(); this._draftStore?.dispose();
       this._draftStore = null; this._draftState = ""; this._draftChecked = false;
       this._inlinePreview.destroy(); this._inlinePreviewOpen = false;
@@ -95,6 +98,7 @@ class PuppyTrackerDocuments extends HTMLElement {
   }
   disconnectedCallback() { queueMicrotask(() => {
     if (!this.isConnected) {
+      clearTimeout(this._inspectTimer); this._inspectGeneration++; this._inspectionKey = "";
       this._flushDraft(); this._draftStore?.dispose();
       this._inlinePreview.destroy(); this._inlinePreviewOpen = false;
       window.removeEventListener("pagehide", this._pageHide);
@@ -128,6 +132,7 @@ class PuppyTrackerDocuments extends HTMLElement {
       const missing = this.shadowRoot.querySelector("#draft-preview-missing");
       if (missing) missing.replaceChildren();
       if (this._inlinePreview.hasResult) this._closeInlinePreview();
+      this._scheduleFieldInspection();
     }
     this._draftStore?.schedule(() => this._draftSnapshot());
   }
@@ -248,6 +253,7 @@ class PuppyTrackerDocuments extends HTMLElement {
     }
     this._templateEditor.mode = view?.mode === "simple" || view?.mode === "advanced" ? view.mode : mode;
     this._dirty = false; this._invalidate(); this._render();
+    this._scheduleFieldInspection();
   }
   _saveTemplate() {
     if (!this._templateEditor?.validate()) return;
@@ -282,6 +288,35 @@ class PuppyTrackerDocuments extends HTMLElement {
     this._closeInlinePreview();
     if (render) this._render();
     else this.shadowRoot.querySelector("#draft-preview-missing")?.replaceChildren();
+    this._scheduleFieldInspection();
+  }
+  _scheduleFieldInspection() {
+    clearTimeout(this._inspectTimer);
+    const generation = ++this._inspectGeneration;
+    const editor = this._templateEditor;
+    if (!editor) return;
+    const fields = [...editor.usedFields()].sort();
+    if (!this._litter || !this._puppy || !this._buyer || !fields.length) {
+      this._inspectionKey = ""; editor.setAvailability(null); return;
+    }
+    const selection = { litter_id: this._litter, puppy_id: this._puppy,
+      owner_ids: [this._buyer, ...this._others], details: { ...this._details },
+      ...(this._needsPayment(editor.template) && this._payment ? { payment_id: this._payment } : {}) };
+    const key = JSON.stringify({ fields, selection });
+    if (key === this._inspectionKey && editor.availability) return;
+    this._inspectionKey = key;
+    editor.setAvailability(null);
+    const principal = this._principal;
+    this._inspectTimer = setTimeout(async () => {
+      try {
+        const result = await this._hass.callWS({ type: "puppy_tracker/documents/template/inspect", fields, selection });
+        if (generation === this._inspectGeneration && principal === this._principal && editor === this._templateEditor) editor.setAvailability(result.available);
+      } catch {
+        if (generation === this._inspectGeneration && editor === this._templateEditor) {
+          this._inspectionKey = ""; editor.setAvailability(null);
+        }
+      }
+    }, 300);
   }
   _downloadDraft() {
     if (!this._editor || this._busy || this._hass?.user?.is_admin === false) return;
@@ -342,6 +377,7 @@ class PuppyTrackerDocuments extends HTMLElement {
     this.shadowRoot.innerHTML = `<style>
       :host{display:block;color:var(--primary-text-color,#212121)}fieldset{border:0;padding:0;margin:0;min-width:0}label{display:grid;gap:5px;font-size:.85rem}input:not([type=checkbox]),select,textarea{box-sizing:border-box;width:100%;min-width:0;border:1px solid var(--divider-color,#d5d9df);border-radius:6px;padding:9px;background:var(--card-background-color,#fff);color:var(--primary-text-color,#212121);font:inherit}textarea{resize:vertical}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px}.actions,.flags{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.flags label,.field-list label,label:has(input[type=checkbox]){display:flex;align-items:center;gap:6px}.actions select{width:auto;max-width:100%}button{min-height:42px;padding:8px 12px;border:1px solid var(--divider-color,#d5d9df);border-radius:7px;background:var(--secondary-background-color,#f5f7fa);color:var(--primary-text-color,#212121);font:inherit;cursor:pointer}.primary{background:var(--primary-color,#03a9f4);color:var(--text-primary-color,#fff)}button:disabled{opacity:.5;cursor:default}p{font-size:.85rem;color:var(--secondary-text-color,#666);line-height:1.5}summary{cursor:pointer;padding:12px 0;font-weight:600;overflow-wrap:anywhere}.blocks,.archive,.field-list{max-height:500px;overflow-y:auto;overflow-anchor:none}.block{border-top:1px solid var(--divider-color,#d5d9df);padding:0 4px 8px}.block label{margin:8px 0}.field-list{display:grid;gap:10px}.archive article{padding:10px 0;border-bottom:1px solid var(--divider-color,#d5d9df);overflow-wrap:anywhere}.archive small{display:block;color:var(--secondary-text-color,#666)}.error{color:var(--error-color,#b00020)}#document-status,#document-error{min-height:1.4em;font-size:.85rem;overflow-wrap:anywhere}h3{font-size:1rem}#draft-status{font-size:.85rem;line-height:1.4;min-height:4.2em;overflow-wrap:anywhere}#draft-status:empty{display:none}.selected-fields{padding-left:22px}.selected-fields li{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:5px 0}.selected-fields li span{overflow-wrap:anywhere;min-width:0}.selected-fields .actions{flex-wrap:nowrap;margin:0;gap:4px}.selected-fields button{min-width:42px}.block-error:empty,#template-errors:empty{display:none}#template-errors{display:grid}#template-errors button{text-align:left}.editor .blocks{margin-top:12px}#template-editor [hidden]{display:none}.watermark-settings small{color:var(--secondary-text-color,#666);font-weight:normal}
       .used-field-chips{display:flex;gap:5px;flex-wrap:wrap}.field-chip{display:inline-block;padding:1px 5px;border:1px solid var(--primary-color,#03a9f4);border-radius:4px;background:var(--secondary-background-color,#e8f2f7);font-size:.8rem;font-weight:600}.field-picker{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:8px}.simple-block{padding:8px 12px;margin:8px 0;border:1px solid var(--divider-color,#d5d9df);border-radius:8px}.block-tools{margin:6px 0}.insert-menu{margin:5px 0 12px}.insert-menu>summary{font-size:.85rem;color:var(--primary-color,#03a9f4);padding:5px 0}
+      .field-info{display:block;font-size:.75rem;font-weight:400;color:var(--secondary-text-color,#666);overflow-wrap:anywhere}
       .document-editor-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}.document-editor-layout.has-preview{grid-template-columns:repeat(auto-fit,minmax(min(100%,430px),1fr))}#template-editor{min-width:0}#preview-panel{display:none;min-width:0;max-height:80vh;overflow:auto;border:1px solid var(--divider-color,#d5d9df);border-radius:8px;padding:12px;background:var(--card-background-color,#fff)}#preview-panel.open{display:block}.preview-toolbar,.preview-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:space-between}.preview-controls{margin:10px 0}.preview-controls span{font-size:.85rem}.preview-canvas{overflow:auto;max-height:65vh;text-align:center;background:var(--secondary-background-color,#f4f6f8);padding:4px}.preview-canvas canvas{display:block;margin:auto;touch-action:pan-x pan-y}.draft-preview-data{border-bottom:1px solid var(--divider-color,#d5d9df);padding-bottom:14px;margin-bottom:14px}.draft-preview-data h3{margin:0}.draft-preview-data p{margin:4px 0 12px}.document-workflow{display:grid;gap:12px}.document-workflow>h3{margin:0}.document-workflow>.grid{margin-bottom:0}#template-management{margin-top:20px;border-top:1px solid var(--divider-color,#d5d9df)}#template-management>summary{min-height:44px;color:var(--primary-text-color,#212121)}#template-management>p{margin:0 0 10px}#template-management .actions{margin:0 0 8px}@media(max-width:800px){#preview-panel.open{position:fixed;inset:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px);z-index:1000;max-height:none;border-radius:0;padding:16px;box-shadow:0 0 0 100vmax #0009}.preview-canvas{max-height:calc(100dvh - 160px)}}
       </style><fieldset ${this._busy ? "disabled" : ""}>${!model ? `<p>${esc(this.t("loading"))}</p><button type="button" id="refresh-documents">${esc(this.t("refresh"))}</button>` : this._editor ? `<section class="draft-preview-data"><h3>${esc(this.t("realPreview"))}</h3><p>${esc(this.t("realPreviewHint"))}</p><div class="grid"><label>${esc(this.t("litter"))}<select id="draft-litter">${this._options(model.litters.map(l => [l.id, l.name]), this._litter)}</select></label><label>${esc(this.t("puppy"))}<select id="draft-puppy">${this._options(puppies.map(p => [p.id, puppySelectorLabel(p)]), this._puppy)}</select></label><label>${esc(this.t("buyer"))}<select id="draft-buyer">${this._options(owners.map(o => [o.id, o.name]), this._buyer)}</select></label><label>${esc(this.t("others"))}<select multiple id="draft-others" size="2">${owners.filter(o => o.id !== this._buyer).map(o => `<option value="${esc(o.id)}" ${this._others.includes(o.id) ? "selected" : ""}>${esc(o.name)}</option>`).join("")}</select></label><label>${esc(this.t("date"))}<input type="date" id="draft-date" value="${esc(this._details.date)}"></label><label>${esc(this.t("place"))}<input id="draft-place" maxlength="200" value="${esc(this._details.place)}"></label></div>${draftNeedsPayment ? `<label>${esc(this.t("receipt"))}<select id="draft-payment">${this._options(payments.map(p => [p.id, `${p.date} · € ${p.amount} · ${paymentKinds[p.kind] || p.kind}`]), this._payment)}</select></label>` : ""}<div class="actions"><button type="button" id="preview-template-real" ${!this._litter || !this._puppy || !this._buyer || (draftNeedsPayment && !this._payment) ? "disabled" : ""}>${esc(this.t("realPreview"))}</button></div><div id="draft-preview-missing" role="status">${this._draftMissing.length ? `<strong>${esc(this.t("missing"))}</strong><ul>${this._draftMissing.map(key => `<li>${esc(this._fieldLabel(key))}</li>`).join("")}</ul>` : ""}</div></section><div class="document-editor-layout ${this._inlinePreviewOpen ? "has-preview" : ""}"><div id="template-editor"></div><aside id="preview-panel" class="${this._inlinePreviewOpen ? "open" : ""}"><div id="inline-preview"></div></aside></div>` : `
       <section class="document-workflow" aria-labelledby="create-document-heading"><h3 id="create-document-heading">${esc(this.t("createDocument"))}</h3>

@@ -27,9 +27,30 @@ export class DocumentTemplateEditor {
     this.redoStack = [];
     this.historyKind = null;
     this.historyAt = 0;
+    this.availability = null;
   }
 
   label(key) { return this.fields[key]?.[this.language()] || key; }
+  source(key) {
+    if (key === "pup.huidig_gewicht" || key === "pup.gewicht_gemeten_op") return this.t("sourceMeasurements");
+    if (key === "pup.profielnotitie") return this.t("sourcePuppyProfile");
+    if (key.startsWith("pup.")) return this.t("sourcePuppy");
+    if (key.startsWith("koper.")) return this.t("sourceOwnerContact");
+    if (["betaling", "plaatsing", "overdracht"].includes(key.split(".")[0])) return this.t("sourceOwnerLitter");
+    return this.t(`source_${key.split(".")[0]}`);
+  }
+  fieldInfo(key) {
+    const available = this.availability?.[key];
+    const status = available === true ? "valueAvailable" : available === false ? "valueMissing" : "valueUnknown";
+    return `<small class="field-info">${esc(this.source(key))} · <span data-field-availability="${esc(key)}">${esc(this.t(status))}</span></small>`;
+  }
+  setAvailability(available) {
+    this.availability = available;
+    this.root?.querySelectorAll("[data-field-availability]").forEach(node => {
+      const value = available?.[node.dataset.fieldAvailability];
+      node.textContent = this.t(value === true ? "valueAvailable" : value === false ? "valueMissing" : "valueUnknown");
+    });
+  }
   title(index) {
     const block = this.template.blocks[index];
     if (this.mode === "simple") {
@@ -231,7 +252,7 @@ export class DocumentTemplateEditor {
   fieldBadges(index) {
     const text = this.template.blocks[index].text || "";
     return [...new Set([...text.matchAll(tokenPattern())].map(match => match[1]))]
-      .filter(key => this.fields[key]).map(key => `<span class="field-chip">${esc(this.label(key))}</span>`).join("");
+      .filter(key => this.fields[key]).map(key => `<span class="field-chip">${esc(this.label(key))}${this.fieldInfo(key)}</span>`).join("");
   }
   updateFieldBadges(index) {
     const row = this.root.querySelector(`[data-used-fields="${index}"]`);
@@ -261,7 +282,7 @@ export class DocumentTemplateEditor {
         ? `<label>${esc(["heading", "data"].includes(block.type) ? this.t("sectionTitle") : this.t("content"))}<textarea data-simple-text="${index}" rows="${["heading", "data"].includes(block.type) ? 2 : 6}" maxlength="12000">${esc(this.displayText(block.text || ""))}</textarea></label><div class="used-field-chips" data-used-fields="${index}">${this.fieldBadges(index)}</div>${["text", "signature"].includes(block.type) ? this.searchMarkup(index, "text") : ""}`
         : `<label>${esc(this.t("content"))}<textarea data-block-text="${index}" rows="6" maxlength="12000">${esc(block.text)}</textarea></label>${this.searchMarkup(index, "text")}`}
       ${block.type === "text" ? `<label><input type="checkbox" data-bold="${index}" ${block.bold ? "checked" : ""}>${esc(this.t("bold"))}</label>` : ""}
-      ${block.type === "data" ? `<h3>${esc(this.t("fields"))}</h3><ol class="selected-fields">${fields.map((field, position) => `<li><span>${esc(this.label(field))}</span><div class="actions">
+      ${block.type === "data" ? `<h3>${esc(this.t("fields"))}</h3><ol class="selected-fields">${fields.map((field, position) => `<li><span>${esc(this.label(field))}${this.fieldInfo(field)}</span><div class="actions">
         <button type="button" data-field-up="${position}" data-owner-block="${index}" ${position === 0 ? "disabled" : ""} aria-label="${esc(this.t("up") + ': ' + this.label(field))}">↑</button>
         <button type="button" data-field-down="${position}" data-owner-block="${index}" ${position === fields.length - 1 ? "disabled" : ""} aria-label="${esc(this.t("down") + ': ' + this.label(field))}">↓</button>
         <button type="button" data-field-remove="${position}" data-owner-block="${index}" aria-label="${esc(this.t("remove") + ': ' + this.label(field))}">×</button></div></li>`).join("")}</ol>

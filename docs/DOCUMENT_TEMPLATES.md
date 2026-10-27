@@ -99,6 +99,10 @@ controls when you need finer editing.
 **Undo** and **Redo** restore text, field choices, layout flags and block
 operations within the current editing session. Consecutive typing is grouped;
 the local recovery draft still handles reopening the editor later.
+Used fields show their source, such as puppy measurements or the primary
+buyer's litter dossier. After selecting a puppy and buyer for a real-data
+preview, the editor checks which fields currently have a value without making
+a PDF on every edit. The final PDF check remains authoritative.
 
 The editor supports these collapsible parts:
 

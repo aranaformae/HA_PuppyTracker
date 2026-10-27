@@ -157,6 +157,23 @@ PREVIEW_PARTIES = vol.Schema({vol.Required("litter_id"): str, vol.Required("pupp
 
 
 @websocket_api.require_admin
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/documents/template/inspect",
+                                 vol.Required("fields"): vol.All([vol.In(FIELDS)], vol.Length(max=100)),
+                                 vol.Required("selection"): PREVIEW_PARTIES})
+@websocket_api.async_response
+async def websocket_template_inspect(hass, connection, msg):
+    async def operation(runtime):
+        selection = msg["selection"]
+        fields = set(msg["fields"])
+        async with mutation_coordinator(hass).restore():
+            values = document_context(runtime.storage, runtime.owners, selection["litter_id"], selection["puppy_id"],
+                                      selection["owner_ids"], selection["details"], "nl", selection.get("payment_id"),
+                                      include_profile_note="pup.profielnotitie" in fields)
+        return {"available": {key: bool(values.get(key)) for key in fields}}
+    await _handle(hass, connection, msg, operation)
+
+
+@websocket_api.require_admin
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/documents/template/preview", vol.Required("template"): dict,
                                  vol.Optional("selection"): PREVIEW_PARTIES,
                                  vol.Optional("logo_base64"): vol.All(str, vol.Length(max=700000))})
@@ -300,6 +317,6 @@ async def websocket_document_delete(hass, connection, msg):
 
 
 def async_setup_document_api(hass):
-    for command in (websocket_documents_list, websocket_template_save, websocket_template_delete, websocket_template_preview, websocket_document_preview,
+    for command in (websocket_documents_list, websocket_template_save, websocket_template_delete, websocket_template_inspect, websocket_template_preview, websocket_document_preview,
                     websocket_document_save, websocket_document_download, websocket_document_delete):
         websocket_api.async_register_command(hass, command)
