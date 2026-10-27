@@ -12,6 +12,8 @@ longitudinal behavior observations, reports and backups.
 > **Status:** Puppy Tracker is pre-1.0. Back up your data before updating because
 > compatibility changes are still possible before 1.0.
 
+Home Assistant 2026.9.4 or newer is the supported baseline.
+
 ## What You Can Do
 
 - Manage multiple litters, mother dogs and puppies.

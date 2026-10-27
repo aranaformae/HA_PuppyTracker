@@ -105,22 +105,24 @@ npx playwright install chromium webkit
 
 - `pytest`
 - `pytest-timeout`
-- `pytest-homeassistant-custom-component`
+- `pytest-homeassistant-custom-component` pinned to the current tested stable
+  Home Assistant release, 2026.10.4.
 
 The Home Assistant pytest package provides the Home Assistant test harness and fixtures such as `hass` and `enable_custom_integrations`.
 
 Each test, including fixture setup/teardown, has a 60-second thread timeout;
 faulthandler dumps thread stacks after 30 seconds. A real hang terminates that
 pytest process with a failure instead of keeping CI running indefinitely.
-CI additionally bounds the pytest step to three minutes and saves its verbose
-log and available JUnit results as `backend-test-diagnostics`.
+CI additionally bounds each pytest step to three minutes and saves its verbose
+log and available JUnit results per Home Assistant version.
 
 Use short explicit `ids` for parametrized binary/large-payload tests. Never let
 pytest turn the payload itself into a multi-megabyte test ID or progress line.
-Both workflows print their Python, Home Assistant and test-harness versions.
-Python 3.13 currently resolves a different Home Assistant baseline than the
-local Python 3.14 environment; test compatibility in a separate environment
-when investigating a CI-only failure rather than replacing the normal `.venv`.
+Backend CI runs the full Python suite against Home Assistant 2026.9.4 and
+2026.10.4, using Python 3.14 and a matching pinned test harness for each. The
+supported baseline is 2026.9.4. Local `.venv` uses the pinned 2026.10.4 harness;
+reinstall `requirements_test.txt` to replace an older beta harness. Keep a
+separate virtual environment if you need to reproduce the baseline job locally.
 
 ## Run all local checks
 

@@ -10,6 +10,12 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+### Changed
+
+- Backend CI now tests the supported Home Assistant 2026.9.4 baseline and
+  2026.10.4 with matching test harnesses on Python 3.14; local test setup uses
+  the pinned 2026.10.4 harness.
+
 ## [0.33.0] - 2026-10-27
 
 ### Added

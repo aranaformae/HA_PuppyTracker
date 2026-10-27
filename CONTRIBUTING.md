@@ -32,8 +32,9 @@ is documented in [Security and privacy](docs/SECURITY_PRIVACY.md).
 2. Use a separate development Home Assistant installation and synthetic data,
    not the only copy of a real litter's records. Back up before manual upgrade
    or migration checks.
-3. Create `.venv` with a Python version supported by the Home Assistant baseline
-   you are testing. CI currently uses Python 3.13. Install the Python requirements
+3. Create `.venv` with Python 3.14. CI tests Home Assistant 2026.9.4 (the
+   supported baseline) and 2026.10.4 (the current stable release). Local setup
+   uses the pinned current-stable test harness. Install the Python requirements
    and Node.js 22 or newer frontend dependencies:
 
 ```sh

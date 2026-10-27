@@ -19,9 +19,17 @@ concurrency:
 
 jobs:
   backend-tests:
-    name: Backend tests
+    name: Backend tests (HA ${{ matrix.ha_version }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - ha_version: "2026.9.4"
+            harness_version: "0.13.367"
+          - ha_version: "2026.10.4"
+            harness_version: "0.13.375"
     env:
       PYTHONUNBUFFERED: "1"
 
@@ -32,12 +40,15 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.14"
           cache: pip
-          cache-dependency-path: requirements_test.txt
+          cache-dependency-path: |
+            requirements_test.txt
+            requirements_test_base.txt
+            .github/workflows/ci.yml
 
       - name: Install test dependencies
-        run: python -m pip install --disable-pip-version-check -r requirements_test.txt
+        run: python -m pip install --disable-pip-version-check -r requirements_test_base.txt "pytest-homeassistant-custom-component==${{ matrix.harness_version }}"
 
       - name: Compile Python sources
         run: python -m compileall -q custom_components/puppy_tracker tests
@@ -47,14 +58,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python -c 'import sys; from importlib.metadata import version; print(sys.version); print("Home Assistant:", version("homeassistant")); print("Test harness:", version("pytest-homeassistant-custom-component"))'
+          python -c 'import sys; from importlib.metadata import version; print(sys.version); print("Home Assistant:", version("homeassistant")); print("Test harness:", version("pytest-homeassistant-custom-component")); assert version("homeassistant") == "${{ matrix.ha_version }}"; assert version("pytest-homeassistant-custom-component") == "${{ matrix.harness_version }}"'
           python -m pytest -v --junitxml=pytest-results.xml 2>&1 | tee pytest-output.log
 
       - name: Upload backend test diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: backend-test-diagnostics
+          name: backend-test-diagnostics-ha-${{ matrix.ha_version }}
           path: |
             pytest-output.log
             pytest-results.xml
