@@ -208,7 +208,7 @@ test("Simple template editor uses readable fields and inserts sections in place 
   await expect(panel.locator("[data-insert='0'] option")).toHaveCount(2);
   await panel.locator("[data-insert='0']").selectOption("pup.naam");
   await expect(panel.locator("[data-simple-text='0']")).toHaveValue("Pup: ⟦Roepnaam pup⟧");
-  await expect(panel.locator("[data-used-fields='0'] .field-chip")).toHaveText("Roepnaam pup");
+  await expect(panel.locator("[data-used-fields='0'] .field-chip")).toContainText("Roepnaam pup");
   expect(await panel.evaluate(el => el._editor.template.blocks[0].text)).toBe("Pup: {{ pup.naam }}");
   await panel.locator("#editor-mode").selectOption("advanced");
   await expect(panel.locator("[data-block-text='0']")).toHaveValue("Pup: {{ pup.naam }}");
@@ -245,7 +245,7 @@ test("Simple editor keeps mode, text and fields across draft recovery @cross-bro
   ({ panel } = await mountDocuments(page));
   await expect(panel.locator("#editor-mode")).toHaveValue("simple");
   await expect(panel.locator("[data-simple-text='0']")).toHaveValue("Hello ⟦Roepnaam pup⟧");
-  await expect(panel.locator("[data-used-fields='0'] .field-chip")).toHaveText("Roepnaam pup");
+  await expect(panel.locator("[data-used-fields='0'] .field-chip")).toContainText("Roepnaam pup");
   expect(await panel.evaluate(el => el._editor.template.blocks[0].text)).toBe("Hello {{ pup.naam }}");
 });
 
@@ -286,9 +286,9 @@ test("Template block identities, deletion recovery and explicit field order @cro
   await panel.locator("[data-duplicate='1']").click();
   await panel.locator("[data-block-text='2']").fill("Independent copy");
   await panel.locator("[data-block='3'] > summary").click();
-  await expect(panel.locator(".selected-fields li span")).toHaveText(["Plaats ondertekening", "Roepnaam pup"]);
+  await expect(panel.locator(".selected-fields li > span")).toContainText(["Plaats ondertekening", "Roepnaam pup"]);
   await panel.locator("[data-field-up='1']").click();
-  await expect(panel.locator(".selected-fields li span")).toHaveText(["Roepnaam pup", "Plaats ondertekening"]);
+  await expect(panel.locator(".selected-fields li > span")).toContainText(["Roepnaam pup", "Plaats ondertekening"]);
   await panel.locator("#save-template").click();
   const saved = await page.evaluate(() => window.__docs.calls.find(c => c.type.endsWith("template/save")).template);
   expect(saved.blocks.map(b => b.text)).toEqual(["Second edited after deletion", "First moved", "Independent copy", ""]);
@@ -308,9 +308,8 @@ test("Editor validates locally, updates optional fields without losing focus and
   await input.fill("{{ contract.plaats }}");
   await expect(input).toBeFocused();
   await expect(panel.locator("#template-errors button")).toHaveCount(0);
-  await panel.locator("#optional-fields > summary").click();
-  await expect(panel.locator("[data-optional]")).toHaveCount(1);
-  await panel.locator("[data-optional='contract.plaats']").check();
+  await expect(panel.locator("[data-inline-optional='contract.plaats']")).toHaveCount(1);
+  await panel.locator("[data-inline-optional='contract.plaats']").check();
   await panel.locator("#preview-template").click();
   await expect(panel.locator("[data-preview-page]")).toHaveText("1 / 2");
   await expect.poll(() => panel.locator("#inline-preview canvas").evaluate(canvas => canvas.width)).toBeGreaterThan(0);
@@ -345,6 +344,32 @@ test("Editor validates locally, updates optional fields without losing focus and
   const chunks = []; for await (const chunk of await downloaded.createReadStream()) chunks.push(chunk);
   expect(JSON.parse(Buffer.concat(chunks).toString()).blocks[0].text).toBe("{{ unfinished");
   await panel.screenshot({ path: test.info().outputPath("template-editor-tools.png") });
+});
+
+test("Optional field controls stay in sync across text and data blocks and support undo @cross-browser @tablet", async ({ page }) => {
+  const { panel } = await mountDocuments(page);
+  await page.evaluate(() => {
+    window.__docs.model.templates[0].template.blocks = [
+      { type: "text", text: "{{ pup.naam }}", fields: [], bold: false },
+      { type: "data", text: "Pup", fields: ["pup.naam"] },
+    ];
+  });
+  await panel.locator("#refresh-documents").click();
+  await panel.locator("#edit-template").click();
+  await panel.locator("#editor-mode").selectOption("advanced");
+  await panel.locator("[data-block='0'] > summary").click();
+  await panel.locator("[data-block='1'] > summary").click();
+  const toggles = panel.locator("[data-inline-optional='pup.naam']");
+  await expect(toggles).toHaveCount(2);
+  await toggles.first().check();
+  await expect(toggles.nth(1)).toBeChecked();
+  await expect.poll(() => panel.evaluate(el => el._editor.template.optional_fields)).toEqual(["pup.naam"]);
+  await panel.locator("#undo-template").click();
+  await expect(toggles.first()).not.toBeChecked();
+  await expect(toggles.nth(1)).not.toBeChecked();
+  await panel.locator("#redo-template").click();
+  await expect(toggles.first()).toBeChecked();
+  await expect(toggles.nth(1)).toBeChecked();
 });
 
 test("Inline PDF preview keeps a download fallback when rendering fails @cross-browser @tablet", async ({ page }) => {

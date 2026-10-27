@@ -146,16 +146,18 @@ optional initials footer provides space for both parties. Templates do not need
 to be reimported for layout improvements. Previously archived PDFs keep their
 original bytes and appearance.
 
-All fields used by a template are required unless explicitly selected under
-**Fields allowed to remain empty**. An empty optional field prints `n.v.t.` in
+All fields used by a template are required unless **May be empty** is checked
+beside that field in the editor. This applies to fields in data blocks and
+fields inserted into text. An empty optional field prints `n.v.t.` in
 Dutch or `N/A` in English. A known zero monetary amount is a value, not missing
 data. Only make a date or amount optional when that is appropriate for the text.
 If several buyers are selected, a contact field is considered complete only
 when each selected buyer has it.
 
-The optional-field list shows only fields used in the current template. Before
-saving or previewing, the editor points to incomplete parts, unknown fields and
-size limits. Click an error to open the affected part.
+The checkbox appears only for fields used in the current template. If a field
+appears in several places, changing one checkbox changes them all. Before saving
+or previewing, the editor points to incomplete parts, unknown fields and size
+limits. Click an error to open the affected part.
 
 **View preview** displays the current draft inside the document card, with field
 labels in place of personal values. On wide screens it appears beside the

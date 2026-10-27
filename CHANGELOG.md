@@ -21,6 +21,8 @@ they have not been reconstructed as a complete historical changelog.
 
 ### Changed
 
+- The document editor marks optional fields beside each used field, including
+  fields inserted into text, instead of in a separate list.
 - The document card keeps document creation and the archive together, with
   template management in a separate collapsed section below the workflow.
 

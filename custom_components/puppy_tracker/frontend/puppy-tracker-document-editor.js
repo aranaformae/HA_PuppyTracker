@@ -20,7 +20,6 @@ export class DocumentTemplateEditor {
     this.removed = [];
     this.issues = [];
     this.scroll = 0;
-    this.optionalOpen = false;
     this.layoutOpen = false;
     this.mode = "advanced";
     this.undoStack = [];
@@ -43,6 +42,9 @@ export class DocumentTemplateEditor {
     const available = this.availability?.[key];
     const status = available === true ? "valueAvailable" : available === false ? "valueMissing" : "valueUnknown";
     return `<small class="field-info">${esc(this.source(key))} · <span data-field-availability="${esc(key)}">${esc(this.t(status))}</span></small>`;
+  }
+  optionalToggle(key) {
+    return `<label class="inline-optional"><input type="checkbox" data-inline-optional="${esc(key)}" aria-label="${esc(`${this.label(key)}: ${this.t("optionalShort")}`)}" ${(this.template.optional_fields || []).includes(key) ? "checked" : ""}>${esc(this.t("optionalShort"))}</label>`;
   }
   setAvailability(available) {
     this.availability = available;
@@ -85,7 +87,6 @@ export class DocumentTemplateEditor {
     if (!this.root?.isConnected) return;
     this.scroll = this.root.querySelector(".blocks")?.scrollTop || 0;
     this.open = new Set([...this.root.querySelectorAll("[data-key][open]")].map(node => node.dataset.key));
-    this.optionalOpen = Boolean(this.root.querySelector("#optional-fields")?.open);
     this.layoutOpen = Boolean(this.root.querySelector("#layout-settings")?.open);
   }
   mount(root) { this.root = root; this.render(false); }
@@ -93,13 +94,6 @@ export class DocumentTemplateEditor {
     this.actions.changed();
     if (this.issues.length) this.issues = this.check();
     this.feedback();
-    this.refreshOptionalFields();
-  }
-  refreshOptionalFields() {
-    const list = this.root.querySelector("#optional-fields .field-list");
-    const keys = [...this.usedFields()];
-    if (JSON.stringify([...list.querySelectorAll("[data-optional]")].map(node => node.dataset.optional)) === JSON.stringify(keys)) return;
-    list.innerHTML = keys.map(key => `<label><input type="checkbox" data-optional="${esc(key)}" ${(this.template.optional_fields || []).includes(key) ? "checked" : ""}>${esc(this.label(key))}</label>`).join("") || esc(this.t("noUsedFields"));
   }
   check() {
     const issues = [], template = this.template;
@@ -252,7 +246,7 @@ export class DocumentTemplateEditor {
   fieldBadges(index) {
     const text = this.template.blocks[index].text || "";
     return [...new Set([...text.matchAll(tokenPattern())].map(match => match[1]))]
-      .filter(key => this.fields[key]).map(key => `<span class="field-chip">${esc(this.label(key))}${this.fieldInfo(key)}</span>`).join("");
+      .filter(key => this.fields[key]).map(key => `<span class="field-chip">${esc(this.label(key))}${this.fieldInfo(key)}${this.optionalToggle(key)}</span>`).join("");
   }
   updateFieldBadges(index) {
     const row = this.root.querySelector(`[data-used-fields="${index}"]`);
@@ -280,9 +274,9 @@ export class DocumentTemplateEditor {
       <p class="block-error error" role="status"></p>
       ${block.type === "page_break" ? "" : this.mode === "simple"
         ? `<label>${esc(["heading", "data"].includes(block.type) ? this.t("sectionTitle") : this.t("content"))}<textarea data-simple-text="${index}" rows="${["heading", "data"].includes(block.type) ? 2 : 6}" maxlength="12000">${esc(this.displayText(block.text || ""))}</textarea></label><div class="used-field-chips" data-used-fields="${index}">${this.fieldBadges(index)}</div>${["text", "signature"].includes(block.type) ? this.searchMarkup(index, "text") : ""}`
-        : `<label>${esc(this.t("content"))}<textarea data-block-text="${index}" rows="6" maxlength="12000">${esc(block.text)}</textarea></label>${this.searchMarkup(index, "text")}`}
+        : `<label>${esc(this.t("content"))}<textarea data-block-text="${index}" rows="6" maxlength="12000">${esc(block.text)}</textarea></label><div class="used-field-chips" data-used-fields="${index}">${this.fieldBadges(index)}</div>${this.searchMarkup(index, "text")}`}
       ${block.type === "text" ? `<label><input type="checkbox" data-bold="${index}" ${block.bold ? "checked" : ""}>${esc(this.t("bold"))}</label>` : ""}
-      ${block.type === "data" ? `<h3>${esc(this.t("fields"))}</h3><ol class="selected-fields">${fields.map((field, position) => `<li><span>${esc(this.label(field))}${this.fieldInfo(field)}</span><div class="actions">
+      ${block.type === "data" ? `<h3>${esc(this.t("fields"))}</h3><ol class="selected-fields">${fields.map((field, position) => `<li><span>${esc(this.label(field))}${this.fieldInfo(field)}${this.optionalToggle(field)}</span><div class="actions">
         <button type="button" data-field-up="${position}" data-owner-block="${index}" ${position === 0 ? "disabled" : ""} aria-label="${esc(this.t("up") + ': ' + this.label(field))}">↑</button>
         <button type="button" data-field-down="${position}" data-owner-block="${index}" ${position === fields.length - 1 ? "disabled" : ""} aria-label="${esc(this.t("down") + ': ' + this.label(field))}">↓</button>
         <button type="button" data-field-remove="${position}" data-owner-block="${index}" aria-label="${esc(this.t("remove") + ': ' + this.label(field))}">×</button></div></li>`).join("")}</ol>
@@ -310,7 +304,6 @@ export class DocumentTemplateEditor {
         <div class="blocks">${this.mode === "simple" ? this.insertMenu(-1) : ""}${template.blocks.map((block, index) => this.blockMarkup(block, index)).join("")}</div>
         <div class="actions">${this.mode === "advanced" ? `<select id="add-kind" aria-label="${esc(this.t("add"))}">${DOCUMENT_BLOCK_KINDS.map(kind => `<option value="${kind}">${esc(this.t(kind))}</option>`).join("")}</select><button id="add-block" type="button" ${this.keys.length >= 200 ? "disabled" : ""}>${esc(this.t("add"))}</button>` : ""}
         <button id="restore-block" type="button" ${!this.removed.length || this.keys.length >= 200 ? "disabled" : ""}>${esc(this.t("restoreBlock"))}${this.removed.length ? ` (${this.removed.length})` : ""}</button></div>
-        <details id="optional-fields" ${this.optionalOpen ? "open" : ""}><summary>${esc(this.t("optional"))}</summary><p>${esc(this.t("optionalHint"))}</p><div class="field-list">${[...this.usedFields()].map(key => `<label><input type="checkbox" data-optional="${esc(key)}" ${(template.optional_fields || []).includes(key) ? "checked" : ""}>${esc(this.label(key))}</label>`).join("") || esc(this.t("noUsedFields"))}</div></details>
         <div class="actions"><button type="button" id="save-template" class="primary">${esc(this.t("saveTemplate"))}</button><button type="button" id="cancel-template">${esc(this.t("cancel"))}</button></div></section>`;
       this.bind();
       this.root.querySelector(".blocks").scrollTop = this.scroll;
@@ -339,7 +332,7 @@ export class DocumentTemplateEditor {
       this.changed();
     });
     on("#watermark-text", "input", e => { this.record("watermark-text"); this.template.watermark_text = e.target.value; this.changed(); });
-    on("[data-block-text]", "input", (e, node) => { this.record(`text:${this.keys[Number(node.dataset.blockText)]}`); this.template.blocks[Number(node.dataset.blockText)].text = node.value; this.changed(); });
+    on("[data-block-text]", "input", (e, node) => { const index = Number(node.dataset.blockText); this.record(`text:${this.keys[index]}`); this.template.blocks[index].text = node.value; this.updateFieldBadges(index); this.changed(); });
     on("[data-simple-text]", "input", (e, node) => {
       const index = Number(node.dataset.simpleText);
       this.record(`text:${this.keys[index]}`);
@@ -347,14 +340,17 @@ export class DocumentTemplateEditor {
       this.updateFieldBadges(index); this.changed();
     });
     on("[data-bold]", "change", (e, node) => { this.record(); this.template.blocks[Number(node.dataset.bold)].bold = node.checked; this.changed(); });
-    on("#optional-fields", "change", e => {
-      const node = e.target.closest("[data-optional]");
-      if (!node) return;
+    this.root.onchange = e => {
+      const node = e.target.closest("[data-inline-optional]");
+      if (!node || this.root.closest("fieldset")?.disabled) return;
       this.record();
       const fields = new Set(this.template.optional_fields || []);
-      if (node.checked) fields.add(node.dataset.optional); else fields.delete(node.dataset.optional);
+      if (node.checked) fields.add(node.dataset.inlineOptional); else fields.delete(node.dataset.inlineOptional);
       this.template.optional_fields = [...fields]; this.changed();
-    });
+      this.root.querySelectorAll("[data-inline-optional]").forEach(input => {
+        if (input.dataset.inlineOptional === node.dataset.inlineOptional) input.checked = node.checked;
+      });
+    };
     on("[data-field-search]", "input", (e, node) => {
       const index = Number(node.dataset.fieldSearch), kind = node.dataset.searchKind;
       const block = this.template.blocks[index];
