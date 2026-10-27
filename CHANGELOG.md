@@ -10,11 +10,29 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-10-27
+
+### Added
+
+- Edit or add several puppies in one litter-scoped configuration session without
+  repeatedly selecting the litter. A sole litter is selected automatically.
+- Preview storage-integrity findings before explicitly confirming safe repairs.
+
 ### Changed
 
+- **Configuration navigation change:** everyday litter and puppy actions stay
+  directly accessible; growth and notifications, and data and maintenance, now
+  have their own menus. Existing data needs no migration. Update any saved
+  instructions or bookmarks that describe the old menu path.
+- Litter details use collapsible basic, mother, father and growth sections.
+  Archiving and deletion are separate confirmed actions; untouched sections
+  retain their stored values. The breeder form identifies the active logo source.
 - Backend CI now tests the supported Home Assistant 2026.9.4 baseline and
   2026.10.4 with matching test harnesses on Python 3.14; local test setup uses
   the pinned 2026.10.4 harness.
+
+### Fixed
+
 - A failed platform unload now reports a translated, actionable config-entry
   error while retaining boolean success returns required by supported HA versions.
 
@@ -300,7 +318,8 @@ for explicit assignment. See [storage migrations](docs/storage-migrations.md#own
 
 - Separated daily execution from schedule management in Care workspace navigation.
 
-[Unreleased]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.33.0...HEAD
+[Unreleased]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.34.0...HEAD
+[0.34.0]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.33.0...v0.34.0
 [0.33.0]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.32.6...v0.33.0
 [0.32.6]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.32.5...v0.32.6
 [0.32.5]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.32.4...v0.32.5
