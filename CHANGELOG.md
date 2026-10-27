@@ -10,6 +10,8 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-10-27
+
 ### Added
 
 - Unsaved document templates can be previewed with a selected puppy, buyer and
@@ -290,7 +292,8 @@ for explicit assignment. See [storage migrations](docs/storage-migrations.md#own
 
 - Separated daily execution from schedule management in Care workspace navigation.
 
-[Unreleased]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.32.6...HEAD
+[Unreleased]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.33.0...HEAD
+[0.33.0]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.32.6...v0.33.0
 [0.32.6]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.32.5...v0.32.6
 [0.32.5]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.32.4...v0.32.5
 [0.32.4]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.32.3...v0.32.4
