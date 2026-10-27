@@ -11,7 +11,7 @@ from homeassistant.auth.const import GROUP_ID_ADMIN, GROUP_ID_USER, GROUP_ID_REA
 from homeassistant.components import websocket_api
 from homeassistant.components.http.auth import async_sign_path
 from homeassistant.core import Context
-from homeassistant.exceptions import Unauthorized
+from homeassistant.exceptions import ConfigEntryError, Unauthorized
 from homeassistant.setup import async_setup_component
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -268,8 +268,41 @@ async def service_runtime(hass, storage, install_litter, monkeypatch):
     monkeypatch.setattr(hass.config_entries, "async_forward_entry_setups", AsyncMock())
     entry = MockConfigEntry(domain=DOMAIN, data={})
     entry.add_to_hass(hass)
-    assert await integration.async_setup_entry(hass, entry)
+    assert await integration.async_setup_entry(hass, entry) is True
     return entry.runtime_data
+
+
+@pytest.mark.parametrize("unload_ok", [True, False], ids=["success", "platform-failure"])
+async def test_entry_unload_reports_platform_failure_and_preserves_runtime(
+    hass, service_runtime, monkeypatch, unload_ok,
+):
+    entry = hass.config_entries.async_entries(DOMAIN)[0]
+    runtime = service_runtime
+    unload_platforms = AsyncMock(return_value=unload_ok)
+    monkeypatch.setattr(hass.config_entries, "async_unload_platforms", unload_platforms)
+    unload_frontend = MagicMock()
+    monkeypatch.setattr(integration, "async_unload_frontend", unload_frontend)
+    runtime.notification_manager = SimpleNamespace(async_stop=AsyncMock())
+    runtime.recurring_notification_manager = SimpleNamespace(async_stop=AsyncMock())
+
+    if unload_ok:
+        assert await integration.async_unload_entry(hass, entry) is True
+        assert entry.runtime_data is None
+        unload_frontend.assert_called_once_with(hass)
+        runtime.notification_manager.async_stop.assert_awaited_once()
+        runtime.recurring_notification_manager.async_stop.assert_awaited_once()
+        assert not hass.services.has_service(DOMAIN, integration.SERVICE_BACKUP_TO_FILE)
+    else:
+        with pytest.raises(ConfigEntryError) as error:
+            await integration.async_unload_entry(hass, entry)
+        assert error.value.translation_domain == DOMAIN
+        assert error.value.translation_key == "platform_unload_failed"
+        assert entry.runtime_data is runtime
+        unload_frontend.assert_not_called()
+        runtime.notification_manager.async_stop.assert_not_awaited()
+        assert hass.services.has_service(DOMAIN, integration.SERVICE_BACKUP_TO_FILE)
+
+    unload_platforms.assert_awaited_once_with(entry, integration.PLATFORMS)
 
 
 @pytest.mark.parametrize("service,data", [

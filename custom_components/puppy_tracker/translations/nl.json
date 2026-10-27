@@ -533,5 +533,10 @@
         "new_profile": "Nieuw moederprofiel aanmaken"
       }
     }
+  },
+  "exceptions": {
+    "platform_unload_failed": {
+      "message": "Een of meer Puppy Tracker-platforms konden niet worden ontladen. Controleer het Home Assistant-logboek voordat je het opnieuw probeert."
+    }
   }
 }

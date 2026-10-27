@@ -13,6 +13,7 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.exceptions import ConfigEntryError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.service import async_register_admin_service
 from homeassistant.helpers.dispatcher import async_dispatcher_send
@@ -400,7 +401,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload Puppy Tracker."""
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if not unload_ok:
-        return False
+        raise ConfigEntryError(
+            translation_domain=DOMAIN,
+            translation_key="platform_unload_failed",
+        )
 
     runtime = entry.runtime_data
     if isinstance(runtime, PuppyTrackerRuntimeData):

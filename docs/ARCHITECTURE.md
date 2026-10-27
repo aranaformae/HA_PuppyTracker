@@ -1426,6 +1426,14 @@ removes the action, preserving geometry and input nodes.
 
 Global one-time registration flags may live in `hass.data` when they represent Home Assistant instance state rather than entry-owned domain data. Ephemeral notification-delivery deduplication may also live in runtime/instance state but must not be mistaken for persistent scheduling data.
 
+The config-entry setup and unload handlers return `True` on success because
+Home Assistant 2026.9.4 and 2026.10.4 still require boolean results. Unload
+uses `async_unload_platforms` for compatibility with those versions. If a
+platform refuses to unload, the handler raises a translated `ConfigEntryError`
+and leaves the runtime, frontend and services in place rather than presenting
+a generic failure or claiming cleanup completed. Revisit `None` success returns
+only when the supported Home Assistant baseline accepts them.
+
 ## Metrics layer
 
 Weight calculations and monitoring status belong to shared domain logic, not sensor classes. Sensors, binary sensors, notifications, WebSocket APIs and reports consume canonical metric functions.

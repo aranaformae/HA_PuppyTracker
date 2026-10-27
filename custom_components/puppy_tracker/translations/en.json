@@ -533,5 +533,10 @@
         "new_profile": "Create a new mother profile"
       }
     }
+  },
+  "exceptions": {
+    "platform_unload_failed": {
+      "message": "One or more Puppy Tracker platforms could not be unloaded. Check the Home Assistant log before retrying."
+    }
   }
 }

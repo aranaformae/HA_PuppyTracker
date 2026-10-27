@@ -15,6 +15,8 @@ they have not been reconstructed as a complete historical changelog.
 - Backend CI now tests the supported Home Assistant 2026.9.4 baseline and
   2026.10.4 with matching test harnesses on Python 3.14; local test setup uses
   the pinned 2026.10.4 harness.
+- A failed platform unload now reports a translated, actionable config-entry
+  error while retaining boolean success returns required by supported HA versions.
 
 ## [0.33.0] - 2026-10-27
 
