@@ -1354,6 +1354,22 @@ That module composes the feature mixins with
 the management module at import time. This keeps fresh installation and options
 setup on the same explicit class graph.
 
+The options root keeps direct create/edit routes for litters and puppies. Its
+nest-scoped puppy session stores the selected litter on the flow instance,
+returns to the same puppy selector after each save, and checks the submitted
+litter context before adding a puppy. A single litter is selected
+automatically; the add form omits its redundant litter selector. Growth and
+notification settings share one
+menu; data management, measurement correction and integrity checks share an
+advanced menu. Nest editing uses Home Assistant form sections for basic,
+mother, father and growth fields. Omitted collapsed sections retain their
+stored values; a submitted section can still clear an individual optional
+field. Archive and deletion are separate actions, with a confirmation step.
+The integrity flow runs `repair=False` for its preview and dispatches updates
+only after an explicitly confirmed `repair=True` run. The breeder form states
+which logo source is currently active; an uploaded logo takes precedence over
+the optional local path.
+
 Persistent rule stores attached to runtime data include:
 
 ```text

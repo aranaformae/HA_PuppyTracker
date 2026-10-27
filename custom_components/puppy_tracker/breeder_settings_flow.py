@@ -51,6 +51,15 @@ class BreederSettingsMixin:
         values = user_input if user_input is not None else storage.get_breeder()
         current = storage.get_breeder()
         logo_path = signed_file_path(self.hass, current["logo_file_id"]) if current.get("logo_file_id") else current["logo_url"]
+        source_key = (
+            "upload" if current.get("logo_file_id") else
+            "path" if current.get("logo_url") else "built-in"
+        )
+        logo_source = {
+            "upload": ("Geüpload logo", "Uploaded logo"),
+            "path": ("Lokaal logopad", "Local logo path"),
+            "built-in": ("Ingebouwd Puppy Tracker-logo", "Built-in Puppy Tracker logo"),
+        }[source_key][0 if self.hass.config.language == "nl" else 1]
         schema = {
             vol.Optional(key, description={"suggested_value": values.get(key, "")}): selector.TextSelector(
                 selector.TextSelectorConfig(multiline=key == "contact")
@@ -61,6 +70,9 @@ class BreederSettingsMixin:
         return self.async_show_form(
             step_id="breeder",
             data_schema=vol.Schema(schema),
-            description_placeholders={"logo_preview": f"![Logo]({quote(logo_path, safe='/?:=&')})" if logo_path else ""},
+            description_placeholders={
+                "logo_preview": f"![Logo]({quote(logo_path, safe='/?:=&')})" if logo_path else "",
+                "logo_source": logo_source,
+            },
             errors=errors,
         )

@@ -73,6 +73,22 @@ def _prefilled_input(form):
     }
 
 
+def _prefilled_litter_input(form):
+    return {
+        group.schema: {
+            marker.schema: (
+                marker.description["suggested_value"]
+                if marker.description and "suggested_value" in marker.description
+                else marker.default()
+            )
+            for marker in section.schema.schema
+            if (marker.description and "suggested_value" in marker.description)
+            or marker.default is not vol.UNDEFINED
+        }
+        for group, section in form["data_schema"].schema.items()
+    }
+
+
 @pytest.mark.parametrize("step", ["manage_puppy", "manage_measurements", "export_puppy"])
 async def test_puppy_management_selectors_include_collar_without_changing_ids(options_flow, step):
     flow, storage = options_flow
@@ -85,6 +101,87 @@ async def test_puppy_management_selectors_include_collar_without_changing_ids(op
     assert "Luna 2026" in options[0]["label"]
     assert options[0]["label"].endswith("Alice (Red)")
     storage.async_save.assert_not_awaited()
+
+
+async def test_litter_puppy_session_reuses_litter_after_edit(options_flow):
+    flow, storage = options_flow
+    root = await flow.async_step_init()
+    assert "manage_puppy" in root["menu_options"]
+    assert "add_puppy" in root["menu_options"]
+    assert "litter_puppies" in root["menu_options"]
+    choose = await flow.async_step_litter_puppies()
+    assert choose["step_id"] == "choose_litter_puppy"
+    puppy_id = flow._selected_puppy_id
+    edit = await flow.async_step_choose_litter_puppy({"puppy_id": puppy_id})
+    values = _prefilled_input(edit)
+    values.update(name="Updated", action="save")
+    result = await flow.async_step_edit_puppy(edit["data_schema"](values))
+    assert result["step_id"] == "choose_litter_puppy"
+    assert storage.get_puppy(flow._selected_litter_id, puppy_id)["name"] == "Updated"
+    add = await flow.async_step_choose_litter_puppy({"puppy_id": "__new__"})
+    assert add["step_id"] == "add_puppy"
+    assert "litter_id" not in {marker.schema for marker in add["data_schema"].schema}
+    new_values = add["data_schema"]({"name": "New"})
+    result = await flow.async_step_add_puppy(new_values)
+    assert result["step_id"] == "choose_litter_puppy"
+    assert any(puppy["name"] == "New" for puppy in storage.get_litter(flow._selected_litter_id)["puppies"].values())
+
+
+async def test_litter_puppy_session_asks_for_litter_when_multiple_are_active(options_flow):
+    flow, storage = options_flow
+    await storage.async_create_litter("Second litter")
+    form = await flow.async_step_litter_puppies()
+    assert form["step_id"] == "litter_puppies"
+    result = await flow.async_step_litter_puppies(
+        form["data_schema"]({"litter_id": flow._selected_litter_id})
+    )
+    assert result["step_id"] == "choose_litter_puppy"
+
+
+async def test_integrity_preview_requires_explicit_repair(options_flow):
+    flow, storage = options_flow
+    storage.async_run_integrity_check = AsyncMock(return_value={
+        "healthy": False, "issues_found": 1, "repairs_applied": 0,
+        "unresolved_critical": 0, "unresolved_warnings": 1,
+        "checked": {"measurement_versions": 1},
+    })
+    preview = await flow.async_step_integrity()
+    assert preview["step_id"] == "integrity"
+    storage.async_run_integrity_check.assert_awaited_once_with(repair=False)
+    storage.async_save.assert_not_awaited()
+    result = await flow.async_step_integrity({"confirm_repair": True})
+    assert result["step_id"] == "integrity_result"
+    storage.async_run_integrity_check.assert_awaited_with(repair=True)
+
+
+async def test_litter_archive_has_separate_confirmation(options_flow):
+    flow, storage = options_flow
+    before = storage.get_litter(flow._selected_litter_id)["active"]
+    menu = await flow.async_step_litter_actions()
+    assert menu["menu_options"] == [
+        "edit_litter", "toggle_archive_litter", "confirm_delete_litter"
+    ]
+    form = await flow.async_step_toggle_archive_litter()
+    assert storage.get_litter(flow._selected_litter_id)["active"] == before
+    await flow.async_step_toggle_archive_litter({"confirm": True})
+    assert storage.get_litter(flow._selected_litter_id)["active"] != before
+
+
+async def test_collapsed_litter_sections_preserve_existing_details(options_flow):
+    flow, storage = options_flow
+    litter_id = flow._selected_litter_id
+    before = storage.get_litter(litter_id)
+    mother_before = storage.get_mother_for_litter(litter_id)
+    form = await flow.async_step_edit_litter()
+    result = await flow.async_step_edit_litter(
+        form["data_schema"]({"basic": {"name": "New litter name"}})
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    after = storage.get_litter(litter_id)
+    assert after["name"] == "New litter name"
+    assert after["father_details"] == before["father_details"]
+    assert after["growth_analysis"] == before["growth_analysis"]
+    assert storage.get_mother_for_litter(litter_id)["birth_date"] == mother_before["birth_date"]
 
 
 @pytest.mark.parametrize("step", [
@@ -112,6 +209,13 @@ async def test_management_forms_have_valid_prefills_and_do_not_save(options_flow
         for language in ("nl", "en")
     }
     for marker, validator in form["data_schema"].schema.items():
+        if hasattr(validator, "schema") and hasattr(validator, "options"):
+            for language, translations in languages.items():
+                section_labels = translations["options"]["step"][form["step_id"]]["sections"][marker.schema]
+                assert section_labels["name"]
+                for child in validator.schema.schema:
+                    assert child.schema in section_labels["data"]
+            continue
         if marker.default is not vol.UNDEFINED:
             validator(marker.default())
         if marker.description and "suggested_value" in marker.description:
@@ -155,11 +259,10 @@ async def test_puppy_edit_preserves_or_clears_optional_fields(options_flow, clea
 async def test_litter_edit_clears_parent_dates_without_repopulating(options_flow):
     flow, storage = options_flow
     form = await flow.async_step_edit_litter()
-    data = _prefilled_input(form)
-    data.pop("birth_date")
-    data.pop("mother_birth_date")
-    data.pop("father_birth_date")
-    data["action"] = "save"
+    data = _prefilled_litter_input(form)
+    data["basic"].pop("birth_date")
+    data["mother_section"].pop("mother_birth_date")
+    data["father_section"].pop("father_birth_date")
     result = await flow.async_step_edit_litter(form["data_schema"](data))
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
@@ -173,19 +276,18 @@ async def test_litter_edit_clears_parent_dates_without_repopulating(options_flow
 async def test_parent_chip_numbers_can_be_saved_and_cleared(options_flow, clear):
     flow, storage = options_flow
     form = await flow.async_step_edit_litter()
-    data = _prefilled_input(form)
-    data.update(mother_chip_number="000123456789012", father_chip_number="000987654321098")
-    data["action"] = "save"
+    data = _prefilled_litter_input(form)
+    data["mother_section"]["mother_chip_number"] = "000123456789012"
+    data["father_section"]["father_chip_number"] = "000987654321098"
     result = await flow.async_step_edit_litter(form["data_schema"](data))
     assert result["type"] is FlowResultType.CREATE_ENTRY
     form = await flow.async_step_edit_litter()
-    data = _prefilled_input(form)
-    assert data["mother_chip_number"] == "000123456789012"
-    assert data["father_chip_number"] == "000987654321098"
+    data = _prefilled_litter_input(form)
+    assert data["mother_section"]["mother_chip_number"] == "000123456789012"
+    assert data["father_section"]["father_chip_number"] == "000987654321098"
     if clear:
-        data.pop("mother_chip_number")
-        data.pop("father_chip_number")
-    data["action"] = "save"
+        data["mother_section"].pop("mother_chip_number")
+        data["father_section"].pop("father_chip_number")
     result = await flow.async_step_edit_litter(form["data_schema"](data))
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert storage.get_mother_for_litter(flow._selected_litter_id)["chip_number"] == (

@@ -15,7 +15,7 @@ installation can still recover the locally persisted active session.
 
 1. Open **Settings → Devices & services → Puppy Tracker**.
 2. Open **Configure**.
-3. Choose **Data management**.
+3. Choose **Data and maintenance → Data management**.
 4. Choose **Export backup** or **Import / restore backup**.
 
 ## Export options
@@ -142,7 +142,7 @@ For a complete restore:
 
 1. Export a **Complete Puppy Tracker backup** regularly and store it outside Home Assistant.
 2. In the replacement or recovered Home Assistant installation, install a Puppy Tracker version that supports backup format v7/v6/v5/v4 and storage schema 7/8/9 restore.
-3. Open **Data management → Import / restore backup**.
+3. Open **Data and maintenance → Data management → Import / restore backup**.
 4. Upload the full JSON backup.
 5. Choose **Replace all current Puppy Tracker data with this backup**.
 6. Review the dry-run counts and integrity warnings carefully.
@@ -157,7 +157,7 @@ Portable care-reminder preferences are restored. Delivery state is rebuilt inste
 ## Transfer one puppy to another litter
 
 1. On the source installation, export **One individual puppy**.
-2. On the destination installation, open **Data management → Import / restore backup** and upload that JSON file.
+2. On the destination installation, open **Data and maintenance → Data management → Import / restore backup** and upload that JSON file.
 3. Choose one of the following:
    - **Create a new litter from the backup** to create a new litter using the source litter name, birth date and parent metadata; or
    - **Add to an existing litter** and choose the destination litter.

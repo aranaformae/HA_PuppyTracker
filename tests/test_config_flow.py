@@ -5,7 +5,10 @@ from __future__ import annotations
 from unittest.mock import AsyncMock
 
 import pytest
+import voluptuous as vol
+import probatio
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers import config_validation as cv
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.puppy_tracker.config_flow import (
@@ -47,6 +50,23 @@ def test_config_flow_does_not_patch_management_module() -> None:
     assert PuppyTrackerManagementOptionsFlow in PuppyTrackerOptionsFlow.__mro__
 
 
+def _litter_form_input(form):
+    """Mirror Home Assistant's nested section values."""
+    return {
+        group.schema: {
+            marker.schema: (
+                marker.description["suggested_value"]
+                if marker.description and "suggested_value" in marker.description
+                else marker.default()
+            )
+            for marker in section.schema.schema
+            if (marker.description and "suggested_value" in marker.description)
+            or marker.default is not vol.UNDEFINED
+        }
+        for group, section in form["data_schema"].schema.items()
+    }
+
+
 def test_litter_edit_schema_keeps_empty_growth_overrides_optional() -> None:
     flow = PuppyTrackerManagementOptionsFlow()
     schema = flow._litter_edit_schema(
@@ -58,7 +78,7 @@ def test_litter_edit_schema_keeps_empty_growth_overrides_optional() -> None:
         }
     )
 
-    validated = schema({"name": "Luna 2026", "action": "save"})
+    validated = schema({"name": "Luna 2026"})
 
     for key in (
         "min_daily_growth_percent",
@@ -69,6 +89,18 @@ def test_litter_edit_schema_keeps_empty_growth_overrides_optional() -> None:
         "expected_adult_weight_max_grams",
     ):
         assert key not in validated
+
+
+def test_litter_sections_serialize_for_home_assistant() -> None:
+    flow = PuppyTrackerManagementOptionsFlow()
+    schema = flow._litter_section_schema({"name": "Luna 2026"})
+    fields = probatio.to_field_list(schema, custom_serializer=cv.custom_serializer)
+    assert [field["name"] for field in fields] == [
+        "basic", "mother_section", "father_section", "growth_section"
+    ]
+    assert all(field["type"] == "expandable" for field in fields)
+    assert fields[0]["expanded"] is True
+    assert all(field["expanded"] is False for field in fields[1:])
 
 
 def test_litter_edit_schema_suggests_every_saved_growth_setting() -> None:
@@ -147,17 +179,16 @@ async def test_litter_edit_saves_parent_identity_and_growth_settings(
     form = await flow.async_step_edit_litter()
     storage.async_save.assert_not_awaited()
     # Model the values Home Assistant prefills from the form's suggestions.
-    user_input = {
-        marker.schema: marker.description["suggested_value"]
-        for marker in form["data_schema"].schema
-        if marker.description and "suggested_value" in marker.description
-    }
-    user_input.update(
+    user_input = _litter_form_input(form)
+    user_input["basic"].update(
         name="Milky Way 2026",
+    )
+    user_input["mother_section"].update(
         mother_registered_name="Milky Way Moonlight",
         mother_birth_date="2022-05-06",
+    )
+    user_input["father_section"].update(
         father_registered_name="Dutch Star",
-        action="save",
     )
     validated = form["data_schema"](user_input)
     result = await flow.async_step_edit_litter(validated)
@@ -196,8 +227,10 @@ async def test_litter_edit_can_clear_an_existing_growth_override(
     flow._selected_litter_id = litter_id
     form = await flow.async_step_edit_litter()
 
-    validated = form["data_schema"]({"name": "Luna 2026", "action": "save"})
-    assert "min_daily_growth_percent" not in validated
+    values = _litter_form_input(form)
+    values["growth_section"].pop("min_daily_growth_percent")
+    validated = form["data_schema"](values)
+    assert "min_daily_growth_percent" not in validated["growth_section"]
     result = await flow.async_step_edit_litter(validated)
 
     assert result["type"] is FlowResultType.CREATE_ENTRY

@@ -84,6 +84,16 @@ Administrators starting without a litter see a **Getting started** checklist in
 the Home and Mobile Workspace. It follows the actual setup progress and can be
 hidden or reopened with the checklist icon. Existing litters remain opt-in.
 
+In the integration options, **Add puppy** and **Manage puppy** stay directly
+available. Use **Edit puppies in a litter** to choose a litter once, then add or
+edit several puppies in sequence; when only one litter exists, it is
+selected automatically. **Manage litter** separates editing from
+archiving and deletion; its details form groups parent and growth fields in
+collapsible sections. Growth thresholds and notification delivery are under
+**Growth and notifications**; backups, measurement corrections and integrity
+checks are under **Data and maintenance**. An integrity check first previews
+issues and only repairs them after you confirm.
+
 ## Dashboard Cards
 
 The integration serves and registers its cards automatically. The Workspace

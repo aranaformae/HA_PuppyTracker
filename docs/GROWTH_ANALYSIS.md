@@ -116,12 +116,12 @@ silently replace the configured monitoring thresholds with breed rules.
 ## Configure thresholds per litter
 
 Global fallback thresholds are under **Settings -> Devices & services -> Puppy
-Tracker -> Configure -> Settings**. They include minimum daily growth, maximum
+Tracker -> Configure -> Growth and notifications -> Default growth thresholds**. They include minimum daily growth, maximum
 hours between weighings and the number of puppy-age days during which growth is
 actively checked.
 
-To override growth context for one litter, open **Configure -> Manage litter**
-and edit that litter. Available fields include:
+To override growth context for one litter, open **Configure -> Manage litter ->
+Edit litter details -> Growth analysis for this litter**. Available fields include:
 
 - breed profile and size class;
 - minimum daily growth percentage;

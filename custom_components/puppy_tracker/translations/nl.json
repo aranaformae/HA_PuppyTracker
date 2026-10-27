@@ -19,13 +19,16 @@
           "create_litter": "Nest aanmaken",
           "manage_litter": "Nest beheren",
           "add_puppy": "Puppy toevoegen",
-          "manage_puppy": "Puppy beheren",
+          "manage_puppy": "Pup direct aanpassen",
           "manage_measurements": "Metingen beheren",
           "data_management": "Databeheer",
           "settings": "Monitoringinstellingen",
           "breeder": "Fokkersgegevens",
           "notifications": "Meldingen",
-          "integrity": "Data-integriteit controleren"
+          "integrity": "Data-integriteit controleren",
+          "litter_puppies": "Pups per nest beheren",
+          "monitoring_and_notifications": "Groei en meldingen",
+          "data_tools": "Data en onderhoud"
         }
       },
       "data_management": {
@@ -155,7 +158,7 @@
       },
       "edit_litter": {
         "title": "Nest aanpassen",
-        "description": "Pas de gegevens van het nest aan, archiveer of herstel het nest, of verwijder het permanent.",
+        "description": "Wijzig de nestgegevens. Ingeklapte secties zijn optioneel; lege groeigrenzen gebruiken de algemene instellingen.",
         "data": {
           "name": "Naam",
           "birth_date": "Geboortedatum",
@@ -181,8 +184,7 @@
           "expected_adult_weight_max_grams": "Verwacht volwassen maximum (g)",
           "growth_milestones_percent": "Groeimijlpalen (% van geboortegewicht, komma-gescheiden)",
           "double_weight_reference_days": "Referentie verdubbeling geboortegewicht (dagen)",
-          "milestone_projection_measurements": "Recente groeiperioden voor mijlpaalschattingen",
-          "action": "Actie"
+          "milestone_projection_measurements": "Recente groeiperioden voor mijlpaalschattingen"
         },
         "data_description": {
           "name": "Naam van het nest",
@@ -209,8 +211,87 @@
           "expected_adult_weight_max_grams": "Optionele schatting op basis van ouderdieren/fokker; laat leeg als deze onbekend is.",
           "growth_milestones_percent": "Bijvoorbeeld 200, 400 voor 2x en 4x geboortegewicht. Laat leeg voor 200, 400.",
           "double_weight_reference_days": "Referentieperiode voor de 2x mijlpaal; laat leeg voor 14 dagen.",
-          "milestone_projection_measurements": "Aantal recente groeiperioden voor de schatting; gebruik 2 tot 8.",
-          "action": "Kies wat je met dit nest wilt doen"
+          "milestone_projection_measurements": "Aantal recente groeiperioden voor de schatting; gebruik 2 tot 8."
+        },
+        "sections": {
+          "basic": {
+            "name": "Basisgegevens",
+            "data": {
+              "name": "Naam",
+              "birth_date": "Geboortedatum"
+            },
+            "data_description": {
+              "name": "Naam van het nest",
+              "birth_date": "Geboortedatum van het nest"
+            }
+          },
+          "mother_section": {
+            "name": "Moederhond",
+            "data": {
+              "mother": "Roepnaam moeder",
+              "mother_registered_name": "Naam moeder",
+              "mother_birth_date": "Geboortedatum moeder",
+              "mother_breed": "Soort moeder",
+              "mother_wala_number": "WALA moeder",
+              "mother_chip_number": "Chipnummer moeder"
+            },
+            "data_description": {
+              "mother": "Roepnaam van de moederhond",
+              "mother_registered_name": "Officiële of geregistreerde naam van de moederhond",
+              "mother_birth_date": "Geboortedatum van de moederhond",
+              "mother_breed": "Ras of soort van de moederhond",
+              "mother_wala_number": "WALA-registratienummer van de moederhond",
+              "mother_chip_number": "Chipnummer van de moederhond; voorloopnullen blijven behouden."
+            }
+          },
+          "father_section": {
+            "name": "Vaderhond",
+            "data": {
+              "father": "Roepnaam vader",
+              "father_registered_name": "Naam vader",
+              "father_birth_date": "Geboortedatum vader",
+              "father_breed": "Soort vader",
+              "father_wala_number": "WALA vader",
+              "father_chip_number": "Chipnummer vader"
+            },
+            "data_description": {
+              "father": "Roepnaam van de vaderhond",
+              "father_registered_name": "Officiële of geregistreerde naam van de vaderhond",
+              "father_birth_date": "Geboortedatum van de vaderhond",
+              "father_breed": "Ras of soort van de vaderhond",
+              "father_wala_number": "WALA-registratienummer van de vaderhond",
+              "father_chip_number": "Chipnummer van de vaderhond; voorloopnullen blijven behouden."
+            }
+          },
+          "growth_section": {
+            "name": "Groeianalyse per nest",
+            "data": {
+              "breed_profile": "Rasprofiel",
+              "size_class": "Maatklasse",
+              "min_daily_growth_percent": "Override minimale dagelijkse groei (%)",
+              "max_hours_between_weighings": "Override maximale tijd tussen wegingen (uur)",
+              "growth_monitoring_days": "Override leeftijd groeibewaking (dagen)",
+              "first_day_max_weight_loss_percent": "Override maximaal verlies op dag één (%)",
+              "expected_adult_weight_min_grams": "Verwacht volwassen minimum (g)",
+              "expected_adult_weight_max_grams": "Verwacht volwassen maximum (g)",
+              "growth_milestones_percent": "Groeimijlpalen (% van geboortegewicht, komma-gescheiden)",
+              "double_weight_reference_days": "Referentie verdubbeling geboortegewicht (dagen)",
+              "milestone_projection_measurements": "Recente groeiperioden voor mijlpaalschattingen"
+            },
+            "data_description": {
+              "breed_profile": "Beschrijvend rasprofiel voor toekomstige groeianalyse. Er wordt geen rasspecifieke diagnose of curve toegepast.",
+              "size_class": "Optionele maatklasse voor toekomstige groeianalyse.",
+              "min_daily_growth_percent": "Laat leeg om de algemene integratie-instelling te gebruiken.",
+              "max_hours_between_weighings": "Laat leeg om de algemene integratie-instelling te gebruiken.",
+              "growth_monitoring_days": "Laat leeg om de algemene integratie-instelling te gebruiken.",
+              "first_day_max_weight_loss_percent": "Laat leeg om de huidige algemene grens voor dag één te gebruiken.",
+              "expected_adult_weight_min_grams": "Optionele schatting op basis van ouderdieren/fokker; laat leeg als deze onbekend is.",
+              "expected_adult_weight_max_grams": "Optionele schatting op basis van ouderdieren/fokker; laat leeg als deze onbekend is.",
+              "growth_milestones_percent": "Bijvoorbeeld 200, 400 voor 2x en 4x geboortegewicht. Laat leeg voor 200, 400.",
+              "double_weight_reference_days": "Referentieperiode voor de 2x mijlpaal; laat leeg voor 14 dagen.",
+              "milestone_projection_measurements": "Aantal recente groeiperioden voor de schatting; gebruik 2 tot 8."
+            }
+          }
         }
       },
       "confirm_delete_litter": {
@@ -296,7 +377,7 @@
       },
       "breeder": {
         "title": "Fokkersgegevens",
-        "description": "Deze centrale gegevens gelden voor PDF-dossiers en contracten. Kies de inhoud op de rapportkaart of in je documentsjabloon.\n\n{logo_preview}",
+        "description": "Deze centrale gegevens gelden voor PDF-dossiers en contracten. Het actieve logo is: **{logo_source}**. Een nieuw geüpload logo krijgt voorrang op het pad; verwijder het geüploade logo om het pad te gebruiken. Kies de inhoud op de rapportkaart of in je documentsjabloon.\n\n{logo_preview}",
         "data": {
           "name": "Fokkersnaam / kennelnaam",
           "contact": "Contacttekst voor rapporten",
@@ -324,7 +405,7 @@
       },
       "settings": {
         "title": "Monitoringinstellingen",
-        "description": "Stel hier alleen de grenzen voor gewicht en groei in. Het versturen van meldingen beheer je apart onder Meldingen.",
+        "description": "Dit zijn algemene groeigrenzen. Een nest kan hierop afwijken via Nest beheren → Groeianalyse. Kaartopties bepalen alleen wat zichtbaar is.",
         "data": {
           "min_daily_growth_percent": "Minimale groei per 24 uur",
           "max_hours_between_weighings": "Maximale tijd tussen wegingen",
@@ -426,7 +507,59 @@
       },
       "integrity": {
         "title": "Data-integriteit controleren",
-        "description": "Opslagcontrole voltooid. Status: {status}. {measurements} meetversies gecontroleerd. {issues} probleem/problemen gevonden en {repairs} veilig gerepareerd. Niet-opgeloste kritieke problemen: {critical}; waarschuwingen: {warnings}. Veilige reparaties kiezen nooit automatisch tussen dubbelzinnige meettakken. Download de integratiediagnostiek als er kritieke problemen overblijven."
+        "description": "Voorvertoning: status {status}; {measurements} meetversies gecontroleerd; {issues} problemen gevonden; {critical} kritieke en {warnings} waarschuwingen blijven open. Er is nog niets gerepareerd. Vink de bevestiging aan om veilige reparaties uit te voeren.",
+        "data": {
+          "confirm_repair": "Veilige reparaties uitvoeren"
+        }
+      },
+      "monitoring_and_notifications": {
+        "title": "Groei en meldingen",
+        "menu_options": {
+          "settings": "Algemene groeigrenzen",
+          "notifications": "Meldingen beheren"
+        }
+      },
+      "data_tools": {
+        "title": "Data en onderhoud",
+        "menu_options": {
+          "data_management": "Back-up en import",
+          "manage_measurements": "Meetgeschiedenis corrigeren",
+          "integrity": "Data-integriteit controleren"
+        }
+      },
+      "litter_puppies": {
+        "title": "Pups per nest beheren",
+        "description": "Kies eenmaal een nest. Na opslaan kun je meteen de volgende pup aanpassen of toevoegen.",
+        "data": {
+          "litter_id": "Nest"
+        }
+      },
+      "choose_litter_puppy": {
+        "title": "Pup kiezen",
+        "description": "Nest **{litter}**. Kies een pup om deze aan te passen. De optie **+** voegt een nieuwe pup aan dit nest toe. Na opslaan kom je terug bij deze lijst.",
+        "data": {
+          "puppy_id": "Pup of nieuwe pup"
+        }
+      },
+      "litter_actions": {
+        "title": "Nest beheren",
+        "description": "Kies een actie voor **{litter}**.",
+        "menu_options": {
+          "edit_litter": "Nestgegevens aanpassen",
+          "toggle_archive_litter": "Nest archiveren of heractiveren",
+          "confirm_delete_litter": "Nest permanent verwijderen"
+        }
+      },
+      "toggle_archive_litter": {
+        "title": "Neststatus wijzigen",
+        "description": "Je gaat nest **{litter}** {action}. Alle gegevens blijven bewaard.",
+        "data": {
+          "confirm": "Ja, wijzig de neststatus"
+        }
+      },
+      "integrity_result": {
+        "title": "Integriteitscontrole afgerond",
+        "description": "Status: {status}. {measurements} meetversies gecontroleerd; {issues} problemen gevonden; {repairs} veilig gerepareerd. Nog open: {critical} kritieke problemen en {warnings} waarschuwingen."
       }
     },
     "error": {

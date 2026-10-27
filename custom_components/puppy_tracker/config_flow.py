@@ -31,6 +31,7 @@ class PuppyTrackerOptionsFlow(
     ) -> ConfigFlowResult:
         """Show the complete management menu."""
         del user_input
+        self._batch_litter_id = None
         return self.async_show_menu(
             step_id="init",
             menu_options=[
@@ -38,13 +39,29 @@ class PuppyTrackerOptionsFlow(
                 "manage_litter",
                 "add_puppy",
                 "manage_puppy",
-                "manage_measurements",
-                "data_management",
-                "integrity",
-                "settings",
+                "litter_puppies",
+                "monitoring_and_notifications",
                 "breeder",
-                "notifications",
+                "data_tools",
             ],
+        )
+
+    async def async_step_monitoring_and_notifications(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Group alert thresholds and notification delivery settings."""
+        return self.async_show_menu(
+            step_id="monitoring_and_notifications",
+            menu_options=["settings", "notifications"],
+        )
+
+    async def async_step_data_tools(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Keep advanced data operations away from everyday puppy editing."""
+        return self.async_show_menu(
+            step_id="data_tools",
+            menu_options=["data_management", "manage_measurements", "integrity"],
         )
 
 

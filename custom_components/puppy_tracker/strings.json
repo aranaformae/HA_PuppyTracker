@@ -19,13 +19,16 @@
           "create_litter": "Create litter",
           "manage_litter": "Manage litter",
           "add_puppy": "Add puppy",
-          "manage_puppy": "Manage puppy",
+          "manage_puppy": "Quick edit a puppy",
           "manage_measurements": "Manage measurements",
           "data_management": "Data management",
           "settings": "Monitoring settings",
           "breeder": "Breeder information",
           "notifications": "Notifications",
-          "integrity": "Data integrity check"
+          "integrity": "Data integrity check",
+          "litter_puppies": "Edit puppies in a litter",
+          "monitoring_and_notifications": "Growth and notifications",
+          "data_tools": "Data and maintenance"
         }
       },
       "data_management": {
@@ -155,7 +158,7 @@
       },
       "edit_litter": {
         "title": "Edit litter",
-        "description": "Edit litter details, archive or restore the litter, or permanently delete it.",
+        "description": "Edit litter details. Collapsed sections are optional; empty growth thresholds use the integration defaults.",
         "data": {
           "name": "Name",
           "birth_date": "Birth date",
@@ -181,8 +184,7 @@
           "expected_adult_weight_max_grams": "Expected adult maximum (g)",
           "growth_milestones_percent": "Growth milestones (% of birth weight, comma-separated)",
           "double_weight_reference_days": "Double birth weight reference (days)",
-          "milestone_projection_measurements": "Recent growth periods for milestone estimates",
-          "action": "Action"
+          "milestone_projection_measurements": "Recent growth periods for milestone estimates"
         },
         "data_description": {
           "name": "Name of the litter",
@@ -209,8 +211,87 @@
           "expected_adult_weight_max_grams": "Optional parent/breeder-based estimate; leave empty when unknown.",
           "growth_milestones_percent": "For example 200, 400 for 2x and 4x birth weight. Leave empty for 200, 400.",
           "double_weight_reference_days": "Reference period for the 2x milestone; leave empty for 14 days.",
-          "milestone_projection_measurements": "Number of recent growth periods used for the estimate; use 2 to 8.",
-          "action": "Choose what you want to do with this litter"
+          "milestone_projection_measurements": "Number of recent growth periods used for the estimate; use 2 to 8."
+        },
+        "sections": {
+          "basic": {
+            "name": "Basic details",
+            "data": {
+              "name": "Name",
+              "birth_date": "Birth date"
+            },
+            "data_description": {
+              "name": "Name of the litter",
+              "birth_date": "Birth date of the litter"
+            }
+          },
+          "mother_section": {
+            "name": "Mother",
+            "data": {
+              "mother": "Mother call name",
+              "mother_registered_name": "Mother registered name",
+              "mother_birth_date": "Mother birth date",
+              "mother_breed": "Mother breed / type",
+              "mother_wala_number": "Mother WALA number",
+              "mother_chip_number": "Mother chip number"
+            },
+            "data_description": {
+              "mother": "Everyday call name of the mother",
+              "mother_registered_name": "Official or registered name of the mother",
+              "mother_birth_date": "Birth date of the mother",
+              "mother_breed": "Breed or type of the mother",
+              "mother_wala_number": "WALA registration number of the mother",
+              "mother_chip_number": "Microchip number of the mother; leading zeroes are preserved."
+            }
+          },
+          "father_section": {
+            "name": "Father",
+            "data": {
+              "father": "Father call name",
+              "father_registered_name": "Father registered name",
+              "father_birth_date": "Father birth date",
+              "father_breed": "Father breed / type",
+              "father_wala_number": "Father WALA number",
+              "father_chip_number": "Father chip number"
+            },
+            "data_description": {
+              "father": "Everyday call name of the father",
+              "father_registered_name": "Official or registered name of the father",
+              "father_birth_date": "Birth date of the father",
+              "father_breed": "Breed or type of the father",
+              "father_wala_number": "WALA registration number of the father",
+              "father_chip_number": "Microchip number of the father; leading zeroes are preserved."
+            }
+          },
+          "growth_section": {
+            "name": "Growth analysis for this litter",
+            "data": {
+              "breed_profile": "Breed profile",
+              "size_class": "Size class",
+              "min_daily_growth_percent": "Minimum daily growth override (%)",
+              "max_hours_between_weighings": "Maximum weighing interval override (hours)",
+              "growth_monitoring_days": "Growth monitoring age override (days)",
+              "first_day_max_weight_loss_percent": "Maximum day-one loss override (%)",
+              "expected_adult_weight_min_grams": "Expected adult minimum (g)",
+              "expected_adult_weight_max_grams": "Expected adult maximum (g)",
+              "growth_milestones_percent": "Growth milestones (% of birth weight, comma-separated)",
+              "double_weight_reference_days": "Double birth weight reference (days)",
+              "milestone_projection_measurements": "Recent growth periods for milestone estimates"
+            },
+            "data_description": {
+              "breed_profile": "Descriptive breed profile used for future growth analysis. It does not apply a breed-specific diagnosis or curve.",
+              "size_class": "Optional size class for future growth analysis.",
+              "min_daily_growth_percent": "Leave empty to use the integration monitoring setting.",
+              "max_hours_between_weighings": "Leave empty to use the integration monitoring setting.",
+              "growth_monitoring_days": "Leave empty to use the integration monitoring setting.",
+              "first_day_max_weight_loss_percent": "Leave empty to use the current general day-one limit.",
+              "expected_adult_weight_min_grams": "Optional parent/breeder-based estimate; leave empty when unknown.",
+              "expected_adult_weight_max_grams": "Optional parent/breeder-based estimate; leave empty when unknown.",
+              "growth_milestones_percent": "For example 200, 400 for 2x and 4x birth weight. Leave empty for 200, 400.",
+              "double_weight_reference_days": "Reference period for the 2x milestone; leave empty for 14 days.",
+              "milestone_projection_measurements": "Number of recent growth periods used for the estimate; use 2 to 8."
+            }
+          }
         }
       },
       "confirm_delete_litter": {
@@ -296,7 +377,7 @@
       },
       "breeder": {
         "title": "Breeder information",
-        "description": "These central details apply to PDF dossiers and contracts. Choose the content in the Report card or document template.\n\n{logo_preview}",
+        "description": "These central details apply to PDF dossiers and contracts. Active logo: **{logo_source}**. A new upload takes precedence over the path; remove the uploaded logo to use the path. Choose report contents in the report card or document template.\n\n{logo_preview}",
         "data": {
           "name": "Breeder / kennel name",
           "contact": "Report contact text",
@@ -324,7 +405,7 @@
       },
       "settings": {
         "title": "Monitoring settings",
-        "description": "Configure the weight and growth thresholds used by Puppy Tracker. Notification delivery is managed separately under Notifications.",
+        "description": "These are integration-wide growth defaults. Override them per litter under Manage litter → Growth analysis. Card options only change what is displayed.",
         "data": {
           "min_daily_growth_percent": "Minimum growth per 24 hours",
           "max_hours_between_weighings": "Maximum time between weighings",
@@ -426,7 +507,59 @@
       },
       "integrity": {
         "title": "Data integrity check",
-        "description": "Storage check complete. Status: {status}. Checked {measurements} measurement versions. Found {issues} issue(s), safely repaired {repairs}. Unresolved critical issues: {critical}; warnings: {warnings}. Safe repairs never choose between ambiguous measurement branches. Download integration diagnostics when unresolved critical issues remain."
+        "description": "Preview: status {status}; {measurements} measurement versions checked; {issues} issues found; {critical} critical issues and {warnings} warnings remain. No repairs have been applied. Confirm below to apply safe repairs.",
+        "data": {
+          "confirm_repair": "Apply safe repairs"
+        }
+      },
+      "monitoring_and_notifications": {
+        "title": "Growth and notifications",
+        "menu_options": {
+          "settings": "Default growth thresholds",
+          "notifications": "Manage notifications"
+        }
+      },
+      "data_tools": {
+        "title": "Data and maintenance",
+        "menu_options": {
+          "data_management": "Backup and import",
+          "manage_measurements": "Correct measurement history",
+          "integrity": "Check data integrity"
+        }
+      },
+      "litter_puppies": {
+        "title": "Edit puppies in a litter",
+        "description": "Choose a litter once. After saving, edit or add another puppy without returning to the main menu.",
+        "data": {
+          "litter_id": "Litter"
+        }
+      },
+      "choose_litter_puppy": {
+        "title": "Choose puppy",
+        "description": "Litter **{litter}**. Select a puppy to edit. **+** adds a new puppy to this litter. After saving, you return to this list.",
+        "data": {
+          "puppy_id": "Puppy or new puppy"
+        }
+      },
+      "litter_actions": {
+        "title": "Manage litter",
+        "description": "Choose an action for **{litter}**.",
+        "menu_options": {
+          "edit_litter": "Edit litter details",
+          "toggle_archive_litter": "Archive or reactivate litter",
+          "confirm_delete_litter": "Permanently delete litter"
+        }
+      },
+      "toggle_archive_litter": {
+        "title": "Change litter status",
+        "description": "You are about to {action} litter **{litter}**. All data is retained.",
+        "data": {
+          "confirm": "Yes, change litter status"
+        }
+      },
+      "integrity_result": {
+        "title": "Integrity check complete",
+        "description": "Status: {status}. Checked {measurements} measurement versions; found {issues} issues; safely repaired {repairs}. Remaining: {critical} critical issues and {warnings} warnings."
       }
     },
     "error": {
