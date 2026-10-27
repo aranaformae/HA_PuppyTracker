@@ -10,6 +10,11 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+### Added
+
+- Unsaved document templates can be previewed with a selected puppy, buyer and
+  recorded payment, with missing required fields shown before saving.
+
 ### Changed
 
 - The document card keeps document creation and the archive together, with

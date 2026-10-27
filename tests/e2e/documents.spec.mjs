@@ -62,6 +62,20 @@ test("Document creation stays in front while template actions are separate and c
   await expect(panel.locator("#template-management")).toHaveAttribute("open", "");
 });
 
+test("Unsaved template can preview selected puppy and buyer data without saving @cross-browser @tablet", async ({ page }) => {
+  const { panel } = await mountDocuments(page);
+  await panel.locator("#edit-template").click();
+  await panel.locator("#template-name").fill("Draft for Nova");
+  await expect(panel.locator("#preview-template-real")).toBeDisabled();
+  await panel.locator("#draft-buyer").selectOption("o1");
+  await panel.locator("#preview-template-real").click();
+  await expect(panel.locator("[data-preview-page]")).toHaveText("1 / 2");
+  const call = await page.evaluate(() => window.__docs.calls.find(c => c.type.endsWith("template/preview") && c.selection));
+  expect(call.template.name).toBe("Draft for Nova");
+  expect(call.selection).toMatchObject({ litter_id: "a", puppy_id: "a1", owner_ids: ["o1"] });
+  expect(await page.evaluate(() => window.__docs.calls.some(c => c.type.endsWith("template/save")))).toBe(false);
+});
+
 test("Payment receipt requires an active receipt and clears it when the buyer changes @cross-browser", async ({ page }) => {
   const { panel } = await mountDocuments(page);
   await page.evaluate(() => {

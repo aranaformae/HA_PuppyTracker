@@ -293,6 +293,21 @@ async def test_unsaved_template_preview_uses_labels_without_mutating_data(docume
     assert not (await request(document_client, "template/preview", template=draft))["success"]
 
 
+async def test_unsaved_template_preview_can_use_selected_real_data_without_saving(document_client, setup_documents, storage):
+    owners, selection = setup_documents
+    before, owner_before = storage.get_data(), owners.get_backup_data()
+    draft = simple_template(name="UNSAVED REAL DATA", blocks=[{"type": "data", "fields": ["pup.naam", "koper.naam", "fokker.naam"]}])
+    parties = {key: selection[key] for key in ("litter_id", "puppy_id", "owner_ids", "details")}
+    result = await request(document_client, "template/preview", template=draft, selection=parties)
+    assert result["success"] and result["result"]["missing"] == ["fokker.naam"]
+    assert base64.b64decode(result["result"]["content"]).startswith(b"%PDF-")
+    assert storage.get_data() == before and owners.get_backup_data() == owner_before
+    assert not storage.get_settings().get("documents")
+    invalid = await request(document_client, "template/preview", template=draft,
+                            selection={**parties, "owner_ids": ["another-owner"]})
+    assert not invalid["success"] and invalid["error"]["message"] == "choose_document_parties"
+
+
 async def test_failed_archive_write_rolls_back_files_and_metadata(document_client, setup_documents, storage):
     _, selection = setup_documents
     preview = (await request(document_client, "preview", **selection))["result"]

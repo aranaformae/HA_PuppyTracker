@@ -151,15 +151,35 @@ async def websocket_template_delete(hass, connection, msg):
     await _handle(hass, connection, msg, operation)
 
 
+PREVIEW_PARTIES = vol.Schema({vol.Required("litter_id"): str, vol.Required("puppy_id"): str,
+                              vol.Required("owner_ids"): vol.All([str], vol.Length(min=1, max=4)),
+                              vol.Required("details"): dict, vol.Optional("payment_id"): str})
+
+
 @websocket_api.require_admin
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/documents/template/preview", vol.Required("template"): dict,
+                                 vol.Optional("selection"): PREVIEW_PARTIES,
                                  vol.Optional("logo_base64"): vol.All(str, vol.Length(max=700000))})
 @websocket_api.async_response
 async def websocket_template_preview(hass, connection, msg):
     async def operation(runtime):
         template = normalize_template(msg["template"])
-        language_index = 0 if template["language"] == "nl" else 1
-        snapshot = {"template": template, "values": {key: f"[{labels[language_index]}]" for key, labels in FIELDS.items()}}
+        selection = msg.get("selection")
+        used_fields = template_fields(template)
+        if selection:
+            payment_id = selection.get("payment_id")
+            if any(key.startswith("ontvangst.") for key in used_fields) and not payment_id:
+                raise ValueError("choose_payment_receipt")
+            async with mutation_coordinator(hass).restore():
+                values = document_context(runtime.storage, runtime.owners, selection["litter_id"], selection["puppy_id"],
+                                          selection["owner_ids"], selection["details"], template["language"], payment_id,
+                                          include_profile_note="pup.profielnotitie" in used_fields)
+            missing = sorted(key for key in used_fields if not values.get(key) and key not in template["optional_fields"])
+        else:
+            language_index = 0 if template["language"] == "nl" else 1
+            values = {key: f"[{labels[language_index]}]" for key, labels in FIELDS.items()}
+            missing = []
+        snapshot = {"template": template, "values": values}
         logo = None
         if template_uses_logo(template):
             async with runtime.storage._lock:
@@ -169,7 +189,7 @@ async def websocket_template_preview(hass, connection, msg):
             if logo is None:
                 logo = await hass.async_add_executor_job(_report_logo, msg.get("logo_base64"))
         content = await hass.async_add_executor_job(build_document_pdf, snapshot, logo)
-        return _download({"id": "template-preview"}, content)
+        return {**_download({"id": "template-preview"}, content), "missing": missing}
     await _handle(hass, connection, msg, operation)
 
 

@@ -152,8 +152,8 @@ size limits. Click an error to open the affected part.
 
 **View preview** displays the current draft inside the document card, with field
 labels in place of personal values. On wide screens it appears beside the
-editor; on phones it opens in a full-screen overlay with page and zoom controls. It works
-before choosing buyers and does not save a template or contract. Use **Download
+editor; on phones it opens in a full-screen overlay with page and zoom controls.
+It works before choosing buyers and does not save a template or contract. Use **Download
 PDF** in the preview for a separate copy. The PDF viewer loads only when needed;
 changes to the template close the older preview, so choose **View preview**
 again after editing. If the browser cannot display it, the download still works.
@@ -161,6 +161,11 @@ Actual names and addresses can change pagination, so still check the filled PDF
 before final saving. **Download draft** also works for an incomplete draft, so you
 can keep a local copy before leaving the editor; correct validation errors before
 using that draft as a saved template.
+
+**Preview with actual data** accepts a litter, linked puppy, primary buyer and
+(for receipts) a recorded payment. It renders the unsaved draft with current
+data, lists missing required fields and does not create a document or change
+the saved template.
 
 **Document language** controls field labels, dates and empty-field markers;
 it does not translate the contract text. The interface follows HA's Dutch or

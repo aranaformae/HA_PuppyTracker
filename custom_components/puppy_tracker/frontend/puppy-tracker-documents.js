@@ -14,7 +14,7 @@ const COPY = {
     duplicate: "Dupliceren", restoreBlock: "Verwijderd onderdeel herstellen", jumpBlock: "Ga naar onderdeel", block: "Onderdeel", addField: "Gegevensveld toevoegen", noUsedFields: "Dit sjabloon gebruikt nog geen invulvelden.",
     simpleMode: "Eenvoudig", advancedMode: "Geavanceerd", editorMode: "Bewerkstand", searchField: "Zoek een veld", insertHere: "Onderdeel hier toevoegen", moreActions: "Meer acties", layoutSettings: "Opmaakinstellingen", sectionTitle: "Titel", jumpSection: "Ga naar sectie", fieldHint: "Zoek op een naam zoals chipnummer vader; het veld wordt op de cursorpositie ingevoegd.",
     nameRequired: "Vul een sjabloonnaam in (maximaal 150 tekens).", blockLimit: "Een sjabloon heeft 1 tot 200 onderdelen nodig.", templateTooLarge: "Het sjabloon is groter dan 150 kB. Kort de tekst in of splits het document.", emptyDataBlock: "Voeg minstens één gegevensveld toe.", invalid_document_text: "Gebruik maximaal 12.000 tekens per onderdeel, zonder ongeldige besturingstekens.",
-    previewTemplate: "Voorbeeld bekijken", downloadDraft: "Concept downloaden", previewTemplateHint: "Het voorbeeld gebruikt veldnamen als voorbeeldwaarden en slaat niets op. Controleer later ook de PDF met de werkelijke gegevens.", previewTemplateDone: "Voorbeeld geladen. Het sjabloon is niet opgeslagen.",
+    previewTemplate: "Voorbeeld bekijken", realPreview: "Voorbeeld met echte gegevens", realPreviewHint: "Kies een gekoppelde pup en koper. Dit voorbeeld slaat het sjabloon of document niet op.", downloadDraft: "Concept downloaden", previewTemplateHint: "Het gewone voorbeeld gebruikt veldnamen als voorbeeldwaarden. Gebruik hieronder echte gegevens voor de laatste controle.", previewTemplateDone: "Voorbeeld geladen. Het sjabloon is niet opgeslagen.",
     inlinePreview: "Documentvoorbeeld", previewLoading: "PDF-voorbeeld laden…", previewFailed: "Het PDF-voorbeeld kan hier niet worden getoond. Je kunt het bestand nog wel downloaden.", previewClose: "Sluiten", previousPage: "Vorige", nextPage: "Volgende", zoomOut: "Verkleinen", zoomIn: "Vergroten", downloadPreview: "PDF downloaden",
     group_fokker: "Fokker", group_koper: "Koper(s)", group_nest: "Nest", group_pup: "Pup", group_vader: "Vader", group_moeder: "Moeder", group_betaling: "Betalingen", group_ontvangst: "Ontvangst", group_plaatsing: "Plaatsing", group_overdracht: "Overdracht", group_contract: "Ondertekening",
     working: "Bezig…",
@@ -38,7 +38,7 @@ const COPY = {
     duplicate: "Duplicate", restoreBlock: "Restore deleted block", jumpBlock: "Go to block", block: "Block", addField: "Add data field", noUsedFields: "This template does not use any placeholders yet.",
     simpleMode: "Simple", advancedMode: "Advanced", editorMode: "Editing mode", searchField: "Find a field", insertHere: "Add section here", moreActions: "More actions", layoutSettings: "Layout settings", sectionTitle: "Title", jumpSection: "Go to section", fieldHint: "Search by a name such as father microchip; the field is inserted at the cursor.",
     nameRequired: "Enter a template name (up to 150 characters).", blockLimit: "A template needs 1 to 200 blocks.", templateTooLarge: "The template exceeds 150 kB. Shorten the text or split the document.", emptyDataBlock: "Add at least one data field.", invalid_document_text: "Use up to 12,000 characters per block without invalid control characters.",
-    previewTemplate: "View preview", downloadDraft: "Download draft", previewTemplateHint: "The preview uses field names as sample values and saves nothing. Also check the PDF with actual data later.", previewTemplateDone: "Preview loaded. The template has not been saved.",
+    previewTemplate: "View preview", realPreview: "Preview with actual data", realPreviewHint: "Choose a linked puppy and buyer. This preview does not save the template or document.", downloadDraft: "Download draft", previewTemplateHint: "The ordinary preview uses field names as sample values. Use actual data below for a final check.", previewTemplateDone: "Preview loaded. The template has not been saved.",
     inlinePreview: "Document preview", previewLoading: "Loading PDF preview…", previewFailed: "The PDF preview cannot be displayed here. You can still download the file.", previewClose: "Close", previousPage: "Previous", nextPage: "Next", zoomOut: "Zoom out", zoomIn: "Zoom in", downloadPreview: "Download PDF",
     group_fokker: "Breeder", group_koper: "Buyer(s)", group_nest: "Litter", group_pup: "Puppy", group_vader: "Father", group_moeder: "Mother", group_betaling: "Payments", group_ontvangst: "Receipt", group_plaatsing: "Placement", group_overdracht: "Handover", group_contract: "Signing",
     working: "Working…",
@@ -62,7 +62,7 @@ class PuppyTrackerDocuments extends HTMLElement {
     super(); this.attachShadow({ mode: "open" });
     this._epoch = 0; this._model = null; this._busy = false; this._error = ""; this._status = "";
     this._template = ""; this._litter = ""; this._puppy = ""; this._buyer = ""; this._others = []; this._payment = ""; this._manageOpen = false;
-    this._details = { date: "", place: "" }; this._preview = null; this._requestId = null; this._editor = null; this._templateEditor = null; this._dirty = false;
+    this._details = { date: "", place: "" }; this._preview = null; this._requestId = null; this._editor = null; this._templateEditor = null; this._draftMissing = []; this._dirty = false;
     this._draftStore = null; this._draftState = ""; this._draftChecked = false;
     this._inlinePreview = new DocumentPdfPreview(key => this.t(key), () => this._closeInlinePreview());
     this._inlinePreviewOpen = false;
@@ -123,7 +123,12 @@ class PuppyTrackerDocuments extends HTMLElement {
   }
   _draftChanged(viewOnly = false) {
     this._dirty = true;
-    if (!viewOnly && this._inlinePreview.hasResult) this._closeInlinePreview();
+    if (!viewOnly) {
+      this._draftMissing = [];
+      const missing = this.shadowRoot.querySelector("#draft-preview-missing");
+      if (missing) missing.replaceChildren();
+      if (this._inlinePreview.hasResult) this._closeInlinePreview();
+    }
     this._draftStore?.schedule(() => this._draftSnapshot());
   }
   _closeInlinePreview() {
@@ -184,8 +189,7 @@ class PuppyTrackerDocuments extends HTMLElement {
     this._others = this._others.filter(id => ids.includes(id) && id !== this._buyer);
     if (!this._payments().some(p => p.id === this._payment)) this._payment = "";
   }
-  _needsPayment() {
-    const template = this._model?.templates.find(t => t.id === this._template)?.template;
+  _needsPayment(template = this._model?.templates.find(t => t.id === this._template)?.template) {
     return Boolean(template?.blocks.some(block => (block.fields || []).some(key => key.startsWith("ontvangst.")) || /{{\s*ontvangst\.[a-z_]+\s*}}/.test(block.text || "")));
   }
   _payments() { return this._model?.owners.find(o => o.id === this._buyer)?.payments?.[this._litter] || []; }
@@ -222,6 +226,7 @@ class PuppyTrackerDocuments extends HTMLElement {
   }
   _edit(value, id = null, revision = null, view = null, mode = "advanced") {
     this._inlinePreview.clear(); this._inlinePreviewOpen = false;
+    this._draftMissing = [];
     this._editor = { template: structuredClone(value), id: id || createUuid(), revision };
     this._templateEditor = new DocumentTemplateEditor(this._editor.template, {
       fields: this._model.fields, language: () => this.language, text: key => this.t(key),
@@ -256,17 +261,27 @@ class PuppyTrackerDocuments extends HTMLElement {
       this._template = result.id; this._editor = null; this._templateEditor = null; this._dirty = false; this._status = this.t("templateSaved");
     });
   }
-  _previewTemplate() {
+  _previewTemplate(real = false) {
     if (!this._templateEditor?.validate()) return;
     const template = structuredClone(this._editor.template);
+    const selection = real ? { litter_id: this._litter, puppy_id: this._puppy,
+      owner_ids: [this._buyer, ...this._others].filter(Boolean), details: { ...this._details },
+      ...(this._needsPayment(template) ? { payment_id: this._payment } : {}) } : null;
     this._run(async (hass, current) => {
       const logo = templateUsesLogo(template) ? await this.loadLogo?.(hass) : null;
       if (!current()) return;
-      const result = await hass.callWS({ type: "puppy_tracker/documents/template/preview", template, ...(logo ? { logo_base64: logo } : {}) });
+      const result = await hass.callWS({ type: "puppy_tracker/documents/template/preview", template, ...(selection ? { selection } : {}), ...(logo ? { logo_base64: logo } : {}) });
       if (!current()) return;
+      this._draftMissing = result.missing || [];
       this._inlinePreview.setResult(result); this._inlinePreviewOpen = true;
       this._status = this.t("previewTemplateDone");
     });
+  }
+  _draftPreviewChanged(render = false) {
+    this._draftMissing = [];
+    this._closeInlinePreview();
+    if (render) this._render();
+    else this.shadowRoot.querySelector("#draft-preview-missing")?.replaceChildren();
   }
   _downloadDraft() {
     if (!this._editor || this._busy || this._hass?.user?.is_admin === false) return;
@@ -320,14 +335,15 @@ class PuppyTrackerDocuments extends HTMLElement {
     const linked = puppies.find(p => p.id === this._puppy)?.owner_ids || [];
     const owners = (model?.owners || []).filter(o => linked.includes(o.id));
     const needsPayment = this._needsPayment();
+    const draftNeedsPayment = this._editor && this._needsPayment(this._editor.template);
     const payments = this._payments();
     const paymentKinds = this.language === "nl" ? { registration_fee: "Inschrijfgeld", deposit: "Aanbetaling", final: "Slotbetaling", other: "Overig" } : { registration_fee: "Registration fee", deposit: "Deposit", final: "Final payment", other: "Other" };
     const checks = this._preview ? (this._preview.missing.length ? `<strong>${esc(this.t("missing"))}</strong><ul>${this._preview.missing.map(key => `<li>${esc(this._fieldLabel(key))}</li>`).join("")}</ul>` : esc(this.t("ready"))) : "";
     this.shadowRoot.innerHTML = `<style>
       :host{display:block;color:var(--primary-text-color,#212121)}fieldset{border:0;padding:0;margin:0;min-width:0}label{display:grid;gap:5px;font-size:.85rem}input:not([type=checkbox]),select,textarea{box-sizing:border-box;width:100%;min-width:0;border:1px solid var(--divider-color,#d5d9df);border-radius:6px;padding:9px;background:var(--card-background-color,#fff);color:var(--primary-text-color,#212121);font:inherit}textarea{resize:vertical}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px}.actions,.flags{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.flags label,.field-list label,label:has(input[type=checkbox]){display:flex;align-items:center;gap:6px}.actions select{width:auto;max-width:100%}button{min-height:42px;padding:8px 12px;border:1px solid var(--divider-color,#d5d9df);border-radius:7px;background:var(--secondary-background-color,#f5f7fa);color:var(--primary-text-color,#212121);font:inherit;cursor:pointer}.primary{background:var(--primary-color,#03a9f4);color:var(--text-primary-color,#fff)}button:disabled{opacity:.5;cursor:default}p{font-size:.85rem;color:var(--secondary-text-color,#666);line-height:1.5}summary{cursor:pointer;padding:12px 0;font-weight:600;overflow-wrap:anywhere}.blocks,.archive,.field-list{max-height:500px;overflow-y:auto;overflow-anchor:none}.block{border-top:1px solid var(--divider-color,#d5d9df);padding:0 4px 8px}.block label{margin:8px 0}.field-list{display:grid;gap:10px}.archive article{padding:10px 0;border-bottom:1px solid var(--divider-color,#d5d9df);overflow-wrap:anywhere}.archive small{display:block;color:var(--secondary-text-color,#666)}.error{color:var(--error-color,#b00020)}#document-status,#document-error{min-height:1.4em;font-size:.85rem;overflow-wrap:anywhere}h3{font-size:1rem}#draft-status{font-size:.85rem;line-height:1.4;min-height:4.2em;overflow-wrap:anywhere}#draft-status:empty{display:none}.selected-fields{padding-left:22px}.selected-fields li{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:5px 0}.selected-fields li span{overflow-wrap:anywhere;min-width:0}.selected-fields .actions{flex-wrap:nowrap;margin:0;gap:4px}.selected-fields button{min-width:42px}.block-error:empty,#template-errors:empty{display:none}#template-errors{display:grid}#template-errors button{text-align:left}.editor .blocks{margin-top:12px}#template-editor [hidden]{display:none}.watermark-settings small{color:var(--secondary-text-color,#666);font-weight:normal}
       .used-field-chips{display:flex;gap:5px;flex-wrap:wrap}.field-chip{display:inline-block;padding:1px 5px;border:1px solid var(--primary-color,#03a9f4);border-radius:4px;background:var(--secondary-background-color,#e8f2f7);font-size:.8rem;font-weight:600}.field-picker{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:8px}.simple-block{padding:8px 12px;margin:8px 0;border:1px solid var(--divider-color,#d5d9df);border-radius:8px}.block-tools{margin:6px 0}.insert-menu{margin:5px 0 12px}.insert-menu>summary{font-size:.85rem;color:var(--primary-color,#03a9f4);padding:5px 0}
-      .document-editor-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}.document-editor-layout.has-preview{grid-template-columns:repeat(auto-fit,minmax(min(100%,430px),1fr))}#template-editor{min-width:0}#preview-panel{display:none;min-width:0;max-height:80vh;overflow:auto;border:1px solid var(--divider-color,#d5d9df);border-radius:8px;padding:12px;background:var(--card-background-color,#fff)}#preview-panel.open{display:block}.preview-toolbar,.preview-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:space-between}.preview-controls{margin:10px 0}.preview-controls span{font-size:.85rem}.preview-canvas{overflow:auto;max-height:65vh;text-align:center;background:var(--secondary-background-color,#f4f6f8);padding:4px}.preview-canvas canvas{display:block;margin:auto;touch-action:pan-x pan-y}.document-workflow{display:grid;gap:12px}.document-workflow>h3{margin:0}.document-workflow>.grid{margin-bottom:0}#template-management{margin-top:20px;border-top:1px solid var(--divider-color,#d5d9df)}#template-management>summary{min-height:44px;color:var(--primary-text-color,#212121)}#template-management>p{margin:0 0 10px}#template-management .actions{margin:0 0 8px}@media(max-width:800px){#preview-panel.open{position:fixed;inset:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px);z-index:1000;max-height:none;border-radius:0;padding:16px;box-shadow:0 0 0 100vmax #0009}.preview-canvas{max-height:calc(100dvh - 160px)}}
-      </style><fieldset ${this._busy ? "disabled" : ""}>${!model ? `<p>${esc(this.t("loading"))}</p><button type="button" id="refresh-documents">${esc(this.t("refresh"))}</button>` : this._editor ? `<div class="document-editor-layout ${this._inlinePreviewOpen ? "has-preview" : ""}"><div id="template-editor"></div><aside id="preview-panel" class="${this._inlinePreviewOpen ? "open" : ""}"><div id="inline-preview"></div></aside></div>` : `
+      .document-editor-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}.document-editor-layout.has-preview{grid-template-columns:repeat(auto-fit,minmax(min(100%,430px),1fr))}#template-editor{min-width:0}#preview-panel{display:none;min-width:0;max-height:80vh;overflow:auto;border:1px solid var(--divider-color,#d5d9df);border-radius:8px;padding:12px;background:var(--card-background-color,#fff)}#preview-panel.open{display:block}.preview-toolbar,.preview-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:space-between}.preview-controls{margin:10px 0}.preview-controls span{font-size:.85rem}.preview-canvas{overflow:auto;max-height:65vh;text-align:center;background:var(--secondary-background-color,#f4f6f8);padding:4px}.preview-canvas canvas{display:block;margin:auto;touch-action:pan-x pan-y}.draft-preview-data{border-bottom:1px solid var(--divider-color,#d5d9df);padding-bottom:14px;margin-bottom:14px}.draft-preview-data h3{margin:0}.draft-preview-data p{margin:4px 0 12px}.document-workflow{display:grid;gap:12px}.document-workflow>h3{margin:0}.document-workflow>.grid{margin-bottom:0}#template-management{margin-top:20px;border-top:1px solid var(--divider-color,#d5d9df)}#template-management>summary{min-height:44px;color:var(--primary-text-color,#212121)}#template-management>p{margin:0 0 10px}#template-management .actions{margin:0 0 8px}@media(max-width:800px){#preview-panel.open{position:fixed;inset:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px);z-index:1000;max-height:none;border-radius:0;padding:16px;box-shadow:0 0 0 100vmax #0009}.preview-canvas{max-height:calc(100dvh - 160px)}}
+      </style><fieldset ${this._busy ? "disabled" : ""}>${!model ? `<p>${esc(this.t("loading"))}</p><button type="button" id="refresh-documents">${esc(this.t("refresh"))}</button>` : this._editor ? `<section class="draft-preview-data"><h3>${esc(this.t("realPreview"))}</h3><p>${esc(this.t("realPreviewHint"))}</p><div class="grid"><label>${esc(this.t("litter"))}<select id="draft-litter">${this._options(model.litters.map(l => [l.id, l.name]), this._litter)}</select></label><label>${esc(this.t("puppy"))}<select id="draft-puppy">${this._options(puppies.map(p => [p.id, puppySelectorLabel(p)]), this._puppy)}</select></label><label>${esc(this.t("buyer"))}<select id="draft-buyer">${this._options(owners.map(o => [o.id, o.name]), this._buyer)}</select></label><label>${esc(this.t("others"))}<select multiple id="draft-others" size="2">${owners.filter(o => o.id !== this._buyer).map(o => `<option value="${esc(o.id)}" ${this._others.includes(o.id) ? "selected" : ""}>${esc(o.name)}</option>`).join("")}</select></label><label>${esc(this.t("date"))}<input type="date" id="draft-date" value="${esc(this._details.date)}"></label><label>${esc(this.t("place"))}<input id="draft-place" maxlength="200" value="${esc(this._details.place)}"></label></div>${draftNeedsPayment ? `<label>${esc(this.t("receipt"))}<select id="draft-payment">${this._options(payments.map(p => [p.id, `${p.date} · € ${p.amount} · ${paymentKinds[p.kind] || p.kind}`]), this._payment)}</select></label>` : ""}<div class="actions"><button type="button" id="preview-template-real" ${!this._litter || !this._puppy || !this._buyer || (draftNeedsPayment && !this._payment) ? "disabled" : ""}>${esc(this.t("realPreview"))}</button></div><div id="draft-preview-missing" role="status">${this._draftMissing.length ? `<strong>${esc(this.t("missing"))}</strong><ul>${this._draftMissing.map(key => `<li>${esc(this._fieldLabel(key))}</li>`).join("")}</ul>` : ""}</div></section><div class="document-editor-layout ${this._inlinePreviewOpen ? "has-preview" : ""}"><div id="template-editor"></div><aside id="preview-panel" class="${this._inlinePreviewOpen ? "open" : ""}"><div id="inline-preview"></div></aside></div>` : `
       <section class="document-workflow" aria-labelledby="create-document-heading"><h3 id="create-document-heading">${esc(this.t("createDocument"))}</h3>
       <div class="grid"><label>${esc(this.t("template"))}<select id="document-template">${this._templateOptions()}</select></label></div>
       <div class="actions"><button type="button" id="refresh-documents">${esc(this.t("refresh"))}</button></div>
@@ -339,6 +355,11 @@ class PuppyTrackerDocuments extends HTMLElement {
     const on = (selector, event, fn) => this.shadowRoot.querySelector(selector)?.addEventListener(event, fn);
     on("#refresh-documents", "click", () => this._load());
     on("#template-management", "toggle", e => { this._manageOpen = e.target.open; });
+    for (const [id, key] of [["litter", "_litter"], ["puppy", "_puppy"], ["buyer", "_buyer"]]) on(`#draft-${id}`, "change", e => { this[key] = e.target.value; this._syncSelection(); this._draftPreviewChanged(true); });
+    on("#draft-others", "change", e => { this._others = [...e.target.selectedOptions].map(o => o.value); this._draftPreviewChanged(); });
+    on("#draft-payment", "change", e => { this._payment = e.target.value; this._draftPreviewChanged(true); });
+    for (const key of ["date", "place"]) on(`#draft-${key}`, "input", e => { this._details[key] = e.target.value; this._draftPreviewChanged(); });
+    on("#preview-template-real", "click", () => this._previewTemplate(true));
     on("#document-template", "change", e => { this._template = e.target.value; this._payment = ""; this._invalidate(); this._render(); });
     for (const [id, key] of [["litter", "_litter"], ["puppy", "_puppy"], ["buyer", "_buyer"]]) on(`#document-${id}`, "change", e => { this[key] = e.target.value; this._syncSelection(); this._invalidate(); this._render(); });
     on("#document-others", "change", e => { this._others = [...e.target.selectedOptions].map(o => o.value); this._invalidate(); });
