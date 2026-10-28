@@ -536,6 +536,8 @@ Report also remains separate. Its **PDF report** and **Data export and backup**
 sections can be expanded or collapsed independently. The PDF section starts
 open; data export starts closed. Opening the latter reveals CSV and the
 importable JSON backup. Their open state survives ordinary card refreshes.
+PDF profile and language are inside the PDF section; litter, puppy and period
+remain above both sections because they also determine the CSV export.
 
 Its collapsible **Documents and contracts** panel creates and archives
 per-puppy contracts from editable text/field templates. It has its own litter,

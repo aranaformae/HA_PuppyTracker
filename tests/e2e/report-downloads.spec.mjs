@@ -201,6 +201,8 @@ test("report selection exposes one clear whole-litter scope and historical puppi
 
 test("PDF and data export sections can be collapsed without losing selection @mobile @tablet", async ({ page }) => {
   const card = await mountReport(page);
+  await expect(card.locator("#profile")).toBeVisible();
+  await expect(card.locator("#pdf-language")).toBeVisible();
   await expect(card.locator("#pdf-report")).toHaveAttribute("open", "");
   await expect(card.locator("#data-export")).not.toHaveAttribute("open", "");
   await card.locator("#data-export > summary").click();
@@ -209,6 +211,9 @@ test("PDF and data export sections can be collapsed without losing selection @mo
   await expect(card.locator("#data-export")).toHaveAttribute("open", "");
   await card.locator("#pdf-report > summary").click();
   await expect(card.locator("#pdf")).toBeHidden();
+  await expect(card.locator("#profile")).toBeHidden();
+  await expect(card.locator("#pdf-language")).toBeHidden();
+  await expect(card.locator("#range")).toBeVisible();
   await card.locator("#range").selectOption("14d");
   await expect(card.locator("#pdf-report")).not.toHaveAttribute("open", "");
   await expect(card.locator("#puppy")).toHaveValue("p1");
