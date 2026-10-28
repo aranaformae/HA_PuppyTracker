@@ -402,6 +402,10 @@ The selected puppy can also show an indicative eight-week weight from a broad
 14-day trend. `tab_config.analysis.show_eight_week_weight` controls visibility
 and is available in the Growth visual editor. It requires at least four
 different measurement times spanning seven days; it is not a breed norm.
+Administrators can use **Pup aanpassen** beside the selected puppy in the
+Analysis tab to edit the same profile fields as in the Home Pups tab. The
+selection and chart view stay in place; a saved profile refreshes the growth
+overview.
 
 Options inside `tab_config` override the inherited Workspace values for that
 one surface. This is useful for specialist layouts, but a single top-level

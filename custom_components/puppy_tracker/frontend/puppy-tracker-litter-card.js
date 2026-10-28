@@ -18,15 +18,13 @@ import {
   subscribeUpdates,
 } from "./puppy-tracker-card-common.js";
 import { enhanceLitterCard } from "./puppy-tracker-litter-profile-note.js";
-import { PuppyProfileEditor } from "./puppy-tracker-puppy-profile-editor.js";
+import { PuppyProfileEditor, puppyProfileSaveMessage } from "./puppy-tracker-puppy-profile-editor.js";
 
 const TEXT = {
   en: {
     activePuppies: "{count} active",
     addPuppy: "Add puppy",
     editPuppy: "Edit puppy",
-    puppyAdded: "Puppy added. Reload the page if the overview did not update.",
-    puppySaved: "Puppy details saved. Reload the page if the overview did not update.",
     age: "Age",
     attention: "Attention",
     attentionCount: "{count} attention",
@@ -67,8 +65,6 @@ const TEXT = {
     activePuppies: "{count} actief",
     addPuppy: "Pup toevoegen",
     editPuppy: "Pup aanpassen",
-    puppyAdded: "Pup toegevoegd. Herlaad de pagina als het overzicht niet bijwerkt.",
-    puppySaved: "Pupgegevens opgeslagen. Herlaad de pagina als het overzicht niet bijwerkt.",
     age: "Leeftijd",
     attention: "Aandacht",
     attentionCount: "{count} aandacht",
@@ -399,7 +395,7 @@ class PuppyTrackerLitterCard extends HTMLElement {
   }
 
   _profileSaved(wasEdit) {
-    this._saveFeedback = text(this._hass, wasEdit ? "puppySaved" : "puppyAdded");
+    this._saveFeedback = puppyProfileSaveMessage(this._hass, wasEdit);
     if (this._feedbackTimer) clearTimeout(this._feedbackTimer);
     let feedback = this.shadowRoot.querySelector(".save-feedback");
     if (!feedback) {

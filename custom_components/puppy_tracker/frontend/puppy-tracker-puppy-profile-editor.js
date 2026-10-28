@@ -9,6 +9,8 @@ const LABELS = {
     note: "Profielnotitie", cancel: "Annuleren", save: "Opslaan",
     stale: "Deze pup is intussen gewijzigd. Sluit dit formulier en open de pup opnieuw.",
     failed: "De pupgegevens konden niet worden opgeslagen.",
+    added: "Pup toegevoegd. Herlaad de pagina als het overzicht niet bijwerkt.",
+    saved: "Pupgegevens opgeslagen. Herlaad de pagina als het overzicht niet bijwerkt.",
   },
   en: {
     add: "Add puppy", edit: "Edit puppy details", name: "Call name",
@@ -18,8 +20,14 @@ const LABELS = {
     note: "Profile note", cancel: "Cancel", save: "Save",
     stale: "This puppy changed while you were editing. Close and reopen the form.",
     failed: "Puppy details could not be saved.",
+    added: "Puppy added. Reload the page if the overview did not update.",
+    saved: "Puppy details saved. Reload the page if the overview did not update.",
   },
 };
+
+export function puppyProfileSaveMessage(hass, wasEdit) {
+  return (LABELS[languageForHass(hass)] || LABELS.nl)[wasEdit ? "saved" : "added"];
+}
 
 function localDateTime(value) {
   const date = new Date(value || "");

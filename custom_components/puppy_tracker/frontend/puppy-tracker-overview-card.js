@@ -1,6 +1,7 @@
 // Puppy Tracker Overview Card v1.3.2
 import { collarColor } from "./puppy-tracker-collar-chart-colors.js";
 import { languageForHass, puppySelectorLabel } from "./puppy-tracker-card-common.js";
+import { PuppyProfileEditor, puppyProfileSaveMessage } from "./puppy-tracker-puppy-profile-editor.js";
 import {
   localizeOverviewRoot,
   localizeOverviewSchema,
@@ -69,6 +70,8 @@ class PuppyTrackerOverviewCard extends HTMLElement {
     this._interactionReleaseTimer = null;
     this._renderPending = false;
     this._renderScheduled = false;
+    this._profileStatus = "";
+    this._profileStatusTimer = null;
   }
 
   static getStubConfig() {
@@ -241,6 +244,10 @@ class PuppyTrackerOverviewCard extends HTMLElement {
   }
 
   disconnectedCallback() {
+    if (this._profileStatusTimer) {
+      clearTimeout(this._profileStatusTimer);
+      this._profileStatusTimer = null;
+    }
     if (this._historyReloadTimer) {
       clearTimeout(this._historyReloadTimer);
       this._historyReloadTimer = null;
@@ -523,8 +530,8 @@ class PuppyTrackerOverviewCard extends HTMLElement {
           device,
           puppyId,
           name,
-          displayName: puppySelectorLabel({ name, collar_color: collar }),
-          collar,
+          displayName: puppySelectorLabel(historyPuppy || { name, collar_color: collar }),
+          collar: historyPuppy?.collar_color ?? collar,
           entityIds,
           status: this._stateValue(entityIds.status, "Onbekend"),
           statusCode,
@@ -1720,6 +1727,8 @@ class PuppyTrackerOverviewCard extends HTMLElement {
               <h3>${this._escape(selected.displayName)}</h3>
             </div>
             <div class="detail-actions">
+              ${this._history?.can_manage_measurements && this._history?.puppies?.some((puppy) => puppy.id === selected.puppyId)
+                ? `<button class="mini-button" id="edit-puppy-profile">${languageForHass(this._hass) === "en" ? "Edit puppy" : "Pup aanpassen"}</button>` : ""}
               <button class="mini-button" id="toggle-chart-focus">${
                 this._chartSelectedOnly ? "Alle pups in grafiek" : "Alleen deze pup"
               }</button>
@@ -1735,6 +1744,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
         )}</span>
             </div>
           </div>
+          ${this._profileStatus ? `<div class="export-status" role="status">${this._escape(this._profileStatus)}</div>` : ""}
           <div class="detail-grid">
             <div><span>Leeftijd</span><strong>${this._escape(selected.age)}</strong></div>
             <div><span>Geslacht</span><strong>${this._escape(selected.sex)}</strong></div>
@@ -1905,6 +1915,43 @@ class PuppyTrackerOverviewCard extends HTMLElement {
     });
   }
 
+  _openSelectedPuppyEditor() {
+    const litterId = this._selectedLitterStorageId();
+    const puppy = this._history?.puppies?.find((item) => item.id === this._selectedPuppyId);
+    if (!this._history?.can_manage_measurements || !litterId || !puppy) return;
+    const editor = new PuppyProfileEditor();
+    editor.open({ hass: this._hass, litterId, puppy, onSaved: () => this._profileSaved() });
+  }
+
+  _profileSaved() {
+    this._profileStatus = puppyProfileSaveMessage(this._hass, true);
+    let feedback = this.shadowRoot.querySelector(".detail-panel [role='status']");
+    if (!feedback) {
+      feedback = document.createElement("div");
+      feedback.className = "export-status";
+      feedback.setAttribute("role", "status");
+      this.shadowRoot.querySelector(".detail-title")?.after(feedback);
+    }
+    feedback.textContent = this._profileStatus;
+    if (this._profileStatusTimer) clearTimeout(this._profileStatusTimer);
+    this._profileStatusTimer = setTimeout(() => {
+      this._profileStatus = "";
+      this.shadowRoot.querySelector(".detail-panel [role='status']")?.remove();
+      this._profileStatusTimer = null;
+    }, 6000);
+    void this._refreshAfterProfileSave();
+  }
+
+  async _refreshAfterProfileSave() {
+    try {
+      await this._refreshRegistryAfterDataUpdate();
+    } catch (error) {
+      console.warn("Puppy Tracker Overview card: registry refresh failed", error);
+    }
+    if (this._historyLoading) this._scheduleHistoryReload();
+    else await this._loadHistory(true);
+  }
+
   _bindEvents() {
     const litterSelect = this.shadowRoot?.querySelector("#litter-select");
     const metricSelect = this.shadowRoot?.querySelector("#metric-select");
@@ -1913,6 +1960,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
     const exportJson = this.shadowRoot?.querySelector("#export-json");
     const toggleMeasurements = this.shadowRoot?.querySelector("#toggle-measurements");
     const toggleChartFocus = this.shadowRoot?.querySelector("#toggle-chart-focus");
+    this.shadowRoot?.querySelector("#edit-puppy-profile")?.addEventListener("click", () => this._openSelectedPuppyEditor());
 
     const interactiveControls = this.shadowRoot?.querySelectorAll(
       "input, select, textarea, button"
