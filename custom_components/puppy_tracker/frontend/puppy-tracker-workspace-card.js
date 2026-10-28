@@ -731,9 +731,11 @@ class PuppyTrackerWorkspaceCardEditor extends HTMLElement {
     ];
 
     const groups = new Map();
+    const selectedScope = this._formData().default_selected;
     for (const field of EDITOR_FIELDS[preset]) {
       const group = field.surface || "presetOptions";
       if (!groups.has(group)) groups.set(group, []);
+      if (field.name === "puppy_id" && selectedScope !== "puppy") continue;
       groups.get(group).push({ name: field.name, selector: localizedSelector(this._hass, field) });
     }
     for (const [group, fields] of groups) {
@@ -748,9 +750,15 @@ class PuppyTrackerWorkspaceCardEditor extends HTMLElement {
     return {
       schema,
       computeLabel: (entry) => this._label(entry.name),
-      computeHelper: (entry) => entry.name === "puppy_id"
-        ? (this._language === "en" ? "Only used when the default scope is Puppy." : "Alleen gebruikt wanneer de standaard scope Pup is.")
-        : undefined,
+      computeHelper: (entry) => {
+        if (entry.name === "default_selected" && preset === "journal") return this._language === "en"
+          ? "All shows every owner in the Dossier. Quick log and Temperature start at Litter, where you can choose the owner before saving."
+          : "Alles toont alle eigenaren in het Dossier. Snel loggen en Temperatuur starten bij Nest; kies daar de eigenaar vóór het opslaan.";
+        if (entry.name === "puppy_id") return this._language === "en"
+          ? "Puppy ID used only when the default scope is Puppy."
+          : "Pup-ID wordt alleen gebruikt wanneer de standaard scope Pup is.";
+        return undefined;
+      },
     };
   }
 
@@ -758,7 +766,7 @@ class PuppyTrackerWorkspaceCardEditor extends HTMLElement {
     const form = this.shadowRoot?.querySelector("ha-form");
     if (!form) return;
     form.hass = this._hass;
-    const schemaKey = `${this._preset()}:${this._language}`;
+    const schemaKey = `${this._preset()}:${this._language}:${this._formData().default_selected}`;
     if (schemaKey !== this._schemaKey) {
       const definition = this._formDefinition();
       form.schema = definition.schema;
@@ -807,7 +815,7 @@ class PuppyTrackerWorkspaceCardEditor extends HTMLElement {
         this._assignOptional(next, field.name, value);
       }
     }
-    this._commit(next, false);
+    this._commit(next, next.default_selected !== this._config.default_selected);
   }
 
   _commit(config, rebuild) {

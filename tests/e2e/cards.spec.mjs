@@ -275,6 +275,30 @@ test("workspace editor switches preset options and writes existing tab config", 
   expect(result.hiddenDisconnected).toBe(true);
 });
 
+test("workspace editor explains all scope and shows puppy ID only for puppy scope", async ({ page }) => {
+  await openFixture(page, true);
+  const result = await page.evaluate(() => {
+    const editor = customElements.get("puppy-tracker-workspace-card").getConfigElement();
+    editor.setConfig({ preset: "journal" });
+    editor.hass = { language: "en", locale: { language: "en" } };
+    document.body.append(editor);
+    const form = editor.shadowRoot.querySelector("ha-form");
+    const names = () => form.schema.find((entry) => entry.name === "options_presetOptions")?.schema.map((entry) => entry.name);
+    const initial = names();
+    const helper = form.computeHelper({ name: "default_selected" });
+    form.dispatchEvent(new CustomEvent("value-changed", { detail: { value: { ...form.data, default_selected: "puppy" } } }));
+    const puppy = names();
+    form.dispatchEvent(new CustomEvent("value-changed", { detail: { value: { ...form.data, default_selected: "all" } } }));
+    const allAgain = names();
+    editor.remove();
+    return { initial, puppy, allAgain, helper };
+  });
+  expect(result.initial).not.toContain("puppy_id");
+  expect(result.puppy).toContain("puppy_id");
+  expect(result.allAgain).not.toContain("puppy_id");
+  expect(result.helper).toContain("Quick log and Temperature start at Litter");
+});
+
 test("constructs and renders every card with its stub config", { tag: "@cross-browser" }, async ({ page }) => {
   const pageErrors = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
