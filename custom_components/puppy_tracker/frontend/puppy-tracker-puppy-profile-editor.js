@@ -2,7 +2,7 @@ import { escapeHtml, languageForHass } from "./puppy-tracker-card-common.js";
 
 const LABELS = {
   nl: {
-    add: "Pup toevoegen", edit: "Pupgegevens aanpassen", name: "Roepnaam",
+    add: "Pup toevoegen", edit: "Pupgegevens bewerken", name: "Roepnaam",
     registered: "Nestnaam / geregistreerde naam", collar: "Bandkleur", coat: "Vachtkleur",
     breed: "Soort", sex: "Geslacht", unknown: "Niet ingevuld", male: "Reu", female: "Teef",
     weight: "Geboortegewicht (g)", birth: "Geboortedatum en tijd", chip: "Chipnummer",

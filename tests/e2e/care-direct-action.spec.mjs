@@ -62,10 +62,10 @@ test(`Attention care and acknowledgement actions match admin permissions (${isAd
     await expect(card.locator(".care-result-dialog")).toHaveCount(0);
     return;
   }
-  await expect(row.getByRole("button", { name: "Complete care action" })).toBeVisible();
+  await expect(row.getByRole("button", { name: "Record completion" })).toBeVisible();
   await expect(row.getByRole("button", { name: "Mark as seen" })).toBeVisible();
 
-  await row.getByRole("button", { name: "Complete care action" }).click();
+  await row.getByRole("button", { name: "Record completion" }).click();
   await expect(card.locator(".care-result-dialog")).toBeVisible();
 });
 }

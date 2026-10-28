@@ -328,7 +328,7 @@ for (const language of ["nl", "en"]) {
     await button.click();
     const editor = page.locator("puppy-tracker-record-editor");
     await expect(editor.locator("#record-title")).toBeVisible();
-    await expect(editor.getByRole("heading")).toHaveText(language === "nl" ? "Dossieritem aanpassen" : "Edit dossier item");
+    await expect(editor.getByRole("heading")).toHaveText(language === "nl" ? "Dossieritem bewerken" : "Edit dossier item");
     expect(await editor.locator("dialog").evaluate((dialog) => dialog.scrollWidth <= dialog.clientWidth + 1)).toBe(true);
     if (language === "en") expect(await editor.locator("dialog").evaluate((dialog) => getComputedStyle(dialog).backgroundColor)).toBe("rgb(34, 35, 39)");
     await page.screenshot({ path: testInfo.outputPath(`record-editor-${language}.png`) });

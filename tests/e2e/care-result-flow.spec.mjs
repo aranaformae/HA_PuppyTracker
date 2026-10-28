@@ -90,7 +90,7 @@ for (const language of ["nl", "en"]) {
     await expect(row).toBeVisible();
     await expect(row.getByText("ENS", { exact: true })).toBeVisible();
 
-    const execute = row.getByRole("button", { name: language === "en" ? "Complete care action" : "Zorgactie uitvoeren" });
+    const execute = row.getByRole("button", { name: language === "en" ? "Record completion" : "Uitvoering registreren" });
     await expect(execute).toBeVisible();
     await execute.click();
     await expect(card.locator(".care-result-dialog")).toBeVisible();

@@ -23,7 +23,7 @@ const TEXT = {
   nl: {
     title: "Gedragsprofiel", subtitle: "Volg observaties door de tijd; scores geven zichtbaarheid aan en zijn geen goed/fout-oordeel.",
     litter: "Nest", puppy: "Pup", choosePuppy: "Kies een pup", observations: "Oefeningen en observaties", traits: "Karaktereigenschappen",
-    add: "Observatie toevoegen", edit: "Observatie aanpassen", cancel: "Annuleren", save: "Opslaan", delete: "Verwijderen", clearScore: "Niet beoordelen",
+    add: "Observatie toevoegen", edit: "Observatie bewerken", cancel: "Annuleren", save: "Opslaan", delete: "Verwijderen", clearScore: "Niet beoordelen",
     when: "Datum en tijd", observer: "Observator", observerPlaceholder: "Naam van observator", context: "Context", contextPlaceholder: "Bijvoorbeeld rustige ruimte, na voeding",
     note: "Notities", notePlaceholder: "Aanvullende waarnemingen en omstandigheden", scoreHint: "1 = nauwelijks zichtbaar · 5 = zeer duidelijk · leeg = niet beoordeeld",
     finalScore: "Eindscore zichtbaarheid", groupScore: "Groepsgemiddelde", observationsCount: "Meetmomenten", criteriaCount: "Criteria gescoord",

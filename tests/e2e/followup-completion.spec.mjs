@@ -71,7 +71,7 @@ for (const surface of ["dossier", "attention"]) {
       const original = await page.evaluate((scope) => structuredClone(window.followupFixture.records.find((r) => r.id === `${scope}-source`)), scope);
       await button.click();
       const editor = page.locator("puppy-tracker-record-editor");
-      await expect(editor.locator("h2")).toHaveText("Uitgevoerd registreren");
+      await expect(editor.locator("h2")).toHaveText("Uitvoering registreren");
       await expect(editor.locator("#record-type")).toBeDisabled();
       await expect(editor.locator("#record-data-product")).toHaveValue("Old product");
       await expect(editor.locator("#record-data-next_due_date")).toHaveValue("");

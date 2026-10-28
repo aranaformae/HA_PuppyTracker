@@ -49,7 +49,7 @@ export function canCompleteFollowup(action) {
 export function recordFollowupButton(card, key, action) {
   if (!canCompleteFollowup(action)) return recordEditButton(card, key);
   if (!canEditRecords(card)) return "";
-  const label = copy(card._hass, "Uitgevoerd registreren", "Record completion");
+  const label = copy(card._hass, "Uitvoering registreren", "Record completion");
   return `<button type="button" class="record-edit-button" data-complete-followup="${escape(key)}" title="${escape(label)}" aria-label="${escape(label)}"><ha-icon icon="mdi:check-bold"></ha-icon></button>`;
 }
 
@@ -61,7 +61,7 @@ export function openFollowupEditor(card, action, options = {}) {
 
 export function reminderCompleteButton(card, reminder) {
   if (!canEditRecords(card) || reminder?.enabled === false || !reminder?.next_due_at || !reminder?.updated_at) return "";
-  const label = copy(card._hass, "Uitgevoerd registreren", "Record completion");
+  const label = copy(card._hass, "Uitvoering registreren", "Record completion");
   return `<button type="button" class="record-edit-button" data-complete-reminder="${escape(reminder.id)}" title="${escape(label)}" aria-label="${escape(label)}"><ha-icon icon="mdi:clipboard-check-outline"></ha-icon></button>`;
 }
 
@@ -219,7 +219,7 @@ class PuppyTrackerRecordEditor extends HTMLElement {
         const response = await this._hass.callWS({ type: "puppy_tracker/measurements", litter_id: litterId, puppy_id: puppyId });
         if (this._closed) return;
         const measurement = response.measurements?.find((item) => item.id === this._context.measurementId);
-        if (!measurement || measurement.deleted || measurement.superseded_by || (measurement.status && measurement.status !== "active")) throw new Error(copy(this._hass, "Deze meting kan niet meer aangepast worden.", "This measurement can no longer be edited."));
+        if (!measurement || measurement.deleted || measurement.superseded_by || (measurement.status && measurement.status !== "active")) throw new Error(copy(this._hass, "Deze meting kan niet meer gecorrigeerd worden.", "This measurement can no longer be corrected."));
         this._draft = { weight: measurement.weight, occurred_at: localDate(measurement.timestamp), reason: "" };
         this.shadowRoot.getElementById("record-dialog-title").textContent = copy(this._hass, "Meting corrigeren", "Correct measurement");
         this._renderMeasurement();
@@ -247,13 +247,13 @@ class PuppyTrackerRecordEditor extends HTMLElement {
           : ["vaccine", "vaccine_type", "veterinarian", "clinic"];
         this._draft = { record_type: this._record.type, occurred_at: localDate(), title: "", note: "",
           data: Object.fromEntries(reusable.filter((key) => this._record.data?.[key] != null).map((key) => [key, this._record.data[key]])) };
-        this.shadowRoot.getElementById("record-dialog-title").textContent = copy(this._hass, "Uitgevoerd registreren", "Record completion");
+        this.shadowRoot.getElementById("record-dialog-title").textContent = copy(this._hass, "Uitvoering registreren", "Record completion");
       }
       if (this._mode === "reminder") {
         const reminder = this._options.reminder;
         this._draft = { record_type: reminder.record_type, occurred_at: localDate(),
           title: reminder.match_title || reminder.title || "", note: "", data: {} };
-        this.shadowRoot.getElementById("record-dialog-title").textContent = copy(this._hass, "Uitgevoerd registreren", "Record completion");
+        this.shadowRoot.getElementById("record-dialog-title").textContent = copy(this._hass, "Uitvoering registreren", "Record completion");
       }
       this._renderForm();
     } catch (error) {
@@ -291,7 +291,7 @@ class PuppyTrackerRecordEditor extends HTMLElement {
     const error = this.shadowRoot.querySelector(".error");
     const controls = Array.from(this.shadowRoot.querySelectorAll("button,input"), (input) => [input, input.disabled]);
     try {
-      if (!canEditRecords(this._card)) throw new Error(text("Je mag deze herinnering niet aanpassen.", "You cannot change this reminder."));
+      if (!canEditRecords(this._card)) throw new Error(text("Je mag deze herinnering niet uitstellen.", "You cannot postpone this reminder."));
       const reminder = this._options.reminder;
       const until = new Date(this.shadowRoot.getElementById("reminder-until").value);
       if (!reset) {

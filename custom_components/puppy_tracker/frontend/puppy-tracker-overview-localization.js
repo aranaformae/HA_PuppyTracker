@@ -197,7 +197,7 @@ const EXACT_EN = new Map([
   ["Weging", "Weighing"],
   ["Weging nodig", "Weighing due"],
   ["Wegen", "Weigh"],
-  ["Wijzigen", "Edit"],
+  ["Corrigeren", "Correct measurement"],
   ["Zwaarste", "Heaviest"],
   ["Eerste 24 uur", "First 24 hours"],
   ["Eerste trend", "Initial trend"],

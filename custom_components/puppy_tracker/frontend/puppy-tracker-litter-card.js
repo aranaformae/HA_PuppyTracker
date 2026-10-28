@@ -64,7 +64,7 @@ const TEXT = {
   nl: {
     activePuppies: "{count} actief",
     addPuppy: "Pup toevoegen",
-    editPuppy: "Pup aanpassen",
+    editPuppy: "Pup bewerken",
     age: "Leeftijd",
     attention: "Aandacht",
     attentionCount: "{count} aandacht",

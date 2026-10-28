@@ -147,9 +147,9 @@ export function addCareDirectActionButtons(card) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "care-direct-action";
-    button.title = t(card, "Zorgactie uitvoeren", "Complete care action");
+    button.title = t(card, "Uitvoering registreren", "Record completion");
     button.setAttribute("aria-label", button.title);
-    button.innerHTML = `<ha-icon icon="mdi:check-circle-outline"></ha-icon><span>${escapeHtml(t(card, "Uitvoeren", "Complete"))}</span>`;
+    button.innerHTML = `<ha-icon icon="mdi:check-circle-outline"></ha-icon><span>${escapeHtml(t(card, "Uitvoering registreren", "Record completion"))}</span>`;
     button.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();

@@ -20,7 +20,7 @@ export function lastExecutionDetails(card, item) {
     ? `${label}: ${executionTime(card, item.last_completed_at)}` : text(card, "Nog geen uitvoering geregistreerd", "No execution recorded yet"))}</div>`;
   const fields = (TYPE_FIELDS[record.type] || []).filter((field) => record.data?.[field.key] != null && record.data[field.key] !== "");
   const values = fields.map((field) => `<div><dt>${escapeHtml(fieldLabel(card._hass, field))}</dt><dd>${escapeHtml(record.data[field.key])}</dd></div>`).join("");
-  const edit = text(card, "Registratie aanpassen", "Edit log entry");
+  const edit = text(card, "Registratie bewerken", "Edit log entry");
   return `<details class="recurring-last-execution" data-last-execution="${escapeHtml(item.id)}" ${card._expandedReminderExecutions?.has(item.id) ? "open" : ""}>
     <summary>${escapeHtml(label)}: ${escapeHtml(executionTime(card, record.occurred_at))}</summary>
     <dl>${record.data?.recurring_due_at ? `<div><dt>${escapeHtml(text(card, "Gepland", "Scheduled"))}</dt><dd>${escapeHtml(executionTime(card, record.data.recurring_due_at))}</dd></div>` : ""}

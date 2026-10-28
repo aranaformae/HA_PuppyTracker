@@ -42,7 +42,7 @@ always inspect the complete loaded history, not just the first batch.
 
 ## Add and correct entries
 
-Use **New entry** to add a saved observation. Use the pencil beside an existing
+Use **New entry** to add a saved observation. Use **Edit** (the pencil) beside an existing
 entry to change it, even in All or filtered results. The three-dot menu offers
 **Change owner** and **Delete**. Deleted care entries offer **Restore**.
 
@@ -53,7 +53,7 @@ Showing these versions does not increase the active-item count.
 
 **To do** contains follow-ups derived from saved care entries, separate from
 the completed history. It follows the owner selection, including the mother
-and her selected litter history. Its completion action creates a new registration; it
+and her selected litter history. **Record completion** creates a new registration; it
 does not rewrite the original administration. Full recurring reminders and
 age-based schedules remain in the Care workspace.
 

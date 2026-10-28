@@ -719,7 +719,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
       ? dossierText(this._hass, "Moederprofiel", "Mother profile")
       : localize(this._hass, "profileNote");
     const editLabel = mother
-      ? dossierText(this._hass, "Moederprofiel aanpassen", "Edit mother profile")
+      ? dossierText(this._hass, "Moederprofiel bewerken", "Edit mother profile")
       : localize(this._hass, "editProfileNote");
     const emptyText = mother
       ? dossierText(this._hass, "Nog geen profielnotitie.", "No profile note yet.")

@@ -387,13 +387,13 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
               <div>${escapeHtml(scheduleText(this, item))}${item.time_of_day ? ` · ${escapeHtml(item.time_of_day)}` : ""}</div>
               <div class="meta">${escapeHtml(recordTypeLabel(this._hass, item.record_type))}${item.notifications_enabled === false ? ` · ${escapeHtml(t(this, "meldingen uit", "notifications off"))}` : ""}${item.notification_lead_minutes != null ? ` · ${escapeHtml(t(this, `${item.notification_lead_minutes} min vooraf`, `${item.notification_lead_minutes} min before`))}` : ""}</div>
             </div>
-            ${isAdmin ? `<div class="item-actions"><button class="icon-button edit" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t(this, "Aanpassen", "Edit"))}" aria-label="${escapeHtml(t(this, "Aanpassen", "Edit"))}"><ha-icon icon="mdi:pencil-outline"></ha-icon></button><button class="icon-button save-template" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t(this, "Als template opslaan", "Save as template"))}" aria-label="${escapeHtml(t(this, "Als template opslaan", "Save as template"))}"><ha-icon icon="mdi:content-save-outline"></ha-icon></button></div>` : ""}
+            ${isAdmin ? `<div class="item-actions"><button class="icon-button edit" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t(this, "Zorgprogramma bewerken", "Edit care program"))}" aria-label="${escapeHtml(t(this, "Zorgprogramma bewerken", "Edit care program"))}"><ha-icon icon="mdi:pencil-outline"></ha-icon></button><button class="icon-button save-template" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t(this, "Als template opslaan", "Save as template"))}" aria-label="${escapeHtml(t(this, "Als template opslaan", "Save as template"))}"><ha-icon icon="mdi:content-save-outline"></ha-icon></button></div>` : ""}
           </div>`).join("")}</div>`
       : `<div class="empty">${escapeHtml(t(this, "Nog geen leeftijdsgebonden zorgprogramma's voor dit nest.", "No age-based care programs for this litter yet."))}</div>`;
 
     const editor = this._showEditor && isAdmin ? `
       <div class="editor">
-        <div class="editor-title">${escapeHtml(this._editing ? t(this, "Zorgprogramma aanpassen", "Edit care program") : t(this, "Zorgprogramma toevoegen", "Add care program"))}</div>
+        <div class="editor-title">${escapeHtml(this._editing ? t(this, "Zorgprogramma bewerken", "Edit care program") : t(this, "Zorgprogramma toevoegen", "Add care program"))}</div>
         <label>${escapeHtml(t(this, "Template laden", "Load template"))}<select id="care-template"><option value="">${escapeHtml(t(this, "Kies een template", "Choose a template"))}</option>${this._templates.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name || item.title || "Template")}</option>`).join("")}</select></label>
         <label>${escapeHtml(t(this, "Naam", "Name"))}<input id="care-title" value="${escapeHtml(draft.title)}" placeholder="ENS / ESI / Ontworming"></label>
         <label>${escapeHtml(t(this, "Omschrijving", "Description"))}<textarea id="care-description" rows="2">${escapeHtml(draft.description)}</textarea></label>

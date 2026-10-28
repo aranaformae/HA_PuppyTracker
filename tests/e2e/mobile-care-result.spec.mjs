@@ -110,7 +110,7 @@ test("mobile care shows overdue actions and refreshes after an external update",
 
   const care = page.locator("puppy-tracker-care-execution-card");
   await expect(care.locator(".row")).toHaveCount(2);
-  await care.getByRole("button", { name: "Completed", exact: true }).first().click();
+  await care.getByRole("button", { name: "Record completion", exact: true }).first().click();
   await expect(care.locator('.care-result-dialog[role="dialog"]')).toBeVisible();
   await care.getByRole("button", { name: "Cancel" }).click();
 

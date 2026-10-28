@@ -293,9 +293,9 @@ test("Today reminder categories, today-only filtering and write permissions are 
 
 test("Dutch reminder execution uses translated actions and retains a stale-definition draft @cross-browser @tablet", async ({ page }) => {
   const card = await mount(page, "reminders", "puppy", "medication", "nl");
-  await card.getByRole("button", { name: "Uitgevoerd registreren", exact: true }).click();
+  await card.getByRole("button", { name: "Uitvoering registreren", exact: true }).click();
   const editor = page.locator("puppy-tracker-record-editor");
-  await expect(editor.getByRole("heading")).toHaveText("Uitgevoerd registreren");
+  await expect(editor.getByRole("heading")).toHaveText("Uitvoering registreren");
   await editor.locator("#record-note").fill("Bewaren bij een fout");
   await page.evaluate(() => { window.recurringFixture.reminder.updated_at = "changed"; });
   await editor.getByRole("button", { name: "Uitvoering opslaan", exact: true }).click();

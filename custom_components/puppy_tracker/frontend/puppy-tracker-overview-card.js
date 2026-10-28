@@ -1100,7 +1100,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
               isActive
                 ? `<button class="mini-button" data-edit-measurement="${this._escape(
                     measurement.id
-                  )}">Wijzigen</button><button class="mini-button danger-text" data-delete-measurement="${this._escape(
+                  )}">Corrigeren</button><button class="mini-button danger-text" data-delete-measurement="${this._escape(
                     measurement.id
                   )}">Verwijderen</button>`
                 : ""
@@ -1728,7 +1728,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
             </div>
             <div class="detail-actions">
               ${this._history?.can_manage_measurements && this._history?.puppies?.some((puppy) => puppy.id === selected.puppyId)
-                ? `<button class="mini-button" id="edit-puppy-profile">${languageForHass(this._hass) === "en" ? "Edit puppy" : "Pup aanpassen"}</button>` : ""}
+                ? `<button class="mini-button" id="edit-puppy-profile">${languageForHass(this._hass) === "en" ? "Edit puppy" : "Pup bewerken"}</button>` : ""}
               <button class="mini-button" id="toggle-chart-focus">${
                 this._chartSelectedOnly ? "Alle pups in grafiek" : "Alleen deze pup"
               }</button>

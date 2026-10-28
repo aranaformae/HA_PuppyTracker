@@ -49,7 +49,7 @@ of becoming a dossier note; the original measurement remains in its version hist
 ### Complete a planned deworming or vaccination
 
 The checkmark beside a deworming/vaccination follow-up in Dossier or Attention
-opens **Record completion** (**Uitgevoerd registreren**), not an edit of the
+opens **Record completion** (**Uitvoering registreren**), not an edit of the
 earlier administration. Check the owner and execution date, review or change the
 suggested product/vaccine, and enter the actual dose and any notes. An optional
 **Next due date** schedules the next follow-up; leave it empty when none is needed.
