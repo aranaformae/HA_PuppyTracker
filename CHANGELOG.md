@@ -10,6 +10,22 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+## [0.34.1] - 2026-10-28
+
+### Added
+
+- Add and edit puppy profiles directly from the litter overview. The form uses
+  the existing storage operations and warns when the puppy changed while editing.
+
+### Changed
+
+- Explain the default owner scope in the Workspace editor and show the puppy ID
+  field only when the default scope is Puppy.
+- Reuse per-card option definitions across Workspace presets while preserving
+  their desktop and mobile defaults; hide temperature settings that do not apply.
+- Separate PDF reports, CSV/JSON data exports and document templates visually
+  in the report card. JSON exports are consistently labelled as backups.
+
 ## [0.34.0] - 2026-10-27
 
 ### Added
@@ -318,7 +334,8 @@ for explicit assignment. See [storage migrations](docs/storage-migrations.md#own
 
 - Separated daily execution from schedule management in Care workspace navigation.
 
-[Unreleased]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.34.0...HEAD
+[Unreleased]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.34.1...HEAD
+[0.34.1]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.34.0...v0.34.1
 [0.34.0]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.33.0...v0.34.0
 [0.33.0]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.32.6...v0.33.0
 [0.32.6]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.32.5...v0.32.6
