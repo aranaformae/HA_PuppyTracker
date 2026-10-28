@@ -30,6 +30,7 @@ from .updates import dispatch_dossier_update, dispatch_measurement_update
 from .weighing import async_save_dashboard_weight
 from .managed_files_http import signed_file_path
 from .upcoming import DAYS_AHEAD_DEFAULT, upcoming_actions, upcoming_summary
+from .puppy_profile_api import async_setup_puppy_profile_api
 
 DATA_API_REGISTERED = f"{DOMAIN}_websocket_api_registered"
 
@@ -1519,6 +1520,7 @@ def async_setup_api(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, websocket_subscribe_updates)
     websocket_api.async_register_command(hass, websocket_resolve_weighing_session)
     websocket_api.async_register_command(hass, websocket_undo_weighing)
+    async_setup_puppy_profile_api(hass)
     hass.data[DATA_API_REGISTERED] = True
 
 

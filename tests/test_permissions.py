@@ -137,6 +137,37 @@ async def test_admin_websocket_owner_and_report_exports_still_work(hass, private
     assert (await client.receive_json())["result"]["puppies"][0]["owner_ids"] == [PRIVATE]
 
 
+async def test_admin_can_add_and_edit_puppy_profile_without_overwriting_stale_changes(
+    hass, private_runtime, hass_ws_client,
+):
+    register_api(hass)
+    client = await hass_ws_client(hass)
+    storage = private_runtime[1].storage
+    profile = {"name": "Nova", "collar_color": "purple", "birth_weight": 320,
+               "birth_time": "2026-08-28T10:00:00+00:00", "chip_number": "123456"}
+    await client.send_json_auto_id({"type": f"{DOMAIN}/puppy_profile/save",
+                                    "litter_id": "litter-1", "profile": profile})
+    created = await client.receive_json()
+    assert created["success"] is True
+    puppy_id = created["result"]["puppy_id"]
+    assert storage.get_puppy("litter-1", puppy_id)["chip_number"] == "123456"
+    await client.send_json_auto_id({"type": f"{DOMAIN}/puppy_profile/save",
+                                    "litter_id": "litter-1", "puppy_id": puppy_id,
+                                    "expected_updated_at": created["result"]["updated_at"],
+                                    "profile": {**profile, "name": "Nova II"}})
+    updated = await client.receive_json()
+    assert updated["success"] is True
+    assert storage.get_puppy("litter-1", puppy_id)["name"] == "Nova II"
+    await client.send_json_auto_id({"type": f"{DOMAIN}/puppy_profile/save",
+                                    "litter_id": "litter-1", "puppy_id": puppy_id,
+                                    "expected_updated_at": created["result"]["updated_at"],
+                                    "profile": {**profile, "name": "Stale"}})
+    stale = await client.receive_json()
+    assert stale["success"] is False
+    assert stale["error"]["code"] == "stale_profile"
+    assert storage.get_puppy("litter-1", puppy_id)["name"] == "Nova II"
+
+
 @pytest.mark.parametrize("path", [
     f"/api/{DOMAIN}/backup/full",
     f"/api/{DOMAIN}/backup/litter/litter-1",
