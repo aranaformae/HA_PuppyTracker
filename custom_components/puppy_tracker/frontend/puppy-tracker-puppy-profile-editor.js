@@ -35,6 +35,17 @@ export class PuppyProfileEditor extends HTMLElement {
     this._busy = false;
     this.addEventListener("keydown", (event) => {
       if (event.key === "Escape") { event.preventDefault(); this.close(); }
+      if (event.key !== "Tab") return;
+      const focusable = [...this.shadowRoot.querySelectorAll("input:not(:disabled),select:not(:disabled),textarea:not(:disabled),button:not(:disabled)")];
+      if (!focusable.length) return;
+      const active = this.shadowRoot.activeElement;
+      if (event.shiftKey && active === focusable[0]) {
+        event.preventDefault();
+        focusable.at(-1).focus();
+      } else if (!event.shiftKey && active === focusable.at(-1)) {
+        event.preventDefault();
+        focusable[0].focus();
+      }
     });
   }
 
@@ -45,10 +56,30 @@ export class PuppyProfileEditor extends HTMLElement {
     this._onSaved = onSaved;
     this._onClose = onClose;
     this._sourceTime = localDateTime(puppy?.birth_time);
-    this._previousFocus = document.activeElement;
+    let previousFocus = document.activeElement;
+    while (previousFocus?.shadowRoot?.activeElement) previousFocus = previousFocus.shadowRoot.activeElement;
+    this._previousFocus = previousFocus;
     document.body.append(this);
     this._render();
     this.shadowRoot.querySelector("#name")?.focus();
+    this._previousOverflow = {
+      body: document.body.style.overflow,
+      root: document.documentElement.style.overflow,
+    };
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    this._background = [...document.body.children].filter((element) => element !== this)
+      .map((element) => ({ element, inert: element.inert }));
+    this._background.forEach(({ element }) => { element.inert = true; });
+  }
+
+  disconnectedCallback() {
+    if (!this._previousOverflow) return;
+    document.body.style.overflow = this._previousOverflow.body;
+    document.documentElement.style.overflow = this._previousOverflow.root;
+    this._background.forEach(({ element, inert }) => { element.inert = inert; });
+    this._background = [];
+    this._previousOverflow = null;
   }
 
   close() {

@@ -160,6 +160,33 @@ test("compact litter rows only expose their explicit edit action", async ({ page
   expect(result).toEqual({ cursor: "auto", expanded: null, editorOpened: true });
 });
 
+test("puppy profile dialog traps focus and restores background scrolling @cross-browser @tablet", async ({ page }) => {
+  await openFixture(page, true);
+  const initial = await page.evaluate(() => {
+    const opener = document.createElement("button");
+    opener.id = "profile-opener";
+    opener.textContent = "Open";
+    document.body.append(opener);
+    opener.focus();
+    const editor = document.createElement("puppy-tracker-puppy-profile-editor");
+    editor.open({ hass: { language: "en" }, litterId: "l1", puppy: { id: "p1", name: "Nova" } });
+    return { backgroundInert: document.querySelector("#cards").inert,
+      bodyOverflow: document.body.style.overflow,
+      active: editor.shadowRoot.activeElement.id };
+  });
+  expect(initial).toEqual({ backgroundInert: true, bodyOverflow: "hidden", active: "name" });
+  await page.keyboard.press("Shift+Tab");
+  expect(await page.evaluate(() => document.querySelector("puppy-tracker-puppy-profile-editor").shadowRoot.activeElement.textContent)).toBe("Save");
+  await page.keyboard.press("Tab");
+  expect(await page.evaluate(() => document.querySelector("puppy-tracker-puppy-profile-editor").shadowRoot.activeElement.id)).toBe("name");
+  await page.keyboard.press("Escape");
+  const restored = await page.evaluate(() => ({ editorClosed: !document.querySelector("puppy-tracker-puppy-profile-editor"),
+    backgroundInert: document.querySelector("#cards").inert,
+    bodyOverflow: document.body.style.overflow,
+    active: document.activeElement.id }));
+  expect(restored).toEqual({ editorClosed: true, backgroundInert: false, bodyOverflow: "", active: "profile-opener" });
+});
+
 test("workspace localizes internal surfaces inside its shadow root", async ({ page }) => {
   await openFixture(page, true);
   await page.evaluate(() => {
