@@ -187,6 +187,35 @@ test("puppy profile dialog traps focus and restores background scrolling @cross-
   expect(restored).toEqual({ editorClosed: true, backgroundInert: false, bodyOverflow: "", active: "profile-opener" });
 });
 
+test("saved puppy confirms success even when the following overview refresh fails", async ({ page }) => {
+  await openFixture(page, true);
+  await page.evaluate(() => {
+    const card = document.createElement("puppy-tracker-litter-card");
+    card.id = "saved-puppy-card";
+    card.setConfig({ show_details: false });
+    card._hass = { language: "en", user: { is_admin: true },
+      callWS: async (message) => {
+        if (message.type === "puppy_tracker/puppy_profile/save") return { puppy_id: "p1", updated_at: "v2" };
+        if (message.type === "puppy_tracker/litters") throw new Error("Refresh unavailable");
+        throw new Error(`Unexpected request: ${message.type}`);
+      } };
+    card._litters = [{ id: "l1", name: "Litter", active: true }];
+    card._selectedLitterId = "l1";
+    card._data = { can_manage_measurements: true,
+      litter: { id: "l1", name: "Litter", active: true, summary: {} },
+      puppies: [{ id: "p1", name: "Nova", updated_at: "v1", summary: {} }] };
+    document.querySelector("#cards").append(card);
+    card._render();
+  });
+  const card = page.locator("#saved-puppy-card");
+  await card.locator(".edit-puppy").click();
+  await page.locator("puppy-tracker-puppy-profile-editor #name").fill("Nova II");
+  await page.locator("puppy-tracker-puppy-profile-editor button[type='submit']").click();
+  await expect(page.locator("puppy-tracker-puppy-profile-editor")).toHaveCount(0);
+  await expect(card.locator(".save-feedback")).toContainText("Puppy details saved");
+  await expect(card.locator(".error")).toContainText("Refresh unavailable");
+});
+
 test("workspace localizes internal surfaces inside its shadow root", async ({ page }) => {
   await openFixture(page, true);
   await page.evaluate(() => {

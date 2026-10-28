@@ -25,6 +25,8 @@ const TEXT = {
     activePuppies: "{count} active",
     addPuppy: "Add puppy",
     editPuppy: "Edit puppy",
+    puppyAdded: "Puppy added. Reload the page if the overview did not update.",
+    puppySaved: "Puppy details saved. Reload the page if the overview did not update.",
     age: "Age",
     attention: "Attention",
     attentionCount: "{count} attention",
@@ -65,6 +67,8 @@ const TEXT = {
     activePuppies: "{count} actief",
     addPuppy: "Pup toevoegen",
     editPuppy: "Pup aanpassen",
+    puppyAdded: "Pup toegevoegd. Herlaad de pagina als het overzicht niet bijwerkt.",
+    puppySaved: "Pupgegevens opgeslagen. Herlaad de pagina als het overzicht niet bijwerkt.",
     age: "Leeftijd",
     attention: "Aandacht",
     attentionCount: "{count} aandacht",
@@ -147,6 +151,8 @@ class PuppyTrackerLitterCard extends HTMLElement {
     this._subscriptionPending = false;
     this._refreshing = false;
     this._refreshAgain = false;
+    this._saveFeedback = "";
+    this._feedbackTimer = null;
   }
 
   static getStubConfig() {
@@ -203,6 +209,8 @@ class PuppyTrackerLitterCard extends HTMLElement {
   disconnectedCallback() {
     if (this._unsubscribe) Promise.resolve(this._unsubscribe()).catch(() => undefined);
     this._unsubscribe = null;
+    if (this._feedbackTimer) clearTimeout(this._feedbackTimer);
+    this._feedbackTimer = null;
   }
 
   getCardSize() { return 6; }
@@ -341,13 +349,14 @@ class PuppyTrackerLitterCard extends HTMLElement {
           .controls{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}select,button{min-height:38px;border:1px solid var(--divider-color);border-radius:10px;background:var(--card-background-color);color:var(--primary-text-color);padding:0 9px;font-size:13px;min-width:0}button{cursor:pointer}.stats{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}.badge{padding:5px 9px;background:var(--secondary-background-color);border-radius:999px;font-size:12px}.badge.danger{color:var(--error-color);font-weight:600}
           .header,.puppy-row{display:grid;grid-template-columns:minmax(150px,1.4fr) .8fr .8fr .9fr .9fr minmax(150px,1.2fr);gap:8px;align-items:center}.basic .header,.basic .puppy-row{grid-template-columns:minmax(150px,1.4fr) .8fr .8fr minmax(150px,1.2fr)}.header{padding:6px 10px;color:var(--secondary-text-color);font-size:11px}.puppy-row{padding:10px;border-top:1px solid var(--divider-color);min-width:0}.advanced .puppy-row{cursor:pointer}.advanced .puppy-row:hover{background:var(--secondary-background-color)}
           .identity,.state{display:flex;align-items:center;gap:8px;min-width:0}.identity .dot{width:10px;height:10px;border-radius:50%;background:var(--primary-color);flex:0 0 auto}.identity div,.state div,.cell{min-width:0}.identity strong,.state b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.identity small,.cell small,.state small{display:block;color:var(--secondary-text-color);font-size:11px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cell b{font-size:14px}.state>span{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--secondary-background-color);font-weight:700;flex:0 0 auto}.danger .state b,.danger .state>span{color:var(--error-color)}.warning .state b{color:var(--warning-color,var(--primary-color))}
-          .identity>div{flex:1}.identity .edit-puppy{flex:0 0 auto;min-width:38px;padding:0 8px}.detail{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;padding:10px 12px;background:var(--secondary-background-color);border-radius:0 0 12px 12px}.detail div{min-width:0}.detail span{display:block;color:var(--secondary-text-color);font-size:10px}.detail b{display:block;margin-top:2px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.empty,.error{padding:16px 4px;color:var(--secondary-text-color)}.error{color:var(--error-color)}
+          .identity>div{flex:1}.identity .edit-puppy{flex:0 0 auto;min-width:38px;padding:0 8px}.detail{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;padding:10px 12px;background:var(--secondary-background-color);border-radius:0 0 12px 12px}.detail div{min-width:0}.detail span{display:block;color:var(--secondary-text-color);font-size:10px}.detail b{display:block;margin-top:2px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.empty,.error{padding:16px 4px;color:var(--secondary-text-color)}.error{color:var(--error-color)}.save-feedback{padding:8px 4px;color:var(--success-color,var(--primary-color));font-size:13px}
           @container litter-card (max-width:720px){.header{display:none}.top{display:block}.controls{justify-content:flex-start;margin-top:10px}.controls select{flex:1 1 140px}.puppy-row{margin-top:8px;border:1px solid var(--divider-color);border-radius:12px;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:"identity identity" "weight growth" "total last" "state state";gap:9px 12px;padding:12px}.basic .puppy-row{grid-template-columns:minmax(0,1.5fr) .8fr .8fr minmax(90px,1fr);grid-template-areas:"identity weight growth state";gap:8px;padding:8px}.identity{grid-area:identity}.weight{grid-area:weight}.growth24{grid-area:growth}.total-growth{grid-area:total}.last-weighed{grid-area:last}.state{grid-area:state;border-top:1px solid var(--divider-color);padding-top:9px}.basic .state{border-top:0;padding-top:0}.cell small,.state small{white-space:normal}.basic .identity small,.basic .cell small,.basic .state small{display:none}.detail{grid-template-columns:repeat(3,minmax(0,1fr));border-radius:12px;margin-top:5px}}
           @container litter-card (max-width:430px){ha-card{padding:13px}.stats{gap:6px}.badge{font-size:11px}.controls{display:grid;grid-template-columns:minmax(0,1fr) auto}.controls select{width:100%}.controls #litter-select{grid-column:1/-1}.puppy-row{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.basic .puppy-row{grid-template-columns:minmax(0,1.35fr) .75fr .75fr minmax(82px,1fr);gap:6px;padding:7px}.identity strong{font-size:15px}.cell b{font-size:15px}.state small{white-space:normal;overflow:visible}.detail{grid-template-columns:repeat(2,minmax(0,1fr))}}
         </style>
         <div class="${this._config.show_details === false ? "basic" : "advanced"}"><div class="top"><div class="title">${escapeHtml(this._config.title || (languageForHass(this._hass) === "en" ? "Litter overview" : "Nestoverzicht"))}<div class="sub">${escapeHtml(litter?.name || (this._loading ? text(this._hass, "loading") : text(this._hass, "noLitter")))}</div></div>
           <div class="controls">${selector}${canEdit && litter?.active !== false ? `<button id="add-puppy">${escapeHtml(text(this._hass, "addPuppy"))}</button>` : ""}<select id="sort-select"><option value="name" ${this._sortBy === "name" ? "selected" : ""}>${escapeHtml(text(this._hass, "name"))}</option><option value="weight" ${this._sortBy === "weight" ? "selected" : ""}>${escapeHtml(text(this._hass, "weight"))}</option><option value="growth24" ${this._sortBy === "growth24" ? "selected" : ""}>${escapeHtml(text(this._hass, "growth24"))}</option><option value="last" ${this._sortBy === "last" ? "selected" : ""}>${escapeHtml(text(this._hass, "lastWeighing"))}</option><option value="attention" ${this._sortBy === "attention" ? "selected" : ""}>${escapeHtml(text(this._hass, "attention"))}</option></select><button id="dir-button" title="${escapeHtml(text(this._hass, "sortDirection"))}">${this._sortDirection === "asc" ? "↑" : "↓"}</button></div>
         </div>
+        ${this._saveFeedback ? `<div class="save-feedback" role="status">${escapeHtml(this._saveFeedback)}</div>` : ""}
         ${this._error ? `<div class="error">${escapeHtml(this._error)}</div>` : `
           <div class="stats"><span class="badge">${escapeHtml(text(this._hass, "activePuppies", { count: summary.active_puppies ?? 0 }))}</span><span class="badge ${summary.attention_count ? "danger" : ""}">${escapeHtml(text(this._hass, "attentionCount", { count: summary.attention_count ?? 0 }))}</span><span class="badge">${escapeHtml(text(this._hass, "toWeigh", { count: summary.weigh_due_count ?? 0 }))}</span><span class="badge">${escapeHtml(text(this._hass, "average", { weight: formatWeight(summary.average_weight, "—", this._hass) }))}</span></div>
           <div class="header"><div>${escapeHtml(text(this._hass, "puppy"))}</div><div>${escapeHtml(text(this._hass, "weight"))}</div><div>${escapeHtml(text(this._hass, "growth24"))}</div>${detailsEnabled ? `<div>${escapeHtml(text(this._hass, "totalGrowth"))}</div><div>${escapeHtml(text(this._hass, "last"))}</div>` : ""}<div>${escapeHtml(text(this._hass, "status"))}</div></div>
@@ -386,7 +395,26 @@ class PuppyTrackerLitterCard extends HTMLElement {
     if (!this._data?.can_manage_measurements || !this._selectedLitterId) return;
     const editor = new PuppyProfileEditor();
     editor.open({ hass: this._hass, litterId: this._selectedLitterId, puppy,
-      onSaved: () => this._queueRefresh() });
+      onSaved: () => this._profileSaved(Boolean(puppy)) });
+  }
+
+  _profileSaved(wasEdit) {
+    this._saveFeedback = text(this._hass, wasEdit ? "puppySaved" : "puppyAdded");
+    if (this._feedbackTimer) clearTimeout(this._feedbackTimer);
+    let feedback = this.shadowRoot.querySelector(".save-feedback");
+    if (!feedback) {
+      feedback = document.createElement("div");
+      feedback.className = "save-feedback";
+      feedback.setAttribute("role", "status");
+      this.shadowRoot.querySelector(".top")?.after(feedback);
+    }
+    feedback.textContent = this._saveFeedback;
+    this._feedbackTimer = setTimeout(() => {
+      this._saveFeedback = "";
+      this.shadowRoot.querySelector(".save-feedback")?.remove();
+      this._feedbackTimer = null;
+    }, 6000);
+    void this._queueRefresh();
   }
 }
 
