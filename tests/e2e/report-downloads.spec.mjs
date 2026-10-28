@@ -173,8 +173,8 @@ async function mountReport(page, config = {}, storedState = null, logoUrl = "") 
 
   const card = page.locator("puppy-tracker-report-card");
   await expect(card.locator("#pdf")).toBeVisible();
-  await expect(card.locator("#csv")).toBeVisible();
-  await expect(card.locator("#json")).toBeVisible();
+  await expect(card.locator("#csv")).toHaveCount(1);
+  await expect(card.locator("#json")).toHaveCount(1);
   await expect(card.locator(".title")).toHaveText("Report & export");
   await expect(card.locator(".sub")).toHaveText("Create a PDF report, export data or use a document template.");
   return card;
@@ -197,6 +197,22 @@ test("report selection exposes one clear whole-litter scope and historical puppi
   await expect(card.locator(".report-section").last()).toContainText("Data export and backup");
   await expect(card.locator(".report-section").first().locator("#csv, #json")).toHaveCount(0);
   await expect(card.locator(".report-section").last().locator("#pdf")).toHaveCount(0);
+});
+
+test("PDF and data export sections can be collapsed without losing selection @mobile @tablet", async ({ page }) => {
+  const card = await mountReport(page);
+  await expect(card.locator("#pdf-report")).toHaveAttribute("open", "");
+  await expect(card.locator("#data-export")).not.toHaveAttribute("open", "");
+  await card.locator("#data-export > summary").click();
+  await expect(card.locator("#csv")).toBeVisible();
+  await card.locator("#puppy").selectOption("p1");
+  await expect(card.locator("#data-export")).toHaveAttribute("open", "");
+  await card.locator("#pdf-report > summary").click();
+  await expect(card.locator("#pdf")).toBeHidden();
+  await card.locator("#range").selectOption("14d");
+  await expect(card.locator("#pdf-report")).not.toHaveAttribute("open", "");
+  await expect(card.locator("#puppy")).toHaveValue("p1");
+  await expect(card.locator("#contract-documents")).not.toHaveAttribute("open", "");
 });
 
 test("whole-litter PDF export keeps the puppy-only litter scope", async ({ page }) => {
@@ -468,6 +484,7 @@ test("mother export exposes its history scope and only downloads JSON", async ({
   await expect(card.locator(".preview")).toHaveCount(0);
   await expect(card.locator("#json")).toHaveText("Mother JSON backup");
   await card.locator("#mother-export-scope").selectOption("current");
+  await card.locator("#data-export > summary").click();
 
   const downloadPromise = page.waitForEvent("download");
   await card.locator("#json").click();
@@ -490,6 +507,7 @@ for (const [buttonId, format, filename] of [
 ]) {
   test(`${format.toUpperCase()} export triggers a downloadable file`, async ({ page }) => {
     const card = await mountReport(page);
+    if (format !== "pdf") await card.locator("#data-export > summary").click();
 
     const downloadPromise = page.waitForEvent("download");
     await card.locator(`#${buttonId}`).click();

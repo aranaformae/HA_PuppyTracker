@@ -13,6 +13,7 @@ for (const [variant, language] of [["pdf", "nl"], ["csv", "en"], ["json", "nl"],
       await card.locator("#mother-export-scope").selectOption("current");
     } else await card.locator("#puppy").selectOption("a2");
     const format = variant === "mother" ? "json" : variant;
+    if (format !== "pdf") await card.locator("#data-export > summary").click();
     const type = variant === "mother" ? MOTHER : EXPORT;
     await page.evaluate((type) => window.__async.hold.add(type), type);
     await card.locator(`#${format}`).click();
@@ -86,6 +87,7 @@ for (const change of ["revoke", "detach"]) {
     const downloads = [];
     page.on("download", (download) => downloads.push(download));
     await page.evaluate(() => window.__async.hold.add("puppy_tracker/export"));
+    await card.locator("#data-export > summary").click();
     await card.locator("#csv").click();
     await expect.poll(() => pendingCount(page, EXPORT)).toBe(1);
     await card.evaluate((el, change) => {

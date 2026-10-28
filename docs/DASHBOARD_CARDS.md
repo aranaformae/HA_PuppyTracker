@@ -84,6 +84,13 @@ otherwise the existing weighing surface opens in a bounded dialog. No dashboard
 URL or extra card is needed. The backup action creates the same complete JSON
 export as integration data management, including external stores and managed files.
 
+Administrators can also add or edit puppy profiles directly in the Home
+Workspace's **Pups** tab (the litter overview). Select the litter, use **Pup
+toevoegen** above the list, or tap the pencil beside a puppy to edit its name,
+collar colour, birth details, chip number and profile note. Save to update the
+profile; if someone changed the puppy meanwhile, reopen the editor and review
+the newer data. The integration's **Configure** route remains available.
+
 Full/litter JSON exports and successful full/litter file backups can complete the
 backup step. Merely generating a signed download link, a puppy-only export, PDF,
 CSV or a failed backup cannot. This tracks an exported backup, not proof that the
@@ -525,7 +532,10 @@ The complete workflow, matrix legend, inclusion rules and summary definitions
 are documented in
 [Owner puppy-preference matrix](OWNER_PREFERENCE_MATRIX.md).
 
-Report also remains separate:
+Report also remains separate. Its **PDF report** and **Data export and backup**
+sections can be expanded or collapsed independently. The PDF section starts
+open; data export starts closed. Opening the latter reveals CSV and the
+importable JSON backup. Their open state survives ordinary card refreshes.
 
 Its collapsible **Documents and contracts** panel creates and archives
 per-puppy contracts from editable text/field templates. It has its own litter,
