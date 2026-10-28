@@ -10,6 +10,26 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+## [0.34.2] - 2026-10-28
+
+### Added
+
+- Edit the selected puppy's profile directly from Growth Analysis using the
+  same form as the litter overview.
+
+### Changed
+
+- Collapse the PDF report and data export sections independently. The PDF
+  profile and language options now sit inside the PDF section.
+- Compact litter rows no longer appear clickable when details are hidden; the
+  explicit pencil remains available for editing.
+- The puppy profile form keeps keyboard focus inside the dialog and blocks
+  background interaction and scrolling until it closes.
+
+### Fixed
+
+- Confirm saved puppy details even if the subsequent overview refresh fails.
+
 ## [0.34.1] - 2026-10-28
 
 ### Added
@@ -334,7 +354,8 @@ for explicit assignment. See [storage migrations](docs/storage-migrations.md#own
 
 - Separated daily execution from schedule management in Care workspace navigation.
 
-[Unreleased]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.34.1...HEAD
+[Unreleased]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.34.2...HEAD
+[0.34.2]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.34.1...v0.34.2
 [0.34.1]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.34.0...v0.34.1
 [0.34.0]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.33.0...v0.34.0
 [0.33.0]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.32.6...v0.33.0
