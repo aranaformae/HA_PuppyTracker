@@ -45,85 +45,121 @@ function navigationGroups(preset, tabs) {
   ].filter((group) => group.tabs.length);
 }
 
-const EDITOR_FIELDS = {
+const PRESET_OPTION_FIELDS = {
+  show_summary: { name: "show_summary", default: true, selector: { boolean: {} } },
+  show_today_only: { name: "show_today_only", default: false, selector: { boolean: {} } },
+  default_selected: { name: "default_selected", default: "all", selector: { select: { mode: "dropdown", options: ["all", "litter", "mother", "puppy"] } } },
+  puppy_id: { name: "puppy_id", default: "", selector: { text: {} } },
+  show_bulk_action: { name: "show_bulk_action", default: true, selector: { boolean: {} } },
+};
+
+const SURFACE_EDITOR_FIELDS = {
+  attention: {
+    attention_max_items: { name: "attention_max_items", surface: "attention", key: "max_items", default: 25, selector: { number: { min: 5, max: 100, step: 5, mode: "box" } } },
+    attention_compact: { name: "attention_compact", surface: "attention", key: "compact", default: false, selector: { boolean: {} } },
+  },
+  puppies: {
+    puppies_active_only: { name: "puppies_active_only", surface: "puppies", key: "active_only", default: true, selector: { boolean: {} } },
+    puppies_show_details: { name: "puppies_show_details", surface: "puppies", key: "show_details", default: true, selector: { boolean: {} } },
+    puppies_default_sort: { name: "puppies_default_sort", surface: "puppies", key: "default_sort", default: "name", selector: { select: { mode: "dropdown", options: ["name", "weight", "growth24", "last", "attention"] } } },
+  },
+  weighing: {
+    weighing_show_puppies: { name: "weighing_show_puppies", surface: "weighing", key: "show_puppies", default: true, selector: { boolean: {} } },
+    weighing_show_details: { name: "weighing_show_details", surface: "weighing", key: "show_details", default: true, selector: { boolean: {} } },
+  },
+  analysis: {
+    analysis_default_range: { name: "analysis_default_range", surface: "analysis", key: "default_range", default: "7d", selector: { select: { mode: "dropdown", options: ["24h", "3d", "7d", "14d", "30d", "all"] } } },
+    analysis_default_metric: { name: "analysis_default_metric", surface: "analysis", key: "default_metric", default: "weight", selector: { select: { mode: "dropdown", options: ["weight", "growth24", "growth48", "growth72", "weightAverage48", "growthBirth"] } } },
+    analysis_show_summary: { name: "analysis_show_summary", surface: "analysis", key: "show_summary", default: true, selector: { boolean: {} } },
+    analysis_show_puppy_cards: { name: "analysis_show_puppy_cards", surface: "analysis", key: "show_puppy_cards", default: true, selector: { boolean: {} } },
+    analysis_show_advanced_analysis: { name: "analysis_show_advanced_analysis", surface: "analysis", key: "show_advanced_analysis", default: false, selector: { boolean: {} } },
+    analysis_show_growth_milestones: { name: "analysis_show_growth_milestones", surface: "analysis", key: "show_growth_milestones", default: true, selector: { boolean: {} } },
+    analysis_show_eight_week_weight: { name: "analysis_show_eight_week_weight", surface: "analysis", key: "show_eight_week_weight", default: true, selector: { boolean: {} } },
+    analysis_show_milestone_chart_annotations: { name: "analysis_show_milestone_chart_annotations", surface: "analysis", key: "show_milestone_chart_annotations", default: true, selector: { boolean: {} } },
+  },
+  dossier: {
+    dossier_show_profile_note: { name: "dossier_show_profile_note", surface: "dossier", key: "show_profile_note", default: true, selector: { boolean: {} } },
+    dossier_show_history: { name: "dossier_show_history", surface: "dossier", key: "show_history", default: true, selector: { boolean: {} } },
+    dossier_show_weights: { name: "dossier_show_weights", surface: "dossier", key: "show_weights", default: true, selector: { boolean: {} } },
+    dossier_show_details: { name: "dossier_show_details", surface: "dossier", key: "show_details", default: false, selector: { boolean: {} } },
+    dossier_max_items: { name: "dossier_max_items", surface: "dossier", key: "max_items", default: 250, selector: { number: { min: 25, max: 500, step: 25, mode: "box" } } },
+    dossier_max_height: { name: "dossier_max_height", surface: "dossier", key: "max_height", default: 520, selector: { number: { min: 240, max: 900, step: 20, mode: "box" } } },
+  },
+  temperature: {
+    temperature_default_range: { name: "temperature_default_range", surface: "temperature", key: "default_range", default: "3d", selector: { select: { mode: "dropdown", options: ["24h", "3d", "7d", "14d", "all"] } } },
+    temperature_history_limit: { name: "temperature_history_limit", surface: "temperature", key: "history_limit", default: 10, selector: { number: { min: 3, max: 50, step: 1, mode: "box" } } },
+    temperature_max_height: { name: "temperature_max_height", surface: "temperature", key: "max_height", default: 520, selector: { number: { min: 240, max: 900, step: 20, mode: "box" } } },
+    temperature_chart_height: { name: "temperature_chart_height", surface: "temperature", key: "chart_height", default: 170, selector: { number: { min: 100, max: 500, step: 10, mode: "box" } } },
+    temperature_history_sort: { name: "temperature_history_sort", surface: "temperature", key: "history_sort", default: "newest", selector: { select: { mode: "dropdown", options: ["newest", "oldest"] } } },
+    temperature_show_selectors: { name: "temperature_show_selectors", surface: "temperature", key: "show_selectors", default: true, selector: { boolean: {} } },
+    temperature_show_thresholds: { name: "temperature_show_thresholds", surface: "temperature", key: "show_thresholds", default: false, selector: { boolean: {} } },
+    temperature_show_latest: { name: "temperature_show_latest", surface: "temperature", key: "show_latest", default: true, selector: { boolean: {} } },
+    temperature_show_chart: { name: "temperature_show_chart", surface: "temperature", key: "show_chart", default: true, selector: { boolean: {} } },
+    temperature_show_history: { name: "temperature_show_history", surface: "temperature", key: "show_history", default: true, selector: { boolean: {} } },
+    temperature_show_editor: { name: "temperature_show_editor", surface: "temperature", key: "show_editor", default: true, selector: { boolean: {} } },
+  },
+  behavior: {
+    behavior_show_profile: { name: "behavior_show_profile", surface: "behavior", key: "show_profile", default: true, selector: { boolean: {} } },
+    behavior_show_history: { name: "behavior_show_history", surface: "behavior", key: "show_history", default: true, selector: { boolean: {} } },
+    behavior_max_items: { name: "behavior_max_items", surface: "behavior", key: "max_items", default: 20, selector: { number: { min: 5, max: 100, step: 5, mode: "box" } } },
+  },
+  care: {
+    care_show_day_selector: { name: "care_show_day_selector", surface: "care", key: "show_day_selector", default: true, selector: { boolean: {} } },
+    care_days_ahead: { name: "care_days_ahead", surface: "care", key: "days_ahead", default: 14, selector: { number: { min: 0, max: 365, step: 1, mode: "box" } } },
+    care_max_items: { name: "care_max_items", surface: "care", key: "max_items", default: 50, selector: { number: { min: 5, max: 200, step: 5, mode: "box" } } },
+  },
+  calculator: {
+    calculator_active_only: { name: "calculator_active_only", surface: "calculator", key: "active_only", default: true, selector: { boolean: {} } },
+    calculator_stale_after_hours: { name: "calculator_stale_after_hours", surface: "calculator", key: "stale_after_hours", default: 24, selector: { number: { min: 1, max: 168, step: 1, mode: "box" } } },
+    calculator_max_height: { name: "calculator_max_height", surface: "calculator", key: "max_height", default: 520, selector: { number: { min: 240, max: 900, step: 20, mode: "box" } } },
+    calculator_default_unit: { name: "calculator_default_unit", surface: "calculator", key: "default_unit", default: "ml", selector: { text: {} } },
+    calculator_default_mode: { name: "calculator_default_mode", surface: "calculator", key: "default_mode", default: "per_kg", selector: { select: { mode: "dropdown", options: ["per_kg", "feeding"] } } },
+  },
+  programs: {
+    programs_show_disabled: { name: "programs_show_disabled", surface: "programs", key: "show_disabled", default: true, selector: { boolean: {} } },
+    programs_max_items: { name: "programs_max_items", surface: "programs", key: "max_items", default: 50, selector: { number: { min: 5, max: 200, step: 5, mode: "box" } } },
+    programs_compact: { name: "programs_compact", surface: "programs", key: "compact", default: false, selector: { boolean: {} } },
+    programs_sort_order: { name: "programs_sort_order", surface: "programs", key: "sort_order", default: "schedule", selector: { select: { mode: "dropdown", options: ["schedule", "title"] } } },
+  },
+};
+
+const PRESET_FIELD_LAYOUT = {
   home: [
-    { name: "show_summary", default: true, selector: { boolean: {} } },
-    { name: "show_today_only", default: false, selector: { boolean: {} } },
-    { name: "attention_max_items", surface: "attention", key: "max_items", default: 25, selector: { number: { min: 5, max: 100, step: 5, mode: "box" } } },
-    { name: "attention_compact", surface: "attention", key: "compact", default: false, selector: { boolean: {} } },
-    { name: "puppies_active_only", surface: "puppies", key: "active_only", default: true, selector: { boolean: {} } },
-    { name: "puppies_show_details", surface: "puppies", key: "show_details", default: true, selector: { boolean: {} } },
-    { name: "puppies_default_sort", surface: "puppies", key: "default_sort", default: "name", selector: { select: { mode: "dropdown", options: ["name", "weight", "growth24", "last", "attention"] } } },
+    "show_summary", "show_today_only", "attention.attention_max_items", "attention.attention_compact", "puppies.puppies_active_only", "puppies.puppies_show_details", "puppies.puppies_default_sort",
   ],
   growth: [
-    { name: "weighing_show_puppies", surface: "weighing", key: "show_puppies", default: true, selector: { boolean: {} } },
-    { name: "weighing_show_details", surface: "weighing", key: "show_details", default: true, selector: { boolean: {} } },
-    { name: "analysis_default_range", surface: "analysis", key: "default_range", default: "7d", selector: { select: { mode: "dropdown", options: ["24h", "3d", "7d", "14d", "30d", "all"] } } },
-    { name: "analysis_default_metric", surface: "analysis", key: "default_metric", default: "weight", selector: { select: { mode: "dropdown", options: ["weight", "growth24", "growth48", "growth72", "weightAverage48", "growthBirth"] } } },
-    { name: "analysis_show_summary", surface: "analysis", key: "show_summary", default: true, selector: { boolean: {} } },
-    { name: "analysis_show_puppy_cards", surface: "analysis", key: "show_puppy_cards", default: true, selector: { boolean: {} } },
-    { name: "analysis_show_advanced_analysis", surface: "analysis", key: "show_advanced_analysis", default: false, selector: { boolean: {} } },
-    { name: "analysis_show_growth_milestones", surface: "analysis", key: "show_growth_milestones", default: true, selector: { boolean: {} } },
-    { name: "analysis_show_eight_week_weight", surface: "analysis", key: "show_eight_week_weight", default: true, selector: { boolean: {} } },
-    { name: "analysis_show_milestone_chart_annotations", surface: "analysis", key: "show_milestone_chart_annotations", default: true, selector: { boolean: {} } },
+    "weighing.weighing_show_puppies", "weighing.weighing_show_details", "analysis.analysis_default_range", "analysis.analysis_default_metric", "analysis.analysis_show_summary", "analysis.analysis_show_puppy_cards", "analysis.analysis_show_advanced_analysis", "analysis.analysis_show_growth_milestones", "analysis.analysis_show_eight_week_weight", "analysis.analysis_show_milestone_chart_annotations",
   ],
   journal: [
-    { name: "default_selected", default: "all", selector: { select: { mode: "dropdown", options: ["all", "litter", "mother", "puppy"] } } },
-    { name: "puppy_id", default: "", selector: { text: {} } },
-    { name: "show_bulk_action", default: true, selector: { boolean: {} } },
-    { name: "dossier_show_profile_note", surface: "dossier", key: "show_profile_note", default: true, selector: { boolean: {} } },
-    { name: "dossier_show_history", surface: "dossier", key: "show_history", default: true, selector: { boolean: {} } },
-    { name: "dossier_show_weights", surface: "dossier", key: "show_weights", default: true, selector: { boolean: {} } },
-    { name: "dossier_show_details", surface: "dossier", key: "show_details", default: false, selector: { boolean: {} } },
-    { name: "dossier_max_items", surface: "dossier", key: "max_items", default: 250, selector: { number: { min: 25, max: 500, step: 25, mode: "box" } } },
-    { name: "dossier_max_height", surface: "dossier", key: "max_height", default: 520, selector: { number: { min: 240, max: 900, step: 20, mode: "box" } } },
-    { name: "temperature_default_range", surface: "temperature", key: "default_range", default: "3d", selector: { select: { mode: "dropdown", options: ["24h", "3d", "7d", "14d", "all"] } } },
-    { name: "temperature_history_limit", surface: "temperature", key: "history_limit", default: 10, selector: { number: { min: 3, max: 50, step: 1, mode: "box" } } },
-    { name: "temperature_max_height", surface: "temperature", key: "max_height", default: 520, selector: { number: { min: 240, max: 900, step: 20, mode: "box" } } },
-    { name: "temperature_chart_height", surface: "temperature", key: "chart_height", default: 170, selector: { number: { min: 100, max: 500, step: 10, mode: "box" } } },
-    { name: "temperature_history_sort", surface: "temperature", key: "history_sort", default: "newest", selector: { select: { mode: "dropdown", options: ["newest", "oldest"] } } },
-    { name: "temperature_show_selectors", surface: "temperature", key: "show_selectors", default: true, selector: { boolean: {} } },
-    { name: "temperature_show_thresholds", surface: "temperature", key: "show_thresholds", default: false, selector: { boolean: {} } },
-    { name: "temperature_show_latest", surface: "temperature", key: "show_latest", default: true, selector: { boolean: {} } },
-    { name: "temperature_show_chart", surface: "temperature", key: "show_chart", default: true, selector: { boolean: {} } },
-    { name: "temperature_show_history", surface: "temperature", key: "show_history", default: true, selector: { boolean: {} } },
-    { name: "temperature_show_editor", surface: "temperature", key: "show_editor", default: true, selector: { boolean: {} } },
-    { name: "behavior_show_profile", surface: "behavior", key: "show_profile", default: true, selector: { boolean: {} } },
-    { name: "behavior_show_history", surface: "behavior", key: "show_history", default: true, selector: { boolean: {} } },
-    { name: "behavior_max_items", surface: "behavior", key: "max_items", default: 20, selector: { number: { min: 5, max: 100, step: 5, mode: "box" } } },
+    "default_selected", "puppy_id", "show_bulk_action", "dossier.dossier_show_profile_note", "dossier.dossier_show_history", "dossier.dossier_show_weights", "dossier.dossier_show_details", "dossier.dossier_max_items", "dossier.dossier_max_height", "temperature.temperature_default_range", "temperature.temperature_history_limit", "temperature.temperature_max_height", "temperature.temperature_chart_height", "temperature.temperature_history_sort", "temperature.temperature_show_selectors", "temperature.temperature_show_thresholds", "temperature.temperature_show_latest", "temperature.temperature_show_chart", "temperature.temperature_show_history", "temperature.temperature_show_editor", "behavior.behavior_show_profile", "behavior.behavior_show_history", "behavior.behavior_max_items",
   ],
   care: [
-    { name: "care_show_day_selector", surface: "care", key: "show_day_selector", default: true, selector: { boolean: {} } },
-    { name: "care_days_ahead", surface: "care", key: "days_ahead", default: 14, selector: { number: { min: 0, max: 365, step: 1, mode: "box" } } },
-    { name: "care_max_items", surface: "care", key: "max_items", default: 50, selector: { number: { min: 5, max: 200, step: 5, mode: "box" } } },
-    { name: "calculator_active_only", surface: "calculator", key: "active_only", default: true, selector: { boolean: {} } },
-    { name: "calculator_stale_after_hours", surface: "calculator", key: "stale_after_hours", default: 24, selector: { number: { min: 1, max: 168, step: 1, mode: "box" } } },
-    { name: "calculator_max_height", surface: "calculator", key: "max_height", default: 520, selector: { number: { min: 240, max: 900, step: 20, mode: "box" } } },
-    { name: "calculator_default_unit", surface: "calculator", key: "default_unit", default: "ml", selector: { text: {} } },
-    { name: "calculator_default_mode", surface: "calculator", key: "default_mode", default: "per_kg", selector: { select: { mode: "dropdown", options: ["per_kg", "feeding"] } } },
-    { name: "programs_show_disabled", surface: "programs", key: "show_disabled", default: true, selector: { boolean: {} } },
-    { name: "programs_max_items", surface: "programs", key: "max_items", default: 50, selector: { number: { min: 5, max: 200, step: 5, mode: "box" } } },
-    { name: "programs_compact", surface: "programs", key: "compact", default: false, selector: { boolean: {} } },
-    { name: "programs_sort_order", surface: "programs", key: "sort_order", default: "schedule", selector: { select: { mode: "dropdown", options: ["schedule", "title"] } } },
+    "care.care_show_day_selector", "care.care_days_ahead", "care.care_max_items", "calculator.calculator_active_only", "calculator.calculator_stale_after_hours", "calculator.calculator_max_height", "calculator.calculator_default_unit", "calculator.calculator_default_mode", "programs.programs_show_disabled", "programs.programs_max_items", "programs.programs_compact", "programs.programs_sort_order",
   ],
   mobile: [
-    { name: "default_selected", default: "litter", selector: { select: { mode: "dropdown", options: ["litter", "mother", "puppy"] } } },
-    { name: "puppy_id", default: "", selector: { text: {} } },
-    { name: "show_today_only", default: false, selector: { boolean: {} } },
-    { name: "weighing_show_details", surface: "weighing", key: "show_details", default: true, selector: { boolean: {} } },
-    { name: "care_show_day_selector", surface: "care", key: "show_day_selector", default: false, selector: { boolean: {} } },
-    { name: "care_days_ahead", surface: "care", key: "days_ahead", default: 0, selector: { number: { min: 0, max: 365, step: 1, mode: "box" } } },
-    { name: "care_max_items", surface: "care", key: "max_items", default: 50, selector: { number: { min: 5, max: 200, step: 5, mode: "box" } } },
-    { name: "calculator_active_only", surface: "calculator", key: "active_only", default: true, selector: { boolean: {} } },
-    { name: "calculator_stale_after_hours", surface: "calculator", key: "stale_after_hours", default: 24, selector: { number: { min: 1, max: 168, step: 1, mode: "box" } } },
-    { name: "calculator_max_height", surface: "calculator", key: "max_height", default: 440, selector: { number: { min: 240, max: 900, step: 20, mode: "box" } } },
-    { name: "calculator_default_unit", surface: "calculator", key: "default_unit", default: "ml", selector: { text: {} } },
-    { name: "calculator_default_mode", surface: "calculator", key: "default_mode", default: "per_kg", selector: { select: { mode: "dropdown", options: ["per_kg", "feeding"] } } },
-    { name: "behavior_show_profile", surface: "behavior", key: "show_profile", default: true, selector: { boolean: {} } },
-    { name: "behavior_show_history", surface: "behavior", key: "show_history", default: false, selector: { boolean: {} } },
-    { name: "behavior_max_items", surface: "behavior", key: "max_items", default: 10, selector: { number: { min: 5, max: 100, step: 5, mode: "box" } } },
+    "default_selected_mobile", "puppy_id", "show_today_only", "weighing.weighing_show_details", "care.care_show_day_selector", "care.care_days_ahead", "care.care_max_items", "calculator.calculator_active_only", "calculator.calculator_stale_after_hours", "calculator.calculator_max_height", "calculator.calculator_default_unit", "calculator.calculator_default_mode", "behavior.behavior_show_profile", "behavior.behavior_show_history", "behavior.behavior_max_items",
   ],
 };
+
+const PRESET_FIELD_DEFAULTS = {
+  mobile: {
+    care_show_day_selector: false,
+    care_days_ahead: 0,
+    calculator_max_height: 440,
+    behavior_show_history: false,
+    behavior_max_items: 10,
+  },
+};
+
+PRESET_OPTION_FIELDS.default_selected_mobile = { ...PRESET_OPTION_FIELDS.default_selected, default: "litter", selector: { select: { mode: "dropdown", options: ["litter", "mother", "puppy"] } } };
+const EDITOR_FIELDS = Object.fromEntries(Object.entries(PRESET_FIELD_LAYOUT).map(([preset, fields]) => [
+  preset, fields.map((path) => {
+    const [surface, name] = path.includes(".") ? path.split(".") : [null, path];
+    const field = surface ? SURFACE_EDITOR_FIELDS[surface][name] : PRESET_OPTION_FIELDS[name];
+    const override = PRESET_FIELD_DEFAULTS[preset]?.[name];
+    return override === undefined ? field : { ...field, default: override };
+  }),
+]));
 
 const TEXT = {
   nl: {
@@ -731,8 +767,12 @@ class PuppyTrackerWorkspaceCardEditor extends HTMLElement {
     ];
 
     const groups = new Map();
-    const selectedScope = this._formData().default_selected;
+    const formData = this._formData();
+    const selectedScope = formData.default_selected;
     for (const field of EDITOR_FIELDS[preset]) {
+      if (field.name === "temperature_chart_height" && formData.temperature_show_chart === false) continue;
+      if (["temperature_history_limit", "temperature_history_sort", "temperature_max_height"].includes(field.name)
+        && formData.temperature_show_history === false) continue;
       const group = field.surface || "presetOptions";
       if (!groups.has(group)) groups.set(group, []);
       if (field.name === "puppy_id" && selectedScope !== "puppy") continue;
@@ -766,7 +806,8 @@ class PuppyTrackerWorkspaceCardEditor extends HTMLElement {
     const form = this.shadowRoot?.querySelector("ha-form");
     if (!form) return;
     form.hass = this._hass;
-    const schemaKey = `${this._preset()}:${this._language}:${this._formData().default_selected}`;
+    const data = this._formData();
+    const schemaKey = `${this._preset()}:${this._language}:${data.default_selected}:${data.temperature_show_chart}:${data.temperature_show_history}`;
     if (schemaKey !== this._schemaKey) {
       const definition = this._formDefinition();
       form.schema = definition.schema;
@@ -815,7 +856,10 @@ class PuppyTrackerWorkspaceCardEditor extends HTMLElement {
         this._assignOptional(next, field.name, value);
       }
     }
-    this._commit(next, next.default_selected !== this._config.default_selected);
+    const visibilityChanged = next.default_selected !== this._config.default_selected
+      || next.tab_config?.temperature?.show_chart !== this._config.tab_config?.temperature?.show_chart
+      || next.tab_config?.temperature?.show_history !== this._config.tab_config?.temperature?.show_history;
+    this._commit(next, visibilityChanged);
   }
 
   _commit(config, rebuild) {

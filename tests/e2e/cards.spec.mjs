@@ -299,6 +299,33 @@ test("workspace editor explains all scope and shows puppy ID only for puppy scop
   expect(result.helper).toContain("Quick log and Temperature start at Litter");
 });
 
+test("workspace editor keeps shared care defaults and hides disabled temperature details", async ({ page }) => {
+  await openFixture(page, true);
+  const result = await page.evaluate(() => {
+    const editor = customElements.get("puppy-tracker-workspace-card").getConfigElement();
+    editor.hass = { language: "en", locale: { language: "en" } };
+    document.body.append(editor);
+    const form = editor.shadowRoot.querySelector("ha-form");
+    editor.setConfig({ preset: "care" });
+    const care = { day: form.data.care_show_day_selector, ahead: form.data.care_days_ahead, height: form.data.calculator_max_height };
+    editor.setConfig({ preset: "mobile" });
+    const mobile = { day: form.data.care_show_day_selector, ahead: form.data.care_days_ahead, height: form.data.calculator_max_height, scope: form.data.default_selected };
+    editor.setConfig({ preset: "journal" });
+    const visible = () => form.schema.find((item) => item.name === "options_temperature").schema.map((item) => item.name);
+    const before = visible();
+    form.dispatchEvent(new CustomEvent("value-changed", { detail: { value: { ...form.data, temperature_show_chart: false, temperature_show_history: false } } }));
+    const after = visible();
+    editor.remove();
+    return { care, mobile, before, after };
+  });
+  expect(result.care).toEqual({ day: true, ahead: 14, height: 520 });
+  expect(result.mobile).toEqual({ day: false, ahead: 0, height: 440, scope: "litter" });
+  expect(result.before).toContain("temperature_chart_height");
+  expect(result.after).not.toContain("temperature_chart_height");
+  expect(result.after).not.toContain("temperature_history_limit");
+  expect(result.after).toContain("temperature_show_chart");
+});
+
 test("constructs and renders every card with its stub config", { tag: "@cross-browser" }, async ({ page }) => {
   const pageErrors = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
