@@ -176,7 +176,7 @@ async function mountReport(page, config = {}, storedState = null, logoUrl = "") 
   await expect(card.locator("#csv")).toBeVisible();
   await expect(card.locator("#json")).toBeVisible();
   await expect(card.locator(".title")).toHaveText("Report & export");
-  await expect(card.locator(".sub")).toHaveText("Print-friendly puppy or litter report with existing CSV/JSON export.");
+  await expect(card.locator(".sub")).toHaveText("Create a PDF report, export data or use a document template.");
   return card;
 }
 
@@ -193,6 +193,10 @@ test("report selection exposes one clear whole-litter scope and historical puppi
   await expect(card.locator("#puppy")).toHaveValue("__litter__");
   await expect(card.locator(".box").first().locator("b")).toHaveText("2");
   await expect(card.locator(".field label").nth(1)).toHaveText("Selection");
+  await expect(card.locator(".report-section").first()).toContainText("PDF report");
+  await expect(card.locator(".report-section").last()).toContainText("Data export and backup");
+  await expect(card.locator(".report-section").first().locator("#csv, #json")).toHaveCount(0);
+  await expect(card.locator(".report-section").last().locator("#pdf")).toHaveCount(0);
 });
 
 test("whole-litter PDF export keeps the puppy-only litter scope", async ({ page }) => {
@@ -462,7 +466,7 @@ test("mother export exposes its history scope and only downloads JSON", async ({
   await expect(card.locator("#profile")).toHaveCount(0);
   await expect(card.locator(".pdf-sections")).toHaveCount(0);
   await expect(card.locator(".preview")).toHaveCount(0);
-  await expect(card.locator("#json")).toHaveText("Mother JSON");
+  await expect(card.locator("#json")).toHaveText("Mother JSON backup");
   await card.locator("#mother-export-scope").selectOption("current");
 
   const downloadPromise = page.waitForEvent("download");
