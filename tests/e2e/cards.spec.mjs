@@ -135,6 +135,31 @@ test("workspace hides the litter selector on every composed surface", async ({ p
   expect(result.temperatureRangeSelector).toBe(true);
 });
 
+test("compact litter rows only expose their explicit edit action", async ({ page }) => {
+  await openFixture(page, true);
+  const result = await page.evaluate(() => {
+    const card = document.createElement("puppy-tracker-litter-card");
+    card.setConfig({ show_details: false });
+    card._hass = { language: "nl", user: { is_admin: true } };
+    card._selectedLitterId = "l1";
+    card._data = { can_manage_measurements: true,
+      litter: { id: "l1", name: "Nest", active: true, summary: {} },
+      puppies: [{ id: "p1", name: "Nova", updated_at: "v1", summary: {} }] };
+    document.querySelector("#cards").append(card);
+    card._render();
+    const row = card.shadowRoot.querySelector(".puppy-row");
+    const cursor = getComputedStyle(row).cursor;
+    row.click();
+    const expanded = card._expandedPuppyId;
+    card.shadowRoot.querySelector(".edit-puppy").click();
+    const editorOpened = Boolean(document.querySelector("puppy-tracker-puppy-profile-editor"));
+    document.querySelector("puppy-tracker-puppy-profile-editor")?.remove();
+    card.remove();
+    return { cursor, expanded, editorOpened };
+  });
+  expect(result).toEqual({ cursor: "auto", expanded: null, editorOpened: true });
+});
+
 test("workspace localizes internal surfaces inside its shadow root", async ({ page }) => {
   await openFixture(page, true);
   await page.evaluate(() => {
