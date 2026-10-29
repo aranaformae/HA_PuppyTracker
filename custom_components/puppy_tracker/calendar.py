@@ -18,6 +18,11 @@ from .care_occurrences import derive_litter_care_occurrences
 from .care_status import care_occurrence_status, index_care_result_records
 from .const import DOMAIN, SIGNAL_DASHBOARD_UPDATE, SIGNAL_NEW_LITTER
 from .dog_identity import puppy_selector_label
+from .recurring_reminders import (
+    completion_state_from_records,
+    next_due_at,
+    reminder_owner_records,
+)
 from .runtime import PuppyTrackerRuntimeData
 from .upcoming import upcoming_actions
 
@@ -51,13 +56,67 @@ def _overlaps(event: CalendarEvent, start: datetime, end: datetime) -> bool:
     return event.start_datetime_local < end and event.end_datetime_local > start
 
 
+def _recurring_reminder_events(
+    runtime: PuppyTrackerRuntimeData,
+    litter_id: str,
+    litter: dict[str, Any],
+    puppies: dict[str, dict[str, Any]],
+    start: datetime,
+    end: datetime,
+) -> list[CalendarEvent]:
+    """Show the one currently open moment of each valid reminder."""
+    store = runtime.recurring_reminders
+    if store is None:
+        return []
+    storage = runtime.storage
+    now = dt_util.now()
+    histories: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    events: list[CalendarEvent] = []
+    for reminder in store.get_reminders(litter_id=litter_id):
+        if reminder.get("enabled", True) is False:
+            continue
+        scope = reminder.get("owner_scope")
+        owner_id = str(reminder.get("owner_id") or "")
+        if scope == "puppy":
+            puppy = puppies.get(owner_id)
+            if puppy is None:
+                continue
+            owner_label = puppy_selector_label(puppy)
+        elif scope == "mother":
+            if owner_id != str(litter.get("mother_id") or ""):
+                continue
+            owner_label = "Moederhond"
+        elif scope == "litter":
+            owner_label = "Hele nest"
+        else:
+            continue
+        owner_key = (str(scope), owner_id)
+        if owner_key not in histories:
+            try:
+                histories[owner_key] = reminder_owner_records(storage, reminder)
+            except ValueError:
+                continue
+        effective = completion_state_from_records(reminder, histories[owner_key], now)
+        due = next_due_at(effective, now=now)
+        if due is None:
+            continue
+        event = CalendarEvent(
+            start=due, end=due + CARE_EVENT_DURATION,
+            summary=f"Herinnering · {reminder['title']} · {owner_label}",
+            uid=f"reminder:{reminder['id']}",
+        )
+        if _overlaps(event, start, end):
+            events.append(event)
+    return events
+
+
 def care_calendar_events(
     runtime: PuppyTrackerRuntimeData,
     litter_id: str,
     start: datetime,
     end: datetime,
 ) -> list[CalendarEvent]:
-    """Derive open dossier follow-ups and unfinished care occurrences on demand."""
+    """Derive open follow-ups, care occurrences and reminders on demand."""
     if end <= start:
         return []
     storage = runtime.storage
@@ -126,6 +185,7 @@ def care_calendar_events(
                 status = care_occurrence_status(occurrence, result_records[puppy_id].get(occurrence["id"], []))
                 if status["status"] not in ("completed", "missed"):
                     events.append(event)
+    events.extend(_recurring_reminder_events(runtime, litter_id, litter, puppies, start, end))
     return sorted(events, key=lambda item: (item.start_datetime_local, item.uid or ""))
 
 

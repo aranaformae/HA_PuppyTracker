@@ -419,12 +419,14 @@ independent state model. The weighing-station controls use runtime selection
 and session state, while a saved weight always enters authoritative
 measurement storage.
 
-The read-only per-litter calendar derives open dossier follow-ups and unfinished
-care-program occurrences on demand. It does not copy scheduled items into a
-new store or expose historical notes as entity attributes. The calendar
-refreshes after dashboard mutations and on a 30-minute timer; date-range
-queries derive only the returned projection, with completion checked against
-the same active dossier records used elsewhere.
+The read-only per-litter calendar derives open dossier follow-ups, unfinished
+care-program occurrences and the next open moment of each recurring reminder
+on demand. It does not copy scheduled items into a new store or expose
+historical notes as entity attributes. Reminder completion is projected from
+active owner-specific dossier records before calculating its effective due
+time, including a bound postponement; it does not create speculative future
+slots. The calendar refreshes after dashboard mutations and on a 30-minute
+timer. Date-range queries return only events overlapping the requested range.
 
 Eight Home Assistant actions form the supported automation boundary:
 

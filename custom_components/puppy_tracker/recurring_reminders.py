@@ -360,7 +360,10 @@ def reminder_owner_records(storage, reminder: dict[str, Any]) -> list[dict[str, 
     return storage.get_records(litter_id, owner_id if scope == "puppy" else None)
 
 
-def _completion_state(reminder: dict[str, Any], records: list[dict[str, Any]], now: datetime) -> dict[str, Any]:
+def completion_state_from_records(
+    reminder: dict[str, Any], records: list[dict[str, Any]], now: datetime,
+) -> dict[str, Any]:
+    """Project the current reminder baseline from active dossier history."""
     manual = _parse_datetime(reminder.get("manual_completed_at"))
     if manual is None and not reminder.get("last_completed_record_id"):
         manual = _parse_datetime(reminder.get("last_completed_at"))
@@ -490,7 +493,7 @@ class RecurringReminderStore:
             if reminder is None or not reminder.get("enabled", True):
                 raise ValueError("This reminder no longer exists or is disabled. Refresh the card")
             now = dt_util.now()
-            effective = _completion_state(reminder, reminder_owner_records(storage, reminder), now)
+            effective = completion_state_from_records(reminder, reminder_owner_records(storage, reminder), now)
             due = _validated_datetime(due_at, field="due_at")
             if (reminder.get("updated_at") != expected_updated_at or effective != reminder
                 or due is None or next_due_at(effective, now=now) != due):
@@ -545,7 +548,7 @@ class RecurringReminderStore:
                         histories[owner] = reminder_owner_records(storage, reminder)
                     except ValueError:
                         histories[owner] = []
-                updated = _completion_state(reminder, histories[owner], now)
+                updated = completion_state_from_records(reminder, histories[owner], now)
                 if updated != reminder:
                     updated["updated_at"] = now.isoformat()
                     self._data["reminders"][reminder["id"]] = updated
@@ -582,7 +585,7 @@ class RecurringReminderStore:
             if reminder.get("updated_at") != expected_updated_at:
                 raise ValueError("This reminder has changed. Refresh the card")
             now = dt_util.now()
-            effective = _completion_state(reminder, records, now)
+            effective = completion_state_from_records(reminder, records, now)
             if due is None or next_due_at(effective, now=now) != due:
                 raise ValueError("This scheduled moment has changed or was already completed. Refresh the card")
             occurred = _validated_datetime(occurred_at, field="occurred_at")
@@ -632,7 +635,7 @@ class RecurringReminderStore:
                     or not expected_record_updated_at or record.get("updated_at") != expected_record_updated_at):
                     raise ValueError("This execution has changed. Refresh the card")
                 history = [item for item in records if item.get("litter_id") == litter_id]
-                latest = _completion_state(reminder, history, dt_util.now())
+                latest = completion_state_from_records(reminder, history, dt_util.now())
                 if latest.get("last_completed_record_id") != record_id:
                     raise ValueError("A newer execution exists. Refresh the card")
 

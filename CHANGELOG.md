@@ -28,6 +28,8 @@ they have not been reconstructed as a complete historical changelog.
   moving, deleting or restoring an item from cards or automations.
 - Show pending dossier follow-ups and care-program moments in a read-only Home
   Assistant calendar per litter, without duplicating care history as entities.
+- Include each enabled recurring reminder's current due moment in that calendar,
+  reflecting completion and postponement without guessing future repetitions.
 
 ### Changed
 

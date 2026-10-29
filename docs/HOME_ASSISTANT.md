@@ -253,14 +253,16 @@ actions:
 
 Each litter has a read-only **planned care** calendar entity. Add that entity
 to a Home Assistant calendar card or use it as a calendar trigger. It shows
-open dossier follow-ups for the litter, its mother and active puppies, plus
-unfinished care-program moments for active puppies. Dossier follow-ups are
-all-day events; care-program moments use their scheduled time and a 30-minute
-display duration. Completing a follow-up or care-program moment removes that
-calendar event. Disabled programs and inactive litters or puppies are omitted.
-The calendar displays titles and puppy names but not notes, instructions or
-other historical dossier data. Recurring reminders are managed separately and
-are not yet projected into this calendar.
+open dossier follow-ups for the litter, its mother and active puppies,
+unfinished care-program moments for active puppies, and the **next open
+moment** of each enabled recurring reminder. Dossier follow-ups are all-day
+events; care-program moments and reminders use their scheduled time and a
+30-minute display duration. Completion removes a one-time reminder or moves a
+repeating reminder to its next due moment; postponement moves its current
+calendar event. The calendar does not predict later repetitions because their
+times can depend on completion. Disabled definitions and inactive litters or
+puppies are omitted. The calendar displays titles and puppy names but not
+notes, instructions or other historical dossier data.
 
 ### Back up to a file
 
