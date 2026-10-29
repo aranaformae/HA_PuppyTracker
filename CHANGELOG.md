@@ -10,6 +10,23 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-10-29
+
+### Added
+
+- Plan finite medication and deworming courses for selected puppies with fixed
+  dates and multiple daily times. Record each administration or missed moment
+  separately, stop a course with a reason, and follow progress per puppy.
+- Reuse treatment templates with relative duration and review possible overlaps
+  with care programs, reminders and dossier follow-up dates before saving.
+
+### Changed
+
+- Use consistent action labels across dossier, care, reminder and owner workflows.
+- Record course administrations in the dossier editor with editable actual
+  product, dose and time. Keep ordinary ENS/ESI result entry unchanged.
+- Include completed and missed treatment moments in the puppy PDF and backups.
+
 ## [0.34.2] - 2026-10-28
 
 ### Added
@@ -354,7 +371,8 @@ for explicit assignment. See [storage migrations](docs/storage-migrations.md#own
 
 - Separated daily execution from schedule management in Care workspace navigation.
 
-[Unreleased]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.34.2...HEAD
+[Unreleased]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.35.0...HEAD
+[0.35.0]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.34.2...v0.35.0
 [0.34.2]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.34.1...v0.34.2
 [0.34.1]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.34.0...v0.34.1
 [0.34.0]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.33.0...v0.34.0
