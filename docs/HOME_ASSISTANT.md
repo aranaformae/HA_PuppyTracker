@@ -249,6 +249,19 @@ actions:
       message: "Voeding geregistreerd voor {{ trigger.event.data.scope }}"
 ```
 
+### Planned care calendar
+
+Each litter has a read-only **planned care** calendar entity. Add that entity
+to a Home Assistant calendar card or use it as a calendar trigger. It shows
+open dossier follow-ups for the litter, its mother and active puppies, plus
+unfinished care-program moments for active puppies. Dossier follow-ups are
+all-day events; care-program moments use their scheduled time and a 30-minute
+display duration. Completing a follow-up or care-program moment removes that
+calendar event. Disabled programs and inactive litters or puppies are omitted.
+The calendar displays titles and puppy names but not notes, instructions or
+other historical dossier data. Recurring reminders are managed separately and
+are not yet projected into this calendar.
+
 ### Back up to a file
 
 ```yaml

@@ -26,6 +26,8 @@ they have not been reconstructed as a complete historical changelog.
   session completes, so automations can react without polling the dashboard.
 - Emit a privacy-conscious dossier change event after creating, changing,
   moving, deleting or restoring an item from cards or automations.
+- Show pending dossier follow-ups and care-program moments in a read-only Home
+  Assistant calendar per litter, without duplicating care history as entities.
 
 ### Changed
 

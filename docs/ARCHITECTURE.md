@@ -412,12 +412,19 @@ The old prerelease `puppy_weight_tracker` identity is intentionally not retained
 
 ### Home Assistant platform boundary
 
-The integration exposes sensor, binary-sensor, select, number, switch and
-button platforms. Per-puppy and per-litter entities are projections of the
+The integration exposes calendar, sensor, binary-sensor, select, number, switch
+and button platforms. Per-puppy and per-litter entities are projections of the
 same storage and metric functions used by the cards; they are not an
 independent state model. The weighing-station controls use runtime selection
 and session state, while a saved weight always enters authoritative
 measurement storage.
+
+The read-only per-litter calendar derives open dossier follow-ups and unfinished
+care-program occurrences on demand. It does not copy scheduled items into a
+new store or expose historical notes as entity attributes. The calendar
+refreshes after dashboard mutations and on a 30-minute timer; date-range
+queries derive only the returned projection, with completion checked against
+the same active dossier records used elsewhere.
 
 Eight Home Assistant actions form the supported automation boundary:
 

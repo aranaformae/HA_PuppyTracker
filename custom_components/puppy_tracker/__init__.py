@@ -64,6 +64,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 PLATFORMS: tuple[Platform, ...] = (
+    Platform.CALENDAR,
     Platform.SENSOR,
     Platform.BINARY_SENSOR,
     Platform.SELECT,
