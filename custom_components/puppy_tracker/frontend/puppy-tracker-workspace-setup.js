@@ -1,4 +1,4 @@
-import { downloadExportFile, escapeHtml, fireNavigate, languageForHass, preserveScrollPosition, subscribeUpdates } from "./puppy-tracker-card-common.js";
+import { downloadExportFile, escapeHtml, languageForHass, preserveScrollPosition, subscribeUpdates } from "./puppy-tracker-card-common.js";
 
 const TEXT = {
   nl: {
@@ -20,7 +20,7 @@ const TEXT = {
 };
 const STEPS = ["litter", "mother", "puppies", "weighing", "backup"];
 const STYLE = `
-  .setup-toggle{display:flex;justify-content:flex-end}.setup button{font:inherit;cursor:pointer;min-height:44px;border-radius:8px;border:1px solid var(--divider-color);background:var(--secondary-background-color);color:var(--primary-text-color);padding:0 12px;display:inline-flex;align-items:center;justify-content:center;gap:6px}.setup ha-icon{--mdc-icon-size:20px;flex:none}.setup button:disabled{opacity:.55;cursor:default}.setup .icon{width:44px;padding:0;background:transparent}.setup-panel{padding:12px 0;border-bottom:1px solid var(--divider-color)}.setup-head{display:flex;align-items:center;gap:10px}.setup-head h3{margin:0;font-size:16px;line-height:1.4;flex:1}.setup-head small,.setup-context{font-size:12px;color:var(--secondary-text-color)}.setup-context{margin:4px 0 8px;overflow-wrap:anywhere}.setup ol{list-style:none;margin:8px 0 12px;padding:0;display:grid;gap:6px}.setup li{display:flex;align-items:center;gap:9px;min-height:30px;font-size:13px;overflow-wrap:anywhere}.setup li[data-complete=true]{color:var(--secondary-text-color)}.setup li[data-complete=true] ha-icon{color:var(--success-color,var(--primary-color))}.setup .primary{background:var(--primary-color);color:var(--text-primary-color,#fff);border-color:var(--primary-color)}.setup-message{font-size:12px;margin:8px 0;overflow-wrap:anywhere}.setup-error{color:var(--error-color)}.setup-dialog{box-sizing:border-box;width:min(720px,calc(100% - 24px));max-height:90dvh;padding:12px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color);overflow:auto;overscroll-behavior:contain}.setup-dialog::backdrop{background:rgba(0,0,0,.45)}.setup-dialog header{display:flex;align-items:center;justify-content:space-between;gap:12px}.setup-dialog h3{font-size:16px;margin:0}.setup-dialog button{min-width:44px;min-height:44px;border:1px solid var(--divider-color);border-radius:8px;background:var(--secondary-background-color);color:inherit;cursor:pointer}.setup-dialog>puppy-tracker-card{display:block;margin-top:8px}
+  .setup-toggle{display:flex;justify-content:flex-end}.setup button,.setup a{font:inherit;cursor:pointer;min-height:44px;border-radius:8px;border:1px solid var(--divider-color);background:var(--secondary-background-color);color:var(--primary-text-color);padding:0 12px;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none}.setup ha-icon{--mdc-icon-size:20px;flex:none}.setup button:disabled{opacity:.55;cursor:default}.setup .icon{width:44px;padding:0;background:transparent}.setup-panel{padding:12px 0;border-bottom:1px solid var(--divider-color)}.setup-head{display:flex;align-items:center;gap:10px}.setup-head h3{margin:0;font-size:16px;line-height:1.4;flex:1}.setup-head small,.setup-context{font-size:12px;color:var(--secondary-text-color)}.setup-context{margin:4px 0 8px;overflow-wrap:anywhere}.setup ol{list-style:none;margin:8px 0 12px;padding:0;display:grid;gap:6px}.setup li{display:flex;align-items:center;gap:9px;min-height:30px;font-size:13px;overflow-wrap:anywhere}.setup li[data-complete=true]{color:var(--secondary-text-color)}.setup li[data-complete=true] ha-icon{color:var(--success-color,var(--primary-color))}.setup .primary{background:var(--primary-color);color:var(--text-primary-color,#fff);border-color:var(--primary-color)}.setup-message{font-size:12px;margin:8px 0;overflow-wrap:anywhere}.setup-error{color:var(--error-color)}.setup-dialog{box-sizing:border-box;width:min(720px,calc(100% - 24px));max-height:90dvh;padding:12px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color);overflow:auto;overscroll-behavior:contain}.setup-dialog::backdrop{background:rgba(0,0,0,.45)}.setup-dialog header{display:flex;align-items:center;justify-content:space-between;gap:12px}.setup-dialog h3{font-size:16px;margin:0}.setup-dialog button{min-width:44px;min-height:44px;border:1px solid var(--divider-color);border-radius:8px;background:var(--secondary-background-color);color:inherit;cursor:pointer}.setup-dialog>puppy-tracker-card{display:block;margin-top:8px}
 `;
 
 export class WorkspaceSetup {
@@ -55,7 +55,7 @@ export class WorkspaceSetup {
       if (action === "show") this._visible(true);
       if (action === "hide") this._visible(false);
       if (action === "retry") this.refresh();
-      if (action === "next") this._next();
+      if (action === "next" && !event.target.closest("a")) this._next();
     };
     this.update();
   }
@@ -171,7 +171,6 @@ export class WorkspaceSetup {
     const next = STEPS.find((key) => !this._data?.steps?.[key]);
     if (next === "backup") this._backup();
     else if (next === "weighing") this._openWeighing();
-    else if (next) fireNavigate(this.card, "/config/integrations/integration/puppy_tracker");
   }
 
   async _backup() {
@@ -247,7 +246,10 @@ export class WorkspaceSetup {
     const label = this._text("title");
     const error = this._error && (visible || this._opened) ? `<div class="setup-message setup-error" role="alert">${escapeHtml(this._error)}</div><button type="button" data-setup-action="retry" ${disabled ? "disabled" : ""}><ha-icon icon="mdi:refresh"></ha-icon>${escapeHtml(this._text("retry"))}</button>` : "";
     const rows = steps ? `<ol>${STEPS.map((key) => `<li data-setup-step="${key}" data-complete="${steps[key] === true}"><ha-icon icon="mdi:${steps[key] ? "check-circle-outline" : "circle-outline"}" aria-label="${steps[key] ? escapeHtml(this._text("completed")) : ""}"></ha-icon><span>${escapeHtml(this._text(key))}</span></li>`).join("")}</ol>` : `<div class="setup-message">${escapeHtml(this._text("loading"))}</div>`;
-    const nextAction = next && !this._error ? `<button type="button" class="primary" data-setup-action="next" ${disabled ? "disabled" : ""}><ha-icon icon="mdi:${next === "weighing" ? "scale" : next === "backup" ? "download" : "cog-outline"}"></ha-icon>${escapeHtml(this._text(next))}</button>` : "";
+    const settingsStep = next && !["weighing", "backup"].includes(next);
+    const nextAction = next && !this._error ? settingsStep && !disabled
+      ? `<a class="primary" data-setup-action="next" href="/config/integrations/integration/puppy_tracker"><ha-icon icon="mdi:cog-outline"></ha-icon>${escapeHtml(this._text(next))}</a>`
+      : `<button type="button" class="primary" data-setup-action="next" ${disabled ? "disabled" : ""}><ha-icon icon="mdi:${next === "weighing" ? "scale" : next === "backup" ? "download" : "cog-outline"}"></ha-icon>${escapeHtml(this._text(next))}</button>` : "";
     const panel = visible ? `<div class="setup-panel">
       <header class="setup-head"><h3>${escapeHtml(label)}</h3><small>${steps ? STEPS.filter((key) => steps[key]).length : 0} / ${STEPS.length}</small><button type="button" class="icon" data-setup-action="hide" title="${escapeHtml(this._text("hide"))}" aria-label="${escapeHtml(this._text("hide"))}" ${this._busy ? "disabled" : ""}><ha-icon icon="mdi:close"></ha-icon></button></header>
       ${this._data?.litter_name ? `<div class="setup-context">${escapeHtml(this._data.litter_name)}</div>` : ""}${rows}${error}${nextAction}

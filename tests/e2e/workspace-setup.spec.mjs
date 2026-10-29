@@ -79,9 +79,10 @@ for (const language of ["nl", "en"]) {
 
 test("setup actions navigate to HA integration settings without assuming a dashboard address @cross-browser", async ({ page }) => {
   const card = await mount(page, { steps: { mother: false } });
-  await card.evaluate((el) => el.addEventListener("hass-navigate", (event) => { window.__navigation = event.detail.navigation_path; }));
-  await card.locator('[data-setup-action="next"]').click();
-  expect(await page.evaluate(() => window.__navigation)).toBe("/config/integrations/integration/puppy_tracker");
+  const action = card.getByRole("link", { name: "Moederhond koppelen" });
+  await expect(action).toHaveAttribute("href", "/config/integrations/integration/puppy_tracker");
+  await action.click();
+  await expect(page).toHaveURL(/\/config\/integrations\/integration\/puppy_tracker$/);
 });
 
 test("home opens the existing weighing surface in a bounded dialog and retains it on initial litter announcement @cross-browser @tablet", async ({ page }) => {

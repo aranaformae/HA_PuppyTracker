@@ -1677,6 +1677,9 @@ storage and accepts only an optional litter ID and visibility preference. User
 identity always comes from the authenticated connection. Existing litters are
 opt-in; a new empty installation's automatic preference survives setup until
 completion. Manual reopening remains possible after completion.
+Configuration steps use a real link to the integration page, matching the care
+workspace shortcut and remaining reliable when Home Assistant does not handle a
+custom card's navigation event.
 
 `OnboardingStore` stores user visibility and per-litter timestamps of generated
 full/litter JSON backups separately from breeding data. It is not included in
