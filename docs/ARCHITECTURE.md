@@ -436,6 +436,14 @@ Their runtime schemas in `__init__.py` are authoritative. `services.yaml`
 mirrors those fields for the Developer Tools action UI and must be updated in
 the same change whenever an action schema changes. Litter and puppy arguments
 are stable Puppy Tracker UUIDs, not names or entity IDs.
+
+The public automation events `puppy_tracker_weight_recorded` and
+`puppy_tracker_weighing_session_completed` are emitted only after a successful
+measurement commit by the central weighing-session path. Their names and the
+fields documented in `HOME_ASSISTANT.md` are compatibility-sensitive. Internal
+dispatcher signals only refresh entities and dashboards and must not be used
+as automation contracts. Measurement corrections and deletions are separate
+mutations and do not emit `weight_recorded`.
 `add_dossier_record` requires an explicit `litter`/`mother`/`puppy` scope and
 rejects a missing or mismatched puppy ID. Its admin-only service handler calls
 the same storage mutation and dossier dispatcher as the WebSocket entry point.

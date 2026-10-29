@@ -9,7 +9,7 @@ import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.puppy_tracker.button import PuppyStartSessionButton, PuppyResetSessionButton
-from custom_components.puppy_tracker.const import DOMAIN
+from custom_components.puppy_tracker.const import DOMAIN, EVENT_WEIGHT_RECORDED, EVENT_WEIGHING_SESSION_COMPLETED
 from custom_components.puppy_tracker.runtime import PuppyTrackerRuntimeData
 from custom_components.puppy_tracker.storage import PuppyTrackerStorage
 from custom_components.puppy_tracker.backup import build_export_document, prepare_import
@@ -73,6 +73,8 @@ async def test_discard_keeps_saved_history_and_stale_resume_cannot_touch_new_ses
 
 async def test_failed_weight_rolls_back_measurement_progress_audit_and_selection(station):
     runtime, _, _, litter_id, first, _ = station
+    emitted = []
+    runtime.storage.hass.bus.async_listen(EVENT_WEIGHT_RECORDED, lambda event: emitted.append(event))
     before = runtime.storage.get_data()
     session = deepcopy(runtime.weighing_session)
     selected = runtime.selected_puppy_id
@@ -82,6 +84,41 @@ async def test_failed_weight_rolls_back_measurement_progress_audit_and_selection
     assert runtime.storage.get_data() == before
     assert runtime.weighing_session == session
     assert runtime.selected_puppy_id == selected
+    assert emitted == []
+
+
+async def test_public_weight_and_session_events_fire_once_after_success(station):
+    runtime, _, _, litter_id, first, second = station
+    events = []
+    runtime.storage.hass.bus.async_listen(EVENT_WEIGHT_RECORDED, lambda event: events.append(event))
+    runtime.storage.hass.bus.async_listen(EVENT_WEIGHING_SESSION_COMPLETED,
+                                          lambda event: events.append(event))
+    first_id = await async_record_station_weight(runtime, litter_id=litter_id, puppy_id=first, weight=450)
+    second_id = await async_record_station_weight(runtime, litter_id=litter_id, puppy_id=second, weight=460)
+    assert [event.event_type for event in events] == [
+        EVENT_WEIGHT_RECORDED, EVENT_WEIGHT_RECORDED, EVENT_WEIGHING_SESSION_COMPLETED,
+    ]
+    assert events[0].data == {
+        "litter_id": litter_id, "puppy_id": first, "measurement_id": first_id,
+        "weight_g": 450.0,
+        "timestamp": runtime.storage.get_measurement(litter_id, first, first_id)["timestamp"],
+    }
+    assert events[1].data["measurement_id"] == second_id
+    assert events[2].data["session_id"] == runtime.weighing_session["id"]
+    assert events[2].data["puppy_count"] == 2
+
+
+async def test_public_weight_event_also_fires_for_automation_outside_session(station):
+    runtime, _, _, litter_id, _, _ = station
+    idle_runtime = PuppyTrackerRuntimeData(storage=runtime.storage)
+    outside_session = await runtime.storage.async_add_puppy(litter_id, "Groen", collar_color="groen")
+    events = []
+    runtime.storage.hass.bus.async_listen(EVENT_WEIGHT_RECORDED, lambda event: events.append(event))
+    await async_record_station_weight(idle_runtime, station_command=False,
+                                      litter_id=litter_id, puppy_id=outside_session, weight=450)
+    await async_record_station_weight(idle_runtime, station_command=False,
+                                      litter_id=litter_id, puppy_id=outside_session, weight=455)
+    assert len(events) == 2
 
 
 async def test_completed_checkpoint_and_summary_share_the_last_measurement_commit(station):

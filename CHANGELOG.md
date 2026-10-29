@@ -22,6 +22,8 @@ they have not been reconstructed as a complete historical changelog.
   an explicit nest, mother or puppy, with optional response IDs for automations.
 - Add Home Assistant actions to change, soft-delete and restore a dossier entry
   for an explicit owner, preserving unspecified fields when changing it.
+- Emit stable Home Assistant events after a saved weight and when a weighing
+  session completes, so automations can react without polling the dashboard.
 
 ### Changed
 

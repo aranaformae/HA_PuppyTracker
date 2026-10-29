@@ -198,6 +198,31 @@ also return the resulting `deleted` state. Like the add action, these actions
 require an administrator when called by a user and work in automations without
 a user context.
 
+### React to a saved weight
+
+Puppy Tracker emits `puppy_tracker_weight_recorded` after a successful new
+weighing from the dashboard or the weight action. Its event data contains
+`litter_id`, `puppy_id`, `measurement_id`, `weight_g` (grams) and `timestamp`
+(ISO date and time). Corrections, deletions and failed saves do not emit this
+event. For example:
+
+```yaml
+triggers:
+  - trigger: event
+    event_type: puppy_tracker_weight_recorded
+actions:
+  - action: logbook.log
+    data:
+      name: Puppy Tracker
+      message: "Nieuwe weging: {{ trigger.event.data.weight_g }} g"
+```
+
+When the last puppy in an active weighing session is saved, Puppy Tracker also
+emits `puppy_tracker_weighing_session_completed` once. It contains `litter_id`,
+`session_id`, `completed_at` and `puppy_count`. These event names and listed
+fields are the supported automation contract; internal dispatcher signals are
+not public events.
+
 ### Back up to a file
 
 ```yaml

@@ -8,6 +8,7 @@ from datetime import timedelta
 from uuid import uuid4
 
 from homeassistant.util import dt as dt_util
+from .const import EVENT_WEIGHT_RECORDED, EVENT_WEIGHING_SESSION_COMPLETED
 from .time_utils import parse_timestamp
 
 if TYPE_CHECKING:
@@ -392,7 +393,9 @@ async def async_record_station_weight(
         active_member = (session.get("status") == SESSION_ACTIVE
             and session.get("litter_id") == weight["litter_id"] and weight["puppy_id"] in session.get("puppy_ids", []))
         if not station_command and not active_member:
-            return await runtime.storage.async_record_weight(**weight)
+            measurement_id = await runtime.storage.async_record_weight(**weight)
+            _fire_weight_recorded(runtime, weight["litter_id"], weight["puppy_id"], measurement_id)
+            return measurement_id
         if station_command and (session.get("id"), session.get("revision")) != (expected.get("id"), expected.get("revision")):
             raise ValueError("De weegsessie is gewijzigd. Vernieuw de kaart en probeer opnieuw.")
         if session.get("status") == SESSION_INTERRUPTED:
@@ -421,7 +424,28 @@ async def async_record_station_weight(
             "after_session": deepcopy(runtime.weighing_session), "before_summary": before_summary,
             "expires_at": (dt_util.utcnow() + timedelta(seconds=UNDO_SECONDS)).isoformat(),
         }
+        _fire_weight_recorded(runtime, weight["litter_id"], weight["puppy_id"], measurement_id)
+        if (before_session.get("status") == SESSION_ACTIVE
+                and runtime.weighing_session.get("status") == SESSION_COMPLETED):
+            runtime.storage.hass.bus.async_fire(EVENT_WEIGHING_SESSION_COMPLETED, {
+                "litter_id": weight["litter_id"],
+                "session_id": runtime.weighing_session["id"],
+                "completed_at": runtime.weighing_session["completed_at"],
+                "puppy_count": len(runtime.weighing_session.get("puppy_ids", [])),
+            })
         return measurement_id
+
+
+def _fire_weight_recorded(runtime: PuppyTrackerRuntimeData, litter_id: str, puppy_id: str,
+                          measurement_id: str) -> None:
+    """Publish a small public event only after the measurement is durable."""
+    measurement = runtime.storage.get_measurement(litter_id, puppy_id, measurement_id)
+    runtime.storage.hass.bus.async_fire(EVENT_WEIGHT_RECORDED, {
+        "litter_id": litter_id, "puppy_id": puppy_id,
+        "measurement_id": measurement_id,
+        "weight_g": measurement["weight"],
+        "timestamp": measurement["timestamp"],
+    })
 
 
 async def async_resolve_session(runtime: PuppyTrackerRuntimeData, *, resume: bool,
