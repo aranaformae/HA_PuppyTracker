@@ -77,8 +77,14 @@ def validate_record_type(value: str) -> str:
 
 
 def validate_clinical_record_data(record_type: str, data: dict[str, Any] | None) -> dict[str, Any]:
-    """Validate the structured test and vet fields without rewriting old records."""
+    """Validate structured dossier fields without rewriting old records."""
     result = deepcopy(data) if isinstance(data, dict) else {}
+    if record_type == RECORD_TYPE_FEEDING:
+        category = result.get("feeding_category")
+        if category not in (None, "", "milk", "bottle", "tube", "gruel", "solid_food",
+                            "kibble", "fresh_meat", "shelf_stable_meat", "supplement"):
+            raise ValueError("Invalid feeding category")
+        return result
     if record_type not in {RECORD_TYPE_TEST, RECORD_TYPE_VET_VISIT}:
         return result
     due = result.get("next_due_date")

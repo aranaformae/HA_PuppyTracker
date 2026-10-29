@@ -103,6 +103,19 @@ def test_create_record_uses_correct_owner_scope_and_copies_payload() -> None:
     assert record["data"]["nested"]["value"] == 1
 
 
+def test_feeding_category_is_optional_and_validated_without_changing_legacy_text() -> None:
+    for category in ("bottle", "kibble", "fresh_meat", "shelf_stable_meat"):
+        for scope in ({}, {"puppy_id": "p1"}, {"mother_id": "m1"}):
+            record = create_record(
+                litter_id="l1", record_type="feeding", **scope,
+                data={"feeding_category": category, "feeding_type": "Own recipe", "amount": "30", "unit": "ml"},
+            )
+            assert record["data"] == {"feeding_category": category, "feeding_type": "Own recipe", "amount": "30", "unit": "ml"}
+    assert create_record(litter_id="l1", record_type="feeding", data={"feeding_type": "Legacy"})["data"] == {"feeding_type": "Legacy"}
+    with pytest.raises(ValueError, match="feeding category"):
+        create_record(litter_id="l1", record_type="feeding", data={"feeding_category": "unknown"})
+
+
 def test_record_sorting_uses_occurrence_then_creation_time() -> None:
     same_time = "2026-08-30T10:00:00+00:00"
     records = [

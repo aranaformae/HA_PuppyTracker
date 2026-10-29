@@ -655,6 +655,7 @@ test("dossier can create a structured feeding record", async ({ page }) => {
 
   await card.locator("#add-record").click();
   await page.locator("puppy-tracker-record-editor").locator("#record-type").selectOption("feeding");
+  await page.locator("puppy-tracker-record-editor").locator("#record-data-feeding_category").selectOption("bottle");
   await page.locator("puppy-tracker-record-editor").locator("#record-data-feeding_type").fill("Bottle");
   await page.locator("puppy-tracker-record-editor").locator("#record-data-amount").fill("45");
   await page.locator("puppy-tracker-record-editor").locator("#record-data-unit").fill("ml");
@@ -667,6 +668,7 @@ test("dossier can create a structured feeding record", async ({ page }) => {
   expect(addCall).toMatchObject({
     record_type: "feeding",
     data: {
+      feeding_category: "bottle",
       feeding_type: "Bottle",
       amount: "45",
       unit: "ml",
@@ -674,7 +676,7 @@ test("dossier can create a structured feeding record", async ({ page }) => {
     },
   });
   await expect(card.locator(".record-heading strong").getByText("Feeding", { exact: true })).toBeVisible();
-  await expect(card.getByText("Bottle", { exact: true })).toBeVisible();
+  await expect(card.locator(".record-data-row").filter({ hasText: "Feeding category" })).toContainText("Bottle");
 });
 
 test("dossier localizes temperature record labels", async ({ page }) => {

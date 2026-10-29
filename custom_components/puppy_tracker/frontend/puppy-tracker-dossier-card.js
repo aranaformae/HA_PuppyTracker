@@ -820,7 +820,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
     const summaryKeys = measurement ? ["weight"]
       : record.type === "test" ? ["test_name", "test_status", "result"]
         : record.type === "vet_visit" ? ["reason", "findings", "next_due_date"]
-          : ["temperature_c", "care_result", "test_result", "result", "product", "vaccine", "medication", "feeding_type", "amount", "dose"];
+          : ["temperature_c", "care_result", "test_result", "result", "product", "vaccine", "medication", "feeding_category", "feeding_type", "amount", "dose"];
     const summary = summaryKeys.filter((key) => hasDisplayValue(record.data?.[key])).slice(0, 3)
       .map((key) => {
         const field = TYPE_FIELDS[record.type]?.find((item) => item.key === key);

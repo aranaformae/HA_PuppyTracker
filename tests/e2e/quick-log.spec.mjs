@@ -180,6 +180,10 @@ test("logs a feeding observation for the selected puppy with an editable current
 
   await card.locator("#owner-select").selectOption("p1");
   await card.locator('[data-preset="feeding"]').click();
+  await expect(card.locator("#quick-data-feeding_category option")).toHaveText([
+    "", "Mother's milk", "Bottle", "Tube", "Gruel", "Solid food", "Kibble", "Fresh meat", "Shelf-stable meat", "Supplement",
+  ]);
+  await card.locator("#quick-data-feeding_category").selectOption("bottle");
 
   const occurred = card.locator("#quick-occurred");
   await expect(occurred).not.toHaveValue("");
@@ -203,6 +207,7 @@ test("logs a feeding observation for the selected puppy with an editable current
       record_type: "feeding",
       title: "Feeding",
       note: "Bottle 45 ml, drank well",
+      data: expect.objectContaining({ feeding_category: "bottle" }),
     })
   );
   const expectedOccurredAt = await page.evaluate(

@@ -207,7 +207,8 @@ _BEHAVIOR_LABELS = {
 _PDF_DATA_LABELS = {
     "nl": {
         "temperature": "Temperatuur", "temperature_c": "Temperatuur (°C)",
-        "method": "Methode", "observation": "Observatie", "feeding_type": "Voeding / soort",
+        "method": "Methode", "observation": "Observatie", "feeding_type": "Voeding / details",
+        "feeding_category": "Voedingscategorie",
         "amount": "Hoeveelheid", "unit": "Eenheid", "vaccine": "Vaccin",
         "vaccine_type": "Vaccintype", "batch_number": "Batchnummer",
         "veterinarian": "Dierenarts", "clinic": "Praktijk / kliniek",
@@ -224,7 +225,8 @@ _PDF_DATA_LABELS = {
     },
     "en": {
         "temperature": "Temperature", "temperature_c": "Temperature (°C)",
-        "method": "Method", "observation": "Observation", "feeding_type": "Food / feeding type",
+        "method": "Method", "observation": "Observation", "feeding_type": "Food / details",
+        "feeding_category": "Feeding category",
         "amount": "Amount", "unit": "Unit", "vaccine": "Vaccine",
         "vaccine_type": "Vaccine type", "batch_number": "Batch number",
         "veterinarian": "Veterinarian", "clinic": "Clinic",
@@ -431,6 +433,16 @@ def _record_data_text(record: dict[str, Any], language: str) -> str:
             display = _pdf_text(language, "yes" if value else "no")
         elif isinstance(value, (dict, list)):
             display = json.dumps(value, ensure_ascii=False, sort_keys=True)
+        elif key == "feeding_category":
+            categories = {
+                "milk": ("Moedermelk", "Mother's milk"), "bottle": ("Fles", "Bottle"),
+                "tube": ("Sonde", "Tube"), "gruel": ("Pap", "Gruel"),
+                "solid_food": ("Vast voer", "Solid food"),
+                "kibble": ("Brokken", "Kibble"), "fresh_meat": ("Vers vlees", "Fresh meat"),
+                "shelf_stable_meat": ("Houdbaar vlees", "Shelf-stable meat"),
+                "supplement": ("Supplement", "Supplement"),
+            }
+            display = categories.get(str(value), (str(value), str(value)))[0 if language == "nl" else 1]
         elif key == "test_status":
             labels = {"planned": ("Gepland", "Planned"), "pending": ("Uitslag afwachten", "Awaiting result"),
                       "completed": ("Uitslag bekend", "Result available"), "inconclusive": ("Onduidelijk", "Inconclusive")}

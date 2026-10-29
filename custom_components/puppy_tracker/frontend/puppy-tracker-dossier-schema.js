@@ -50,8 +50,18 @@ export function recordTypeOptions(hass, selectedType) {
 
 const SCHEMA_COPY = {
   en: {
-    feedingType: "Food / feeding type",
-    feedingTypePlaceholder: "For example bottle, nursing or solid food",
+    feedingCategory: "Feeding category",
+    feedingMilk: "Mother's milk",
+    feedingBottle: "Bottle",
+    feedingTube: "Tube",
+    feedingGruel: "Gruel",
+    feedingSolid: "Solid food",
+    feedingKibble: "Kibble",
+    feedingFreshMeat: "Fresh meat",
+    feedingShelfStableMeat: "Shelf-stable meat",
+    feedingSupplement: "Supplement",
+    feedingType: "Food / details",
+    feedingTypePlaceholder: "For example brand, milk type or preparation",
     feedingAmount: "Amount",
     feedingAmountPlaceholder: "For example 45",
     feedingUnit: "Unit",
@@ -99,8 +109,18 @@ const SCHEMA_COPY = {
     upcomingSummary: "upcoming",
   },
   nl: {
-    feedingType: "Voeding / soort",
-    feedingTypePlaceholder: "Bijvoorbeeld fles, moedermelk of vast voer",
+    feedingCategory: "Voedingscategorie",
+    feedingMilk: "Moedermelk",
+    feedingBottle: "Fles",
+    feedingTube: "Sonde",
+    feedingGruel: "Pap",
+    feedingSolid: "Vast voer",
+    feedingKibble: "Brokken",
+    feedingFreshMeat: "Vers vlees",
+    feedingShelfStableMeat: "Houdbaar vlees",
+    feedingSupplement: "Supplement",
+    feedingType: "Voeding / details",
+    feedingTypePlaceholder: "Bijvoorbeeld merk, melksoort of bereiding",
     feedingAmount: "Hoeveelheid",
     feedingAmountPlaceholder: "Bijvoorbeeld 45",
     feedingUnit: "Eenheid",
@@ -160,6 +180,12 @@ export function schemaText(hass, key, replacements = {}) {
 
 export const TYPE_FIELDS = {
   feeding: [
+    { key: "feeding_category", schemaLabelKey: "feedingCategory", options: [
+      ["milk", "feedingMilk"], ["bottle", "feedingBottle"], ["tube", "feedingTube"],
+      ["gruel", "feedingGruel"], ["solid_food", "feedingSolid"],
+      ["kibble", "feedingKibble"], ["fresh_meat", "feedingFreshMeat"],
+      ["shelf_stable_meat", "feedingShelfStableMeat"], ["supplement", "feedingSupplement"],
+    ] },
     { key: "feeding_type", schemaLabelKey: "feedingType", schemaPlaceholderKey: "feedingTypePlaceholder" },
     { key: "amount", schemaLabelKey: "feedingAmount", schemaPlaceholderKey: "feedingAmountPlaceholder", type: "number", min: "0", step: "any" },
     { key: "unit", schemaLabelKey: "feedingUnit", schemaPlaceholderKey: "feedingUnitPlaceholder" },

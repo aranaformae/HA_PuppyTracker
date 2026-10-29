@@ -673,6 +673,21 @@ def test_dossier_field_labels_are_readable_without_internal_references() -> None
     assert "recurring" not in (dutch + english).lower()
 
 
+def test_feeding_category_is_translated_in_pdf_data() -> None:
+    record = {"type": "feeding", "data": {"feeding_category": "bottle", "feeding_type": "Own recipe"}}
+    assert "Voedingscategorie: Fles" in pdf_export._record_data_text(record, "nl")
+    assert "Feeding category: Bottle" in pdf_export._record_data_text(record, "en")
+    assert "Own recipe" in pdf_export._record_data_text(record, "nl")
+    for category, dutch, english in (
+        ("kibble", "Brokken", "Kibble"),
+        ("fresh_meat", "Vers vlees", "Fresh meat"),
+        ("shelf_stable_meat", "Houdbaar vlees", "Shelf-stable meat"),
+    ):
+        record["data"]["feeding_category"] = category
+        assert f"Voedingscategorie: {dutch}" in pdf_export._record_data_text(record, "nl")
+        assert f"Feeding category: {english}" in pdf_export._record_data_text(record, "en")
+
+
 def test_long_table_row_continues_on_new_pages_without_clipping() -> None:
     report = pdf_export._PdfReport()
     long_note = " ".join(f"fragment{i:04d}" for i in range(1500))

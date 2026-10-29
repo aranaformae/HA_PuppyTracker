@@ -168,7 +168,7 @@ const PRESETS = RECORD_TYPES.flatMap(([id, labelKey, icon]) => {
 
 const LITTER_OWNER = "__litter__";
 const MOTHER_OWNER = "__mother__";
-const REUSE_FIELDS = { feeding: ["feeding_type", "amount", "unit"], medication: ["medication", "dose"] };
+const REUSE_FIELDS = { feeding: ["feeding_category", "feeding_type", "amount", "unit"], medication: ["medication", "dose"] };
 
 function reusableData(record) {
   const data = {};

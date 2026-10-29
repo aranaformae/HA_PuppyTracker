@@ -64,6 +64,18 @@ async function releaseRead(page) {
   await page.evaluate(() => { window.reuseFixture.hold = false; window.reuseFixture.release(); });
 }
 
+test("Mobile feeding category is saved for the selected puppy @cross-browser @tablet", async ({ page }) => {
+  const card = await mount(page, { mobile: true, language: "nl" });
+  await card.locator('[data-preset="feeding"]').click();
+  await expect(card.locator("#quick-data-feeding_category option")).toContainText(["", "Moedermelk", "Fles", "Sonde", "Pap", "Vast voer", "Brokken", "Vers vlees", "Houdbaar vlees", "Supplement"]);
+  await card.locator("#quick-data-feeding_category").selectOption("shelf_stable_meat");
+  await card.locator("#quick-data-amount").fill("12");
+  await card.locator("#quick-data-unit").fill("ml");
+  await card.locator("#quick-save").click();
+  const saved = await page.evaluate(() => window.reuseFixture.saved[0]);
+  expect(saved).toMatchObject({ litter_id: "l1", puppy_id: "p1", record_type: "feeding", data: { feeding_category: "shelf_stable_meat", amount: "12", unit: "ml" } });
+});
+
 for (const mobile of [false, true]) {
   for (const type of ["feeding", "medication"]) {
     test(`${mobile ? "Mobile" : "Journal"} reuses ${type} as an editable unsaved draft @cross-browser @tablet`, async ({ page }) => {

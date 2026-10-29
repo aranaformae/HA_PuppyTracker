@@ -10,6 +10,12 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+### Added
+
+- Choose an optional feeding category, including kibble, fresh meat and
+  shelf-stable meat, in the dossier and Quick Log. Existing free-text feeding
+  details remain editable; PDF reports show translated category names.
+
 ## [0.36.0] - 2026-10-29
 
 ### Added

@@ -174,7 +174,11 @@ or a future-dated entry. There is no age-based expiry: the source's category,
 owner and timestamp remain visible so you can judge whether it is still useful.
 Mother history is limited to the current litter, not all her litters.
 
-Feeding reuses food/feeding type, amount and unit. Medication reuses medicine
+Feeding offers an optional structured category (mother's milk, bottle, tube,
+gruel, solid food, kibble, fresh meat, shelf-stable meat or supplement) alongside the existing free-text food/type,
+amount, unit and observation fields. Existing feeding records without a category
+remain editable. The category is shown in the dossier and translated in PDFs.
+Feeding reuse copies category, food/feeding type, amount and unit. Medication reuses medicine
 name and the literal dose, without recalculation. Frequency, duration, old
 observations/notes and care/reminder metadata are not copied. A note-only legacy
 entry is not a structured source. Missing copied fields are cleared, so a new
