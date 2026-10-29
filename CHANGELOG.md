@@ -10,6 +10,20 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-10-29
+
+### Added
+
+- Track test status and reference number, and record separate veterinary
+  findings and optional follow-up dates.
+- Complete due test and veterinary follow-ups as new linked dossier entries
+  without changing the original result or visit.
+
+### Changed
+
+- Show test and veterinary details in compact dossier summaries and PDF reports,
+  with translated status labels and validation for incomplete follow-up data.
+
 ## [0.35.0] - 2026-10-29
 
 ### Added
@@ -371,7 +385,8 @@ for explicit assignment. See [storage migrations](docs/storage-migrations.md#own
 
 - Separated daily execution from schedule management in Care workspace navigation.
 
-[Unreleased]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.35.0...HEAD
+[Unreleased]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.36.0...HEAD
+[0.36.0]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.35.0...v0.36.0
 [0.35.0]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.34.2...v0.35.0
 [0.34.2]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.34.1...v0.34.2
 [0.34.1]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.34.0...v0.34.1
