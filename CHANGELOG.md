@@ -20,6 +20,8 @@ they have not been reconstructed as a complete historical changelog.
   feeding and care entry in a compact Journal dossier summary.
 - Add an administrator-only Home Assistant action to create a dossier entry for
   an explicit nest, mother or puppy, with optional response IDs for automations.
+- Add Home Assistant actions to change, soft-delete and restore a dossier entry
+  for an explicit owner, preserving unspecified fields when changing it.
 
 ### Changed
 

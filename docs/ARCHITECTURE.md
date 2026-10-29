@@ -419,7 +419,7 @@ independent state model. The weighing-station controls use runtime selection
 and session state, while a saved weight always enters authoritative
 measurement storage.
 
-Five Home Assistant actions form the supported automation boundary:
+Eight Home Assistant actions form the supported automation boundary:
 
 ```text
 puppy_tracker.create_litter
@@ -427,6 +427,9 @@ puppy_tracker.add_puppy
 puppy_tracker.record_weight
 puppy_tracker.backup_to_file
 puppy_tracker.add_dossier_record
+puppy_tracker.update_dossier_record
+puppy_tracker.delete_dossier_record
+puppy_tracker.restore_dossier_record
 ```
 
 Their runtime schemas in `__init__.py` are authoritative. `services.yaml`

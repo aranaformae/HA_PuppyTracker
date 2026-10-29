@@ -78,6 +78,9 @@ SERVICE_ADD_PUPPY = "add_puppy"
 SERVICE_RECORD_WEIGHT = "record_weight"
 SERVICE_BACKUP_TO_FILE = "backup_to_file"
 SERVICE_ADD_DOSSIER_RECORD = "add_dossier_record"
+SERVICE_UPDATE_DOSSIER_RECORD = "update_dossier_record"
+SERVICE_DELETE_DOSSIER_RECORD = "delete_dossier_record"
+SERVICE_RESTORE_DOSSIER_RECORD = "restore_dossier_record"
 
 SERVICES = (
     SERVICE_CREATE_LITTER,
@@ -85,6 +88,9 @@ SERVICES = (
     SERVICE_RECORD_WEIGHT,
     SERVICE_BACKUP_TO_FILE,
     SERVICE_ADD_DOSSIER_RECORD,
+    SERVICE_UPDATE_DOSSIER_RECORD,
+    SERVICE_DELETE_DOSSIER_RECORD,
+    SERVICE_RESTORE_DOSSIER_RECORD,
 )
 
 
@@ -168,6 +174,25 @@ ADD_DOSSIER_RECORD_SCHEMA = vol.Schema(
         vol.Optional("followup_due_date"): cv.string,
     }
 )
+
+
+_DOSSIER_RECORD_TARGET_FIELDS = {
+    vol.Required("litter_id"): cv.string,
+    vol.Required("scope"): vol.In(("litter", "mother", "puppy")),
+    vol.Optional("puppy_id"): cv.string,
+    vol.Required("record_id"): cv.string,
+}
+
+UPDATE_DOSSIER_RECORD_SCHEMA = vol.Schema({
+    **_DOSSIER_RECORD_TARGET_FIELDS,
+    vol.Optional("record_type"): cv.string,
+    vol.Optional("occurred_at"): cv.string,
+    vol.Optional("title"): cv.string,
+    vol.Optional("note"): cv.string,
+    vol.Optional("data"): dict,
+})
+DELETE_DOSSIER_RECORD_SCHEMA = vol.Schema(_DOSSIER_RECORD_TARGET_FIELDS)
+RESTORE_DOSSIER_RECORD_SCHEMA = vol.Schema(_DOSSIER_RECORD_TARGET_FIELDS)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -316,12 +341,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             measurement_id,
         )
 
-    async def handle_add_dossier_record(call: ServiceCall) -> dict[str, str | None]:
-        """Create a dossier entry for one explicit owner from an HA action."""
-        values = call.data
+    def dossier_action_owner(values: dict) -> tuple[str, str | None, str | None]:
+        """Resolve exactly one existing owner for a public dossier action."""
         litter_id = values["litter_id"]
         scope = values["scope"]
         puppy_id = values.get("puppy_id")
+        if storage.get_litter(litter_id) is None:
+            raise ValueError("The selected litter does not exist")
         if scope == "puppy":
             if not puppy_id or storage.get_puppy(litter_id, puppy_id) is None:
                 raise ValueError("Choose a puppy in the selected litter")
@@ -334,9 +360,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             mother_id = str(mother["id"])
         else:
             mother_id = None
+        return litter_id, puppy_id if scope == "puppy" else None, mother_id
+
+    def dossier_action_record(values: dict) -> tuple[dict, str | None, str | None]:
+        """Reject records from a different owner or mother litter context."""
+        litter_id, puppy_id, mother_id = dossier_action_owner(values)
+        record = storage.get_record(litter_id, values["record_id"], puppy_id=puppy_id, mother_id=mother_id)
+        if record is None or record.get("scope") != values["scope"] or record.get("litter_id") != litter_id:
+            raise ValueError("The dossier item does not belong to this owner and litter")
+        return record, puppy_id, mother_id
+
+    async def handle_add_dossier_record(call: ServiceCall) -> dict[str, str | None]:
+        """Create a dossier entry for one explicit owner from an HA action."""
+        values = call.data
+        litter_id, puppy_id, mother_id = dossier_action_owner(values)
         record_id = await storage.async_add_record(
             litter_id,
-            puppy_id=puppy_id if scope == "puppy" else None,
+            puppy_id=puppy_id,
             mother_id=mother_id,
             record_type=values["record_type"],
             occurred_at=values.get("occurred_at"),
@@ -346,9 +386,50 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             followup_record_id=values.get("followup_record_id"),
             followup_due_date=values.get("followup_due_date"),
         )
-        dispatch_dossier_update(hass, puppy_id if scope == "puppy" else None)
-        return {"record_id": record_id, "litter_id": litter_id, "scope": scope,
-                "puppy_id": puppy_id if scope == "puppy" else None}
+        dispatch_dossier_update(hass, puppy_id)
+        return {"record_id": record_id, "litter_id": litter_id, "scope": values["scope"],
+                "puppy_id": puppy_id}
+
+    async def handle_update_dossier_record(call: ServiceCall) -> dict[str, str | None]:
+        """Patch one active entry while preserving all unspecified fields."""
+        values = call.data
+        record, puppy_id, mother_id = dossier_action_record(values)
+        if record.get("deleted"):
+            raise ValueError("Restore the dossier item before editing it")
+        if not any(key in values for key in ("record_type", "occurred_at", "title", "note", "data")):
+            raise ValueError("Specify at least one dossier field to update")
+        data = dict(record.get("data") or {})
+        data.update(values.get("data") or {})
+        await storage.async_update_record(
+            values["litter_id"], values["record_id"],
+            puppy_id=puppy_id, mother_id=mother_id,
+            record_type=values.get("record_type", record["type"]),
+            occurred_at=values.get("occurred_at"),
+            title=values.get("title", record.get("title")),
+            note=values.get("note", record.get("note")),
+            data=data,
+        )
+        dispatch_dossier_update(hass, puppy_id)
+        return {"record_id": values["record_id"], "litter_id": values["litter_id"],
+                "scope": values["scope"], "puppy_id": puppy_id}
+
+    async def handle_delete_dossier_record(call: ServiceCall) -> dict[str, str | bool]:
+        """Soft-delete one entry under its explicit owner."""
+        values = call.data
+        _, puppy_id, mother_id = dossier_action_record(values)
+        await storage.async_delete_record(values["litter_id"], values["record_id"],
+                                          puppy_id, mother_id=mother_id)
+        dispatch_dossier_update(hass, puppy_id)
+        return {"record_id": values["record_id"], "scope": values["scope"], "deleted": True}
+
+    async def handle_restore_dossier_record(call: ServiceCall) -> dict[str, str | bool]:
+        """Restore one previously deleted entry under its explicit owner."""
+        values = call.data
+        _, puppy_id, mother_id = dossier_action_record(values)
+        await storage.async_restore_record(values["litter_id"], values["record_id"],
+                                           puppy_id, mother_id=mother_id)
+        dispatch_dossier_update(hass, puppy_id)
+        return {"record_id": values["record_id"], "scope": values["scope"], "deleted": False}
 
     async def _handle_backup_to_file_impl(call: ServiceCall) -> None:
         """Write an importable JSON backup inside the Home Assistant config directory."""
@@ -446,10 +527,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if hass.services.has_service(DOMAIN, service):
             continue
         async_register_admin_service(hass, DOMAIN, service, handler, schema=schema)
-    if not hass.services.has_service(DOMAIN, SERVICE_ADD_DOSSIER_RECORD):
+    for service, handler, schema in (
+        (SERVICE_ADD_DOSSIER_RECORD, handle_add_dossier_record, ADD_DOSSIER_RECORD_SCHEMA),
+        (SERVICE_UPDATE_DOSSIER_RECORD, handle_update_dossier_record, UPDATE_DOSSIER_RECORD_SCHEMA),
+        (SERVICE_DELETE_DOSSIER_RECORD, handle_delete_dossier_record, DELETE_DOSSIER_RECORD_SCHEMA),
+        (SERVICE_RESTORE_DOSSIER_RECORD, handle_restore_dossier_record, RESTORE_DOSSIER_RECORD_SCHEMA),
+    ):
+        if hass.services.has_service(DOMAIN, service):
+            continue
         async_register_admin_service(
-            hass, DOMAIN, SERVICE_ADD_DOSSIER_RECORD, handle_add_dossier_record,
-            schema=ADD_DOSSIER_RECORD_SCHEMA,
+            hass, DOMAIN, service, handler, schema=schema,
             supports_response=SupportsResponse.OPTIONAL,
         )
 

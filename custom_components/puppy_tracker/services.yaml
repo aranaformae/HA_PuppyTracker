@@ -376,3 +376,129 @@ add_dossier_record:
       required: false
       selector:
         date:
+
+update_dossier_record:
+  name: Dossieritem wijzigen
+  description: Wijzig opgegeven velden van een bestaand dossieritem zonder de overige gegevens te wissen.
+  fields:
+    litter_id:
+      name: Nest-ID
+      required: true
+      selector:
+        text:
+    scope:
+      name: Eigenaar
+      required: true
+      selector:
+        select:
+          options:
+            - label: Hele nest
+              value: litter
+            - label: Moederhond
+              value: mother
+            - label: Pup
+              value: puppy
+    puppy_id:
+      name: Pup-ID
+      description: Alleen invullen als Eigenaar op Pup staat.
+      required: false
+      selector:
+        text:
+    record_id:
+      name: Dossieritem-ID
+      required: true
+      selector:
+        text:
+    record_type:
+      name: Categorie
+      required: false
+      selector:
+        text:
+    occurred_at:
+      name: Tijdstip
+      required: false
+      selector:
+        datetime:
+    title:
+      name: Titel
+      required: false
+      selector:
+        text:
+    note:
+      name: Notitie
+      required: false
+      selector:
+        text:
+          multiline: true
+    data:
+      name: Gestructureerde gegevens
+      description: Opgegeven sleutels worden samengevoegd met bestaande gegevens.
+      required: false
+      selector:
+        object: {}
+
+delete_dossier_record:
+  name: Dossieritem verwijderen
+  description: Verberg een dossieritem; het kan later met de herstelactie worden teruggezet.
+  fields:
+    litter_id:
+      name: Nest-ID
+      required: true
+      selector:
+        text:
+    scope:
+      name: Eigenaar
+      required: true
+      selector:
+        select:
+          options:
+            - label: Hele nest
+              value: litter
+            - label: Moederhond
+              value: mother
+            - label: Pup
+              value: puppy
+    puppy_id:
+      name: Pup-ID
+      description: Alleen invullen als Eigenaar op Pup staat.
+      required: false
+      selector:
+        text:
+    record_id:
+      name: Dossieritem-ID
+      required: true
+      selector:
+        text:
+
+restore_dossier_record:
+  name: Dossieritem herstellen
+  description: Zet een eerder verwijderd dossieritem terug.
+  fields:
+    litter_id:
+      name: Nest-ID
+      required: true
+      selector:
+        text:
+    scope:
+      name: Eigenaar
+      required: true
+      selector:
+        select:
+          options:
+            - label: Hele nest
+              value: litter
+            - label: Moederhond
+              value: mother
+            - label: Pup
+              value: puppy
+    puppy_id:
+      name: Pup-ID
+      description: Alleen invullen als Eigenaar op Pup staat.
+      required: false
+      selector:
+        text:
+    record_id:
+      name: Dossieritem-ID
+      required: true
+      selector:
+        text:

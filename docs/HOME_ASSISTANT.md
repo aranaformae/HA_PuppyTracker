@@ -167,6 +167,37 @@ requests a response, it receives `record_id`, `litter_id`, `scope` and
 called by a user; Home Assistant automations can invoke it without a user
 context. It refreshes the same dashboard and entities as a card entry.
 
+### Change or recover a dossier entry
+
+Use **Dossieritem wijzigen**, **Dossieritem verwijderen** and **Dossieritem
+herstellen** in Developer tools -> Actions. Pass the `record_id` returned by
+the add action, the same `litter_id` and the item's exact `scope`. A puppy item
+also needs its `puppy_id`.
+
+```yaml
+action: puppy_tracker.update_dossier_record
+data:
+  litter_id: 00000000-0000-0000-0000-000000000000
+  scope: puppy
+  puppy_id: 11111111-1111-1111-1111-111111111111
+  record_id: 22222222-2222-2222-2222-222222222222
+  note: Hoeveelheid gecontroleerd
+  data:
+    amount: 35
+```
+
+The update action requires at least one of `record_type`, `occurred_at`,
+`title`, `note` or `data`. Omitted fields stay as they were. Keys in `data` are
+merged with existing structured fields, so a small adjustment does not erase
+the rest. Use the normal dossier validation for each category. Deleted items
+must be restored before they can be changed. The delete action soft-deletes
+the item; the restore action makes it visible again. Both take only the four
+identifying fields from the example (`litter_id`, `scope`, optional `puppy_id`,
+`record_id`). All three actions can return the record ID; delete and restore
+also return the resulting `deleted` state. Like the add action, these actions
+require an administrator when called by a user and work in automations without
+a user context.
+
 ### Back up to a file
 
 ```yaml

@@ -342,6 +342,9 @@ async def test_entry_unload_reports_platform_failure_and_preserves_runtime(
     ("record_weight", {"litter_id": "litter-1", "puppy_id": "puppy-1", "weight": 600}),
     ("backup_to_file", {"path": "backups/test.json", "scope": "litter", "litter_id": "litter-1"}),
     ("add_dossier_record", {"litter_id": "litter-1", "scope": "puppy", "puppy_id": "puppy-1", "record_type": "note", "note": "Private note"}),
+    ("update_dossier_record", {"litter_id": "litter-1", "scope": "puppy", "puppy_id": "puppy-1", "record_id": "private", "note": "Changed"}),
+    ("delete_dossier_record", {"litter_id": "litter-1", "scope": "puppy", "puppy_id": "puppy-1", "record_id": "private"}),
+    ("restore_dossier_record", {"litter_id": "litter-1", "scope": "puppy", "puppy_id": "puppy-1", "record_id": "private"}),
 ])
 @pytest.mark.parametrize("group", [GROUP_ID_USER, GROUP_ID_READ_ONLY])
 async def test_services_reject_non_admin_before_side_effects(hass, service_runtime, service, data, group):
@@ -420,6 +423,85 @@ async def test_add_dossier_record_action_completes_matching_followup(hass, servi
     assert source["data"]["product"] == "First product"
     assert completed["data"]["followup_record_id"] == source_id
     assert completed["data"]["product"] == "Actual product"
+
+
+@pytest.mark.parametrize("scope", ["litter", "mother", "puppy"])
+async def test_dossier_actions_edit_delete_and_restore_exact_owner(hass, service_runtime, scope):
+    storage = service_runtime.storage
+    storage._data["litters"]["litter-1"]["mother_id"] = "mother-1"
+    storage._data["mothers"] = {"mother-1": {"id": "mother-1", "name": "Luna", "records": []}}
+    target = {"litter_id": "litter-1", "scope": scope}
+    owner = {}
+    if scope == "puppy":
+        target["puppy_id"] = owner["puppy_id"] = "puppy-1"
+    elif scope == "mother":
+        owner["mother_id"] = "mother-1"
+    record_id = await storage.async_add_record(
+        "litter-1", record_type="feeding", title="Morning", note="First",
+        data={"feeding_category": "kibble", "amount": 30, "unit": "g"}, **owner,
+    )
+    target["record_id"] = record_id
+    assert hass.services.supports_response(DOMAIN, "update_dossier_record") == "optional"
+    updated = await hass.services.async_call(DOMAIN, "update_dossier_record", {
+        **target, "note": "Second", "data": {"amount": 35},
+    }, blocking=True, return_response=True)
+    record = storage.get_record("litter-1", record_id, **owner)
+    assert updated["record_id"] == record_id
+    assert record["title"] == "Morning"
+    assert record["note"] == "Second"
+    assert record["data"] == {"feeding_category": "kibble", "amount": 35, "unit": "g"}
+
+    deleted = await hass.services.async_call(DOMAIN, "delete_dossier_record", target,
+                                             blocking=True, return_response=True)
+    assert deleted["deleted"] is True
+    assert storage.get_record("litter-1", record_id, **owner)["deleted"] is True
+    with pytest.raises(ValueError, match="Restore"):
+        await hass.services.async_call(DOMAIN, "update_dossier_record", {
+            **target, "note": "Should fail",
+        }, blocking=True)
+    restored = await hass.services.async_call(DOMAIN, "restore_dossier_record", target,
+                                              blocking=True, return_response=True)
+    assert restored["deleted"] is False
+    assert storage.get_record("litter-1", record_id, **owner)["deleted"] is False
+
+
+async def test_dossier_actions_reject_wrong_owner_and_empty_update(hass, service_runtime):
+    storage = service_runtime.storage
+    record_id = await storage.async_add_record("litter-1", puppy_id="puppy-1",
+                                               record_type="note", note="Keep")
+    target = {"litter_id": "litter-1", "scope": "puppy", "puppy_id": "puppy-1", "record_id": record_id}
+    before = deepcopy(storage.get_data())
+    for action, data in (
+        ("update_dossier_record", target),
+        ("update_dossier_record", {**target, "scope": "litter", "puppy_id": "", "note": "Wrong"}),
+        ("delete_dossier_record", {**target, "scope": "litter", "puppy_id": ""}),
+        ("restore_dossier_record", {**target, "scope": "litter", "puppy_id": ""}),
+    ):
+        with pytest.raises(ValueError):
+            await hass.services.async_call(DOMAIN, action, data, blocking=True)
+    assert storage.get_data() == before
+
+
+async def test_mother_dossier_action_rejects_record_from_other_litter(hass, service_runtime):
+    storage = service_runtime.storage
+    storage._data["litters"]["litter-1"]["mother_id"] = "mother-1"
+    storage._data["mothers"] = {"mother-1": {"id": "mother-1", "name": "Luna", "records": []}}
+    other_id = "litter-2"
+    storage._data["litters"][other_id] = deepcopy(storage._data["litters"]["litter-1"])
+    storage._data["litters"][other_id]["id"] = other_id
+    storage._data["litters"][other_id]["records"] = []
+    record_id = await storage.async_add_record(other_id, mother_id="mother-1",
+                                               record_type="note", note="Other")
+    before = deepcopy(storage.get_data())
+    target = {"litter_id": "litter-1", "scope": "mother", "record_id": record_id}
+    for action, changes in (
+        ("update_dossier_record", {"note": "Wrong"}),
+        ("delete_dossier_record", {}),
+        ("restore_dossier_record", {}),
+    ):
+        with pytest.raises(ValueError, match="does not belong"):
+            await hass.services.async_call(DOMAIN, action, {**target, **changes}, blocking=True)
+    assert storage.get_data() == before
 
 
 @pytest.mark.parametrize("admin", [True, False], ids=["admin", "automation"])
