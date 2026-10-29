@@ -11,6 +11,21 @@ from homeassistant.util import dt as dt_util
 TERMINAL_CARE_STATUSES = {"completed", "missed"}
 
 
+def index_care_result_records(records: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    """Group active result records once before enriching many occurrences."""
+    indexed: dict[str, list[dict[str, Any]]] = {}
+    for record in records:
+        if not isinstance(record, dict) or record.get("deleted", False):
+            continue
+        data = record.get("data")
+        if not isinstance(data, dict):
+            continue
+        occurrence_id = str(data.get("care_occurrence_id") or "").strip()
+        if occurrence_id:
+            indexed.setdefault(occurrence_id, []).append(record)
+    return indexed
+
+
 def _parse_datetime(value: Any) -> datetime:
     parsed = dt_util.parse_datetime(str(value or "").strip())
     if parsed is None:

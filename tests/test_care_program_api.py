@@ -47,6 +47,66 @@ async def test_occurrence_context_distinguishes_missing_disabled_and_empty_progr
         assert result["occurrences"] == []
 
 
+async def test_course_websocket_records_one_actual_administration_and_rejects_duplicate(
+    hass, storage, install_litter, hass_ws_client,
+) -> None:
+    litter_id, puppy_id = install_litter()
+    store = AgeBasedCareProgramStore(hass)
+    store._store.async_save = AsyncMock()
+    entry = MockConfigEntry(domain=DOMAIN, data={})
+    entry.runtime_data = PuppyTrackerRuntimeData(storage=storage, care_programs=store)
+    entry.add_to_hass(hass)
+    async_setup_care_program_api(hass)
+    client = await hass_ws_client(hass)
+    await client.send_json_auto_id({
+        "type": f"{DOMAIN}/care_program/create", "litter_id": litter_id,
+        "title": "Medicatie", "record_type": "medication", "schedule_type": "course",
+        "target_puppy_ids": [puppy_id], "start_date": "2026-10-28",
+        "end_date": "2026-10-28", "times_of_day": ["08:00", "18:00"],
+        "timezone": "Europe/Amsterdam", "treatment_product": "Product A",
+    })
+    created = await client.receive_json()
+    assert created["success"] is True
+    program_id = created["result"]["program_id"]
+    await client.send_json_auto_id({
+        "type": f"{DOMAIN}/care_program/conflicts",
+        "program": {
+            "litter_id": litter_id, "title": "Tweede medicatiekuur",
+            "record_type": "medication", "schedule_type": "course",
+            "target_puppy_ids": [puppy_id], "start_date": "2026-10-28",
+            "end_date": "2026-10-28", "times_of_day": ["08:00"],
+            "timezone": "Europe/Amsterdam", "treatment_product": "Product B",
+        },
+    })
+    reviewed = await client.receive_json()
+    assert reviewed["success"] is True
+    assert any(item["kind"] == "care_program" for item in reviewed["result"]["conflicts"])
+    await client.send_json_auto_id({"type": f"{DOMAIN}/care_occurrences", "litter_id": litter_id})
+    listed = await client.receive_json()
+    assert listed["success"] is True
+    occurrences = listed["result"]["occurrences"]
+    assert len(occurrences) == 2
+    first = occurrences[0]
+    message = {
+        "type": f"{DOMAIN}/care_occurrence/record", "program_id": program_id,
+        "puppy_id": puppy_id, "occurrence_id": first["id"], "status": "completed",
+        "data": {"medication": "Product B", "dose": "0.5", "unit": "ml"},
+    }
+    await client.send_json_auto_id(message)
+    assert (await client.receive_json())["success"] is True
+    await client.send_json_auto_id(message)
+    duplicate = await client.receive_json()
+    assert duplicate["success"] is False
+    records = storage.get_records(litter_id, puppy_id)
+    assert len([item for item in records if item.get("data", {}).get("care_occurrence_id") == first["id"]]) == 1
+    await client.send_json_auto_id({"type": f"{DOMAIN}/care_programs", "litter_id": litter_id})
+    listed_programs = await client.receive_json()
+    progress = listed_programs["result"]["programs"][0]["progress"]
+    assert progress[0]["completed"] == 1
+    assert progress[0]["pending"] == 1
+    assert progress[0]["total"] == 2
+
+
 class _ResultStorage:
     def __init__(self, records_by_puppy: dict[str, list[dict]]) -> None:
         self.records_by_puppy = records_by_puppy
@@ -169,4 +229,6 @@ def test_care_program_api_preserves_existing_owner_and_reminder_contracts() -> N
     assert "owner_scope" not in source
     assert "last_completed_at" not in source
     assert "async_match_record" not in source
-    assert "recurring_reminders" not in source
+    # Conflict review may read reminders, but care-program actions must not
+    # create, update or mark a recurring reminder completed.
+    assert "reminder_store.async_" not in source

@@ -29,6 +29,89 @@ def _program_data(**overrides) -> dict:
     return data
 
 
+def test_finite_treatment_requires_explicit_targets_and_safe_times() -> None:
+    base = {
+        "litter_id": "litter-1", "title": "Medicatie", "record_type": "medication",
+        "schedule_type": "course", "target_puppy_ids": ["pup-1"],
+        "start_date": "2026-10-28", "end_date": "2026-10-29",
+        "times_of_day": ["18:00", "08:00"], "timezone": "Europe/Amsterdam",
+        "treatment_product": "Product A", "planned_dose": "1", "planned_unit": "ml",
+    }
+    program = normalize_care_program(base)
+    assert program["start_age_days"] is None
+    assert program["times_of_day"] == ["08:00", "18:00"]
+    assert program["target_puppy_ids"] == ["pup-1"]
+    assert program["treatment_product"] == "Product A"
+    for change, match in [
+        ({"target_puppy_ids": []}, "selected puppies"),
+        ({"record_type": "note"}, "record_type"),
+        ({"end_date": "2027-01-01"}, "56 calendar days"),
+        ({"times_of_day": ["08:00", "08:00"]}, "unique"),
+        ({"start_date": "2026-10-25", "end_date": "2026-10-25", "times_of_day": ["02:30"]}, "DST review"),
+    ]:
+        with pytest.raises(ValueError, match=match):
+            normalize_care_program({**base, **change})
+
+
+def test_treatment_identity_is_locked_after_result() -> None:
+    current = normalize_care_program({
+        "litter_id": "litter-1", "title": "Medicatie", "record_type": "medication",
+        "schedule_type": "course", "target_puppy_ids": ["pup-1"],
+        "start_date": "2026-10-28", "end_date": "2026-10-29",
+        "times_of_day": ["08:00"], "timezone": "Europe/Amsterdam",
+        "treatment_product": "Product A",
+    })
+    assert care_program_identity_changed(current, {**current, "treatment_product": "Product B"})
+    assert not care_program_identity_changed(current, {**current, "enabled": False})
+
+
+async def test_stopping_treatment_preserves_plan_and_reason(hass) -> None:
+    store = AgeBasedCareProgramStore(hass)
+    store._store.async_save = AsyncMock()
+    program_id = await store.async_create({
+        "litter_id": "litter-1", "title": "Medicatie", "record_type": "medication",
+        "schedule_type": "course", "target_puppy_ids": ["pup-1"],
+        "start_date": "2026-10-28", "end_date": "2026-10-29",
+        "times_of_day": ["08:00"], "timezone": "Europe/Amsterdam",
+        "treatment_product": "Product A",
+    })
+    with pytest.raises(ValueError, match="reason"):
+        await store.async_stop(program_id, " ")
+    await store.async_stop(program_id, "Dierenarts heeft kuur gestopt")
+    stopped = store.get_program(program_id)
+    assert stopped["enabled"] is False
+    assert stopped["stop_reason"] == "Dierenarts heeft kuur gestopt"
+    assert stopped["stopped_at"]
+    assert stopped["revision"] == 1
+    assert store.get_backup_data()["programs"][program_id] == stopped
+    with pytest.raises(ValueError, match="read-only"):
+        await store.async_update(program_id, {"enabled": True})
+
+
+async def test_treatment_identity_lock_checks_results_inside_store_mutation(hass) -> None:
+    store = AgeBasedCareProgramStore(hass)
+    store._store.async_save = AsyncMock()
+    program_id = await store.async_create({
+        "litter_id": "litter-1", "title": "Medicatie", "record_type": "medication",
+        "schedule_type": "course", "target_puppy_ids": ["pup-1"],
+        "start_date": "2026-10-28", "end_date": "2026-10-29",
+        "times_of_day": ["08:00"], "timezone": "Europe/Amsterdam",
+        "treatment_product": "Product A",
+    })
+    before = store.get_program(program_id)
+    with pytest.raises(ValueError, match="after results exist"):
+        await store.async_update(
+            program_id, {"treatment_product": "Product B"},
+            active_result_exists=lambda _program: True,
+        )
+    assert store.get_program(program_id) == before
+    await store.async_update(
+        program_id, {"description": "Extra uitleg"},
+        active_result_exists=lambda _program: True,
+    )
+    assert store.get_program(program_id)["revision"] == 1
+
+
 def test_once_program_normalizes_single_age() -> None:
     program = normalize_care_program({
         "litter_id": "litter-1",

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from datetime import date, timedelta
 from typing import Any
 from uuid import uuid4
 
@@ -30,6 +31,12 @@ TEMPLATE_FIELDS = (
     "notification_lead_minutes",
     "instructions",
     "instructions_by_age",
+    "course_days",
+    "times_of_day",
+    "treatment_product",
+    "planned_dose",
+    "planned_unit",
+    "planned_route",
 )
 
 BUILT_IN_TEMPLATES: tuple[dict[str, Any], ...] = (
@@ -70,6 +77,13 @@ BUILT_IN_TEMPLATES: tuple[dict[str, Any], ...] = (
         "interval_days": 1, "time_of_day": "08:00", "result_fields": ["result", "note"],
         "instructions": "1. Observeer de pup vóór het oppakken.\n2. Controleer drinken, activiteit en temperatuur volgens het eigen protocol.\n3. Vergelijk met eerdere observaties.\n4. Noteer afwijkingen en overleg bij twijfel met de dierenarts.",
     },
+    {
+        "id": "builtin_treatment_day", "name": "Behandeling · één dag",
+        "description": "Invulvoorbeeld voor een behandeling van geselecteerde pups. Vul middel en voorschrift zelf in.",
+        "title": "Behandeling", "record_type": "medication", "schedule_type": "course",
+        "course_days": 1, "times_of_day": ["09:00"], "result_fields": ["note"],
+        "instructions": "Controleer het voorschrift, het actuele gewicht en het werkelijk toegediende middel per pup.",
+    },
 )
 
 
@@ -82,12 +96,34 @@ def _normalize_template(data: dict[str, Any], template_id: str | None = None) ->
 
     # Reuse the care-program validator so imported templates cannot be saved in
     # a shape that will only fail later when a program is created from them.
+    source = {key: deepcopy(data[key]) for key in TEMPLATE_FIELDS if key in data}
+    course = source.get("schedule_type") == "course"
+    if course:
+        try:
+            days = int(source.get("course_days"))
+        except (TypeError, ValueError) as err:
+            raise ValueError("course_days must be between 1 and 56") from err
+        if not 1 <= days <= 56:
+            raise ValueError("course_days must be between 1 and 56")
+        source.update({
+            "target_puppy_ids": ["__template_puppy__"],
+            "start_date": "2026-01-01",
+            "end_date": (date(2026, 1, 1) + timedelta(days=days - 1)).isoformat(),
+            "treatment_product": source.get("treatment_product") or "__product__",
+            "timezone": "UTC",
+        })
     program = normalize_care_program(
-        {key: deepcopy(data[key]) for key in TEMPLATE_FIELDS if key in data}
-        | {"litter_id": "__template__"},
-        program_id="template-validation",
+        source | {"litter_id": "__template__"}, program_id="template-validation",
     )
     result = {key: deepcopy(program[key]) for key in TEMPLATE_FIELDS if key in program}
+    if course:
+        result["course_days"] = days
+        result["treatment_product"] = str(data.get("treatment_product") or "").strip() or None
+        for field in ("start_age_days", "end_age_days", "interval_days", "time_of_day", "instructions_by_age"):
+            result.pop(field, None)
+    else:
+        for field in ("course_days", "times_of_day", "treatment_product", "planned_dose", "planned_unit", "planned_route"):
+            result.pop(field, None)
     result_id = template_id or str(data.get("id") or uuid4())
     if result_id.startswith("builtin_"):
         raise ValueError("template ids starting with builtin_ are reserved")

@@ -1,6 +1,6 @@
 import { escapeHtml, fetchLitterData, languageForHass, puppyDisplayLabel } from "./puppy-tracker-card-common.js";
 import { FormState, appendEditAction, savedOwnerLabel, savedRecordFeedback } from "./puppy-tracker-form-state.js";
-import { canEditRecords, openRecordEditor } from "./puppy-tracker-record-editor.js";
+import { canEditRecords, openCareAdministrationEditor, openRecordEditor } from "./puppy-tracker-record-editor.js";
 
 function t(card, nl, en) {
   return languageForHass(card?._hass) === "en" ? en : nl;
@@ -38,6 +38,31 @@ export function renderCareSaveFeedback(card) {
 export function openCareResultEditor(card, item, options = {}) {
   const root = card?.shadowRoot;
   if (!root || !item || !card?._hass || card._hass.user?.is_admin === false) return;
+  if (item.schedule_type === "course") {
+    card.__careResultEditorOpen = true;
+    return openCareAdministrationEditor(card, item, {
+      ...options,
+      onClosed: (result) => {
+        card.__careResultEditorOpen = false;
+        options.onClosed?.(result);
+      },
+      onSaved: async (savedItem) => {
+        if (typeof options.onSaved === "function") await options.onSaved(savedItem);
+        else await refreshCard(card);
+        if (card._savedRecord && !canEditRecords(card)) {
+          try { card._litterData = await fetchLitterData(card._hass, item.litter_id || card._selectedLitterId); }
+          catch (_error) { /* The result is already saved; feedback remains available. */ }
+        }
+        renderCareSaveFeedback(card);
+      },
+    }).then((editor) => {
+      if (!editor) card.__careResultEditorOpen = false;
+      return editor;
+    }, (error) => {
+      card.__careResultEditorOpen = false;
+      throw error;
+    });
+  }
   if (card._careFormState && !card._careFormState.discard()) return;
 
   root.querySelector(".care-result-overlay")?.remove();
@@ -91,6 +116,7 @@ export function openCareResultEditor(card, item, options = {}) {
     const error = overlay.querySelector(".care-result-error");
     const scoreInput = overlay.querySelector(".care-result-score");
     if (scoreInput && !scoreInput.validity.valid) { formState.error(".care-result-score", scoreInput.validationMessage); return; }
+    const status = overlay.querySelector(".care-result-status")?.value || "completed";
     saving = true;
     overlay.querySelectorAll("button,input,select,textarea").forEach((input) => { input.disabled = true; });
     error.hidden = true;
@@ -101,7 +127,7 @@ export function openCareResultEditor(card, item, options = {}) {
         program_id: item.program_id,
         puppy_id: item.puppy_id,
         occurrence_id: item.id,
-        status: overlay.querySelector(".care-result-status")?.value || "completed",
+        status,
         result: overlay.querySelector(".care-result-value")?.value?.trim() || undefined,
         score: scoreRaw === undefined || scoreRaw === "" ? undefined : Number(scoreRaw),
         note: overlay.querySelector(".care-result-note")?.value?.trim() || undefined,

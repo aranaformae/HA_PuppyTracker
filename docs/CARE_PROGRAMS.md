@@ -1,6 +1,6 @@
-# Age-based care programs
+# Care programs
 
-This document defines the architectural contract for Puppy Tracker age-based litter care programs.
+This document defines the architectural contract for Puppy Tracker litter care programs, including age-based actions and finite treatments.
 
 ## Purpose
 
@@ -91,10 +91,38 @@ Programs support:
 
 - `once`: one occurrence at one configured age day;
 - `range`: occurrences from an inclusive start age through an inclusive end age, with configurable `interval_days`.
+- `course`: a finite local-date range for selected pups, with one to eight fixed times per day. This mode is limited to medication and deworming and does not depend on birth time.
 
 A program may also define an optional local `HH:MM` time of day.
 
-The calendar is anchored to puppy age. Completing or missing one occurrence never changes the schedule of another occurrence.
+Age-based schedules are anchored to puppy age; courses use their configured
+calendar dates. Completing or missing one occurrence never changes the schedule
+of another occurrence.
+
+For `course`, the user chooses the pups, start/end dates, local times and
+planned product. The plan stores no veterinary dose recommendation. Each
+selected pup and time has a distinct occurrence. At completion, the user may
+correct the actual product, dose, administration details and time before saving
+the dossier record. The same dossier editor is used for standalone and
+follow-up administrations; ordinary ENS/ESI programs keep their short result
+form. Missed moments store no administration data. A course can
+be stopped with a reason; future moments disappear while historical results
+remain. When correcting a treatment result in the dossier, the actual fields
+and the PDF data are updated together. A missed result contains no actual
+administration fields. Treatment results stay with their scheduled pup; moving
+their owner would break the occurrence link. The Programs view derives
+completed, missed and pending counts from these records, including for stopped
+courses.
+
+Treatment templates store relative duration and clock times, never selected
+pups or absolute dates. A built-in one-day example leaves the product blank.
+On use, the user chooses the start date and pups. Full backups carry course
+plans and user templates; partial puppy/litter transfers do not carry scheduler
+definitions. Before saving, an advisory overlap check looks for another
+program at the same instant, a potentially overlapping recurring reminder or
+a dossier next-due date for the same pup and category. Interval reminders
+produce a possible overlap warning because their next moment can shift; no
+schedule is changed automatically.
 
 ### Local clock and timezone semantics
 

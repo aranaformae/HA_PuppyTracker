@@ -7,8 +7,19 @@ from homeassistant.util import dt as dt_util
 
 from custom_components.puppy_tracker.pdf_export import (
     _active_care_records,
+    _care_result_text,
     build_pdf_export,
 )
+
+
+def test_course_pdf_uses_readable_actual_administration_labels() -> None:
+    data = {
+        "care_schedule_type": "course", "care_status": "completed",
+        "care_data": {"medication": "Product B", "dose": "0.5", "unit": "ml"},
+    }
+    assert _care_result_text(data, "nl") == "Middel: Product B · Hoeveelheid: 0.5 · Eenheid: ml"
+    assert _care_result_text(data, "en") == "Product: Product B · Amount: 0.5 · Unit: ml"
+    assert _care_result_text({"care_schedule_type": "course", "care_status": "missed", "care_data": {}}, "nl") == "—"
 
 
 async def test_pdf_includes_structured_care_result(storage, install_litter) -> None:
@@ -48,6 +59,33 @@ async def test_pdf_includes_structured_care_result(storage, install_litter) -> N
     assert b"stimulus:" in pdf
     assert b"tactiel" in pdf
     assert b"Goed opgepakt" in pdf
+
+
+async def test_pdf_course_reports_actual_administration_and_missed_status(storage, install_litter) -> None:
+    litter_id, puppy_id = install_litter()
+    now = dt_util.now().isoformat()
+    for suffix, status, care_data in (
+        ("08:00", "completed", {"medication": "Product B", "dose": "0.5 ml"}),
+        ("18:00", "missed", {}),
+    ):
+        await storage.async_add_record(
+            litter_id, record_type="medication", puppy_id=puppy_id,
+            occurred_at=now, title="Medicatiekuur",
+            data={
+                "care_program_id": "course-1",
+                "care_occurrence_id": f"course-1:course:r1:{puppy_id}:2026-10-28:{suffix}",
+                "care_schedule_type": "course", "care_scheduled_at": now,
+                "care_status": status, "care_data": care_data,
+                **care_data,
+            },
+        )
+    _name, _mime, encoded = build_pdf_export(storage, litter_id, puppy_id=puppy_id)
+    pdf = base64.b64decode(encoded)
+    assert b"Medicatiekuur" in pdf
+    assert b"Product B" in pdf
+    assert b"Gemist" in pdf
+    assert b"0.5" in pdf
+    assert b"ml" in pdf
 
 
 async def test_pdf_care_results_follow_report_period(storage, install_litter) -> None:

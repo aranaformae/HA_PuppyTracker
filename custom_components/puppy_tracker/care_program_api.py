@@ -1,7 +1,8 @@
-"""WebSocket API for age-based litter care programs."""
+"""WebSocket API for litter care programs and finite treatments."""
 
 from __future__ import annotations
 
+from datetime import date, timedelta
 from typing import Any
 
 import voluptuous as vol
@@ -12,6 +13,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.util import dt as dt_util
 
 from .care_occurrences import derive_litter_care_occurrences
+from .care_course_conflicts import course_schedule_conflicts
 from .care_programs import (
     AgeBasedCareProgramStore,
     care_program_identity_changed,
@@ -19,7 +21,7 @@ from .care_programs import (
 )
 from .care_results import async_record_care_result
 from .care_templates import CareProgramTemplateStore
-from .care_status import care_occurrence_status
+from .care_status import care_occurrence_status, index_care_result_records
 from .const import DOMAIN, SIGNAL_DASHBOARD_UPDATE
 from .runtime import get_runtime_data, get_runtime_storage
 from .updates import dispatch_dossier_update
@@ -108,7 +110,48 @@ PROGRAM_FIELDS = {
     "time_of_day", "counts_for_attention", "notifications_enabled",
     "notification_lead_minutes", "result_fields",
     "instructions", "instructions_by_age",
+    "target_puppy_ids", "start_date", "end_date", "times_of_day", "timezone",
+    "treatment_product", "planned_dose", "planned_unit", "planned_route",
 }
+
+
+def _validate_course_targets(storage, program: dict[str, Any]) -> None:
+    if program.get("schedule_type") != "course":
+        return
+    litter_id = str(program.get("litter_id") or "")
+    for puppy_id in program.get("target_puppy_ids") or []:
+        puppy = storage.get_puppy(litter_id, puppy_id)
+        if puppy is None or puppy.get("active", True) is False:
+            raise ValueError("A selected course puppy is missing or inactive")
+
+
+def _course_progress(storage, program: dict[str, Any]) -> list[dict[str, Any]]:
+    """Summarize each selected puppy without changing the saved schedule."""
+    if program.get("schedule_type") != "course":
+        return []
+    litter_id = str(program.get("litter_id") or "")
+    schedule = {**program, "enabled": True}
+    progress: list[dict[str, Any]] = []
+    for puppy_id in program.get("target_puppy_ids") or []:
+        puppy = storage.get_puppy(litter_id, puppy_id)
+        if puppy is None:
+            puppy = {"id": puppy_id, "name": puppy_id}
+            missing = True
+        else:
+            missing = False
+        occurrences = derive_litter_care_occurrences(schedule, [{**puppy, "active": True}])
+        records = index_care_result_records(storage.get_records(litter_id, puppy_id, newest_first=False))
+        statuses = [care_occurrence_status(item, records.get(item["id"], []))["status"] for item in occurrences]
+        completed = statuses.count("completed")
+        missed = statuses.count("missed")
+        progress.append({
+            "puppy_id": puppy_id, "puppy_name": str(puppy.get("name") or puppy_id),
+            "collar_color": puppy.get("collar_color"), "total": len(occurrences),
+            "completed": completed, "missed": missed,
+            "pending": len(occurrences) - completed - missed,
+            "missing": missing,
+        })
+    return progress
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/care_programs", vol.Optional("litter_id"): str})
@@ -117,7 +160,42 @@ async def websocket_list_care_programs(hass, connection, msg) -> None:
     store = _store_or_error(hass, connection, msg)
     if store is None:
         return
-    connection.send_result(msg["id"], {"programs": store.get_programs(litter_id=msg.get("litter_id"))})
+    programs = store.get_programs(litter_id=msg.get("litter_id"))
+    storage = get_runtime_storage(hass)
+    if storage is not None:
+        for program in programs:
+            if program.get("schedule_type") == "course":
+                program["progress"] = _course_progress(storage, program)
+    connection.send_result(msg["id"], {"programs": programs})
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/care_program/conflicts",
+    vol.Required("program"): dict,
+    vol.Optional("exclude_program_id"): str,
+})
+@websocket_api.async_response
+async def websocket_care_program_conflicts(hass, connection, msg) -> None:
+    store = _store_or_error(hass, connection, msg)
+    storage = get_runtime_storage(hass)
+    if store is None or storage is None:
+        return
+    try:
+        candidate = normalize_care_program(msg["program"])
+        _validate_litter(storage, candidate["litter_id"])
+        _validate_course_targets(storage, candidate)
+        runtime = get_runtime_data(hass)
+        reminder_store = getattr(runtime, "recurring_reminders", None)
+        reminders = reminder_store.get_reminders(litter_id=candidate["litter_id"]) if reminder_store else []
+        conflicts = course_schedule_conflicts(
+            storage, candidate, store.get_programs(litter_id=candidate["litter_id"]),
+            reminders, exclude_program_id=msg.get("exclude_program_id"),
+        )
+    except ValueError as err:
+        connection.send_error(msg["id"], "invalid_care_program", str(err))
+        return
+    connection.send_result(msg["id"], {"conflicts": conflicts})
 
 
 @websocket_api.websocket_command({
@@ -147,14 +225,20 @@ async def websocket_list_care_occurrences(hass, connection, msg) -> None:
     puppies = [puppy for puppy in (litter.get("puppies") or {}).values() if isinstance(puppy, dict)]
     occurrences: list[dict[str, Any]] = []
     skipped: list[dict[str, str]] = []
+    records_by_puppy: dict[str, dict[str, list[dict[str, Any]]]] = {}
     for program in programs:
         for puppy in puppies:
             if puppy.get("active", True) is False:
                 continue
             try:
                 derived = derive_litter_care_occurrences(program, [puppy])
-                records = storage.get_records(msg["litter_id"], str(puppy.get("id") or ""), newest_first=False)
-                occurrences.extend(care_occurrence_status(item, records) for item in derived)
+                puppy_id = str(puppy.get("id") or "")
+                if puppy_id not in records_by_puppy:
+                    records_by_puppy[puppy_id] = index_care_result_records(
+                        storage.get_records(msg["litter_id"], puppy_id, newest_first=False)
+                    )
+                records_by_occurrence = records_by_puppy[puppy_id]
+                occurrences.extend(care_occurrence_status(item, records_by_occurrence.get(item["id"], [])) for item in derived)
             except ValueError as err:
                 reason = str(err)
                 skipped.append({
@@ -240,8 +324,8 @@ async def websocket_record_care_occurrence(hass, connection, msg) -> None:
     vol.Required("title"): str,
     vol.Optional("description"): vol.Any(str, None),
     vol.Optional("record_type", default="note"): str,
-    vol.Required("schedule_type"): vol.In(("once", "range")),
-    vol.Required("start_age_days"): vol.Coerce(int),
+    vol.Required("schedule_type"): vol.In(("once", "range", "course")),
+    vol.Optional("start_age_days"): vol.Coerce(int),
     vol.Optional("end_age_days"): vol.Coerce(int),
     vol.Optional("interval_days", default=1): vol.Coerce(int),
     vol.Optional("time_of_day"): vol.Any(str, None),
@@ -251,6 +335,15 @@ async def websocket_record_care_occurrence(hass, connection, msg) -> None:
     vol.Optional("result_fields"): [vol.In(("result", "score", "note"))],
     vol.Optional("instructions"): vol.Any(str, None),
     vol.Optional("instructions_by_age"): dict,
+    vol.Optional("target_puppy_ids"): [str],
+    vol.Optional("start_date"): str,
+    vol.Optional("end_date"): str,
+    vol.Optional("times_of_day"): [str],
+    vol.Optional("timezone"): str,
+    vol.Optional("treatment_product"): str,
+    vol.Optional("planned_dose"): vol.Any(str, None),
+    vol.Optional("planned_unit"): vol.Any(str, None),
+    vol.Optional("planned_route"): vol.Any(str, None),
 })
 @websocket_api.async_response
 async def websocket_create_care_program(hass, connection, msg) -> None:
@@ -261,6 +354,8 @@ async def websocket_create_care_program(hass, connection, msg) -> None:
     data = {key: value for key, value in msg.items() if key in PROGRAM_FIELDS}
     try:
         _validate_litter(storage, data["litter_id"])
+        normalized = normalize_care_program(data)
+        _validate_course_targets(storage, normalized)
         program_id = await store.async_create(data)
     except ValueError as err:
         connection.send_error(msg["id"], "invalid_care_program", str(err))
@@ -278,7 +373,7 @@ async def websocket_create_care_program(hass, connection, msg) -> None:
     vol.Optional("title"): str,
     vol.Optional("description"): vol.Any(str, None),
     vol.Optional("record_type"): str,
-    vol.Optional("schedule_type"): vol.In(("once", "range")),
+    vol.Optional("schedule_type"): vol.In(("once", "range", "course")),
     vol.Optional("start_age_days"): vol.Coerce(int),
     vol.Optional("end_age_days"): vol.Coerce(int),
     vol.Optional("interval_days"): vol.Coerce(int),
@@ -289,6 +384,15 @@ async def websocket_create_care_program(hass, connection, msg) -> None:
     vol.Optional("result_fields"): [vol.In(("result", "score", "note"))],
     vol.Optional("instructions"): vol.Any(str, None),
     vol.Optional("instructions_by_age"): dict,
+    vol.Optional("target_puppy_ids"): [str],
+    vol.Optional("start_date"): str,
+    vol.Optional("end_date"): str,
+    vol.Optional("times_of_day"): [str],
+    vol.Optional("timezone"): str,
+    vol.Optional("treatment_product"): str,
+    vol.Optional("planned_dose"): vol.Any(str, None),
+    vol.Optional("planned_unit"): vol.Any(str, None),
+    vol.Optional("planned_route"): vol.Any(str, None),
 })
 @websocket_api.async_response
 async def websocket_update_care_program(hass, connection, msg) -> None:
@@ -309,6 +413,8 @@ async def websocket_update_care_program(hass, connection, msg) -> None:
             program_id=str(current.get("id") or msg["program_id"]),
             updated_at=str(current.get("updated_at") or "") or None,
         )
+        if normalized_candidate.get("target_puppy_ids") != current.get("target_puppy_ids"):
+            _validate_course_targets(storage, normalized_candidate)
         if (
             care_program_identity_changed(current, normalized_candidate)
             and _program_has_active_results(storage, current)
@@ -319,7 +425,29 @@ async def websocket_update_care_program(hass, connection, msg) -> None:
                 "Care program schedule and result identity cannot be changed after results exist; create a new care program instead",
             )
             return
-        await store.async_update(msg["program_id"], candidate)
+        await store.async_update(
+            msg["program_id"], candidate,
+            active_result_exists=lambda program: _program_has_active_results(storage, program),
+        )
+    except ValueError as err:
+        connection.send_error(msg["id"], "invalid_care_program", str(err))
+        return
+    async_dispatcher_send(hass, SIGNAL_DASHBOARD_UPDATE)
+    connection.send_result(msg["id"], {"ok": True})
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/care_program/stop",
+    vol.Required("program_id"): str, vol.Required("reason"): str,
+})
+@websocket_api.async_response
+async def websocket_stop_care_program(hass, connection, msg) -> None:
+    store = _store_or_error(hass, connection, msg)
+    if store is None:
+        return
+    try:
+        await store.async_stop(msg["program_id"], msg["reason"])
     except ValueError as err:
         connection.send_error(msg["id"], "invalid_care_program", str(err))
         return
@@ -332,7 +460,12 @@ async def websocket_update_care_program(hass, connection, msg) -> None:
 @websocket_api.async_response
 async def websocket_delete_care_program(hass, connection, msg) -> None:
     store = _store_or_error(hass, connection, msg)
-    if store is None:
+    storage = get_runtime_storage(hass)
+    if store is None or storage is None:
+        return
+    program = store.get_program(msg["program_id"])
+    if program and program.get("schedule_type") == "course" and _program_has_active_results(storage, program):
+        connection.send_error(msg["id"], "care_program_locked", "Disable a treatment with results instead of deleting its schedule")
         return
     try:
         await store.async_delete(msg["program_id"])
@@ -397,7 +530,12 @@ async def websocket_save_care_program_templates(hass, connection, msg) -> None:
 
 
 @websocket_api.require_admin
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/care_program_template/apply", vol.Required("template_id"): str, vol.Required("litter_id"): str})
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/care_program_template/apply",
+    vol.Required("template_id"): str, vol.Required("litter_id"): str,
+    vol.Optional("target_puppy_ids"): [str], vol.Optional("start_date"): str,
+    vol.Optional("treatment_product"): str,
+})
 @websocket_api.async_response
 async def websocket_apply_care_program_template(hass, connection, msg) -> None:
     runtime = get_runtime_data(hass)
@@ -415,6 +553,18 @@ async def websocket_apply_care_program_template(hass, connection, msg) -> None:
         _validate_litter(storage, msg["litter_id"])
         data = {key: value for key, value in template.items() if key not in {"id", "name"}}
         data["litter_id"] = msg["litter_id"]
+        if data.get("schedule_type") == "course":
+            if not msg.get("start_date") or not msg.get("target_puppy_ids"):
+                raise ValueError("Treatment templates require a start date and selected puppies")
+            try:
+                start = date.fromisoformat(msg["start_date"])
+            except ValueError as err:
+                raise ValueError("start_date must be an ISO date") from err
+            data["start_date"] = start.isoformat()
+            data["end_date"] = (start + timedelta(days=int(data.pop("course_days")) - 1)).isoformat()
+            data["target_puppy_ids"] = msg["target_puppy_ids"]
+            data["treatment_product"] = msg.get("treatment_product") or data.get("treatment_product")
+        _validate_course_targets(storage, normalize_care_program(data))
         program_id = await programs.async_create(data)
     except ValueError as err:
         connection.send_error(msg["id"], "invalid_care_program", str(err))
@@ -429,10 +579,12 @@ def async_setup_care_program_api(hass: HomeAssistant) -> None:
         return
     for command in (
         websocket_list_care_programs,
+        websocket_care_program_conflicts,
         websocket_list_care_occurrences,
         websocket_record_care_occurrence,
         websocket_create_care_program,
         websocket_update_care_program,
+        websocket_stop_care_program,
         websocket_delete_care_program,
         websocket_list_care_program_templates,
         websocket_save_care_program_template,

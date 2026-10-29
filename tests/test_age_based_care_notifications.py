@@ -81,6 +81,18 @@ def test_age_based_care_notification_message_includes_day_specific_instructions(
     assert message.count("Geur 5: droge aarde.") == 1
 
 
+def test_course_notification_names_the_planned_moment_without_age_day() -> None:
+    message = _message([{
+        "title": "Medicatie", "schedule_type": "course",
+        "scheduled_date": "2026-10-28", "time_of_day": "08:00",
+        "puppy_name": "Nova", "status": "due_today",
+        "instructions": "Controleer het voorschrift.",
+    }])
+    assert "2026-10-28 08:00" in message
+    assert "dag 0" not in message
+    assert "Controleer het voorschrift." in message
+
+
 def test_age_based_care_notification_lead_uses_default_and_program_override(
     monkeypatch,
 ) -> None:

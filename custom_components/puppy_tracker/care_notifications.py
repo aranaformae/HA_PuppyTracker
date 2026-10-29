@@ -1,4 +1,4 @@
-"""Grouped notification checks for age-based litter care occurrences."""
+"""Grouped notification checks for litter care occurrences."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from homeassistant.util import dt as dt_util
 
 from .care_occurrences import derive_litter_care_occurrences
 from .care_programs import AgeBasedCareProgramStore
-from .care_status import care_occurrence_status
+from .care_status import care_occurrence_status, index_care_result_records
 from .const import (
     DEFAULT_NOTIFICATION_LEAD_MINUTES,
     DEFAULT_NOTIFICATIONS_ENABLED,
@@ -53,7 +53,7 @@ async def async_check_care_notifications(
     )
     default_lead_minutes = _lead_minutes(settings.get("notification_lead_minutes"))
     groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    records_by_puppy: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    records_by_puppy: dict[tuple[str, str], dict[str, list[dict[str, Any]]]] = {}
 
     for program in store.get_programs():
         if (
@@ -77,19 +77,22 @@ async def async_check_care_notifications(
             puppy_id = str(puppy.get("id") or "")
             cache_key = (litter_id, puppy_id)
             if cache_key not in records_by_puppy:
-                records_by_puppy[cache_key] = runtime.storage.get_records(
-                    litter_id,
-                    puppy_id,
-                    newest_first=False,
+                records_by_puppy[cache_key] = index_care_result_records(
+                    runtime.storage.get_records(
+                        litter_id, puppy_id, newest_first=False,
+                    )
                 )
             records = records_by_puppy[cache_key]
             for occurrence in derived:
-                item = care_occurrence_status(occurrence, records)
+                item = care_occurrence_status(occurrence, records.get(occurrence["id"], []))
                 _apply_notification_lead(item, default_lead_minutes)
                 if item.get("status") not in DUE_STATUSES:
                     continue
                 scheduled_date = str(item.get("scheduled_at") or "")[:10]
-                key = f"{item.get('program_id')}:{item.get('age_days')}:{scheduled_date}"
+                if item.get("schedule_type") == "course":
+                    key = f"{item.get('program_id')}:course:{scheduled_date}:{item.get('time_of_day')}"
+                else:
+                    key = f"{item.get('program_id')}:{item.get('age_days')}:{scheduled_date}"
                 groups[key].append(item)
 
     state = _state(hass)
@@ -190,7 +193,11 @@ def _apply_notification_lead(item: dict[str, Any], default_lead_minutes: int) ->
 def _message(items: list[dict[str, Any]]) -> str:
     first = items[0]
     status = str(first.get("status") or "")
-    age_days = int(first.get("age_days") or 0)
+    course = first.get("schedule_type") == "course"
+    heading = (
+        f"{first.get('title', 'Behandeling')} · {first.get('scheduled_date')} {first.get('time_of_day')}"
+        if course else f"{first.get('title', 'Zorgactie')} · dag {int(first.get('age_days') or 0)}"
+    )
     puppy_names = [str(item.get("puppy_name") or "Pup") for item in items]
     if status == "due_today":
         timing = "is vandaag aan de beurt"
@@ -201,12 +208,12 @@ def _message(items: list[dict[str, Any]]) -> str:
         timing = "is achterstallig"
     if len(items) == 1:
         message = (
-            f"**{first.get('title', 'Zorgactie')} · dag {age_days}** voor "
+            f"**{heading}** voor "
             f"**{puppy_names[0]}** {timing}. Open Today of Aandacht om het resultaat vast te leggen."
         )
     else:
         message = (
-            f"**{first.get('title', 'Zorgactie')} · dag {age_days}** {timing} voor "
+            f"**{heading}** {timing} voor "
             f"**{len(items)} pups**: {', '.join(puppy_names)}. "
             "Open Today of Aandacht om resultaten vast te leggen."
         )
@@ -219,7 +226,8 @@ def _message(items: list[dict[str, Any]]) -> str:
             instructions.append(instruction)
             seen.add(instruction)
     if instructions:
-        message += "\n\n**Instructie voor deze dag:**\n" + "\n\n".join(instructions)
+        label = "Instructie" if course else "Instructie voor deze dag"
+        message += f"\n\n**{label}:**\n" + "\n\n".join(instructions)
     return message
 
 

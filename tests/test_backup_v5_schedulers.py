@@ -116,6 +116,32 @@ def test_v5_full_backup_round_trips_scheduler_snapshots(storage, install_litter)
     ] == [1, 2, 3]
 
 
+def test_full_backup_preserves_finite_treatment_and_reusable_template(storage, install_litter) -> None:
+    litter_id, puppy_id = install_litter(measurements=[])
+    schedulers = _scheduler_data()
+    course = normalize_care_program({
+        "id": "course-1", "litter_id": litter_id, "title": "Medicatie",
+        "record_type": "medication", "schedule_type": "course",
+        "target_puppy_ids": [puppy_id], "start_date": "2026-10-28",
+        "end_date": "2026-10-29", "times_of_day": ["08:00", "18:00"],
+        "timezone": "Europe/Amsterdam", "treatment_product": "Product A",
+    }, program_id="course-1")
+    schedulers["care_programs"]["programs"]["course-1"] = course
+    template = _normalize_template({
+        "id": "course-template-1", "name": "Mijn kuur", "title": "Medicatie",
+        "record_type": "medication", "schedule_type": "course",
+        "course_days": 2, "times_of_day": ["08:00", "18:00"],
+    })
+    schedulers["care_templates"]["templates"]["course-template-1"] = template
+    document = build_export_document(
+        storage, scope="full", care_reminder_settings=CARE_SETTINGS,
+        scheduler_data=schedulers,
+    )
+    parsed = parse_export_json(json.dumps(document))
+    assert parsed["schedulers"]["care_programs"]["programs"]["course-1"] == course
+    assert parsed["schedulers"]["care_templates"]["templates"]["course-template-1"] == template
+
+
 def test_v5_scheduler_active_key_must_match_internal_identifier(storage) -> None:
     schedulers = _scheduler_data()
     schedulers["care_programs"]["programs"] = {"wrong-key": _program()}

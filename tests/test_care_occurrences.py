@@ -190,6 +190,25 @@ def test_litter_derivation_keeps_occurrences_separate_per_puppy() -> None:
     }
 
 
+def test_course_targets_only_selected_puppies_with_independent_daily_times() -> None:
+    program = normalize_care_program({
+        "id": "course-1", "litter_id": "litter-1", "title": "Behandeling",
+        "record_type": "medication", "schedule_type": "course",
+        "target_puppy_ids": ["pup-1"], "start_date": "2026-10-28",
+        "end_date": "2026-10-29", "times_of_day": ["08:00", "18:00"],
+        "timezone": "Europe/Amsterdam", "treatment_product": "Product A",
+    })
+    occurrences = derive_litter_care_occurrences(program, [
+        _puppy("pup-1", "Nova", ""), _puppy("pup-2", "Benen", ""),
+    ])
+    assert len(occurrences) == 4
+    assert {item["puppy_id"] for item in occurrences} == {"pup-1"}
+    assert len({item["id"] for item in occurrences}) == 4
+    assert occurrences[0]["id"] == "course-1:course:r1:pup-1:2026-10-28:08:00"
+    assert occurrences[0]["age_days"] is None
+    assert occurrences[0]["scheduled_at"] == "2026-10-28T08:00:00+01:00"
+
+
 def test_missing_birth_time_is_rejected() -> None:
     program = normalize_care_program({
         "id": "ens",

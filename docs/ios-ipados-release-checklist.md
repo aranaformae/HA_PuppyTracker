@@ -66,6 +66,9 @@ Use this checklist before a release that changes dashboard cards, frontend loadi
 - [ ] Open the same saved item from Dossier, Timeline, Today/Mobile and its applicable Attention, Temperature or Behavior history; confirm the dialog uses its original owner and values.
 - [ ] Open the aggregate All scope and edit/delete/restore an existing litter, mother and puppy record.
 - [ ] Open a care-program result and verify status, result, score and day-specific instruction are visible; edit the supported result fields.
+- [ ] Create an age-based ENS/ESI program and confirm its short result form still records an observation.
+- [ ] Plan a finite medication or deworming course for one selected pup with two daily times. Confirm only that pup gets the moments, edit the actual product/dose before recording one, and mark another missed without saving a product as administered.
+- [ ] Open the recorded course result in Dossier, verify the actual values and status, then check that the puppy PDF reports completed and missed moments distinctly.
 - [ ] Soft-delete a record.
 - [ ] Enable deleted items and restore the record.
 - [ ] Edit a profile note and save it.

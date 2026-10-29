@@ -908,6 +908,16 @@ Diagnostics expose aggregate reminder and quarantine counts without exposing rem
 
 Age-based care programs schedule actions from each puppy's age. They are different from interval reminders because completion timing must never shift the age calendar.
 
+The same store also supports finite `course` programs for selected pups. Their
+occurrence IDs include revision, pup, local date and time; existing age-based
+IDs are unchanged. Courses validate timezone transitions, retain plans after a
+stop with reason, and write actual medication/deworming data to normal dossier
+records. Duplicate active occurrence results are rejected inside the dossier
+mutation lock. The Programs API derives per-pup progress from dossier records,
+including for stopped courses. Treatment templates use relative duration and
+omit pup IDs and absolute dates. See [Care programs](CARE_PROGRAMS.md) and
+[treatment workflow design](TREATMENT_WORKFLOW_DESIGN.md).
+
 Authoritative implementation lives in:
 
 ```text
@@ -2020,7 +2030,10 @@ covered by executable Node tests. See [Release conventions](RELEASING.md).
 
 ## Future modules and extension rules
 
-The generic dossier envelope, generic recurring-reminder engine and age-based program model should support future workflows such as medication courses, feeding, veterinary follow-up, tests and milestones without creating parallel per-feature task engines.
+The generic dossier envelope, recurring-reminder engine and care-program model
+support age-based programs and finite medication/deworming courses. Further
+feeding, veterinary follow-up, test and milestone workflows should extend one
+of these patterns instead of creating parallel per-feature task engines.
 
 New care features should prefer one of these established patterns:
 

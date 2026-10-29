@@ -6,6 +6,10 @@ from copy import deepcopy
 from typing import Any, Protocol
 
 CARE_RESULT_STATUSES = {"completed", "missed"}
+COURSE_ADMIN_FIELDS = {
+    "medication": {"medication", "dose", "unit", "route", "administered_by", "frequency", "duration"},
+    "deworming": {"product", "active_ingredient", "amount", "unit", "dose", "route", "batch_number", "administered_by", "weight_grams"},
+}
 
 
 class PuppyRecordStorage(Protocol):
@@ -64,7 +68,62 @@ def normalize_care_result(
     if extra_data is not None and not isinstance(extra_data, dict):
         raise ValueError("data must be an object")
     normalized["data"] = deepcopy(extra_data) if isinstance(extra_data, dict) else {}
+    if program.get("schedule_type") == "course":
+        record_type = program.get("record_type")
+        product_key = "medication" if record_type == "medication" else "product"
+        allowed = COURSE_ADMIN_FIELDS.get(record_type, set())
+        if set(normalized["data"]) - allowed:
+            raise ValueError("Unsupported treatment administration field")
+        if status == "missed" and normalized["data"]:
+            raise ValueError("A missed course moment cannot contain administration data")
+        if status == "completed":
+            product = str(normalized["data"].get(product_key) or "").strip()
+            if not product:
+                raise ValueError("Enter the product actually administered")
+            normalized["data"] = {
+                key: str(value).strip()
+                for key, value in normalized["data"].items()
+                if value not in (None, "") and str(value).strip()
+            }
     return normalized
+
+
+def normalize_course_record_edit(
+    previous: dict[str, Any], record_type: str, data: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Keep a dossier correction consistent with its treatment result identity."""
+    old_data = previous.get("data") if isinstance(previous.get("data"), dict) else {}
+    if old_data.get("care_schedule_type") != "course":
+        return deepcopy(data) if isinstance(data, dict) else {}
+    if record_type != previous.get("type") or record_type not in COURSE_ADMIN_FIELDS:
+        raise ValueError("Treatment result category cannot be changed")
+    if not isinstance(data, dict):
+        raise ValueError("Treatment result data is required")
+    for key in ("care_program_id", "care_program_revision", "care_occurrence_id", "care_schedule_type", "care_scheduled_at"):
+        if data.get(key) != old_data.get(key):
+            raise ValueError("Treatment result schedule identity cannot be changed")
+    if "next_due_date" in data:
+        raise ValueError("A treatment result cannot create a separate next-due schedule")
+    result = deepcopy(data)
+    status = str(result.get("care_status") or "")
+    if status not in CARE_RESULT_STATUSES:
+        raise ValueError("Treatment result status must be completed or missed")
+    actual = {key: result[key] for key in COURSE_ADMIN_FIELDS[record_type] if result.get(key) not in (None, "")}
+    if status == "missed":
+        if actual:
+            raise ValueError("A missed treatment cannot contain administration data")
+        result["care_data"] = {}
+        result["care_result"] = None
+        result["care_score"] = None
+    else:
+        normalized = normalize_care_result(
+            {"schedule_type": "course", "record_type": record_type, "result_fields": []},
+            {"status": "completed", "data": actual},
+        )
+        result["care_data"] = normalized["data"]
+        result["care_result"] = None
+        result["care_score"] = None
+    return result
 
 
 def care_result_record_payload(
@@ -98,7 +157,6 @@ def care_result_record_payload(
         "care_program_id": program_id,
         "care_program_revision": program_revision,
         "care_occurrence_id": occurrence_id,
-        "care_age_days": int(occurrence.get("age_days") or 0),
         "care_scheduled_at": occurrence.get("scheduled_at"),
         "care_instruction": occurrence.get("instructions"),
         "care_status": normalized["status"],
@@ -106,6 +164,11 @@ def care_result_record_payload(
         "care_score": normalized.get("score"),
         "care_data": normalized.get("data", {}),
     }
+    if program.get("schedule_type") == "course":
+        structured_data.update(normalized.get("data", {}))
+        structured_data["care_schedule_type"] = "course"
+    else:
+        structured_data["care_age_days"] = int(occurrence.get("age_days") or 0)
 
     return {
         "litter_id": litter_id,

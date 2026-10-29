@@ -39,6 +39,23 @@ def test_template_normalization_keeps_step_instructions() -> None:
     assert template["instructions"] == "Stap 1"
 
 
+def test_course_template_keeps_relative_duration_without_puppy_or_dates() -> None:
+    template = _normalize_template({
+        "name": "Mijn kuur", "title": "Medicatie", "record_type": "medication",
+        "schedule_type": "course", "course_days": 3,
+        "times_of_day": ["08:00", "18:00"], "planned_dose": "1 ml",
+    })
+    assert template["course_days"] == 3
+    assert template["times_of_day"] == ["08:00", "18:00"]
+    assert template["treatment_product"] is None
+    assert "target_puppy_ids" not in template
+    assert "start_date" not in template
+    assert "end_date" not in template
+    assert normalize_care_template_backup_data({"templates": {template["id"]: template}})["templates"][template["id"]] == template
+    with pytest.raises(ValueError, match="course_days"):
+        _normalize_template({**template, "course_days": 57})
+
+
 def test_template_normalization_rejects_an_incomplete_schedule() -> None:
     with pytest.raises(ValueError, match="schedule_type"):
         _normalize_template({"name": "Ongeldig", "title": "Routine"})

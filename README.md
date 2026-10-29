@@ -153,8 +153,10 @@ before saving; nothing is logged automatically.
 
 Use a recurring reminder when the next action follows the last completion, a
 fixed daily time or one date. Use a care program when actions are tied to each
-puppy's age. Care results are saved in the puppy dossier, including configured
-result, score, note and day-specific instructions.
+puppy's age. For medication or deworming over a fixed period, choose
+**Treatment** in Care programs and select the pups, dates and times. Record the
+actual product and amount for each pup when carrying out a treatment. Care
+results are saved in the puppy dossier.
 Use **Postpone once** to move only the pending reminder moment, without changing
 its recurrence. You can cancel postponement from Today/Mobile or Reminders.
 

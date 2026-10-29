@@ -84,6 +84,23 @@ def test_missed_occurrence_is_a_persistent_result_too() -> None:
     assert payload["data"]["care_occurrence_id"] == "program-ens:pup-1:7"
 
 
+def test_course_result_distinguishes_actual_administration_from_plan() -> None:
+    program = _program(schedule_type="course", record_type="medication")
+    occurrence = _occurrence(id="program-ens:course:r1:pup-1:2026-10-28:08:00", age_days=None)
+    with pytest.raises(ValueError, match="actually administered"):
+        care_result_record_payload(program, occurrence, {"status": "completed"})
+    completed = care_result_record_payload(program, occurrence, {
+        "status": "completed", "data": {"medication": "Product B", "dose": "0.5", "unit": "ml"},
+    })
+    assert completed["data"]["medication"] == "Product B"
+    assert completed["data"]["dose"] == "0.5"
+    assert "care_age_days" not in completed["data"]
+    with pytest.raises(ValueError, match="missed course"):
+        care_result_record_payload(program, occurrence, {"status": "missed", "data": {"medication": "Product B"}})
+    missed = care_result_record_payload(program, occurrence, {"status": "missed"})
+    assert "medication" not in missed["data"]
+
+
 def test_result_fields_follow_program_capabilities() -> None:
     program = _program(result_fields=["note"])
     assert normalize_care_result(program, {"note": "Prima"})["note"] == "Prima"

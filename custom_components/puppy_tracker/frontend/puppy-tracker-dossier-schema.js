@@ -174,6 +174,9 @@ export const TYPE_FIELDS = {
   medication: [
     { key: "medication", labelKey: "medication", placeholderKey: "medicationPlaceholder" },
     { key: "dose", labelKey: "dosage", placeholderKey: "dosagePlaceholder" },
+    { key: "unit", schemaLabelKey: "unit", schemaPlaceholderKey: "unitPlaceholder" },
+    { key: "route", schemaLabelKey: "route", schemaPlaceholderKey: "routePlaceholder" },
+    { key: "administered_by", labelKey: "administeredBy", placeholderKey: "administeredByPlaceholder" },
     { key: "frequency", labelKey: "frequency", placeholderKey: "frequencyPlaceholder" },
     { key: "duration", labelKey: "duration", placeholderKey: "durationPlaceholder" },
   ],

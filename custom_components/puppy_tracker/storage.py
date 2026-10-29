@@ -12,6 +12,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
 from .behavior import BEHAVIOR_RECORD_TYPE, validate_behavior_data
+from .care_results import normalize_course_record_edit
 from .storage_lock import CoordinatedLock, mutation_coordinator
 from .const import (
     DEFAULT_DOUBLE_WEIGHT_REFERENCE_DAYS,
@@ -2245,6 +2246,14 @@ class PuppyTrackerStorage:
                 followup_record_id, followup_due_date, data,
                 litter_id=litter_id,
             )
+            occurrence_id = str(normalized_data.get("care_occurrence_id") or "") if isinstance(normalized_data, dict) else ""
+            if occurrence_id and any(
+                isinstance(existing, dict) and not existing.get("deleted")
+                and isinstance(existing.get("data"), dict)
+                and existing["data"].get("care_occurrence_id") == occurrence_id
+                for existing in owner.get("records", [])
+            ):
+                raise ValueError("This care occurrence already has an active result")
             if normalized_type == BEHAVIOR_RECORD_TYPE:
                 if puppy_id is None:
                     raise ValueError("Behavior observations must belong to a puppy")
@@ -2302,6 +2311,7 @@ class PuppyTrackerStorage:
                 if puppy_id is None:
                     raise ValueError("Behavior observations must belong to a puppy")
                 normalized_data = validate_behavior_data(data)
+            normalized_data = normalize_course_record_edit(record, normalized_type, normalized_data)
             record["type"] = normalized_type
             if occurred_at is not None:
                 record["occurred_at"] = normalize_timestamp(occurred_at, now) or now
@@ -2359,6 +2369,8 @@ class PuppyTrackerStorage:
             source = litter if source_puppy_id is None else self._require_puppy(litter_id, source_puppy_id)
             target = litter if target_puppy_id is None else self._require_puppy(litter_id, target_puppy_id)
             record = self._require_record(source, record_id)
+            if isinstance(record.get("data"), dict) and record["data"].get("care_schedule_type") == "course":
+                raise ValueError("Treatment results cannot be moved to another owner")
             if record.get("type") == BEHAVIOR_RECORD_TYPE and target_scope != RECORD_SCOPE_PUPPY:
                 raise ValueError("Behavior observations must belong to a puppy")
             source["records"].remove(record)

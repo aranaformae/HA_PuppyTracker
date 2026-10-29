@@ -427,6 +427,8 @@ class MotherScopeStorage(PuppyTrackerStorage):
             source = owner_for(source_scope, source_puppy_id)
             target = owner_for(target_scope, target_puppy_id)
             record = self._require_record(source, record_id)
+            if isinstance(record.get("data"), dict) and record["data"].get("care_schedule_type") == "course":
+                raise ValueError("Treatment results cannot be moved to another owner")
             if record.get("type") == BEHAVIOR_RECORD_TYPE and target_scope != RECORD_SCOPE_PUPPY:
                 raise ValueError("Behavior observations must belong to a puppy")
             source["records"].remove(record)

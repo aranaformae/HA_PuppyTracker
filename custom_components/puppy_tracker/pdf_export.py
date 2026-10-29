@@ -477,14 +477,28 @@ def _format_care_score(value: Any, language: str = "nl") -> str:
     return result.replace(".", ",") if language == "nl" else result
 
 
-def _care_result_text(data: dict[str, Any]) -> str:
+def _care_result_text(data: dict[str, Any], language: str = "nl") -> str:
     parts: list[str] = []
     result = data.get("care_result")
     if result not in (None, ""):
         parts.append(str(result))
     extra = data.get("care_data")
     if isinstance(extra, dict):
-        parts.extend(f"{key}: {value}" for key, value in extra.items() if value not in (None, ""))
+        if data.get("care_schedule_type") == "course":
+            labels = {
+                "medication": ("Middel", "Product"), "product": ("Middel", "Product"),
+                "dose": ("Hoeveelheid", "Amount"), "unit": ("Eenheid", "Unit"),
+                "route": ("Toedieningswijze", "Route"),
+                "administered_by": ("Toegediend door", "Administered by"),
+                "batch_number": ("Batchnummer", "Batch number"),
+                "active_ingredient": ("Werkzame stof", "Active ingredient"),
+            }
+            parts.extend(
+                f"{labels.get(key, (key, key))[0 if language == 'nl' else 1]}: {value}"
+                for key, value in extra.items() if value not in (None, "")
+            )
+        else:
+            parts.extend(f"{key}: {value}" for key, value in extra.items() if value not in (None, ""))
     return " · ".join(parts) or "—"
 
 
@@ -1247,7 +1261,7 @@ def build_pdf_export(
                     str(record.get("title") or t("care_action")),
                     str(data.get("care_age_days") if data.get("care_age_days") is not None else "—"),
                     status,
-                    _care_result_text(data),
+                    _care_result_text(data, language),
                     _format_care_score(data.get("care_score"), language),
                     str(data.get("care_instruction") or ""),
                     str(record.get("note") or ""),

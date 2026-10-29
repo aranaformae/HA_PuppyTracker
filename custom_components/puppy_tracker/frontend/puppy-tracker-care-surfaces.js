@@ -5,6 +5,12 @@ function t(card, nl, en) {
   return languageForHass(card?._hass) === "en" ? en : nl;
 }
 
+function careTimingLabel(card, item) {
+  return item?.schedule_type === "course"
+    ? `${item.scheduled_date || ""} ${item.time_of_day || ""}`.trim()
+    : t(card, `dag ${item.age_days}`, `day ${item.age_days}`);
+}
+
 function openItems(card) {
   return (card.__careOccurrences || []).filter((item) => !["completed", "missed"].includes(item?.status));
 }
@@ -189,7 +195,7 @@ export function renderTodayCare(card) {
     section.className = "care-summary";
     section.innerHTML = `<style>
     .care-summary{margin-top:14px;border-top:1px solid var(--divider-color);padding-top:12px;max-height:520px;overflow-y:auto;overscroll-behavior:contain}.care-title{font-weight:700;margin-bottom:8px}.care-list{display:grid;gap:7px}.care-row{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px 9px;border-radius:10px;background:var(--secondary-background-color)}.care-row.danger .care-state{color:var(--error-color)}.care-row.warning .care-state{color:var(--warning-color,var(--primary-color))}.care-main{min-width:0}.care-main strong{display:block}.care-main span{font-size:.78rem;color:var(--secondary-text-color)}.care-instructions{display:block;margin-top:4px;color:var(--primary-text-color);white-space:pre-wrap;overflow-wrap:anywhere}.care-state{font-size:.78rem;font-weight:600;white-space:nowrap}.care-clickable{cursor:pointer}
-    </style><div class="care-title">${escapeHtml(t(card, "Zorgprogramma", "Care program"))}</div><div class="care-list">${relevant.map((item) => `<div class="care-row ${tone(item)}" data-care-occurrence="${escapeHtml(item.id || "")}"><ha-icon icon="${careIcon(item)}"></ha-icon><div class="care-main"><strong>${escapeHtml(item.title || "")}</strong><span>${escapeHtml(puppyDisplayLabel(card, item.puppy_id, item.puppy_name || t(card, "Pup", "Puppy"), item.collar_color))} · ${escapeHtml(t(card, `dag ${item.age_days}`, `day ${item.age_days}`))}</span>${item.instructions ? `<small class="care-instructions">${escapeHtml(item.instructions)}</small>` : ""}</div><div class="care-state">${escapeHtml(statusText(card, item))}</div></div>`).join("")}</div>`;
+    </style><div class="care-title">${escapeHtml(t(card, "Zorgprogramma", "Care program"))}</div><div class="care-list">${relevant.map((item) => `<div class="care-row ${tone(item)}" data-care-occurrence="${escapeHtml(item.id || "")}"><ha-icon icon="${careIcon(item)}"></ha-icon><div class="care-main"><strong>${escapeHtml(item.title || "")}</strong><span>${escapeHtml(puppyDisplayLabel(card, item.puppy_id, item.puppy_name || t(card, "Pup", "Puppy"), item.collar_color))} · ${escapeHtml(careTimingLabel(card, item))}</span>${item.instructions ? `<small class="care-instructions">${escapeHtml(item.instructions)}</small>` : ""}</div><div class="care-state">${escapeHtml(statusText(card, item))}</div></div>`).join("")}</div>`;
     root.querySelector("ha-card")?.appendChild(section);
     wireCareRows(card);
 }
@@ -215,7 +221,7 @@ export function renderAttentionCare(card) {
       const row = document.createElement("div");
       row.className = `row ${tone(item)}`;
       row.dataset.careOccurrence = item.id || "";
-      row.innerHTML = `<div class="icon ha"><ha-icon icon="${careIcon(item)}"></ha-icon></div><div class="main"><div class="name">${escapeHtml(puppyDisplayLabel(card, item.puppy_id, item.puppy_name || t(card, "Pup", "Puppy"), item.collar_color))}</div><div class="reason">${escapeHtml(item.title || "")} · ${escapeHtml(t(card, `dag ${item.age_days}`, `day ${item.age_days}`))}</div></div><div class="status">${escapeHtml(statusText(card, item))}</div>`;
+      row.innerHTML = `<div class="icon ha"><ha-icon icon="${careIcon(item)}"></ha-icon></div><div class="main"><div class="name">${escapeHtml(puppyDisplayLabel(card, item.puppy_id, item.puppy_name || t(card, "Pup", "Puppy"), item.collar_color))}</div><div class="reason">${escapeHtml(item.title || "")} · ${escapeHtml(careTimingLabel(card, item))}</div></div><div class="status">${escapeHtml(statusText(card, item))}</div>`;
       list.appendChild(row);
     }
     wireCareRows(card);

@@ -581,6 +581,47 @@ test("dossier shows and edits user-facing care result fields", async ({ page }) 
   });
 });
 
+test("editing a missed treatment does not require or invent administration data", async ({ page }) => {
+  const card = await mountDossier(page);
+  await card.evaluate((element) => {
+    const record = {
+      id: "missed-course", type: "deworming", scope: "puppy", litter_id: "l1", puppy_id: "p1",
+      occurred_at: new Date().toISOString(), title: "Ontwormingskuur", note: "Niet gegeven",
+      deleted: false, data: {
+        care_program_id: "course-1", care_occurrence_id: "course-1:course:r1:p1:2026-10-28:08:00",
+        care_schedule_type: "course", care_status: "missed", care_data: {},
+      },
+    };
+    window.__dossierRecords.push(record);
+    element._recordData.records = [record];
+    element._render();
+  });
+  await expect(card.locator(".record").filter({ hasText: "Ontwormingskuur" }).locator(".move-record")).toHaveCount(0);
+  await card.locator(".record").filter({ hasText: "Ontwormingskuur" }).locator("[data-edit-item]").click();
+  const editor = page.locator("puppy-tracker-record-editor");
+  await expect(editor.locator("#record-care-status")).toHaveValue("missed");
+  await expect(editor.locator("#record-data-product")).toBeHidden();
+  await expect(editor.locator("#record-data-next_due_date")).toHaveCount(0);
+  await editor.locator("#record-note").fill("Volgens dierenarts overgeslagen");
+  await editor.locator("#record-save").click();
+  const update = await page.evaluate(() => window.__dossierCalls.find((call) => call.type === "puppy_tracker/record/update" && call.record_id === "missed-course"));
+  expect(update.data.care_status).toBe("missed");
+  expect(update.data.care_data).toEqual({});
+  expect(update.data).not.toHaveProperty("product");
+  await card.locator(".record").filter({ hasText: "Ontwormingskuur" }).locator("[data-edit-item]").click();
+  await editor.locator("#record-care-status").selectOption("completed");
+  await expect(editor.locator("#record-data-product")).toBeVisible();
+  await editor.locator("#record-save").click();
+  await expect(editor.locator("#record-data-product")).toHaveAttribute("aria-invalid", "true");
+  await editor.locator("#record-data-product").fill("Werkelijk middel");
+  await editor.locator("#record-data-dose").fill("0.5 ml");
+  await editor.locator("#record-save").click();
+  const updates = await page.evaluate(() => window.__dossierCalls.filter((call) => call.type === "puppy_tracker/record/update" && call.record_id === "missed-course"));
+  expect(updates.at(-1).data.care_status).toBe("completed");
+  expect(updates.at(-1).data.care_data).toMatchObject({ product: "Werkelijk middel", dose: "0.5 ml" });
+  expect(updates.at(-1).data).not.toHaveProperty("next_due_date");
+});
+
 test("dossier can change a record owner and keeps the record identity", async ({ page }) => {
   const dialogs = [];
   page.on("dialog", async (dialog) => {

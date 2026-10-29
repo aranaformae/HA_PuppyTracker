@@ -1,8 +1,10 @@
 import { FormState, appendEditAction } from "./puppy-tracker-form-state.js";
 import {
   escapeHtml,
+  fetchLitterData,
   fetchLitters,
   languageForHass,
+  puppyDisplayLabel,
   requestLitterChange,
   selectDefaultLitter,
   subscribeUpdates,
@@ -17,6 +19,16 @@ const TAG = "puppy-tracker-care-program-card";
 function en(card) { return languageForHass(card?._hass) === "en"; }
 function t(card, nl, english) { return en(card) ? english : nl; }
 function checked(value) { return value ? "checked" : ""; }
+function todayLocal() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+function dateAfterDays(start, days) {
+  const date = new Date(`${start}T12:00:00`);
+  date.setDate(date.getDate() + days);
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
 
 function ageInstructionRow(card, age, value = "") {
   return `<div class="age-instruction-row"><label>${escapeHtml(t(card, "Dag", "Day"))}<input class="age-instruction-day" type="number" min="0" max="3650" value="${escapeHtml(String(age))}"></label><label>${escapeHtml(t(card, "Instructie", "Instruction"))}<textarea class="age-instruction-text" rows="2">${escapeHtml(value)}</textarea></label><button class="icon-button remove-age-instruction" type="button" title="${escapeHtml(t(card, "Dag verwijderen", "Remove day"))}" aria-label="${escapeHtml(t(card, "Dag verwijderen", "Remove day"))}"><ha-icon icon="mdi:delete-outline"></ha-icon></button></div>`;
@@ -30,6 +42,9 @@ function ageInstructionRows(card, instructions) {
 }
 
 function scheduleText(card, item) {
+  if (item?.schedule_type === "course") {
+    return `${item.start_date} – ${item.end_date} · ${(item.times_of_day || []).join(", ")}`;
+  }
   const start = Number(item?.start_age_days ?? 0);
   if (item?.schedule_type === "once") {
     return t(card, `Op dag ${start}`, `At day ${start}`);
@@ -43,12 +58,29 @@ function scheduleText(card, item) {
 }
 
 function schedulesOverlap(left, right) {
+  if (left.schedule_type === "course" && right.schedule_type === "course") {
+    return left.record_type === right.record_type
+      && left.start_date <= right.end_date && right.start_date <= left.end_date
+      && (left.target_puppy_ids || []).some((id) => (right.target_puppy_ids || []).includes(id))
+      && (left.times_of_day || []).some((clock) => (right.times_of_day || []).includes(clock));
+  }
+  if (left.schedule_type === "course" || right.schedule_type === "course") return false;
   if (left.time_of_day !== right.time_of_day) return false;
   const leftStart = Number(left.start_age_days ?? 0);
   const leftEnd = left.schedule_type === "once" ? leftStart : Number(left.end_age_days ?? leftStart);
   const rightStart = Number(right.start_age_days ?? 0);
   const rightEnd = right.schedule_type === "once" ? rightStart : Number(right.end_age_days ?? rightStart);
   return leftStart <= rightEnd && rightStart <= leftEnd;
+}
+
+function courseProgress(card, item) {
+  if (item.schedule_type !== "course" || !Array.isArray(item.progress) || !item.progress.length) return "";
+  const totals = item.progress.reduce((sum, pup) => ({
+    completed: sum.completed + Number(pup.completed || 0),
+    missed: sum.missed + Number(pup.missed || 0),
+    total: sum.total + Number(pup.total || 0),
+  }), { completed: 0, missed: 0, total: 0 });
+  return `<details class="course-progress"><summary>${escapeHtml(t(card, `Voortgang: ${totals.completed}/${totals.total} uitgevoerd${totals.missed ? ` · ${totals.missed} gemist` : ""}`, `Progress: ${totals.completed}/${totals.total} completed${totals.missed ? ` · ${totals.missed} missed` : ""}`))}</summary><div>${item.progress.map((pup) => `<div>${escapeHtml(puppyDisplayLabel(card, pup.puppy_id, pup.puppy_name, pup.collar_color))}: ${escapeHtml(t(card, `${pup.completed}/${pup.total} uitgevoerd · ${pup.pending} open${pup.missed ? ` · ${pup.missed} gemist` : ""}`, `${pup.completed}/${pup.total} completed · ${pup.pending} pending${pup.missed ? ` · ${pup.missed} missed` : ""}`))}</div>`).join("")}</div></details>`;
 }
 
 class PuppyTrackerCareProgramCard extends HTMLElement {
@@ -60,6 +92,7 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
     this._litters = [];
     this._selectedLitterId = null;
     this._programs = [];
+    this._litterData = null;
     this._templates = [];
     this._showEditor = false;
     this._editing = null;
@@ -142,6 +175,7 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
         litter_id: this._selectedLitterId,
       });
       this._programs = response?.programs || [];
+      this._litterData = await fetchLitterData(this._hass, this._selectedLitterId);
       this._error = "";
     } catch (error) {
       this._error = error?.message || t(this, "Zorgprogramma's konden niet worden geladen.", "Care programs could not be loaded.");
@@ -167,6 +201,14 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
       result_fields: item.result_fields || ["result", "note"],
       instructions: item.instructions || "",
       instructions_by_age: item.instructions_by_age || {},
+      target_puppy_ids: item.target_puppy_ids || [],
+      start_date: item.start_date || todayLocal(),
+      end_date: item.end_date || todayLocal(),
+      times_of_day: item.times_of_day || ["09:00"],
+      treatment_product: item.treatment_product || "",
+      planned_dose: item.planned_dose || "",
+      planned_unit: item.planned_unit || "",
+      planned_route: item.planned_route || "",
     };
   }
 
@@ -174,7 +216,7 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
     const root = this.shadowRoot;
     if (!root) return null;
     const fields = ["result", "score", "note"].filter((name) => root.getElementById(`care-result-${name}`)?.checked);
-    return {
+    const data = {
       litter_id: this._selectedLitterId,
       title: root.getElementById("care-title")?.value?.trim() || "",
       description: root.getElementById("care-description")?.value?.trim() || null,
@@ -201,6 +243,21 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
           .filter(([age, value]) => Number.isInteger(age) && age >= 0 && age <= 3650 && value),
       ),
     };
+    if (data.schedule_type === "course") {
+      data.record_type = root.getElementById("care-course-type")?.value || "medication";
+      data.target_puppy_ids = [...root.querySelectorAll(".course-puppy:checked")].map((input) => input.value);
+      data.start_date = root.getElementById("care-course-start")?.value || "";
+      data.end_date = root.getElementById("care-course-end")?.value || "";
+      data.times_of_day = (root.getElementById("care-course-times")?.value || "").split(",").map((value) => value.trim()).filter(Boolean);
+      data.treatment_product = root.getElementById("care-course-product")?.value?.trim() || "";
+      data.planned_dose = root.getElementById("care-course-dose")?.value?.trim() || null;
+      data.planned_unit = root.getElementById("care-course-unit")?.value?.trim() || null;
+      data.planned_route = root.getElementById("care-course-route")?.value?.trim() || null;
+      data.result_fields = ["note"];
+      delete data.start_age_days; delete data.end_age_days; delete data.interval_days;
+      delete data.time_of_day; delete data.instructions_by_age;
+    }
+    return data;
   }
 
   async _save() {
@@ -213,7 +270,7 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
       this._formState.error("#care-title", this._error);
       return;
     }
-    if (!Number.isInteger(data.start_age_days) || data.start_age_days < 0 || data.start_age_days > 3650) {
+    if (data.schedule_type !== "course" && (!Number.isInteger(data.start_age_days) || data.start_age_days < 0 || data.start_age_days > 3650)) {
       this._error = t(this, "De startleeftijd moet tussen 0 en 3650 dagen liggen.", "Start age must be between 0 and 3650 days.");
       this._render();
       this._formState.error("#care-start", this._error);
@@ -231,10 +288,15 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
       this._formState.error("#care-interval", this._error);
       return;
     }
-    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(data.time_of_day || ""))) {
+    if (data.schedule_type !== "course" && !/^([01]\d|2[0-3]):[0-5]\d$/.test(String(data.time_of_day || ""))) {
       this._error = t(this, "Vul een geldig tijdstip in.", "Enter a valid time.");
       this._render();
       this._formState.error("#care-time", this._error);
+      return;
+    }
+    if (data.schedule_type === "course" && (!data.target_puppy_ids.length || !data.start_date || !data.end_date || !data.times_of_day.length || !data.treatment_product)) {
+      this._error = t(this, "Kies pups, datums en tijdstippen en vul het middel in.", "Select puppies, dates and times, then enter the product.");
+      this._render();
       return;
     }
     if (data.notification_lead_minutes != null && (!Number.isInteger(data.notification_lead_minutes) || data.notification_lead_minutes < 0 || data.notification_lead_minutes > 10080)) {
@@ -243,10 +305,21 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
       this._formState.error("#care-lead-minutes", this._error);
       return;
     }
-
     this._saving = true;
     this._render();
     try {
+      if (data.schedule_type === "course") {
+        const review = await this._hass.callWS({
+          type: "puppy_tracker/care_program/conflicts", program: data,
+          ...(this._editing?.id ? { exclude_program_id: this._editing.id } : {}),
+        });
+        const conflicts = review?.conflicts || [];
+        if (conflicts.length) {
+          const lines = conflicts.slice(0, 8).map((item) => `• ${item.puppy_name}: ${item.title}`).join("\n");
+          const message = t(this, "Mogelijk dubbele planning gevonden:", "Possible duplicate schedules found:");
+          if (!window.confirm(`${message}\n${lines}\n\n${t(this, "Toch opslaan?", "Save anyway?")}`)) return;
+        }
+      }
       let result;
       const editingId = this._editing?.id;
       if (editingId) {
@@ -293,11 +366,38 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
     }
   }
 
+  async _stopTreatment(id) {
+    const reason = this.shadowRoot.getElementById("care-stop-reason")?.value?.trim();
+    if (!reason) {
+      this._formState.error("#care-stop-reason", t(this, "Vul een reden voor het stoppen in.", "Enter a reason for stopping."));
+      return;
+    }
+    if (!window.confirm(t(this, "Behandeling stoppen? Niet-opgeslagen wijzigingen in dit formulier gaan verloren.", "Stop treatment? Unsaved changes in this form will be lost."))) return;
+    this._saving = true;
+    try {
+      await this._hass.callWS({ type: "puppy_tracker/care_program/stop", program_id: id, reason });
+      this._showEditor = false;
+      this._editing = null;
+      this._formState.reset();
+      this._status = t(this, "Behandeling gestopt; eerdere uitvoeringen blijven bewaard.", "Treatment stopped; previous administrations remain saved.");
+      await this._loadCurrent();
+    } catch (error) {
+      this._error = error?.message || t(this, "Behandeling kon niet worden gestopt.", "Treatment could not be stopped.");
+    } finally {
+      this._saving = false;
+      this._render();
+    }
+  }
+
   _applyTemplate(templateId) {
     const template = this._templates.find((item) => item.id === templateId);
     if (!template) return;
     if (!this._formState.discard()) { this.shadowRoot.getElementById("care-template").value = ""; return; }
-    this._editing = { ...template, id: null, litter_id: this._selectedLitterId };
+    this._editing = template.schedule_type === "course"
+      ? { ...template, id: null, litter_id: this._selectedLitterId,
+        target_puppy_ids: [], start_date: todayLocal(),
+        end_date: dateAfterDays(todayLocal(), Math.max(1, Number(template.course_days) || 1) - 1) }
+      : { ...template, id: null, litter_id: this._selectedLitterId };
     this._error = "";
     this._render();
   }
@@ -307,6 +407,9 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
     if (!name?.trim()) return;
     try {
       const { litter_id: _litterId, id: _id, revision: _revision, created_at: _createdAt, updated_at: _updatedAt, ...template } = program;
+      if (program.schedule_type === "course") {
+        template.course_days = Math.round((new Date(`${program.end_date}T12:00:00`) - new Date(`${program.start_date}T12:00:00`)) / 86400000) + 1;
+      }
       await this._hass.callWS({ type: "puppy_tracker/care_program_template/save", name: name.trim(), template });
       const response = await this._hass.callWS({ type: "puppy_tracker/care_program_templates" });
       this._templates = response?.templates || this._templates;
@@ -385,33 +488,49 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
             <div class="main">
               <strong>${escapeHtml(item.title || "")}</strong>
               <div>${escapeHtml(scheduleText(this, item))}${item.time_of_day ? ` · ${escapeHtml(item.time_of_day)}` : ""}</div>
-              <div class="meta">${escapeHtml(recordTypeLabel(this._hass, item.record_type))}${item.notifications_enabled === false ? ` · ${escapeHtml(t(this, "meldingen uit", "notifications off"))}` : ""}${item.notification_lead_minutes != null ? ` · ${escapeHtml(t(this, `${item.notification_lead_minutes} min vooraf`, `${item.notification_lead_minutes} min before`))}` : ""}</div>
+              <div class="meta">${escapeHtml(recordTypeLabel(this._hass, item.record_type))}${item.stopped_at ? ` · ${escapeHtml(t(this, "Gestopt", "Stopped"))}: ${escapeHtml(item.stop_reason || "")}` : ""}${item.notifications_enabled === false ? ` · ${escapeHtml(t(this, "meldingen uit", "notifications off"))}` : ""}${item.notification_lead_minutes != null ? ` · ${escapeHtml(t(this, `${item.notification_lead_minutes} min vooraf`, `${item.notification_lead_minutes} min before`))}` : ""}</div>
+              ${courseProgress(this, item)}
             </div>
-            ${isAdmin ? `<div class="item-actions"><button class="icon-button edit" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t(this, "Zorgprogramma bewerken", "Edit care program"))}" aria-label="${escapeHtml(t(this, "Zorgprogramma bewerken", "Edit care program"))}"><ha-icon icon="mdi:pencil-outline"></ha-icon></button><button class="icon-button save-template" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t(this, "Als template opslaan", "Save as template"))}" aria-label="${escapeHtml(t(this, "Als template opslaan", "Save as template"))}"><ha-icon icon="mdi:content-save-outline"></ha-icon></button></div>` : ""}
+            ${isAdmin ? `<div class="item-actions">${item.stopped_at ? "" : `<button class="icon-button edit" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t(this, "Zorgprogramma bewerken", "Edit care program"))}" aria-label="${escapeHtml(t(this, "Zorgprogramma bewerken", "Edit care program"))}"><ha-icon icon="mdi:pencil-outline"></ha-icon></button>`}<button class="icon-button save-template" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t(this, "Als template opslaan", "Save as template"))}" aria-label="${escapeHtml(t(this, "Als template opslaan", "Save as template"))}"><ha-icon icon="mdi:content-save-outline"></ha-icon></button></div>` : ""}
           </div>`).join("")}</div>`
       : `<div class="empty">${escapeHtml(t(this, "Nog geen leeftijdsgebonden zorgprogramma's voor dit nest.", "No age-based care programs for this litter yet."))}</div>`;
 
     const editor = this._showEditor && isAdmin ? `
       <div class="editor">
-        <div class="editor-title">${escapeHtml(this._editing ? t(this, "Zorgprogramma bewerken", "Edit care program") : t(this, "Zorgprogramma toevoegen", "Add care program"))}</div>
+        <div class="editor-title">${escapeHtml(this._editing?.id ? t(this, "Zorgprogramma bewerken", "Edit care program") : t(this, "Zorgprogramma toevoegen", "Add care program"))}</div>
         <label>${escapeHtml(t(this, "Template laden", "Load template"))}<select id="care-template"><option value="">${escapeHtml(t(this, "Kies een template", "Choose a template"))}</option>${this._templates.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name || item.title || "Template")}</option>`).join("")}</select></label>
         <label>${escapeHtml(t(this, "Naam", "Name"))}<input id="care-title" value="${escapeHtml(draft.title)}" placeholder="ENS / ESI / Ontworming"></label>
         <label>${escapeHtml(t(this, "Omschrijving", "Description"))}<textarea id="care-description" rows="2">${escapeHtml(draft.description)}</textarea></label>
         <label>${escapeHtml(t(this, "Stappen en instructies", "Steps and instructions"))}<textarea id="care-instructions" rows="5" placeholder="${escapeHtml(t(this, "Beschrijf stap voor stap wat er moet gebeuren", "Describe what should happen step by step"))}">${escapeHtml(draft.instructions)}</textarea></label>
-        <details class="age-instructions" ${Object.keys(draft.instructions_by_age).length ? "open" : ""}><summary>${escapeHtml(t(this, "Dag-specifieke instructies", "Day-specific instructions"))}</summary><div id="age-instruction-list">${ageInstructionRows(this, draft.instructions_by_age)}</div><div id="age-instruction-error" class="error" hidden></div><button id="add-age-instruction" type="button"><ha-icon icon="mdi:plus"></ha-icon> ${escapeHtml(t(this, "Dag toevoegen", "Add day"))}</button></details>
+        <details class="age-instructions age-only" ${Object.keys(draft.instructions_by_age).length ? "open" : ""}><summary>${escapeHtml(t(this, "Dag-specifieke instructies", "Day-specific instructions"))}</summary><div id="age-instruction-list">${ageInstructionRows(this, draft.instructions_by_age)}</div><div id="age-instruction-error" class="error" hidden></div><button id="add-age-instruction" type="button"><ha-icon icon="mdi:plus"></ha-icon> ${escapeHtml(t(this, "Dag toevoegen", "Add day"))}</button></details>
         <div class="grid">
-          <label>${escapeHtml(t(this, "Type dossieritem", "Dossier type"))}<select id="care-record-type">${recordTypeOptions(this._hass, draft.record_type)}</select></label>
-          <label>${escapeHtml(t(this, "Schema", "Schedule"))}<select id="care-schedule-type"><option value="once" ${draft.schedule_type === "once" ? "selected" : ""}>${escapeHtml(t(this, "Eenmalig op leeftijd", "Once at age"))}</option><option value="range" ${draft.schedule_type === "range" ? "selected" : ""}>${escapeHtml(t(this, "Leeftijdsperiode", "Age range"))}</option></select></label>
+          <label class="age-only">${escapeHtml(t(this, "Type dossieritem", "Dossier type"))}<select id="care-record-type">${recordTypeOptions(this._hass, draft.record_type)}</select></label>
+          <label>${escapeHtml(t(this, "Schema", "Schedule"))}<select id="care-schedule-type"><option value="once" ${draft.schedule_type === "once" ? "selected" : ""}>${escapeHtml(t(this, "Eenmalig op leeftijd", "Once at age"))}</option><option value="range" ${draft.schedule_type === "range" ? "selected" : ""}>${escapeHtml(t(this, "Leeftijdsperiode", "Age range"))}</option><option value="course" ${draft.schedule_type === "course" ? "selected" : ""}>${escapeHtml(t(this, "Behandeling voor geselecteerde pups", "Treatment for selected puppies"))}</option></select></label>
         </div>
-        <div class="grid ages">
+        <div class="grid ages age-only">
           <label>${escapeHtml(t(this, "Start (dagen)", "Start (days)"))}<input id="care-start" type="number" min="0" max="3650" value="${escapeHtml(String(draft.start_age_days))}"></label>
           <label class="range-field">${escapeHtml(t(this, "Einde (dagen)", "End (days)"))}<input id="care-end" type="number" min="0" max="3650" value="${escapeHtml(String(draft.end_age_days))}"></label>
           <label class="range-field">${escapeHtml(t(this, "Elke ... dagen", "Every ... days"))}<input id="care-interval" type="number" min="1" max="3650" value="${escapeHtml(String(draft.interval_days))}"></label>
           <label>${escapeHtml(t(this, "Tijdstip", "Time"))}<input id="care-time" type="time" value="${escapeHtml(draft.time_of_day)}"></label>
-          <label>${escapeHtml(t(this, "Melding vooraf (min)", "Notify before (min)"))}<input id="care-lead-minutes" type="number" min="0" max="10080" step="5" value="${escapeHtml(String(draft.notification_lead_minutes))}" placeholder="${escapeHtml(t(this, "Integratie standaard", "Integration default"))}"></label>
         </div>
-        <div class="result-title">${escapeHtml(t(this, "Resultaatvelden", "Result fields"))}</div>
-        <div class="checks">
+        <div class="course-only">
+          <div class="grid">
+            <label>${escapeHtml(t(this, "Categorie", "Category"))}<select id="care-course-type"><option value="medication" ${draft.record_type === "deworming" ? "" : "selected"}>${escapeHtml(t(this, "Medicatie", "Medication"))}</option><option value="deworming" ${draft.record_type === "deworming" ? "selected" : ""}>${escapeHtml(t(this, "Ontworming", "Deworming"))}</option></select></label>
+            <label>${escapeHtml(t(this, "Middel (gepland)", "Product (planned)"))}<input id="care-course-product" value="${escapeHtml(draft.treatment_product)}"></label>
+            <label>${escapeHtml(t(this, "Startdatum", "Start date"))}<input id="care-course-start" type="date" value="${escapeHtml(draft.start_date)}"></label>
+            <label>${escapeHtml(t(this, "Einddatum", "End date"))}<input id="care-course-end" type="date" value="${escapeHtml(draft.end_date)}"></label>
+            <label>${escapeHtml(t(this, "Tijdstippen (komma gescheiden)", "Times (comma separated)"))}<input id="care-course-times" value="${escapeHtml(draft.times_of_day.join(", "))}" placeholder="08:00, 18:00"></label>
+            <label>${escapeHtml(t(this, "Geplande hoeveelheid", "Planned amount"))}<input id="care-course-dose" value="${escapeHtml(draft.planned_dose)}"></label>
+            <label>${escapeHtml(t(this, "Eenheid", "Unit"))}<input id="care-course-unit" value="${escapeHtml(draft.planned_unit)}" placeholder="ml / mg"></label>
+            <label>${escapeHtml(t(this, "Toedieningswijze", "Route"))}<input id="care-course-route" value="${escapeHtml(draft.planned_route)}"></label>
+          </div>
+          <div class="result-title">${escapeHtml(t(this, "Pups voor deze behandeling", "Puppies for this treatment"))}</div>
+          <div class="checks">${(this._litterData?.puppies || []).filter((puppy) => puppy.active !== false).map((puppy) => `<label><input class="course-puppy" type="checkbox" value="${escapeHtml(puppy.id)}" ${checked(draft.target_puppy_ids.includes(puppy.id))}> ${escapeHtml(puppyDisplayLabel(this, puppy.id, puppy.name, puppy.collar_color))}</label>`).join("")}</div>
+          <p>${escapeHtml(t(this, "De geplande hoeveelheid is alleen een geheugensteun. Controleer het werkelijk toegediende middel en de hoeveelheid per pup bij het afvinken.", "The planned amount is a reminder. Confirm the actual product and amount for each puppy when recording administration."))}</p>
+        </div>
+        <label>${escapeHtml(t(this, "Melding vooraf (min)", "Notify before (min)"))}<input id="care-lead-minutes" type="number" min="0" max="10080" step="5" value="${escapeHtml(String(draft.notification_lead_minutes))}" placeholder="${escapeHtml(t(this, "Integratie standaard", "Integration default"))}"></label>
+        <div class="result-title age-only">${escapeHtml(t(this, "Resultaatvelden", "Result fields"))}</div>
+        <div class="checks age-only">
           <label><input id="care-result-result" type="checkbox" ${checked(draft.result_fields.includes("result"))}> ${escapeHtml(t(this, "Resultaat / beoordeling", "Result / assessment"))}</label>
           <label><input id="care-result-score" type="checkbox" ${checked(draft.result_fields.includes("score"))}> ${escapeHtml(t(this, "Score", "Score"))}</label>
           <label><input id="care-result-note" type="checkbox" ${checked(draft.result_fields.includes("note"))}> ${escapeHtml(t(this, "Notitie", "Note"))}</label>
@@ -421,8 +540,9 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
           <label><input id="care-attention" type="checkbox" ${checked(draft.counts_for_attention)}> ${escapeHtml(t(this, "Meetellen voor aandacht pup", "Include in puppy attention"))}</label>
           <label><input id="care-notifications" type="checkbox" ${checked(draft.notifications_enabled)}> ${escapeHtml(t(this, "Meldingen inschakelen", "Enable notifications"))}</label>
         </div>
+        ${this._editing?.id && this._editing.schedule_type === "course" && !this._editing.stopped_at ? `<details class="age-instructions"><summary>${escapeHtml(t(this, "Behandeling vroegtijdig stoppen", "Stop treatment early"))}</summary><p>${escapeHtml(t(this, "Toekomstige momenten verdwijnen; eerder geregistreerde uitvoeringen blijven bewaard.", "Future moments disappear; earlier recorded administrations remain saved."))}</p><label>${escapeHtml(t(this, "Reden", "Reason"))}<textarea id="care-stop-reason" rows="2"></textarea></label><button type="button" class="danger" id="stop-treatment">${escapeHtml(t(this, "Behandeling stoppen", "Stop treatment"))}</button></details>` : ""}
         <div class="editor-actions">
-          ${this._editing ? `<button class="danger" id="delete-program">${escapeHtml(t(this, "Verwijderen", "Delete"))}</button>` : ""}
+          ${this._editing?.id && this._editing.schedule_type !== "course" ? `<button class="danger" id="delete-program">${escapeHtml(t(this, "Verwijderen", "Delete"))}</button>` : ""}
           <span></span><button id="cancel-program">${escapeHtml(t(this, "Annuleren", "Cancel"))}</button>
           <button class="primary" id="save-program" ${this._saving ? "disabled" : ""}>${escapeHtml(t(this, "Opslaan", "Save"))}</button>
         </div>
@@ -430,7 +550,7 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
 
     this.shadowRoot.innerHTML = `
       <ha-card><style>
-          ha-card{padding:16px}.top{display:flex;gap:12px;align-items:center;justify-content:space-between}.title{font-size:18px;font-weight:600}.tools{display:flex;gap:8px;align-items:center}select,input,textarea,button{font:inherit}select,input,textarea{box-sizing:border-box;width:100%;padding:9px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color)}button{padding:8px 12px;border:1px solid var(--divider-color);border-radius:8px;background:transparent;color:var(--primary-text-color);cursor:pointer}.primary{background:var(--primary-color);color:var(--text-primary-color);border-color:var(--primary-color)}.danger{color:var(--error-color)}.search{margin-top:12px}.list{margin-top:12px;display:grid;gap:8px;max-height:60vh;overflow:auto}.list.compact{gap:4px}.item{display:grid;grid-template-columns:36px 1fr auto;gap:10px;align-items:center;padding:10px;border:1px solid var(--divider-color);border-radius:10px}.compact .item{padding:6px}.item.disabled{opacity:.55}.ico{display:flex;align-items:center;justify-content:center}.main div{font-size:12px;color:var(--secondary-text-color);margin-top:2px}.main .meta{opacity:.85}.item-actions{display:flex;gap:4px}.icon-button{border:0;padding:7px}.empty{padding:18px 4px;color:var(--secondary-text-color)}.editor{margin-top:14px;padding-top:14px;border-top:1px solid var(--divider-color);display:grid;gap:10px}.editor-title,.result-title{font-weight:600}.editor label{display:grid;gap:5px;font-size:12px;color:var(--secondary-text-color)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.ages{grid-template-columns:repeat(4,1fr)}.age-instructions{padding:10px;border:1px solid var(--divider-color);border-radius:8px}.age-instructions summary{cursor:pointer;font-weight:600}.age-instructions #age-instruction-list{display:grid;gap:8px;margin-top:10px}.age-instruction-row{display:grid;grid-template-columns:110px minmax(0,1fr) auto;gap:8px;align-items:end}.age-instruction-row label{min-width:0}.age-instruction-row .icon-button{margin-bottom:1px}.age-instructions>.error{margin-top:8px}.checks{display:flex;flex-wrap:wrap;gap:14px}.checks label{display:flex;align-items:center;gap:6px}.checks input{width:auto}.editor-actions{display:grid;grid-template-columns:auto 1fr auto auto;gap:8px;align-items:center}.error{margin-top:10px;color:var(--error-color);font-size:13px}.warning{margin-top:10px;padding:8px 10px;border-radius:8px;background:color-mix(in srgb,var(--warning-color,var(--primary-color)) 12%,transparent);color:var(--primary-text-color)}@media(max-width:700px){.grid,.ages{grid-template-columns:1fr 1fr}.age-instruction-row{grid-template-columns:1fr auto}.age-instruction-row label:nth-child(2){grid-column:1 / -1}.top{align-items:flex-start;flex-direction:column}.tools{width:100%}.tools select{flex:1}}
+          ha-card{padding:16px}.top{display:flex;gap:12px;align-items:center;justify-content:space-between}.title{font-size:18px;font-weight:600}.tools{display:flex;gap:8px;align-items:center}select,input,textarea,button{font:inherit}select,input,textarea{box-sizing:border-box;width:100%;padding:9px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color)}button{padding:8px 12px;border:1px solid var(--divider-color);border-radius:8px;background:transparent;color:var(--primary-text-color);cursor:pointer}.primary{background:var(--primary-color);color:var(--text-primary-color);border-color:var(--primary-color)}.danger{color:var(--error-color)}.search{margin-top:12px}.list{margin-top:12px;display:grid;gap:8px;max-height:60vh;overflow:auto}.list.compact{gap:4px}.item{display:grid;grid-template-columns:36px 1fr auto;gap:10px;align-items:center;padding:10px;border:1px solid var(--divider-color);border-radius:10px}.compact .item{padding:6px}.item.disabled{opacity:.55}.ico{display:flex;align-items:center;justify-content:center}.main div{font-size:12px;color:var(--secondary-text-color);margin-top:2px}.main .meta{opacity:.85}.item-actions{display:flex;gap:4px}.icon-button{border:0;padding:7px}.empty{padding:18px 4px;color:var(--secondary-text-color)}.editor{margin-top:14px;padding-top:14px;border-top:1px solid var(--divider-color);display:grid;gap:10px}.editor-title,.result-title{font-weight:600}.editor label{display:grid;gap:5px;font-size:12px;color:var(--secondary-text-color)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.ages{grid-template-columns:repeat(4,1fr)}.course-only{display:grid;gap:10px}.course-only p{margin:0;color:var(--secondary-text-color);font-size:12px}.age-instructions{padding:10px;border:1px solid var(--divider-color);border-radius:8px}.age-instructions summary{cursor:pointer;font-weight:600}.age-instructions #age-instruction-list{display:grid;gap:8px;margin-top:10px}.age-instruction-row{display:grid;grid-template-columns:110px minmax(0,1fr) auto;gap:8px;align-items:end}.age-instruction-row label{min-width:0}.age-instruction-row .icon-button{margin-bottom:1px}.age-instructions>.error{margin-top:8px}.checks{display:flex;flex-wrap:wrap;gap:14px}.checks label{display:flex;align-items:center;gap:6px}.checks input{width:auto}.editor-actions{display:grid;grid-template-columns:auto 1fr auto auto;gap:8px;align-items:center}.error{margin-top:10px;color:var(--error-color);font-size:13px}.warning{margin-top:10px;padding:8px 10px;border-radius:8px;background:color-mix(in srgb,var(--warning-color,var(--primary-color)) 12%,transparent);color:var(--primary-text-color)}@media(max-width:700px){.grid,.ages{grid-template-columns:1fr 1fr}.age-instruction-row{grid-template-columns:1fr auto}.age-instruction-row label:nth-child(2){grid-column:1 / -1}.top{align-items:flex-start;flex-direction:column}.tools{width:100%}.tools select{flex:1}}
       </style>
       <div class="top"><div class="title">${escapeHtml(this._config.title || t(this, "Zorgprogramma's", "Care programs"))}</div><div class="tools">${selector}${isAdmin ? `<button id="download-templates" title="${escapeHtml(t(this, "Templates downloaden", "Download templates"))}" aria-label="${escapeHtml(t(this, "Templates downloaden", "Download templates"))}"><ha-icon icon="mdi:download"></ha-icon></button><button id="import-templates" title="${escapeHtml(t(this, "Templates importeren", "Import templates"))}" aria-label="${escapeHtml(t(this, "Templates importeren", "Import templates"))}"><ha-icon icon="mdi:upload"></ha-icon></button><input id="template-file" type="file" accept="application/json,.json" hidden><button id="add-program"><ha-icon icon="mdi:plus"></ha-icon> ${escapeHtml(t(this, "Toevoegen", "Add"))}</button>` : ""}</div></div>
       <input class="search" id="program-search" type="search" value="${escapeHtml(this._query)}" placeholder="${escapeHtml(t(this, "Zoek zorgprogramma's", "Search care programs"))}" aria-label="${escapeHtml(t(this, "Zoek zorgprogramma's", "Search care programs"))}">
@@ -480,6 +600,7 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
     this.shadowRoot.getElementById("save-program")?.addEventListener("click", () => this._save());
     this.shadowRoot.getElementById("care-template")?.addEventListener("change", (event) => this._applyTemplate(event.target.value));
     this.shadowRoot.getElementById("delete-program")?.addEventListener("click", () => this._delete(this._editing?.id));
+    this.shadowRoot.getElementById("stop-treatment")?.addEventListener("click", () => this._stopTreatment(this._editing?.id));
     this.shadowRoot.querySelectorAll(".remove-age-instruction").forEach((button) => button.addEventListener("click", () => button.closest(".age-instruction-row")?.remove()));
     this.shadowRoot.getElementById("add-age-instruction")?.addEventListener("click", () => {
       const error = this.shadowRoot.getElementById("age-instruction-error");
@@ -505,7 +626,10 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
       row.querySelector(".remove-age-instruction")?.addEventListener("click", () => row.remove());
     });
     const syncSchedule = () => {
-      const range = this.shadowRoot.getElementById("care-schedule-type")?.value === "range";
+      const schedule = this.shadowRoot.getElementById("care-schedule-type")?.value;
+      const range = schedule === "range";
+      this.shadowRoot.querySelectorAll(".age-only").forEach((node) => { node.style.display = schedule === "course" ? "none" : ""; });
+      this.shadowRoot.querySelectorAll(".course-only").forEach((node) => { node.style.display = schedule === "course" ? "grid" : "none"; });
       this.shadowRoot.querySelectorAll(".range-field").forEach((node) => { node.style.display = range ? "grid" : "none"; });
     };
     this.shadowRoot.getElementById("care-schedule-type")?.addEventListener("change", syncSchedule);

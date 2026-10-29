@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from homeassistant.util import dt as dt_util
 
@@ -22,6 +23,9 @@ def care_program_age_days(program: dict[str, Any]) -> list[int]:
     """Return the fixed age-day schedule for one normalized care program."""
     if not program.get("enabled", True):
         return []
+
+    if program.get("schedule_type") == "course":
+        raise ValueError("course programs use calendar dates, not puppy age days")
 
     start = int(program.get("start_age_days") or 0)
     schedule_type = str(program.get("schedule_type") or "")
@@ -87,6 +91,47 @@ def derive_puppy_care_occurrences(
     if revision < 1:
         raise ValueError("program revision must be a positive integer")
 
+    if program.get("schedule_type") == "course":
+        if puppy_id not in (program.get("target_puppy_ids") or []):
+            return []
+        start = date.fromisoformat(program["start_date"])
+        end = date.fromisoformat(program["end_date"])
+        zone = ZoneInfo(program["timezone"])
+        result_fields = list(program.get("result_fields") or [])
+        occurrences: list[dict[str, Any]] = []
+        for offset in range((end - start).days + 1):
+            day = start + timedelta(days=offset)
+            for clock in program["times_of_day"]:
+                hour, minute = (int(part) for part in clock.split(":"))
+                scheduled = datetime(day.year, day.month, day.day, hour, minute, tzinfo=zone)
+                occurrences.append({
+                    "id": f"{program_id}:course:r{revision}:{puppy_id}:{day.isoformat()}:{clock}",
+                    "program_id": program_id,
+                    "program_revision": revision,
+                    "litter_id": litter_id,
+                    "puppy_id": puppy_id,
+                    "puppy_name": str(puppy.get("name") or "").strip() or None,
+                    "collar_color": puppy.get("collar_color"),
+                    "title": str(program.get("title") or ""),
+                    "description": program.get("description"),
+                    "instructions": program.get("instructions"),
+                    "counts_for_attention": bool(program.get("counts_for_attention", True)),
+                    "record_type": program["record_type"],
+                    "schedule_type": "course",
+                    "age_days": None,
+                    "scheduled_at": scheduled.isoformat(),
+                    "scheduled_date": day.isoformat(),
+                    "time_of_day": clock,
+                    "notifications_enabled": bool(program.get("notifications_enabled", True)),
+                    "notification_lead_minutes": program.get("notification_lead_minutes"),
+                    "result_fields": result_fields,
+                    "treatment_product": program["treatment_product"],
+                    "planned_dose": program.get("planned_dose"),
+                    "planned_unit": program.get("planned_unit"),
+                    "planned_route": program.get("planned_route"),
+                })
+        return occurrences
+
     birth_time = _parse_birth_time(puppy.get("birth_time"))
     puppy_name = str(puppy.get("name") or "").strip() or None
     result_fields = list(program.get("result_fields") or [])
@@ -127,6 +172,8 @@ def derive_litter_care_occurrences(
     items: list[dict[str, Any]] = []
     for puppy in puppies:
         if puppy.get("active", True) is False:
+            continue
+        if program.get("schedule_type") == "course" and puppy.get("id") not in (program.get("target_puppy_ids") or []):
             continue
         items.extend(derive_puppy_care_occurrences(program, puppy))
     return sorted(items, key=lambda item: (item["scheduled_at"], item["puppy_id"]))
