@@ -21,6 +21,7 @@ VALID_RECORD_SCOPES = frozenset(
 # valid snake_case type so new modules can be added without a storage migration.
 RECORD_TYPE_NOTE = "note"
 RECORD_TYPE_FEEDING = "feeding"
+RECORD_TYPE_DAILY_CARE = "daily_care"
 RECORD_TYPE_TEMPERATURE = "temperature"
 RECORD_TYPE_VACCINATION = "vaccination"
 RECORD_TYPE_TEST = "test"
@@ -35,6 +36,7 @@ PLANNED_RECORD_TYPES = frozenset(
     {
         RECORD_TYPE_NOTE,
         RECORD_TYPE_FEEDING,
+        RECORD_TYPE_DAILY_CARE,
         RECORD_TYPE_TEMPERATURE,
         RECORD_TYPE_VACCINATION,
         RECORD_TYPE_TEST,
@@ -84,6 +86,12 @@ def validate_clinical_record_data(record_type: str, data: dict[str, Any] | None)
         if category not in (None, "", "milk", "bottle", "tube", "gruel", "solid_food",
                             "kibble", "fresh_meat", "shelf_stable_meat", "supplement"):
             raise ValueError("Invalid feeding category")
+        return result
+    if record_type == RECORD_TYPE_DAILY_CARE:
+        if result.get("care_area") not in ("stool", "urine", "navel", "skin", "activity"):
+            raise ValueError("Choose a daily-care observation type")
+        if not isinstance(result.get("observation"), str) or not result["observation"].strip():
+            raise ValueError("Describe the daily-care observation")
         return result
     if record_type not in {RECORD_TYPE_TEST, RECORD_TYPE_VET_VISIT}:
         return result

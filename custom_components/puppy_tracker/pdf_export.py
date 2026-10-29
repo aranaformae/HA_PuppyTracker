@@ -175,8 +175,8 @@ _PDF_ENUMS = {
 }
 
 _PDF_RECORD_TYPES = {
-    "nl": {"note": "Notitie", "feeding": "Voeding", "temperature": "Temperatuur", "vaccination": "Vaccinatie", "test": "Test / uitslag", "deworming": "Ontworming", "medication": "Medicatie", "vet_visit": "Dierenartsbezoek", "milestone": "Mijlpaal", "behavior_observation": "Gedragsobservatie", "other": "Overig"},
-    "en": {"note": "Note", "feeding": "Feeding", "temperature": "Temperature", "vaccination": "Vaccination", "test": "Test / result", "deworming": "Deworming", "medication": "Medication", "vet_visit": "Vet visit", "milestone": "Milestone", "behavior_observation": "Behavior observation", "other": "Other"},
+    "nl": {"note": "Notitie", "feeding": "Voeding", "daily_care": "Dagelijkse zorg", "temperature": "Temperatuur", "vaccination": "Vaccinatie", "test": "Test / uitslag", "deworming": "Ontworming", "medication": "Medicatie", "vet_visit": "Dierenartsbezoek", "milestone": "Mijlpaal", "behavior_observation": "Gedragsobservatie", "other": "Overig"},
+    "en": {"note": "Note", "feeding": "Feeding", "daily_care": "Daily care", "temperature": "Temperature", "vaccination": "Vaccination", "test": "Test / result", "deworming": "Deworming", "medication": "Medication", "vet_visit": "Vet visit", "milestone": "Milestone", "behavior_observation": "Behavior observation", "other": "Other"},
 }
 
 _BEHAVIOR_LABELS = {
@@ -209,6 +209,7 @@ _PDF_DATA_LABELS = {
         "temperature": "Temperatuur", "temperature_c": "Temperatuur (°C)",
         "method": "Methode", "observation": "Observatie", "feeding_type": "Voeding / details",
         "feeding_category": "Voedingscategorie",
+        "care_area": "Soort observatie",
         "amount": "Hoeveelheid", "unit": "Eenheid", "vaccine": "Vaccin",
         "vaccine_type": "Vaccintype", "batch_number": "Batchnummer",
         "veterinarian": "Dierenarts", "clinic": "Praktijk / kliniek",
@@ -227,6 +228,7 @@ _PDF_DATA_LABELS = {
         "temperature": "Temperature", "temperature_c": "Temperature (°C)",
         "method": "Method", "observation": "Observation", "feeding_type": "Food / details",
         "feeding_category": "Feeding category",
+        "care_area": "Observation type",
         "amount": "Amount", "unit": "Unit", "vaccine": "Vaccine",
         "vaccine_type": "Vaccine type", "batch_number": "Batch number",
         "veterinarian": "Veterinarian", "clinic": "Clinic",
@@ -443,6 +445,11 @@ def _record_data_text(record: dict[str, Any], language: str) -> str:
                 "supplement": ("Supplement", "Supplement"),
             }
             display = categories.get(str(value), (str(value), str(value)))[0 if language == "nl" else 1]
+        elif key == "care_area":
+            areas = {"stool": ("Ontlasting", "Stool"), "urine": ("Urine", "Urine"),
+                     "navel": ("Navel", "Navel"), "skin": ("Huid", "Skin"),
+                     "activity": ("Activiteit", "Activity")}
+            display = areas.get(str(value), (str(value), str(value)))[0 if language == "nl" else 1]
         elif key == "test_status":
             labels = {"planned": ("Gepland", "Planned"), "pending": ("Uitslag afwachten", "Awaiting result"),
                       "completed": ("Uitslag bekend", "Result available"), "inconclusive": ("Onduidelijk", "Inconclusive")}

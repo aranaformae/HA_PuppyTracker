@@ -217,6 +217,22 @@ test("logs a feeding observation for the selected puppy with an editable current
   expect(calls[0].occurred_at).toBe(expectedOccurredAt);
 });
 
+test("logs a structured daily care observation for the selected puppy @cross-browser @tablet", async ({ page }) => {
+  const card = await mountQuickLog(page, "nl");
+  await card.locator("#owner-select").selectOption("p1");
+  await card.locator('[data-preset="daily_care"]').click();
+  await expect(card.locator("#quick-data-care_area option")).toHaveText([
+    "", "Ontlasting", "Urine", "Navel", "Huid", "Activiteit",
+  ]);
+  await card.locator("#quick-data-care_area").selectOption("stool");
+  await card.locator("#quick-data-observation").fill("Normaal gevormd");
+  await card.locator("#quick-save").click();
+  const calls = await recordAddCalls(page);
+  expect(calls).toHaveLength(1);
+  expect(calls[0]).toMatchObject({ litter_id: "l1", puppy_id: "p1", record_type: "daily_care",
+    data: { care_area: "stool", observation: "Normaal gevormd" } });
+});
+
 test("supports litter-scoped medication and puppy-scoped milestone logging", async ({ page }) => {
   const card = await mountQuickLog(page, "en");
 
@@ -246,7 +262,7 @@ test("exposes every shared dossier type and saves structured deworming", { tag: 
   expect(presetValues).toEqual([
     "note",
     "feeding",
-    "elimination",
+    "daily_care",
     "temperature",
     "vaccination",
     "test",
@@ -341,7 +357,7 @@ test("switching presets preserves unsaved input", async ({ page }) => {
   await card.locator("#quick-note").fill("Keep this text");
   const occurred = await card.locator("#quick-occurred").inputValue();
 
-  await card.locator('[data-preset="elimination"]').click();
+  await card.locator('[data-preset="daily_care"]').click();
 
   await expect(card.locator("#quick-note")).toHaveValue("Keep this text");
   await expect(card.locator("#quick-occurred")).toHaveValue(occurred);
@@ -378,7 +394,7 @@ test("Quick Log is localized in Dutch", async ({ page }) => {
 
   await expect(card.getByText("Snel loggen", { exact: true })).toBeVisible();
   await expect(card.getByText("Voeding", { exact: true })).toBeVisible();
-  await expect(card.getByText("Ontlasting / urine", { exact: true })).toBeVisible();
+  await expect(card.getByText("Dagelijkse zorg", { exact: true })).toBeVisible();
   await expect(card.getByText("Medicatie", { exact: true })).toBeVisible();
   await expect(card.getByText("Mijlpaal", { exact: true })).toBeVisible();
   await expect(card.getByText("Temperatuur", { exact: true })).toBeVisible();

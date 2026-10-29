@@ -39,7 +39,6 @@ const QUICK_LOG_TRANSLATIONS = {
     puppy: "Puppy",
     note: "Note",
     feeding: "Feeding",
-    elimination: "Stool / urine",
     medication: "Medication",
     milestone: "Milestone",
     temperature: "Temperature",
@@ -47,7 +46,7 @@ const QUICK_LOG_TRANSLATIONS = {
     details: "Details",
     notePlaceholder: "What happened?",
     feedingPlaceholder: "For example bottle, amount or feeding observation",
-    eliminationPlaceholder: "For example stool, urine or hygiene observation",
+    dailyCarePlaceholder: "Optional additional details",
     medicationPlaceholder: "Medication, dose or administration note",
     milestonePlaceholder: "What milestone was reached?",
     temperaturePlaceholder: "For example 38.4",
@@ -92,7 +91,6 @@ const QUICK_LOG_TRANSLATIONS = {
     puppy: "Pup",
     note: "Notitie",
     feeding: "Voeding",
-    elimination: "Ontlasting / urine",
     medication: "Medicatie",
     milestone: "Mijlpaal",
     temperature: "Temperatuur",
@@ -100,7 +98,7 @@ const QUICK_LOG_TRANSLATIONS = {
     details: "Details",
     notePlaceholder: "Wat is er gebeurd?",
     feedingPlaceholder: "Bijvoorbeeld fles, hoeveelheid of voedingsobservatie",
-    eliminationPlaceholder: "Bijvoorbeeld ontlasting, urine of hygiëne-observatie",
+    dailyCarePlaceholder: "Optionele aanvullende details",
     medicationPlaceholder: "Medicatie, dosering of toedieningsnotitie",
     milestonePlaceholder: "Welke mijlpaal is bereikt?",
     temperaturePlaceholder: "Bijvoorbeeld 38,4",
@@ -140,21 +138,13 @@ const QUICK_LOG_TRANSLATIONS = {
 const QUICK_PLACEHOLDERS = {
   note: "notePlaceholder",
   feeding: "feedingPlaceholder",
+  daily_care: "dailyCarePlaceholder",
   medication: "medicationPlaceholder",
   milestone: "milestonePlaceholder",
   temperature: "temperatureObservationPlaceholder",
 };
 
-const ELIMINATION_PRESET = {
-  id: "elimination",
-  recordType: "note",
-  icon: "mdi:toilet",
-  customLabelKey: "elimination",
-  customTitleKey: "elimination",
-  placeholderKey: "eliminationPlaceholder",
-};
-
-const PRESETS = RECORD_TYPES.flatMap(([id, labelKey, icon]) => {
+const PRESETS = RECORD_TYPES.map(([id, labelKey, icon]) => {
   const preset = {
     id,
     recordType: id,
@@ -163,7 +153,7 @@ const PRESETS = RECORD_TYPES.flatMap(([id, labelKey, icon]) => {
     titleKey: ["note", "other"].includes(id) ? null : labelKey,
     placeholderKey: QUICK_PLACEHOLDERS[id] || "detailsPlaceholder",
   };
-  return id === "feeding" ? [preset, ELIMINATION_PRESET] : [preset];
+  return preset;
 });
 
 const LITTER_OWNER = "__litter__";

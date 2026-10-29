@@ -688,6 +688,12 @@ def test_feeding_category_is_translated_in_pdf_data() -> None:
         assert f"Feeding category: {english}" in pdf_export._record_data_text(record, "en")
 
 
+def test_daily_care_area_is_translated_in_pdf_data() -> None:
+    record = {"type": "daily_care", "data": {"care_area": "navel", "observation": "Clean"}}
+    assert "Soort observatie: Navel" in pdf_export._record_data_text(record, "nl")
+    assert "Observation type: Navel" in pdf_export._record_data_text(record, "en")
+
+
 def test_long_table_row_continues_on_new_pages_without_clipping() -> None:
     report = pdf_export._PdfReport()
     long_note = " ".join(f"fragment{i:04d}" for i in range(1500))

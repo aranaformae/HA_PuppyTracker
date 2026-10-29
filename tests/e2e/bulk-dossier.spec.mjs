@@ -188,6 +188,7 @@ test("supports every shared dossier record type", async ({ page }) => {
   expect(values).toEqual([
     "note",
     "feeding",
+    "daily_care",
     "temperature",
     "vaccination",
     "test",
@@ -204,6 +205,20 @@ test("supports every shared dossier record type", async ({ page }) => {
   await expect(card.locator("#bulk-data-dose")).toBeVisible();
   await card.locator("#bulk-type").selectOption("deworming");
   await expect(card.locator("#bulk-data-product")).toHaveValue("Draft wormer");
+});
+
+test("bulk logs a structured daily care observation for each selected puppy", async ({ page }) => {
+  const card = await mountBulkDossier(page, "nl");
+  await card.locator("#select-all").click();
+  await card.locator("#bulk-type").selectOption("daily_care");
+  await card.locator("#bulk-data-care_area").selectOption("activity");
+  await card.locator("#bulk-data-observation").fill("Actief tijdens spel");
+  await card.locator("#bulk-review").click();
+  await card.locator("#bulk-confirm").click();
+  const calls = await recordAddCalls(page);
+  expect(calls).toHaveLength(3);
+  expect(calls.map((call) => call.puppy_id)).toEqual(["p1", "p2", "p3"]);
+  for (const call of calls) expect(call).toMatchObject({ record_type: "daily_care", data: { care_area: "activity", observation: "Actief tijdens spel" } });
 });
 
 test("partial failure keeps only failed puppies selected for a safe retry", async ({ page }) => {

@@ -15,6 +15,14 @@ they have not been reconstructed as a complete historical changelog.
 - Choose an optional feeding category, including kibble, fresh meat and
   shelf-stable meat, in the dossier and Quick Log. Existing free-text feeding
   details remain editable; PDF reports show translated category names.
+- Log stool, urine, navel, skin and activity observations as structured daily
+  care entries from Quick Log, the dossier editor or Bulk Log; see the latest
+  feeding and care entry in a compact Journal dossier summary.
+
+### Changed
+
+- Replace the Quick Log stool/urine shortcut with Daily care, covering those
+  observations plus navel, skin and activity. Existing notes remain available.
 
 ## [0.36.0] - 2026-10-29
 

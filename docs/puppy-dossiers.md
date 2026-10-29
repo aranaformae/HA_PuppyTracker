@@ -174,10 +174,6 @@ or a future-dated entry. There is no age-based expiry: the source's category,
 owner and timestamp remain visible so you can judge whether it is still useful.
 Mother history is limited to the current litter, not all her litters.
 
-Feeding offers an optional structured category (mother's milk, bottle, tube,
-gruel, solid food, kibble, fresh meat, shelf-stable meat or supplement) alongside the existing free-text food/type,
-amount, unit and observation fields. Existing feeding records without a category
-remain editable. The category is shown in the dossier and translated in PDFs.
 Feeding reuse copies category, food/feeding type, amount and unit. Medication reuses medicine
 name and the literal dose, without recalculation. Frequency, duration, old
 observations/notes and care/reminder metadata are not copied. A note-only legacy
@@ -216,7 +212,7 @@ in one of the history views described above to correct an existing entry.
 
 ## Record types and editing
 
-Current dossier concepts include notes, feeding, temperature, vaccination,
+Current dossier concepts include notes, feeding, daily care, temperature, vaccination,
 tests, deworming, medication, veterinary visits, milestones and other events.
 Type-specific values are stored as structured fields so cards, reminders and
 reports do not need to interpret free text.
@@ -224,7 +220,8 @@ reports do not need to interpret free text.
 | Category | Structured fields |
 | --- | --- |
 | Note / Other | Free title and note |
-| Feeding | Feeding type, amount, unit and observation |
+| Feeding | Optional category, free-text food/details, amount, unit and observation |
+| Daily care | Observation type (stool, urine, navel, skin or activity) and description, both required |
 | Temperature | Celsius value (required), method/location and observation |
 | Vaccination | Vaccine (required), indication, batch, veterinarian, clinic, reaction, administration weight and next due date |
 | Test / result | Test name, result and laboratory |
@@ -234,11 +231,20 @@ reports do not need to interpret free text.
 | Milestone | Milestone and category |
 
 Dossier, Quick Log and Bulk Log use this same category list and the same
-type-specific fields. Quick Log additionally offers **Stool / urine** as a
-shortcut for a titled note. Adding a normal dossier category to the shared
-schema therefore makes it available in all three general logging workflows.
+type-specific fields. Quick Log's former **Stool / urine** shortcut is now
+**Daily care**. Older notes stay in the dossier; new observations use the
+structured category. Adding a dossier category to the shared schema makes it
+available in all three general logging workflows.
 Care Programs and Recurring Reminders also use this list when choosing which
 dossier type a completion should create.
+
+Feeding offers an optional category (mother's milk, bottle, tube, gruel, solid
+food, kibble, fresh meat, shelf-stable meat or supplement). Existing feeding
+records without a category remain editable. The category is shown in the
+dossier and translated in PDFs. Daily-care entries can be filtered and are
+also included in PDF exports. The Journal dossier shows the latest active
+feeding and daily-care entry for the selected owner above the history, including
+the owner name when viewing all.
 
 Behavior observations are also timestamped puppy dossier records, but are
 created in the dedicated **Behavior** surface because one observation can hold

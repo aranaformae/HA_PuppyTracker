@@ -677,6 +677,21 @@ test("dossier can create a structured feeding record", async ({ page }) => {
   });
   await expect(card.locator(".record-heading strong").getByText("Feeding", { exact: true })).toBeVisible();
   await expect(card.locator(".record-data-row").filter({ hasText: "Feeding category" })).toContainText("Bottle");
+  await expect(card.locator(".care-snapshot-row").filter({ hasText: "Feeding" })).toContainText("Bottle");
+});
+
+test("dossier shows translated structured daily care details", async ({ page }) => {
+  const card = await mountDossier(page);
+  await card.locator("#add-record").click();
+  const editor = page.locator("puppy-tracker-record-editor");
+  await editor.locator("#record-type").selectOption("daily_care");
+  await editor.locator("#record-data-care_area").selectOption("navel");
+  await editor.locator("#record-data-observation").fill("Clean and dry");
+  await editor.locator("#record-save").click();
+  const addCall = await page.evaluate(() => window.__dossierCalls.find((call) => call.record_type === "daily_care"));
+  expect(addCall).toMatchObject({ data: { care_area: "navel", observation: "Clean and dry" } });
+  await expect(card.locator(".record-data-row").filter({ hasText: "Observation type" })).toContainText("Navel");
+  await expect(card.locator(".care-snapshot-row").filter({ hasText: "Daily care" })).toContainText("Clean and dry");
 });
 
 test("dossier localizes temperature record labels", async ({ page }) => {

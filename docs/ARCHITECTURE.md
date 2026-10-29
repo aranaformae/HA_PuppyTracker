@@ -1576,8 +1576,9 @@ precedence over later preset history. Data refreshes do not reapply `puppy_id`,
 and presentation-only configuration updates retain both owner and draft.
 Its presets and Bulk Dossier's type selector both derive from the same
 `RECORD_TYPES` and `TYPE_FIELDS` schema used by Dossier; no surface-specific
-category subset is maintained. Quick Log's Stool / urine shortcut remains a
-titled `note` record rather than a separate stored type. There is no
+category subset is maintained. The former Stool / urine shortcut is a
+`daily_care` record with a structured area and required observation. Existing
+titled `note` records remain readable. There is no
 temperature compatibility module and `mother-surfaces.js` exports the mother
 load/render operations invoked explicitly by Attention.
 
@@ -1585,7 +1586,7 @@ Quick Log's explicit previous-entry action reads the selected owner's existing
 `records` or current-litter `mother/records` endpoint, not a second recent-log
 store. It picks the newest nonfuture, nondeleted, nonmissed record with suitable
 structured fields for Feeding or Medication. A narrow allowlist copies only
-`feeding_type`/`amount`/`unit` or `medication`/`dose`; care IDs, reminder matching,
+`feeding_category`/`feeding_type`/`amount`/`unit` or `medication`/`dose`; care IDs, reminder matching,
 observations and course schedules cannot propagate through that action. The
 source label lives in the unsaved per-preset draft, not localStorage or exports.
 No write is made until normal Save, which still uses the selected owner route.

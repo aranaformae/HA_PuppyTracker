@@ -16,7 +16,7 @@ def test_temperature_is_structured_dossier_type() -> None:
 
 def test_quick_log_supports_temperature_value() -> None:
     source = QUICK_LOG.read_text(encoding="utf-8")
-    assert "const PRESETS = RECORD_TYPES.flatMap" in source
+    assert "const PRESETS = RECORD_TYPES.map" in source
     assert 'preset.recordType === "temperature"' in source
     assert "normalizedData.temperature_c = temperature" in source
     assert 'field.key === "temperature_c" ? "quick-temperature"' in source

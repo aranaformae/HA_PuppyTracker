@@ -20,7 +20,7 @@ Home Assistant 2026.9.4 or newer is the supported baseline.
 - Record weights with collar-colour charts, correction history and growth
   monitoring, interrupted-session recovery and Undo for the last saved weighing.
 - Keep separate dossiers for the whole litter, the mother and every puppy.
-- Quickly log feeding, temperature, medication, tests, vaccination,
+- Quickly log feeding, daily observations, temperature, medication, tests, vaccination,
   deworming, veterinary visits, milestones and notes.
 - Use recurring reminders and age-based care programs such as ENS, ESI and
   deworming schedules.

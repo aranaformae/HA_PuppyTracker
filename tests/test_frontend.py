@@ -292,7 +292,7 @@ def test_logging_surfaces_share_the_dossier_record_type_contract() -> None:
     assert '["deworming", "deworming", "mdi:shield-bug-outline"]' in schema
     assert '["medication", "medication", "mdi:pill"]' in schema
     assert "feeding: [" in schema
-    assert "const PRESETS = RECORD_TYPES.flatMap" in quick_log
+    assert "const PRESETS = RECORD_TYPES.map" in quick_log
     assert "BULK_RECORD_TYPES" not in schema
     assert "BULK_RECORD_TYPES" not in bulk_log
     assert "RECORD_TYPES," in bulk_log

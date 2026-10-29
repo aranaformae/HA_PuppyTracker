@@ -116,6 +116,22 @@ def test_feeding_category_is_optional_and_validated_without_changing_legacy_text
         create_record(litter_id="l1", record_type="feeding", data={"feeding_category": "unknown"})
 
 
+@pytest.mark.parametrize("scope", [{}, {"puppy_id": "p1"}, {"mother_id": "m1"}])
+@pytest.mark.parametrize("area", ["stool", "urine", "navel", "skin", "activity"])
+def test_daily_care_observation_uses_correct_scope(area, scope) -> None:
+    record = create_record(litter_id="l1", record_type="daily_care", **scope,
+                           data={"care_area": area, "observation": "Observed without concern"})
+    assert record["data"] == {"care_area": area, "observation": "Observed without concern"}
+    assert record["scope"] == ("mother" if "mother_id" in scope else "puppy" if "puppy_id" in scope else "litter")
+
+
+@pytest.mark.parametrize("data", [{}, {"care_area": "unknown", "observation": "Noted"},
+                                   {"care_area": "stool"}, {"care_area": "stool", "observation": " "}])
+def test_daily_care_requires_an_area_and_observation(data) -> None:
+    with pytest.raises(ValueError, match="daily-care"):
+        create_record(litter_id="l1", record_type="daily_care", data=data)
+
+
 def test_record_sorting_uses_occurrence_then_creation_time() -> None:
     same_time = "2026-08-30T10:00:00+00:00"
     records = [

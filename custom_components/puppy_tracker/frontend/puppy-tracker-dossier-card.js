@@ -791,6 +791,24 @@ class PuppyTrackerDossierCard extends HTMLElement {
       this._historyPuppies(), { includeHistory: this._showDeleted && this._canManage, measurements: this._measurements });
   }
 
+  _renderCareSnapshot(records) {
+    const latest = ["feeding", "daily_care"].map((type) => records.find((record) => record.type === type && !record.deleted && (!record.status || record.status === "active")))
+      .filter(Boolean);
+    if (!latest.length) return "";
+    const rows = latest.map((record) => {
+      const data = record.data || {};
+      const kind = record.type === "feeding" ? "feeding_category" : "care_area";
+      const field = TYPE_FIELDS[record.type]?.find((item) => item.key === kind);
+      const category = data[kind] && field ? fieldValueLabel(this._hass, field, data[kind]) : "";
+      const detail = record.type === "feeding"
+        ? [category, data.feeding_type, data.amount ? `${data.amount}${data.unit ? ` ${data.unit}` : ""}` : ""].filter(Boolean).join(" · ")
+        : [category, data.observation].filter(Boolean).join(" · ");
+      const owner = this.__allSelected && record.__aggregate_owner_name ? `${record.__aggregate_owner_name} · ` : "";
+      return `<div class="care-snapshot-row"><strong>${escapeHtml(labelForRecordType(this._hass, record.type))}</strong><span>${escapeHtml(detail || record.note || "—")}</span><small>${escapeHtml(owner + formatDateTime(record.occurred_at, "", this._hass))}</small></div>`;
+    }).join("");
+    return `<section class="care-snapshot" aria-label="${escapeHtml(dossierText(this._hass, "Laatste voeding en zorg", "Latest feeding and care"))}"><div class="care-snapshot-title">${escapeHtml(dossierText(this._hass, "Laatste voeding en zorg", "Latest feeding and care"))}</div>${rows}</section>`;
+  }
+
   _filteredHistory(records = this._historyItems()) {
     return filterDossierHistory(records, { types: this._selectedCategoryFilters([...new Set(records.map((item) => item.type || "other"))]),
       query: this._searchQuery, from: this._state.from, to: this._state.to });
@@ -818,7 +836,8 @@ class PuppyTrackerDossierCard extends HTMLElement {
     const litterBadge = this.__motherSelected && this.__motherHistoryScope === "all" && record.litter_name
       ? `<span class="type-badge mother-litter-badge">${escapeHtml(record.litter_name)}</span>` : "";
     const summaryKeys = measurement ? ["weight"]
-      : record.type === "test" ? ["test_name", "test_status", "result"]
+      : record.type === "daily_care" ? ["care_area", "observation"]
+        : record.type === "test" ? ["test_name", "test_status", "result"]
         : record.type === "vet_visit" ? ["reason", "findings", "next_due_date"]
           : ["temperature_c", "care_result", "test_result", "result", "product", "vaccine", "medication", "feeding_category", "feeding_type", "amount", "dose"];
     const summary = summaryKeys.filter((key) => hasDisplayValue(record.data?.[key])).slice(0, 3)
@@ -947,6 +966,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
           .profile-panel .panel-head{margin:8px 0}.profile-panel .icon-button{padding:0;width:40px}.form-actions{display:flex;justify-content:end;gap:8px;margin-top:8px}
           .followup-summary{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}.summary-chip,.followup-count{font-size:12px;color:var(--secondary-text-color)}.summary-chip.danger,.danger{color:var(--error-color)}.summary-chip.warning{color:var(--warning-color,var(--primary-color))}
           .followup-list{display:grid;gap:8px;max-height:240px;overflow:auto;overscroll-behavior:contain}.followup-row{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--divider-color)}.followup-main{min-width:0;display:grid;gap:4px;overflow-wrap:anywhere}.followup-main strong{font-size:13px}.followup-main span,.followup-date{font-size:12px;color:var(--secondary-text-color)}.followup-date{display:flex;align-items:center;flex-wrap:wrap;gap:6px}.followup-date strong{font-weight:500}
+          .care-snapshot{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:8px 0 12px}.care-snapshot-title{grid-column:1/-1;font-size:13px;font-weight:650}.care-snapshot-row{min-width:0;display:grid;gap:3px;padding:9px 10px;border-radius:9px;background:var(--secondary-background-color);font-size:12px}.care-snapshot-row span{overflow-wrap:anywhere}.care-snapshot-row small{color:var(--secondary-text-color)}
           .timeline-head{margin-top:16px;align-items:start}.toggle{display:flex;align-items:center;gap:8px;font-size:12px;margin:8px 0}.toggle input{width:18px;min-height:18px;height:18px;padding:0;margin:0}
           .history-filters{border-bottom:1px solid var(--divider-color);margin-bottom:12px}.dates{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;margin-bottom:12px}.category-filters{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}.category-filter{min-height:34px;font-size:12px;padding:5px 9px}.category-filter ha-icon{--mdc-icon-size:16px}.category-filter.active{background:var(--primary-color);border-color:var(--primary-color);color:var(--text-primary-color,#fff)}
           .dossier-timeline-scroll{max-height:var(--dossier-history-height);overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;overflow-anchor:none;scrollbar-gutter:stable}.record{display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;padding:12px 0;border-bottom:1px solid var(--divider-color)}.record.deleted{opacity:.65}.record-icon{color:var(--primary-color);padding-top:3px}.record-icon ha-icon{--mdc-icon-size:22px}.record-body{min-width:0}.record-top{display:flex;align-items:start;justify-content:space-between;gap:8px}.record-heading{min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:5px;overflow-wrap:anywhere}.record-heading strong{flex-basis:100%;font-size:14px}.type-badge,.deleted-badge{font-size:11px;color:var(--secondary-text-color)}.type-badge:not(:last-child)::after{content:" ·";margin-left:4px}.deleted-badge{color:var(--error-color)}
@@ -954,7 +974,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
           .record-details>summary{color:var(--primary-color);padding:8px 0}.record-data{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 16px;margin:4px 0 10px}.record-data-row{min-width:0;display:grid;gap:3px}.record-data-row span{font-size:11px;color:var(--secondary-text-color)}.record-data-row strong{font-size:13px;font-weight:500;overflow-wrap:anywhere;white-space:pre-wrap}.care-instruction-row{grid-column:1/-1}.text-button{color:var(--primary-color);border:0;font-size:12px}.text-button.danger{color:var(--error-color)}
           .empty{padding:20px 0;color:var(--secondary-text-color);font-size:13px;overflow-wrap:anywhere}.empty button{display:flex;margin-top:8px}.message{margin:8px 0;font-size:13px;overflow-wrap:anywhere}.error{color:var(--error-color)}.status{color:var(--secondary-text-color)}
           .timeline-items-content[hidden]{display:none}.dossier-timeline-toggle-footer{margin-top:12px}.dossier-timeline-toggle-footer button,#show-more-history{width:100%;min-height:44px}.dossier-timeline-toggle-footer button{background:var(--secondary-background-color)}#show-more-history{margin-top:8px;color:var(--primary-color)}
-          @container dossier-card (max-width:520px){.top{align-items:start;flex-wrap:wrap}.selectors{width:100%;max-width:none}.toolbar{align-items:stretch;flex-direction:column}.tools button{width:100%}.tools{align-self:stretch}.dates{grid-template-columns:1fr 1fr}.dates button{grid-column:1/-1}.record-data{grid-template-columns:1fr}.record{grid-template-columns:24px minmax(0,1fr);gap:8px}.followup-row{grid-template-columns:24px minmax(0,1fr)}.followup-date{grid-column:2}.timeline-head{flex-direction:column;gap:4px}}
+          @container dossier-card (max-width:520px){.top{align-items:start;flex-wrap:wrap}.selectors{width:100%;max-width:none}.toolbar{align-items:stretch;flex-direction:column}.tools button{width:100%}.tools{align-self:stretch}.dates{grid-template-columns:1fr 1fr}.dates button{grid-column:1/-1}.record-data,.care-snapshot{grid-template-columns:1fr}.record{grid-template-columns:24px minmax(0,1fr);gap:8px}.followup-row{grid-template-columns:24px minmax(0,1fr)}.followup-date{grid-column:2}.timeline-head{flex-direction:column;gap:4px}}
         </style>
         <div class="top">
           <div><div class="title">${escapeHtml(this._config.title || "Dossier")}</div><div class="subtitle">${escapeHtml(subtitle)}</div></div>
@@ -970,6 +990,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
         ${this._status ? `<div class="message status">${escapeHtml(this._status)}</div>` : ""}
         ${this._renderProfileNote()}
         ${this._renderUpcomingActions()}
+        ${this._renderCareSnapshot(records)}
         <div class="timeline-head">
           <div><div class="timeline-title">${escapeHtml(dossierText(this._hass, "Historie", "History"))}</div><div class="timeline-sub">${escapeHtml(ownerName)} · ${activeRecordCount} ${escapeHtml(activeRecordLabel)}</div></div>
         </div>
