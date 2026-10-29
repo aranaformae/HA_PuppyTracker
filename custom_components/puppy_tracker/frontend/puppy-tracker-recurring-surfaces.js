@@ -1,7 +1,7 @@
 import { escapeHtml, formatDateTime, languageForHass, puppyDisplayLabel } from "./puppy-tracker-card-common.js";
 import { appendEditAction } from "./puppy-tracker-form-state.js";
 import { canEditRecords, openRecordEditor, openReminderEditor, recordContext, refreshRecordSource, reminderActionButtons, RECORD_ACTION_STYLE } from "./puppy-tracker-record-editor.js";
-import { TYPE_FIELDS, fieldLabel, recordTypeIcon } from "./puppy-tracker-dossier-schema.js";
+import { TYPE_FIELDS, fieldLabel, fieldValueLabel, recordTypeIcon } from "./puppy-tracker-dossier-schema.js";
 
 const text = (card, nl, en) => languageForHass(card._hass) === "en" ? en : nl;
 
@@ -19,7 +19,7 @@ export function lastExecutionDetails(card, item) {
   if (!record) return `<div class="recurring-last-empty">${escapeHtml(item.last_completed_at
     ? `${label}: ${executionTime(card, item.last_completed_at)}` : text(card, "Nog geen uitvoering geregistreerd", "No execution recorded yet"))}</div>`;
   const fields = (TYPE_FIELDS[record.type] || []).filter((field) => record.data?.[field.key] != null && record.data[field.key] !== "");
-  const values = fields.map((field) => `<div><dt>${escapeHtml(fieldLabel(card._hass, field))}</dt><dd>${escapeHtml(record.data[field.key])}</dd></div>`).join("");
+  const values = fields.map((field) => `<div><dt>${escapeHtml(fieldLabel(card._hass, field))}</dt><dd>${escapeHtml(fieldValueLabel(card._hass, field, record.data[field.key]))}</dd></div>`).join("");
   const edit = text(card, "Registratie bewerken", "Edit log entry");
   return `<details class="recurring-last-execution" data-last-execution="${escapeHtml(item.id)}" ${card._expandedReminderExecutions?.has(item.id) ? "open" : ""}>
     <summary>${escapeHtml(label)}: ${escapeHtml(executionTime(card, record.occurred_at))}</summary>

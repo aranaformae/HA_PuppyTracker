@@ -21,6 +21,16 @@ ACTIONABLE_RECORD_TYPES: dict[str, dict[str, str]] = {
         "title": "Ontworming",
         "icon": "mdi:shield-bug-outline",
     },
+    "test": {
+        "due_field": "next_due_date",
+        "title": "Test / uitslag",
+        "icon": "mdi:test-tube",
+    },
+    "vet_visit": {
+        "due_field": "next_due_date",
+        "title": "Dierenartsbezoek",
+        "icon": "mdi:stethoscope",
+    },
 }
 
 STATUS_OVERDUE = "overdue"
@@ -99,15 +109,20 @@ def followup_record_data(
     if source.get("litter_id") != litter_id:
         raise ValueError("The follow-up belongs to another litter")
     if record_type not in ACTIONABLE_RECORD_TYPES or source.get("type") != record_type:
-        raise ValueError("The follow-up must have the same vaccination or deworming type")
+        raise ValueError("The follow-up must keep the source record type")
     source_data = source.get("data")
-    if not isinstance(source_data, dict) or source_data.get("next_due_date") != due_date:
+    due_field = ACTIONABLE_RECORD_TYPES[record_type]["due_field"]
+    if not isinstance(source_data, dict) or source_data.get(due_field) != due_date:
         raise ValueError("The follow-up date has changed. Refresh the card")
     if (_owner_key(source), record_type, source_id, due_date) in completed_followups(records):
         raise ValueError("This follow-up has already been completed. Refresh the card")
-    required = "product" if record_type == "deworming" else "vaccine"
-    if not str(result.get(required) or "").strip():
-        raise ValueError(f"Enter the {required} used for this completion")
+    required = {"deworming": "product", "vaccination": "vaccine", "test": "test_name"}.get(record_type)
+    if required and not str(result.get(required) or "").strip():
+        raise ValueError(f"Enter the {required} for this follow-up")
+    if record_type == "vet_visit" and not any(
+        str(result.get(key) or "").strip() for key in ("reason", "findings", "diagnosis", "treatment")
+    ):
+        raise ValueError("Enter a visit reason or finding for this follow-up")
     if result.get("next_due_date") and not _parse_due_date(result["next_due_date"]):
         raise ValueError("Enter a valid next due date")
     result.update(followup_record_id=source_id, followup_due_date=due_date)
@@ -163,7 +178,10 @@ def upcoming_actions(
         due_date_iso = due_date.isoformat()
         source_record_id = record.get("id")
         action_title = str(config["title"])
-        source_title = record.get("title")
+        source_title = record.get("title") or (
+            data.get("test_name") if record_type == "test" else
+            data.get("reason") if record_type == "vet_visit" else None
+        )
         description_parts = [str(source_title)] if source_title else []
         if record.get("puppy_name"):
             description_parts.append(str(record["puppy_name"]))

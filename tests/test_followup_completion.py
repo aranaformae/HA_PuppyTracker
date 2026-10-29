@@ -28,25 +28,33 @@ def _owner(scope):
 
 
 async def _source(storage, scope="puppy", record_type="deworming"):
+    fields = {"deworming": {"product": "Original product"},
+              "vaccination": {"vaccine": "Original product"},
+              "test": {"test_name": "Giardia", "test_status": "pending"},
+              "vet_visit": {"reason": "Initial check"}}[record_type]
     return await storage.async_add_record(
         "litter-1", **_owner(scope), record_type=record_type,
         occurred_at="2026-09-01T10:00:00+00:00", note="Original history",
-        data={"product" if record_type == "deworming" else "vaccine": "Original product", "next_due_date": "2026-09-15"},
+        data={**fields, "next_due_date": "2026-09-15"},
     )
 
 
 async def _complete(storage, source_id, scope="puppy", record_type="deworming", **changes):
+    fields = {"deworming": {"product": "New product"},
+              "vaccination": {"vaccine": "New product"},
+              "test": {"test_name": "Giardia", "test_status": "completed", "result": "Negative"},
+              "vet_visit": {"reason": "Recheck", "findings": "Normal"}}[record_type]
     payload = dict(
         record_type=record_type, occurred_at="2026-09-15T12:00:00+00:00",
         note="New execution", followup_record_id=source_id, followup_due_date="2026-09-15",
-        data={"product" if record_type == "deworming" else "vaccine": "New product", "next_due_date": "2026-09-29"},
+        data={**fields, "next_due_date": "2026-09-29"},
     )
     payload.update(changes)
     return await storage.async_add_record("litter-1", **_owner(scope), **payload)
 
 
 @pytest.mark.parametrize("scope", ["puppy", "litter", "mother"])
-@pytest.mark.parametrize("record_type", ["deworming", "vaccination"])
+@pytest.mark.parametrize("record_type", ["deworming", "vaccination", "test", "vet_visit"])
 async def test_completion_keeps_source_and_only_new_due_date(followup_storage, scope, record_type):
     storage = followup_storage
     source_id = await _source(storage, scope, record_type)
@@ -80,8 +88,8 @@ async def test_no_next_date_and_delete_restore_completion(followup_storage):
     ({"followup_due_date": "2026-09-16"}, "date has changed"),
     ({"followup_due_date": None}, "valid follow-up date"),
     ({"followup_record_id": "unknown"}, "no longer exists"),
-    ({"record_type": "vaccination"}, "same vaccination or deworming type"),
-    ({"data": {}}, "product used"),
+    ({"record_type": "vaccination"}, "keep the source record type"),
+    ({"data": {}}, "product for this follow-up"),
     ({"data": {"product": "Example", "next_due_date": "not-a-date"}}, "valid next due date"),
 ])
 async def test_invalid_or_stale_completion_does_not_change_data(followup_storage, changes, message):

@@ -152,6 +152,22 @@ test("creates enriched individual deworming records for the whole litter after r
   expect(new Set(ids).size).toBe(3);
 });
 
+test("bulk test status is translated in review and saved per puppy @cross-browser @tablet", async ({ page }) => {
+  const card = await mountBulkDossier(page, "nl");
+  await card.locator("#select-all").click();
+  await card.locator("#bulk-type").selectOption("test");
+  await card.locator("#bulk-data-test_name").fill("Giardia");
+  await card.locator("#bulk-data-test_status").selectOption("completed");
+  await card.locator("#bulk-review").click();
+  await expect(card.locator("#bulk-data-result")).toBeVisible();
+  await card.locator("#bulk-data-result").fill("Negatief");
+  await card.locator("#bulk-review").click();
+  await expect(card.locator(".review-data")).toContainText("Uitslag bekend");
+  await card.locator("#bulk-confirm").click();
+  await expect.poll(async () => (await recordAddCalls(page)).length).toBe(3);
+  expect((await recordAddCalls(page)).map((call) => call.data.test_status)).toEqual(["completed", "completed", "completed"]);
+});
+
 test("bulk care review blocks missing required product fields", async ({ page }) => {
   const card = await mountBulkDossier(page, "en");
 

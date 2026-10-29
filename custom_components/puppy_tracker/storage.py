@@ -46,6 +46,7 @@ from .records import (
     create_record,
     normalize_record,
     sorted_records,
+    validate_clinical_record_data,
     validate_record_type,
 )
 from .time_utils import normalize_timestamp, parse_timestamp
@@ -2312,6 +2313,7 @@ class PuppyTrackerStorage:
                     raise ValueError("Behavior observations must belong to a puppy")
                 normalized_data = validate_behavior_data(data)
             normalized_data = normalize_course_record_edit(record, normalized_type, normalized_data)
+            normalized_data = validate_clinical_record_data(normalized_type, normalized_data)
             record["type"] = normalized_type
             if occurred_at is not None:
                 record["occurred_at"] = normalize_timestamp(occurred_at, now) or now

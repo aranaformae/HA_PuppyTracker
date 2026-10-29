@@ -79,6 +79,19 @@ const SCHEMA_COPY = {
     administrationWeight: "Weight at administration (g)",
     administrationWeightPlaceholder: "Optional puppy weight in grams",
     freeTextDose: "Dose (free text)",
+    testStatus: "Test status",
+    testStatusPlanned: "Planned",
+    testStatusPending: "Awaiting result",
+    testStatusCompleted: "Result available",
+    testStatusInconclusive: "Inconclusive",
+    testReferenceNumber: "Test reference number",
+    testReferenceNumberPlaceholder: "Laboratory or sample reference",
+    vetFindings: "Findings",
+    vetFindingsPlaceholder: "Examination findings",
+    clinicalFollowupDate: "Follow-up date",
+    completedTestNeedsResult: "Enter the result before marking the test complete.",
+    testFollowupNeedsName: "Enter a test name before setting a follow-up date.",
+    vetFollowupNeedsReason: "Enter a visit reason or finding before setting a follow-up date.",
     required: "required",
     requiredFieldsMissing: "Complete the required field(s): {fields}.",
     overdueSummary: "overdue",
@@ -115,6 +128,19 @@ const SCHEMA_COPY = {
     administrationWeight: "Gewicht bij toediening (g)",
     administrationWeightPlaceholder: "Optioneel gewicht van de pup in gram",
     freeTextDose: "Dosering (vrije tekst)",
+    testStatus: "Teststatus",
+    testStatusPlanned: "Gepland",
+    testStatusPending: "Uitslag afwachten",
+    testStatusCompleted: "Uitslag bekend",
+    testStatusInconclusive: "Onduidelijk",
+    testReferenceNumber: "Testreferentie",
+    testReferenceNumberPlaceholder: "Referentie van laboratorium of monster",
+    vetFindings: "Bevindingen",
+    vetFindingsPlaceholder: "Bevindingen bij onderzoek",
+    clinicalFollowupDate: "Vervolgdatum",
+    completedTestNeedsResult: "Vul de uitslag in voordat je de test als afgerond markeert.",
+    testFollowupNeedsName: "Vul een testnaam in voordat je een vervolgdatum instelt.",
+    vetFollowupNeedsReason: "Vul een reden of bevinding in voordat je een vervolgdatum instelt.",
     required: "verplicht",
     requiredFieldsMissing: "Vul de verplichte veld(en) in: {fields}.",
     overdueSummary: "te laat",
@@ -156,8 +182,14 @@ export const TYPE_FIELDS = {
   ],
   test: [
     { key: "test_name", labelKey: "testName", placeholderKey: "testNamePlaceholder" },
+    { key: "test_status", schemaLabelKey: "testStatus", options: [
+      ["planned", "testStatusPlanned"], ["pending", "testStatusPending"],
+      ["completed", "testStatusCompleted"], ["inconclusive", "testStatusInconclusive"],
+    ] },
     { key: "result", labelKey: "testResult", placeholderKey: "testResultPlaceholder" },
     { key: "laboratory", labelKey: "laboratory", placeholderKey: "laboratoryPlaceholder" },
+    { key: "reference_number", schemaLabelKey: "testReferenceNumber", schemaPlaceholderKey: "testReferenceNumberPlaceholder", maxLength: 120 },
+    { key: "next_due_date", schemaLabelKey: "clinicalFollowupDate", type: "date" },
   ],
   deworming: [
     { key: "product", labelKey: "product", placeholderKey: "productPlaceholder", required: true },
@@ -184,8 +216,10 @@ export const TYPE_FIELDS = {
     { key: "veterinarian", labelKey: "veterinarian", placeholderKey: "veterinarianPlaceholder" },
     { key: "clinic", labelKey: "clinic", placeholderKey: "clinicPlaceholder" },
     { key: "reason", labelKey: "visitReason", placeholderKey: "visitReasonPlaceholder" },
+    { key: "findings", schemaLabelKey: "vetFindings", schemaPlaceholderKey: "vetFindingsPlaceholder", type: "textarea", wide: true },
     { key: "diagnosis", labelKey: "diagnosis", type: "textarea", wide: true, placeholderKey: "diagnosisPlaceholder" },
     { key: "treatment", labelKey: "treatment", type: "textarea", wide: true, placeholderKey: "treatmentPlaceholder" },
+    { key: "next_due_date", schemaLabelKey: "clinicalFollowupDate", type: "date" },
   ],
   milestone: [
     { key: "milestone", labelKey: "milestone", placeholderKey: "milestonePlaceholder" },
@@ -205,6 +239,31 @@ export function fieldLabel(hass, field) {
 export function fieldPlaceholder(hass, field) {
   if (field.schemaPlaceholderKey) return schemaText(hass, field.schemaPlaceholderKey);
   return field.placeholderKey ? localize(hass, field.placeholderKey) : "";
+}
+
+export function fieldValueLabel(hass, field, value) {
+  const option = field.options?.find(([key]) => key === value);
+  return option ? schemaText(hass, option[1]) : value;
+}
+
+export function clinicalValidationField(recordType, data = {}) {
+  if (recordType === "test" && data.test_status === "completed" && !String(data.result || "").trim()) return "result";
+  if (recordType === "test" && data.next_due_date && !String(data.test_name || "").trim()) return "test_name";
+  if (recordType === "vet_visit" && data.next_due_date && !["reason", "findings", "diagnosis", "treatment"].some((key) => String(data[key] || "").trim())) return "reason";
+  return "";
+}
+
+export function clinicalValidationMessage(hass, recordType, data = {}) {
+  const key = clinicalValidationField(recordType, data);
+  return key ? schemaText(hass, { result: "completedTestNeedsResult", test_name: "testFollowupNeedsName", reason: "vetFollowupNeedsReason" }[key]) : "";
+}
+
+export function renderFieldControl(hass, field, id, value, { rows = 3 } = {}) {
+  const safeValue = escapeHtml(value ?? "");
+  const placeholder = escapeHtml(fieldPlaceholder(hass, field) || "");
+  if (field.options) return `<select id="${escapeHtml(id)}"><option value=""></option>${field.options.map(([key, label]) => `<option value="${escapeHtml(key)}" ${value === key ? "selected" : ""}>${escapeHtml(schemaText(hass, label))}</option>`).join("")}</select>`;
+  if (field.type === "textarea") return `<textarea id="${escapeHtml(id)}" rows="${rows}" placeholder="${placeholder}">${safeValue}</textarea>`;
+  return `<input id="${escapeHtml(id)}" type="${escapeHtml(field.type || "text")}" value="${safeValue}" placeholder="${placeholder}" ${inputAttributes(field)} ${field.maxLength ? `maxlength="${field.maxLength}"` : ""}>`;
 }
 
 export function requiredFieldsForType(recordType) {

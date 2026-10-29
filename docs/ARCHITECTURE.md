@@ -654,7 +654,9 @@ A puppy has one editable `profile_note` for persistent summary information. Chro
 
 ## Derived upcoming dossier actions
 
-`upcoming.py` derives follow-up actions from active dossier records, for example vaccination/deworming `next_due_date` fields. These actions are transient projections and are not stored as a second task database.
+`upcoming.py` derives follow-up actions from active vaccination, deworming, test
+and veterinary-visit records with a `next_due_date` field. These actions are
+transient projections and are not stored as a second task database.
 
 Typical statuses are:
 
@@ -671,14 +673,15 @@ an empty placeholder. Deleted sources and active completion records follow the
 same `upcoming.py` rules as puppy and litter dossiers, independently of whether
 deleted records are included for history inspection.
 
-Vaccination/deworming follow-ups use the common editor's `followup` mode, not
+These four follow-up categories use the common editor's `followup` mode, not
 `edit`. It fetches and checks the source, locks the category, initializes a new
-execution timestamp, and proposes only reusable product/vaccine details. Old
-doses, weights, batches, notes and results are excluded; the next due date is
+execution timestamp, and proposes only reusable product, test-name, laboratory
+or provider details as appropriate. Old doses, weights, batches, notes,
+findings, references and results are excluded; the next due date is
 initially empty. The existing admin-only `record/add` and `mother/record/add`
 commands accept optional `followup_record_id` and `followup_due_date` arguments.
 Storage validates source ownership, active state, category, exact due date,
-required product/vaccine and absence of another active completion under its
+required product/vaccine/test name where applicable, and absence of another active completion under its
 mutation lock. Completion saves are serialized and roll back runtime data on a
 failed disk write, allowing a safe retry.
 

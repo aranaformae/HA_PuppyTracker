@@ -6,7 +6,7 @@ import {
   restoreDossierRecord, restoreMotherDossierRecord, updateDossierRecord, updateMotherDossierRecord,
 } from "./puppy-tracker-card-common.js";
 import {
-  TYPE_FIELDS, KNOWN_DATA_KEYS, fieldLabel, fieldPlaceholder, inputAttributes,
+  TYPE_FIELDS, KNOWN_DATA_KEYS, clinicalValidationField, clinicalValidationMessage, fieldLabel, renderFieldControl,
   recordTypeLabel, recordTypeOptions, requiredFieldsMessage,
 } from "./puppy-tracker-dossier-schema.js";
 import { BEHAVIOR_GROUPS, behaviorAgeDays, behaviorText } from "./puppy-tracker-behavior-schema.js";
@@ -42,7 +42,7 @@ export function recordEditButton(card, key, { measurement = false, deleted = fal
 }
 
 export function canCompleteFollowup(action) {
-  return ["deworming", "vaccination"].includes(action?.record_type || action?.type)
+  return ["deworming", "vaccination", "test", "vet_visit"].includes(action?.record_type || action?.type)
     && Boolean(action?.source_record_id || action?.record_id) && Boolean(action?.due_date || action?.due_at);
 }
 
@@ -253,8 +253,12 @@ class PuppyTrackerRecordEditor extends HTMLElement {
         if (!canCompleteFollowup({ ...this._record, record_id: recordId, due_date: this._options.dueDate })
           || this._record.data?.next_due_date !== this._options.dueDate) throw new Error(copy(this._hass, "Deze vervolgmelding is gewijzigd. Vernieuw de kaart.", "This follow-up has changed. Refresh the card."));
         // Carry forward product details, never an old dose, weight, batch or result.
-        const reusable = this._record.type === "deworming" ? ["product", "active_ingredient", "unit", "route"]
-          : ["vaccine", "vaccine_type", "veterinarian", "clinic"];
+        const reusable = {
+          deworming: ["product", "active_ingredient", "unit", "route"],
+          vaccination: ["vaccine", "vaccine_type", "veterinarian", "clinic"],
+          test: ["test_name", "laboratory"],
+          vet_visit: ["veterinarian", "clinic"],
+        }[this._record.type] || [];
         this._draft = { record_type: this._record.type, occurred_at: localDate(), title: "", note: "",
           data: Object.fromEntries(reusable.filter((key) => this._record.data?.[key] != null).map((key) => [key, this._record.data[key]])) };
         this.shadowRoot.getElementById("record-dialog-title").textContent = copy(this._hass, "Uitvoering registreren", "Record completion");
@@ -406,11 +410,7 @@ class PuppyTrackerRecordEditor extends HTMLElement {
       .filter((field) => !(this._draft.data.care_schedule_type === "course" && field.key === "next_due_date"))
       .map((field) => {
         const id = `record-data-${field.key}`;
-        const placeholder = escape(fieldPlaceholder(this._hass, field) || "");
-        const value = escape(this._draft.data[field.key] ?? "");
-        return `<label class="${field.wide ? "wide" : ""}"><span>${escape(fieldLabel(this._hass, field))}${field.required ? ' <span class="required">*</span>' : ""}</span>${field.type === "textarea"
-          ? `<textarea id="${id}" placeholder="${placeholder}">${value}</textarea>`
-          : `<input id="${id}" type="${field.type || "text"}" value="${value}" placeholder="${placeholder}" ${inputAttributes(field)}>`}</label>`;
+        return `<label class="${field.wide ? "wide" : ""}"><span>${escape(fieldLabel(this._hass, field))}${field.required ? ' <span class="required">*</span>' : ""}</span>${renderFieldControl(this._hass, field, id, this._draft.data[field.key])}</label>`;
       }).join("");
   }
 
@@ -535,6 +535,18 @@ class PuppyTrackerRecordEditor extends HTMLElement {
           const field = (TYPE_FIELDS[this._draft.record_type] || []).find((item) => item.required && !data[item.key]);
           if (field) this._formState.error(`#record-data-${field.key}`, validation);
           throw new Error(validation);
+        }
+        const clinicalValidation = clinicalValidationMessage(this._hass, this._draft.record_type, data);
+        if (clinicalValidation) { this._formState.error(`#record-data-${clinicalValidationField(this._draft.record_type, data)}`, clinicalValidation); throw new Error(clinicalValidation); }
+        if (this._mode === "followup" && this._draft.record_type === "test" && !String(data.test_name || "").trim()) {
+          const message = copy(this._hass, "Vul de testnaam in voor deze opvolging.", "Enter the test name for this follow-up.");
+          this._formState.error("#record-data-test_name", message);
+          throw new Error(message);
+        }
+        if (this._mode === "followup" && this._draft.record_type === "vet_visit" && !["reason", "findings", "diagnosis", "treatment"].some((key) => String(data[key] || "").trim())) {
+          const message = copy(this._hass, "Vul een reden of bevinding in voor deze opvolging.", "Enter a visit reason or finding for this follow-up.");
+          this._formState.error("#record-data-reason", message);
+          throw new Error(message);
         }
         if (this._draft.record_type === "behavior_observation" && !Object.keys(data.scores || {}).length) throw new Error(behaviorText({ _hass: this._hass }, "noScores"));
         if (this._draft.record_type === "behavior_observation") {

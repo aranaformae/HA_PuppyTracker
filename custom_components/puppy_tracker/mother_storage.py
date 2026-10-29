@@ -16,6 +16,7 @@ from .records import (
     RECORD_SCOPE_PUPPY,
     create_record,
     sorted_records,
+    validate_clinical_record_data,
     validate_record_type,
 )
 from .storage import PuppyTrackerStorage, _now_iso
@@ -359,7 +360,7 @@ class MotherScopeStorage(PuppyTrackerStorage):
                 record["occurred_at"] = normalize_timestamp(occurred_at, now) or now
             record["title"] = title.strip() if isinstance(title, str) and title.strip() else None
             record["note"] = note.strip() if isinstance(note, str) and note.strip() else None
-            record["data"] = deepcopy(data) if isinstance(data, dict) else {}
+            record["data"] = validate_clinical_record_data(normalized_type, data)
             record["updated_at"] = now
             mother["updated_at"] = now
             self._require_litter(litter_id)["updated_at"] = now

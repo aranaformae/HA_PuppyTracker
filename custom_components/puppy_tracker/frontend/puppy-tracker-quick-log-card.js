@@ -18,8 +18,9 @@ import {
 } from "./puppy-tracker-card-common.js";
 import {
   fieldLabel,
-  fieldPlaceholder,
-  inputAttributes,
+  clinicalValidationField,
+  clinicalValidationMessage,
+  renderFieldControl,
   RECORD_TYPES,
   recordTypeLabel,
   requiredFieldsMessage,
@@ -737,6 +738,13 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
       if (field) this._formState.error(`#${this._fieldInputId(field)}`, this._error);
       return;
     }
+    const clinicalValidation = clinicalValidationMessage(this._hass, preset.recordType, data);
+    if (clinicalValidation) {
+      this._error = clinicalValidation;
+      this._render();
+      this._formState.error(`#${this._fieldInputId({ key: clinicalValidationField(preset.recordType, data) })}`, clinicalValidation);
+      return;
+    }
     if (!note && !Object.keys(data).length) {
       this._error = text(this._hass, "detailsRequired");
       this._render();
@@ -805,12 +813,7 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
     return `<div class="typed-grid">${fields.map((field) => {
       const id = this._fieldInputId(field);
       const value = data[field.key] ?? "";
-      const placeholderValue = fieldPlaceholder(this._hass, field);
-      const placeholder = placeholderValue ? ` placeholder="${escapeHtml(placeholderValue)}"` : "";
-      const attributes = inputAttributes(field);
-      const control = field.type === "textarea"
-        ? `<textarea id="${id}" rows="3"${placeholder}>${escapeHtml(value)}</textarea>`
-        : `<input id="${id}" type="${field.type || "text"}" value="${escapeHtml(value)}"${placeholder}${attributes ? ` ${attributes}` : ""}>`;
+      const control = renderFieldControl(this._hass, field, id, value);
       const requirement = field.required
         ? `<span class="required">${escapeHtml(schemaText(this._hass, "required"))}</span>`
         : `<span class="optional">${escapeHtml(localize(this._hass, "optional"))}</span>`;
@@ -901,7 +904,7 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
     });
     if (activePreset) {
       for (const field of TYPE_FIELDS[activePreset.recordType] || []) {
-        this.shadowRoot.getElementById(this._fieldInputId(field))?.addEventListener("input", (event) => {
+        this.shadowRoot.getElementById(this._fieldInputId(field))?.addEventListener(field.options ? "change" : "input", (event) => {
           if (!this._draft) return;
           const data = { ...(this._draft.dataByPreset?.[activePreset.id] || {}), [field.key]: event.target.value };
           this._draft.dataByPreset = { ...(this._draft.dataByPreset || {}), [activePreset.id]: data };

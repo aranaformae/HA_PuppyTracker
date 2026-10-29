@@ -275,6 +275,21 @@ test("exposes every shared dossier type and saves structured deworming", { tag: 
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
 });
 
+test("Quick Log validates and saves a completed test with its reference @cross-browser @tablet", async ({ page }) => {
+  const card = await mountQuickLog(page, "nl");
+  await card.locator("#owner-select").selectOption("p1");
+  await card.locator('[data-preset="test"]').click();
+  await card.locator("#quick-data-test_name").fill("Giardia");
+  await card.locator("#quick-data-test_status").selectOption("completed");
+  await card.locator("#quick-save").click();
+  expect(await recordAddCalls(page)).toHaveLength(0);
+  await card.locator("#quick-data-result").fill("Negatief");
+  await card.locator("#quick-data-reference_number").fill("LAB-42");
+  await card.locator("#quick-save").click();
+  await expect.poll(async () => (await recordAddCalls(page)).length).toBe(1);
+  expect((await recordAddCalls(page))[0]).toMatchObject({ record_type: "test", puppy_id: "p1", data: { test_name: "Giardia", test_status: "completed", result: "Negatief", reference_number: "LAB-42" } });
+});
+
 test("logs a temperature for the selected mother instead of the whole litter", async ({ page }) => {
   const card = await mountQuickLog(page, "en");
 

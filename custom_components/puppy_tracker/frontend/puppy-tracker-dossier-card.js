@@ -20,6 +20,7 @@ import { buildDossierHistory, filterDossierHistory, ownerActions } from "./puppy
 import { closeRecordEditor, canEditRecords, openRecordEditor, openFollowupEditor, recordContext, recordEditButton, recordFollowupButton, RECORD_ACTION_STYLE } from "./puppy-tracker-record-editor.js";
 import {
   fieldLabel,
+  fieldValueLabel,
   recordTypeIcon as iconForRecordType,
   recordTypeLabel as labelForRecordType,
   schemaText,
@@ -579,7 +580,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
       const raw = data[field.key];
       if (raw === null || raw === undefined || raw === "") continue;
       renderedKeys.add(field.key);
-      const value = field.type === "date" ? formatDateOnly(raw, this._hass) : displayDataValue(raw, this._hass);
+      const value = field.type === "date" ? formatDateOnly(raw, this._hass) : fieldValueLabel(this._hass, field, displayDataValue(raw, this._hass));
       rows.push(`<div class="record-data-row"><span>${escapeHtml(fieldLabel(this._hass, field))}</span><strong>${escapeHtml(value)}</strong></div>`);
     }
 
@@ -816,9 +817,18 @@ class PuppyTrackerDossierCard extends HTMLElement {
       ? `<span class="type-badge aggregate-owner-badge">${escapeHtml(this._ownerLabel(record.__aggregate_owner_scope, record.__aggregate_owner_name))}</span>` : "";
     const litterBadge = this.__motherSelected && this.__motherHistoryScope === "all" && record.litter_name
       ? `<span class="type-badge mother-litter-badge">${escapeHtml(record.litter_name)}</span>` : "";
-    const summaryKeys = measurement ? ["weight"] : ["temperature_c", "care_result", "test_result", "result", "product", "vaccine", "medication", "feeding_type", "amount", "dose"];
+    const summaryKeys = measurement ? ["weight"]
+      : record.type === "test" ? ["test_name", "test_status", "result"]
+        : record.type === "vet_visit" ? ["reason", "findings", "next_due_date"]
+          : ["temperature_c", "care_result", "test_result", "result", "product", "vaccine", "medication", "feeding_type", "amount", "dose"];
     const summary = summaryKeys.filter((key) => hasDisplayValue(record.data?.[key])).slice(0, 3)
-      .map((key) => `${["weight", "temperature_c"].includes(key) ? "" : `${dataLabel(this._hass, key)}: `}${displayDataValue(record.data[key], this._hass)}${key === "weight" ? " g" : key === "temperature_c" ? " °C" : key === "amount" && record.data.unit ? ` ${record.data.unit}` : ""}`).join(" · ");
+      .map((key) => {
+        const field = TYPE_FIELDS[record.type]?.find((item) => item.key === key);
+        const label = field ? fieldLabel(this._hass, field) : dataLabel(this._hass, key);
+        const raw = record.data[key];
+        const value = field?.type === "date" ? formatDateOnly(raw, this._hass) : field ? fieldValueLabel(this._hass, field, displayDataValue(raw, this._hass)) : displayDataValue(raw, this._hass);
+        return `${["weight", "temperature_c"].includes(key) ? "" : `${label}: `}${value}${key === "weight" ? " g" : key === "temperature_c" ? " °C" : key === "amount" && record.data.unit ? ` ${record.data.unit}` : ""}`;
+      }).join(" · ");
     const details = this._renderRecordData(record);
     const actions = measurement
       ? recordEditButton(this, recordKey, { measurement: true, deleted: inactive })

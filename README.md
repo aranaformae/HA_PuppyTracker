@@ -148,6 +148,9 @@ open reminder explicitly to save a new entry and complete only that reminder.
 For feeding and medication, **Use previous entry** fills an editable draft for
 the chosen owner with a fresh time. Check the values, especially the dose,
 before saving; nothing is logged automatically.
+Tests and veterinary visits can include a follow-up date. When it becomes due,
+**Record completion** opens a new entry with reusable details already filled;
+the original result or visit stays in the history.
 
 ### Reminders and care programs
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any
 from uuid import uuid4
 
@@ -76,6 +76,38 @@ def validate_record_type(value: str) -> str:
     return record_type
 
 
+def validate_clinical_record_data(record_type: str, data: dict[str, Any] | None) -> dict[str, Any]:
+    """Validate the structured test and vet fields without rewriting old records."""
+    result = deepcopy(data) if isinstance(data, dict) else {}
+    if record_type not in {RECORD_TYPE_TEST, RECORD_TYPE_VET_VISIT}:
+        return result
+    due = result.get("next_due_date")
+    if due not in (None, ""):
+        try:
+            date.fromisoformat(due)
+        except (TypeError, ValueError) as err:
+            raise ValueError("Enter a valid follow-up date") from err
+    if record_type == RECORD_TYPE_TEST:
+        status = result.get("test_status")
+        if status not in (None, "", "planned", "pending", "completed", "inconclusive"):
+            raise ValueError("Invalid test status")
+        reference = result.get("reference_number")
+        if reference not in (None, "") and (
+            not isinstance(reference, str) or len(reference.strip()) > 120
+            or any(ord(character) < 32 for character in reference)
+        ):
+            raise ValueError("Invalid test reference number")
+        if status == "completed" and not str(result.get("result") or "").strip():
+            raise ValueError("Enter a test result before marking it completed")
+        if due not in (None, "") and not str(result.get("test_name") or "").strip():
+            raise ValueError("Enter a test name before scheduling follow-up")
+    elif due not in (None, "") and not any(
+        str(result.get(key) or "").strip() for key in ("reason", "findings", "diagnosis", "treatment")
+    ):
+        raise ValueError("Enter a visit reason or finding before scheduling follow-up")
+    return result
+
+
 def create_record(
     *,
     litter_id: str,
@@ -109,7 +141,7 @@ def create_record(
         "deleted_at": None,
         "title": title.strip() if isinstance(title, str) and title.strip() else None,
         "note": note.strip() if isinstance(note, str) and note.strip() else None,
-        "data": deepcopy(data) if isinstance(data, dict) else {},
+        "data": validate_clinical_record_data(record_type, data),
     }
 
 

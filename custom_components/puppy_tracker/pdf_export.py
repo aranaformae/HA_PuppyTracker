@@ -213,6 +213,8 @@ _PDF_DATA_LABELS = {
         "veterinarian": "Dierenarts", "clinic": "Praktijk / kliniek",
         "reaction": "Reactie", "weight_grams": "Gewicht bij toediening (g)",
         "next_due_date": "Volgende datum", "test_name": "Testnaam",
+        "test_status": "Teststatus", "reference_number": "Testreferentie",
+        "findings": "Bevindingen",
         "result": "Resultaat", "laboratory": "Laboratorium", "product": "Product",
         "active_ingredient": "Werkzame stof", "dose": "Dosering", "route": "Toedieningsweg",
         "administered_by": "Toegediend door", "medication": "Medicatie",
@@ -228,6 +230,8 @@ _PDF_DATA_LABELS = {
         "veterinarian": "Veterinarian", "clinic": "Clinic",
         "reaction": "Reaction", "weight_grams": "Weight at administration (g)",
         "next_due_date": "Next due date", "test_name": "Test name",
+        "test_status": "Test status", "reference_number": "Test reference number",
+        "findings": "Findings",
         "result": "Result", "laboratory": "Laboratory", "product": "Product",
         "active_ingredient": "Active ingredient", "dose": "Dose", "route": "Route",
         "administered_by": "Administered by", "medication": "Medication",
@@ -421,10 +425,16 @@ def _record_data_text(record: dict[str, Any], language: str) -> str:
         if key in _INTERNAL_RECORD_KEYS or value in (None, ""):
             continue
         label = _PDF_DATA_LABELS[language].get(key, key.replace("_", " ").capitalize())
+        if key == "next_due_date" and record.get("type") in {"test", "vet_visit"}:
+            label = "Vervolgdatum" if language == "nl" else "Follow-up date"
         if isinstance(value, bool):
             display = _pdf_text(language, "yes" if value else "no")
         elif isinstance(value, (dict, list)):
             display = json.dumps(value, ensure_ascii=False, sort_keys=True)
+        elif key == "test_status":
+            labels = {"planned": ("Gepland", "Planned"), "pending": ("Uitslag afwachten", "Awaiting result"),
+                      "completed": ("Uitslag bekend", "Result available"), "inconclusive": ("Onduidelijk", "Inconclusive")}
+            display = labels.get(str(value), (str(value), str(value)))[0 if language == "nl" else 1]
         else:
             display = str(value)
         parts.append(f"{label}: {display}")

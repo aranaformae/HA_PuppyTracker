@@ -14,8 +14,10 @@ import {
 import {
   RECORD_TYPES,
   fieldLabel,
-  fieldPlaceholder,
-  inputAttributes,
+  fieldValueLabel,
+  clinicalValidationField,
+  clinicalValidationMessage,
+  renderFieldControl,
   recordTypeLabel,
   requiredFieldsMessage,
   schemaText,
@@ -468,6 +470,13 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
       if (field) this._formState.error(`#bulk-data-${field.key}`, this._error);
       return;
     }
+    const clinicalValidation = clinicalValidationMessage(this._hass, this._form.record_type, this._currentData());
+    if (clinicalValidation) {
+      this._error = clinicalValidation;
+      this._render();
+      this._formState.error(`#bulk-data-${clinicalValidationField(this._form.record_type, this._currentData())}`, clinicalValidation);
+      return;
+    }
     this._error = "";
     this._review = true;
     this._render();
@@ -564,12 +573,7 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
     return `<div class="typed-grid">${fields.map((field) => {
       const id = `bulk-data-${field.key}`;
       const value = this._form.data?.[field.key] || "";
-      const placeholderValue = fieldPlaceholder(this._hass, field);
-      const placeholder = placeholderValue ? ` placeholder="${escapeHtml(placeholderValue)}"` : "";
-      const attributes = inputAttributes(field);
-      const control = field.type === "textarea"
-        ? `<textarea id="${id}" rows="3"${placeholder}>${escapeHtml(value)}</textarea>`
-        : `<input id="${id}" type="${field.type || "text"}" value="${escapeHtml(value)}"${placeholder}${attributes ? ` ${attributes}` : ""}>`;
+      const control = renderFieldControl(this._hass, field, id, value);
       const requirement = field.required
         ? `<span class="required">${escapeHtml(schemaText(this._hass, "required"))}</span>`
         : `<span class="optional">${escapeHtml(localize(this._hass, "optional"))}</span>`;
@@ -590,7 +594,7 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
         <div class="review-row"><span>${escapeHtml(localize(this._hass, "dateAndTime"))}</span><strong>${escapeHtml(this._form.occurred_at.replace("T", " "))}</strong></div>
         ${this._form.title ? `<div class="review-row"><span>${escapeHtml(localize(this._hass, "title"))}</span><strong>${escapeHtml(this._form.title)}</strong></div>` : ""}
         ${this._form.note ? `<div class="review-row"><span>${escapeHtml(localize(this._hass, "note"))}</span><strong>${escapeHtml(this._form.note)}</strong></div>` : ""}
-        ${Object.keys(data).length ? `<div class="review-data"><strong>${escapeHtml(text(this._hass, "sharedDetails"))}</strong>${Object.entries(data).map(([key, value]) => `<div>${escapeHtml(fields.has(key) ? fieldLabel(this._hass, fields.get(key)) : key.replaceAll("_", " "))}: ${escapeHtml(value)}</div>`).join("")}</div>` : ""}
+        ${Object.keys(data).length ? `<div class="review-data"><strong>${escapeHtml(text(this._hass, "sharedDetails"))}</strong>${Object.entries(data).map(([key, value]) => `<div>${escapeHtml(fields.has(key) ? fieldLabel(this._hass, fields.get(key)) : key.replaceAll("_", " "))}: ${escapeHtml(fields.has(key) ? fieldValueLabel(this._hass, fields.get(key), value) : value)}</div>`).join("")}</div>` : ""}
         <div class="actions">
           <button id="bulk-back" class="secondary" type="button">${escapeHtml(text(this._hass, "back"))}</button>
           <button id="bulk-confirm" class="primary" type="button" ${this._saving ? "disabled" : ""}>${escapeHtml(bulkCountText(this._hass, "confirmSave", selected.length))}</button>
@@ -720,7 +724,7 @@ class PuppyTrackerBulkDossierCard extends HTMLElement {
       this.shadowRoot.querySelector(selector)?.addEventListener("input", () => { this._dirty = true; });
     }
     for (const field of TYPE_FIELDS[this._form.record_type] || []) {
-      this.shadowRoot.getElementById(`bulk-data-${field.key}`)?.addEventListener("input", () => { this._dirty = true; });
+      this.shadowRoot.getElementById(`bulk-data-${field.key}`)?.addEventListener(field.options ? "change" : "input", () => { this._dirty = true; });
     }
     this.shadowRoot.getElementById("bulk-review")?.addEventListener("click", () => this._startReview());
     this.shadowRoot.getElementById("bulk-back")?.addEventListener("click", () => {

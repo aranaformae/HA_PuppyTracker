@@ -41,21 +41,24 @@ saves. Closing a changed draft asks for confirmation. While saving, actions are
 disabled to avoid duplicate submissions. Closing returns focus without scrolling
 the page. Removing the source card also removes its editor.
 
-Planned care occurrences are not stored dossier items: their existing execution
-dialog records the result and notes. Once saved, the dossier result can be edited
+Planned care occurrences are not stored dossier items: their execution form
+records the result and notes. Once saved, the dossier result can be edited
 with the shared editor. A weight entry opens a measurement **correction** instead
 of becoming a dossier note; the original measurement remains in its version history.
 
-### Complete a planned deworming or vaccination
+### Complete a planned follow-up
 
-The checkmark beside a deworming/vaccination follow-up in Dossier or Attention
+The checkmark beside a deworming, vaccination, test or veterinary follow-up in Dossier or Attention
 opens **Record completion** (**Uitvoering registreren**), not an edit of the
 earlier administration. Check the owner and execution date, review or change the
-suggested product/vaccine, and enter the actual dose and any notes. An optional
-**Next due date** schedules the next follow-up; leave it empty when none is needed.
+suggested details, then enter what actually happened. For a test, the test name
+and laboratory may carry over; its result, status and reference start empty. For
+a veterinary visit, only the clinic and veterinarian carry over. An optional
+**Next due date** (shown as **Follow-up date** for tests and vet visits) schedules
+another action; leave it empty when none is needed.
 
 The execution date starts at now. Old doses, administration weights, batch
-numbers, reactions and notes are not copied. Nothing is completed until saving
+numbers, reactions, findings and notes are not copied. Nothing is completed until saving
 succeeds. Cancelling or a failed save leaves the reminder open. Successful saving
 adds a new logbook item for the same puppy, mother or litter, preserves the
 earlier record unchanged, and resolves only its linked due date. The new entry

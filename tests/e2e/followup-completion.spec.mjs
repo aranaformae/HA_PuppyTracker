@@ -13,7 +13,10 @@ async function mount(page, surface, scope, recordType = "deworming") {
       id: `${owner}-source`, scope: owner, type: recordType, litter_id: "l1",
       puppy_id: owner === "puppy" ? "p1" : null, mother_id: owner === "mother" ? "m1" : null,
       occurred_at: "2026-09-01T10:00:00Z", note: "Original administration", title: "Original title",
-      deleted: false, data: { product: "Old product", vaccine: "Old vaccine", amount: "1.5", dose: "Old dose", weight_grams: "420", batch_number: "OLD", next_due_date: dueDate },
+      deleted: false, data: { product: "Old product", vaccine: "Old vaccine", amount: "1.5", dose: "Old dose", weight_grams: "420", batch_number: "OLD", next_due_date: dueDate,
+        ...(recordType === "test" ? { test_name: "Giardia", test_status: "pending", reference_number: "OLD-REF", result: "" } : {}),
+        ...(recordType === "vet_visit" ? { veterinarian: "Dr A", clinic: "Kliniek", reason: "Eerste controle", findings: "Oude bevinding" } : {}),
+      },
     }));
     const state = window.followupFixture = { records, nextDate, calls: [], fail: false };
     const actions = (owner) => records.filter((record) => record.scope === owner && record.data.next_due_date
@@ -139,4 +142,41 @@ test("vaccination follow-up uses the same new-entry workflow and respects write 
   expect(await page.evaluate(() => window.followupFixture.records.find((r) => r.id === "new-record"))).toMatchObject({ type: "vaccination", data: { vaccine: "Different vaccine" } });
   await card.evaluate((element) => { element._hass.user.is_admin = false; element._render(); });
   await expect(card.locator("[data-complete-followup],[data-edit-item]")).toHaveCount(0);
+});
+
+test("test follow-up keeps the test identity and starts a fresh result @cross-browser @tablet", async ({ page }) => {
+  const { button } = await mount(page, "dossier", "puppy", "test");
+  await button.click();
+  const editor = page.locator("puppy-tracker-record-editor");
+  await expect(editor.locator("#record-data-test_name")).toHaveValue("Giardia");
+  await expect(editor.locator("#record-data-test_status")).toHaveValue("");
+  await expect(editor.locator("#record-data-reference_number")).toHaveValue("");
+  await expect(editor.locator("#record-data-next_due_date")).toHaveValue("");
+  await editor.locator("#record-data-test_status").selectOption("completed");
+  await editor.locator("#record-save").click();
+  await expect(editor.locator("#record-data-result")).toBeVisible();
+  await editor.locator("#record-data-result").fill("Negatief");
+  await editor.locator("#record-data-reference_number").fill("NEW-REF");
+  await editor.locator("#record-save").click();
+  await expect(editor).toHaveCount(0);
+  const saved = await page.evaluate(() => window.followupFixture.records.find((record) => record.id === "new-record"));
+  expect(saved).toMatchObject({ type: "test", data: { test_name: "Giardia", test_status: "completed", result: "Negatief", reference_number: "NEW-REF", followup_record_id: "puppy-source" } });
+});
+
+test("vet follow-up carries clinic but records new findings @cross-browser @tablet", async ({ page }) => {
+  const { button } = await mount(page, "dossier", "puppy", "vet_visit");
+  await button.click();
+  const editor = page.locator("puppy-tracker-record-editor");
+  await expect(editor.locator("#record-data-clinic")).toHaveValue("Kliniek");
+  await expect(editor.locator("#record-data-findings")).toBeEmpty();
+  await expect(editor.locator("#record-data-reason")).toBeEmpty();
+  await editor.locator("#record-save").click();
+  await expect(editor.locator("#record-data-reason")).toBeVisible();
+  expect(await page.evaluate(() => window.followupFixture.records)).toHaveLength(3);
+  await editor.locator("#record-data-reason").fill("Hercontrole");
+  await editor.locator("#record-data-findings").fill("Hersteld");
+  await editor.locator("#record-save").click();
+  await expect(editor).toHaveCount(0);
+  const saved = await page.evaluate(() => window.followupFixture.records.find((record) => record.id === "new-record"));
+  expect(saved).toMatchObject({ type: "vet_visit", data: { clinic: "Kliniek", reason: "Hercontrole", findings: "Hersteld", followup_record_id: "puppy-source" } });
 });
