@@ -1747,9 +1747,11 @@ or surfaces. The mobile select uses native optgroups. Enabled tabs are normalize
 to daily-first order, preserving configured order within each group, so focus,
 remembered selection and panel order agree. Translations update navigation nodes
 in place; grouping does not remount forms. Existing YAML tab keys remain intact.
-The administrator-only litter-settings shortcut reuses native `hass-navigate`
-to the integration page, checks rights at click time and protects pending writes
-and unsaved forms. It does not duplicate integration configuration in the card.
+The administrator-only litter-settings shortcut is a real link to the integration
+page, so navigation also works when Home Assistant does not handle a custom
+card's navigation event. It checks rights at click time and protects pending
+writes and unsaved forms. It does not duplicate integration configuration in
+the card.
 
 The Workspace owns the shared litter context. Internal surfaces request a
 litter change through one composed event; the Workspace updates the other

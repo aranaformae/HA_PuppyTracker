@@ -1,6 +1,5 @@
 import {
   escapeHtml,
-  fireNavigate,
   languageForHass,
   LITTER_CHANGE_EVENT,
   preserveScrollPosition,
@@ -446,7 +445,7 @@ class PuppyTrackerWorkspaceCard extends HTMLElement {
   _createSurface(key) {
     const child = document.createElement(SURFACES[key].tag);
     if (key === "care") child.workspaceActions = {
-      settings: () => this._openLitterSettings(),
+      settings: () => this.shadowRoot?.getElementById("workspace-litter-settings")?.click(),
       ...(this._tabs.includes("programs") ? { programs: () => this._selectTab("programs") } : {}),
     };
     child.setConfig?.(this._surfaceConfig(key));
@@ -550,13 +549,15 @@ class PuppyTrackerWorkspaceCard extends HTMLElement {
     this.shadowRoot.querySelector(".workspace-nav")?.classList.toggle("has-management-action", visible);
   }
 
-  _openLitterSettings() {
-    if (this._hass?.user?.is_admin !== true || this._setup.busy) return;
+  _openLitterSettings(event) {
+    if (this._hass?.user?.is_admin !== true || this._setup.busy) {
+      event?.preventDefault();
+      return;
+    }
     const children = [...this._children.values()];
     if (children.some((child) => child._saving || child._busy)
       || !confirmDiscardForms(children, this._hass)
-      || !requestCloseRecordEditor(this._children.get(this._tab))) return;
-    fireNavigate(this, "/config/integrations/integration/puppy_tracker");
+      || !requestCloseRecordEditor(this._children.get(this._tab))) event?.preventDefault();
   }
 
   _handleLitterChange(event) {
@@ -615,10 +616,10 @@ class PuppyTrackerWorkspaceCard extends HTMLElement {
     const surfaces = [...this._tabs, ...(bulk ? ["bulk"] : [])].map((key) => `<div class="workspace-surface" data-surface="${key}" id="workspace-surface-${key}" role="tabpanel" ${this._tabs.includes(key) ? `aria-labelledby="workspace-tab-${key}"` : ""} ${key === this._tab ? "" : "hidden"}></div>`).join("");
     const heading = this._config.title ? `<h2 class="workspace-title">${escapeHtml(this._config.title)}</h2>` : "";
     const setupAction = ["home", "mobile"].includes(this._preset) ? `<button type="button" class="utility" id="workspace-setup-open" hidden><ha-icon icon="mdi:clipboard-check-outline"></ha-icon></button>` : "";
-    const managementAction = this._preset === "care" ? `<button type="button" class="utility" id="workspace-litter-settings" hidden><ha-icon icon="mdi:cog-outline"></ha-icon></button>` : "";
+    const managementAction = this._preset === "care" ? `<a class="utility" id="workspace-litter-settings" href="/config/integrations/integration/puppy_tracker" hidden><ha-icon icon="mdi:cog-outline"></ha-icon></a>` : "";
 
     this.shadowRoot.innerHTML = `<style>
-      :host{display:block;overflow-anchor:none}.workspace{display:grid;gap:10px}.workspace-title{margin:0;padding:0 4px;font-size:1.25rem;line-height:1.3;letter-spacing:0}.workspace-nav{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color)}.tabs{display:flex;gap:6px;min-width:0;overflow-x:auto;scrollbar-width:thin}.workspace-tab,.utility{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:42px;border:1px solid var(--divider-color);border-radius:8px;padding:0 12px;background:var(--secondary-background-color);color:var(--primary-text-color);font:inherit;font-weight:600;white-space:nowrap;cursor:pointer;touch-action:manipulation}.workspace-tab ha-icon,.utility ha-icon{--mdc-icon-size:19px}.workspace-tab.active{background:var(--primary-color);border-color:var(--primary-color);color:var(--text-primary-color,#fff)}.utility{flex:0 0 auto;background:transparent}.mobile-select{display:none;min-height:44px;width:100%;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color);padding:0 10px;font:inherit}.workspace-surface[hidden],.summary-surface[hidden]{display:none}.workspace-surface>*,.summary-surface>*{display:block}@media(max-width:600px){.workspace-nav{display:grid}.tabs{display:none}.mobile-select{display:block}.utility{width:100%}}
+      :host{display:block;overflow-anchor:none}.workspace{display:grid;gap:10px}.workspace-title{margin:0;padding:0 4px;font-size:1.25rem;line-height:1.3;letter-spacing:0}.workspace-nav{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color)}.tabs{display:flex;gap:6px;min-width:0;overflow-x:auto;scrollbar-width:thin}.workspace-tab,.utility{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:42px;border:1px solid var(--divider-color);border-radius:8px;padding:0 12px;background:var(--secondary-background-color);color:var(--primary-text-color);font:inherit;font-weight:600;white-space:nowrap;cursor:pointer;touch-action:manipulation;text-decoration:none}.workspace-tab ha-icon,.utility ha-icon{--mdc-icon-size:19px}.workspace-tab.active{background:var(--primary-color);border-color:var(--primary-color);color:var(--text-primary-color,#fff)}.utility{flex:0 0 auto;background:transparent}.mobile-select{display:none;min-height:44px;width:100%;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color);padding:0 10px;font:inherit}.workspace-surface[hidden],.summary-surface[hidden]{display:none}.workspace-surface>*,.summary-surface>*{display:block}@media(max-width:600px){.workspace-nav{display:grid}.tabs{display:none}.mobile-select{display:block}.utility{width:100%}}
       .tab-group{display:grid;gap:6px;flex:0 0 auto}.tab-group+.tab-group{border-left:1px solid var(--divider-color);padding-left:12px;margin-left:6px}.tab-group-label{font-size:12px;line-height:1.4;color:var(--secondary-text-color)}.tab-group-buttons{display:flex;gap:6px}.workspace-tab:focus-visible,.utility:focus-visible{outline:2px solid var(--primary-color);outline-offset:-3px}
       #workspace-setup[hidden],.workspace-nav [hidden]{display:none}#workspace-setup-open,#workspace-litter-settings{width:44px;height:44px;padding:0}@media(max-width:600px){.workspace-nav.has-setup-action,.workspace-nav.has-management-action{grid-template-columns:minmax(0,1fr)44px}}
     </style><div class="workspace">${heading}<div id="workspace-setup"></div>${summary}<div class="workspace-nav"><div class="tabs" role="tablist">${tabButtons}</div><select id="workspace-tab-select" class="mobile-select" aria-label="${escapeHtml(text(this, "chooseView"))}">${tabOptions}</select>${bulk}${setupAction}${managementAction}</div>${surfaces}</div>`;
@@ -631,7 +632,7 @@ class PuppyTrackerWorkspaceCard extends HTMLElement {
     });
     this.shadowRoot.getElementById("workspace-tab-select")?.addEventListener("change", (event) => this._selectTab(event.target.value));
     this.shadowRoot.getElementById("bulk-action")?.addEventListener("click", () => this._selectTab(this._tab === "bulk" ? this._previousTab : "bulk"));
-    this.shadowRoot.getElementById("workspace-litter-settings")?.addEventListener("click", () => this._openLitterSettings());
+    this.shadowRoot.getElementById("workspace-litter-settings")?.addEventListener("click", (event) => this._openLitterSettings(event));
   }
 }
 

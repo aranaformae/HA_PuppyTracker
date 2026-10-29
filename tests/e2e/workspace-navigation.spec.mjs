@@ -109,30 +109,30 @@ test("Care relabels navigation in place and preserves an open draft @cross-brows
 
 test("Litter settings shortcut respects drafts, pending saves and current permissions @cross-browser @tablet", async ({ page }) => {
   const card = await mount(page, { default_tab: "programs" });
-  const settings = card.getByRole("button", { name: "Nestgegevens beheren" });
+  const settings = card.getByRole("link", { name: "Nestgegevens beheren" });
   await expect(settings).toHaveAttribute("title", "Nestgegevens beheren");
-  await settings.click();
-  expect(await page.evaluate(() => window.__navigation)).toEqual(["/config/integrations/integration/puppy_tracker"]);
+  await expect(settings).toHaveAttribute("href", "/config/integrations/integration/puppy_tracker");
   const programs = card.locator("puppy-tracker-care-program-card");
   await programs.locator("#add-program").click();
   await programs.locator("#care-title").fill("Niet opgeslagen");
   page.once("dialog", (dialog) => dialog.dismiss());
   await settings.click();
   await expect(programs.locator("#care-title")).toHaveValue("Niet opgeslagen");
-  expect(await page.evaluate(() => window.__navigation.length)).toBe(1);
+  await expect(page).not.toHaveURL(/\/config\/integrations\/integration\/puppy_tracker/);
   await card.evaluate((el) => { el._children.get("programs")._saving = true; });
   await settings.click();
-  expect(await page.evaluate(() => window.__navigation.length)).toBe(1);
+  await expect(page).not.toHaveURL(/\/config\/integrations\/integration\/puppy_tracker/);
   await card.evaluate((el) => { el._children.get("programs")._saving = false; });
-  page.once("dialog", (dialog) => dialog.accept());
-  await settings.click();
-  expect(await page.evaluate(() => window.__navigation.length)).toBe(2);
   await card.evaluate((el) => {
     el.hass = { ...el._hass, user: { ...el._hass.user, is_admin: false } };
-    el._openLitterSettings();
+    el.shadowRoot.getElementById("workspace-litter-settings").click();
   });
   await expect(card.locator("#workspace-litter-settings")).toBeHidden();
-  expect(await page.evaluate(() => window.__navigation.length)).toBe(2);
+  await expect(page).not.toHaveURL(/\/config\/integrations\/integration\/puppy_tracker/);
+  await card.evaluate((el) => { el.hass = { ...el._hass, user: { ...el._hass.user, is_admin: true } }; });
+  page.once("dialog", (dialog) => dialog.accept());
+  await settings.click();
+  await expect(page).toHaveURL(/\/config\/integrations\/integration\/puppy_tracker$/);
 });
 
 test("Mobile keeps daily tasks without management tabs and uses the same care label @cross-browser @tablet", async ({ page }) => {
