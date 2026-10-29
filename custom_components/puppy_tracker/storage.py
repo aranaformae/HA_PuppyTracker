@@ -37,6 +37,7 @@ from .dog_identity import (
     normalize_parent_details,
     optional_text,
 )
+from .dossier_events import fire_dossier_record_changed
 from .integrity import inspect_and_repair_data
 from .measurements import is_active_measurement, sorted_measurements
 from .records import (
@@ -2284,6 +2285,7 @@ class PuppyTrackerStorage:
                 },
             )
             await self.async_save()
+            fire_dossier_record_changed(self.hass, "created", record)
             return str(record["id"])
 
     async def async_update_record(
@@ -2332,6 +2334,7 @@ class PuppyTrackerStorage:
                 details={"before": before, "after": deepcopy(record)},
             )
             await self.async_save()
+            fire_dossier_record_changed(self.hass, "updated", record)
 
     async def async_change_record_owner(
         self,
@@ -2393,6 +2396,10 @@ class PuppyTrackerStorage:
                 details={"before": before, "after": deepcopy(record)},
             )
             await self.async_save()
+            fire_dossier_record_changed(
+                self.hass, "owner_changed", record,
+                previous_scope=before["scope"], previous_puppy_id=before.get("puppy_id"),
+            )
             return deepcopy(record)
 
     async def async_delete_record(
@@ -2427,6 +2434,7 @@ class PuppyTrackerStorage:
                 details={"type": record.get("type")},
             )
             await self.async_save()
+            fire_dossier_record_changed(self.hass, "deleted", record)
 
     async def async_restore_record(
         self,
@@ -2456,6 +2464,7 @@ class PuppyTrackerStorage:
                 details={"type": record.get("type")},
             )
             await self.async_save()
+            fire_dossier_record_changed(self.hass, "restored", record)
 
     def _require_litter(
         self,

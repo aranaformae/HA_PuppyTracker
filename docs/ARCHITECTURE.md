@@ -444,6 +444,12 @@ fields documented in `HOME_ASSISTANT.md` are compatibility-sensitive. Internal
 dispatcher signals only refresh entities and dashboards and must not be used
 as automation contracts. Measurement corrections and deletions are separate
 mutations and do not emit `weight_recorded`.
+`puppy_tracker_dossier_record_changed` is emitted by the shared litter/puppy
+and mother storage mutation paths after a successful save. Its `action` and
+identity/owner fields are documented in `HOME_ASSISTANT.md`; no user-written
+content is placed on the Home Assistant event bus. No-op soft-delete and
+restore calls do not emit duplicate events. The event is independent of the
+internal dashboard refresh dispatcher.
 `add_dossier_record` requires an explicit `litter`/`mother`/`puppy` scope and
 rejects a missing or mismatched puppy ID. Its admin-only service handler calls
 the same storage mutation and dossier dispatcher as the WebSocket entry point.

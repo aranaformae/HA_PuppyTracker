@@ -81,6 +81,7 @@ async def test_failed_weight_rolls_back_measurement_progress_audit_and_selection
     runtime.storage.async_save = AsyncMock(side_effect=OSError("disk full"))
     with pytest.raises(OSError):
         await async_record_station_weight(runtime, litter_id=litter_id, puppy_id=first, weight=450)
+    await runtime.storage.hass.async_block_till_done()
     assert runtime.storage.get_data() == before
     assert runtime.weighing_session == session
     assert runtime.selected_puppy_id == selected
@@ -95,6 +96,7 @@ async def test_public_weight_and_session_events_fire_once_after_success(station)
                                           lambda event: events.append(event))
     first_id = await async_record_station_weight(runtime, litter_id=litter_id, puppy_id=first, weight=450)
     second_id = await async_record_station_weight(runtime, litter_id=litter_id, puppy_id=second, weight=460)
+    await runtime.storage.hass.async_block_till_done()
     assert [event.event_type for event in events] == [
         EVENT_WEIGHT_RECORDED, EVENT_WEIGHT_RECORDED, EVENT_WEIGHING_SESSION_COMPLETED,
     ]
@@ -118,6 +120,7 @@ async def test_public_weight_event_also_fires_for_automation_outside_session(sta
                                       litter_id=litter_id, puppy_id=outside_session, weight=450)
     await async_record_station_weight(idle_runtime, station_command=False,
                                       litter_id=litter_id, puppy_id=outside_session, weight=455)
+    await runtime.storage.hass.async_block_till_done()
     assert len(events) == 2
 
 

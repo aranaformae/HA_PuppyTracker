@@ -9,6 +9,7 @@ from uuid import uuid4
 
 from .behavior import BEHAVIOR_RECORD_TYPE
 from .dog_identity import PARENT_IDENTITY_FIELDS, normalize_parent_details
+from .dossier_events import fire_dossier_record_changed
 from .mother_schema import MOTHER_SCHEMA_VERSION, migrate_mother_scope_data
 from .records import (
     RECORD_SCOPE_LITTER,
@@ -322,6 +323,7 @@ class MotherScopeStorage(PuppyTrackerStorage):
                 details={"mother_id": mother_id, "type": record["type"]},
             )
             await self.async_save()
+            fire_dossier_record_changed(self.hass, "created", record)
         return str(record["id"])
 
     async def async_update_record(
@@ -365,6 +367,7 @@ class MotherScopeStorage(PuppyTrackerStorage):
             mother["updated_at"] = now
             self._require_litter(litter_id)["updated_at"] = now
             await self.async_save()
+            fire_dossier_record_changed(self.hass, "updated", record)
 
     async def async_change_record_owner(
         self,
@@ -457,6 +460,10 @@ class MotherScopeStorage(PuppyTrackerStorage):
                 },
             )
             await self.async_save()
+            fire_dossier_record_changed(
+                self.hass, "owner_changed", record,
+                previous_scope=before["scope"], previous_puppy_id=before.get("puppy_id"),
+            )
             return deepcopy(record)
 
     async def async_delete_record(
@@ -486,6 +493,7 @@ class MotherScopeStorage(PuppyTrackerStorage):
             self._add_audit_entry(action="delete_record", litter_id=litter_id,
                                   record_id=record_id, details={"type": record.get("type"), "mother_id": mother_id})
             await self.async_save()
+            fire_dossier_record_changed(self.hass, "deleted", record)
 
     async def async_restore_record(
         self,
@@ -509,3 +517,4 @@ class MotherScopeStorage(PuppyTrackerStorage):
             mother["updated_at"] = now
             self._require_litter(litter_id)["updated_at"] = now
             await self.async_save()
+            fire_dossier_record_changed(self.hass, "restored", record)

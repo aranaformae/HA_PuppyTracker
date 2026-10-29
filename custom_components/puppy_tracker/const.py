@@ -65,3 +65,4 @@ SIGNAL_DASHBOARD_UPDATE = f"{DOMAIN}_dashboard_update"
 # Public Home Assistant automation events. Keep names and payloads stable.
 EVENT_WEIGHT_RECORDED = f"{DOMAIN}_weight_recorded"
 EVENT_WEIGHING_SESSION_COMPLETED = f"{DOMAIN}_weighing_session_completed"
+EVENT_DOSSIER_RECORD_CHANGED = f"{DOMAIN}_dossier_record_changed"

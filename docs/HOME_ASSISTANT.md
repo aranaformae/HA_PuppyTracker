@@ -223,6 +223,32 @@ emits `puppy_tracker_weighing_session_completed` once. It contains `litter_id`,
 fields are the supported automation contract; internal dispatcher signals are
 not public events.
 
+### React to a dossier change
+
+Puppy Tracker emits `puppy_tracker_dossier_record_changed` after an item is
+created, updated, moved to another owner, soft-deleted or restored. This covers
+changes from the cards and from Home Assistant actions. The event contains
+`action` (`created`, `updated`, `owner_changed`, `deleted` or `restored`),
+`litter_id`, `record_id`, `record_type`, `scope` (`litter`, `mother` or `puppy`)
+and `puppy_id` (null unless the current owner is a pup). An `owner_changed`
+event also contains `previous_scope` and `previous_puppy_id`. No note, title,
+structured record data or owner contact details are published. Deleting an
+already deleted item or restoring an active one emits nothing.
+
+```yaml
+triggers:
+  - trigger: event
+    event_type: puppy_tracker_dossier_record_changed
+    event_data:
+      action: created
+      record_type: feeding
+actions:
+  - action: logbook.log
+    data:
+      name: Puppy Tracker
+      message: "Voeding geregistreerd voor {{ trigger.event.data.scope }}"
+```
+
 ### Back up to a file
 
 ```yaml

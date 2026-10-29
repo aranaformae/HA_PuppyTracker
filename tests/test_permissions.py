@@ -22,7 +22,7 @@ from custom_components.puppy_tracker import onboarding_api
 from custom_components.puppy_tracker.backup_http import async_setup_backup_http
 from custom_components.puppy_tracker.mother_backup_http import async_setup_mother_backup_http
 from custom_components.puppy_tracker.diagnostics import async_get_config_entry_diagnostics
-from custom_components.puppy_tracker.const import DOMAIN
+from custom_components.puppy_tracker.const import DOMAIN, EVENT_DOSSIER_RECORD_CHANGED
 from custom_components.puppy_tracker.owners import OwnerStore, _normalize
 from custom_components.puppy_tracker.runtime import PuppyTrackerRuntimeData
 
@@ -441,6 +441,8 @@ async def test_dossier_actions_edit_delete_and_restore_exact_owner(hass, service
         data={"feeding_category": "kibble", "amount": 30, "unit": "g"}, **owner,
     )
     target["record_id"] = record_id
+    events = []
+    hass.bus.async_listen(EVENT_DOSSIER_RECORD_CHANGED, lambda event: events.append(event.data))
     assert hass.services.supports_response(DOMAIN, "update_dossier_record") == "optional"
     updated = await hass.services.async_call(DOMAIN, "update_dossier_record", {
         **target, "note": "Second", "data": {"amount": 35},
@@ -461,8 +463,11 @@ async def test_dossier_actions_edit_delete_and_restore_exact_owner(hass, service
         }, blocking=True)
     restored = await hass.services.async_call(DOMAIN, "restore_dossier_record", target,
                                               blocking=True, return_response=True)
+    await hass.async_block_till_done()
     assert restored["deleted"] is False
     assert storage.get_record("litter-1", record_id, **owner)["deleted"] is False
+    assert [event["action"] for event in events] == ["updated", "deleted", "restored"]
+    assert all(event["scope"] == scope and event["record_id"] == record_id for event in events)
 
 
 async def test_dossier_actions_reject_wrong_owner_and_empty_update(hass, service_runtime):

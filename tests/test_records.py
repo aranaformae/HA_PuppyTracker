@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from custom_components.puppy_tracker.integrity import inspect_and_repair_data
+from custom_components.puppy_tracker.const import EVENT_DOSSIER_RECORD_CHANGED
 from custom_components.puppy_tracker.mother_storage import MotherScopeStorage
 from custom_components.puppy_tracker.records import (
     RECORD_SCOPE_LITTER,
@@ -204,6 +205,45 @@ async def test_puppy_record_crud_is_non_destructive(storage, install_litter) -> 
     assert storage._data["audit_log"][-1]["record_id"] == record_id
 
 
+async def test_public_dossier_events_cover_changes_without_private_content(storage, install_litter) -> None:
+    litter_id, puppy_id = install_litter()
+    events = []
+    storage.hass.bus.async_listen(EVENT_DOSSIER_RECORD_CHANGED, lambda event: events.append(event.data))
+    record_id = await storage.async_add_record(litter_id, record_type="note", note="Private note")
+    await storage.async_update_record(litter_id, record_id, record_type="note", note="Other private note")
+    await storage.async_change_record_owner(litter_id, record_id, target_puppy_id=puppy_id)
+    await storage.async_delete_record(litter_id, record_id, puppy_id)
+    await storage.async_delete_record(litter_id, record_id, puppy_id)
+    await storage.async_restore_record(litter_id, record_id, puppy_id)
+    await storage.async_restore_record(litter_id, record_id, puppy_id)
+    await storage.hass.async_block_till_done()
+
+    assert [event["action"] for event in events] == [
+        "created", "updated", "owner_changed", "deleted", "restored",
+    ]
+    assert events[0] == {
+        "action": "created", "litter_id": litter_id, "record_id": record_id,
+        "record_type": "note", "scope": "litter", "puppy_id": None,
+    }
+    assert events[2]["scope"] == "puppy"
+    assert events[2]["puppy_id"] == puppy_id
+    assert events[2]["previous_scope"] == "litter"
+    assert events[2]["previous_puppy_id"] is None
+    assert "Private note" not in str(events)
+
+
+async def test_failed_dossier_save_does_not_emit_public_event(storage, install_litter) -> None:
+    litter_id, puppy_id = install_litter()
+    events = []
+    storage.hass.bus.async_listen(EVENT_DOSSIER_RECORD_CHANGED, lambda event: events.append(event.data))
+    storage.async_save = AsyncMock(side_effect=OSError("disk full"))
+    with pytest.raises(OSError):
+        await storage.async_add_record(litter_id, puppy_id=puppy_id, record_type="note", note="Private")
+    await storage.hass.async_block_till_done()
+    assert events == []
+    assert storage.get_records(litter_id, puppy_id) == []
+
+
 @pytest.mark.asyncio
 async def test_litter_and_puppy_records_remain_separate(storage, install_litter) -> None:
     litter_id, puppy_id = install_litter()
@@ -321,6 +361,44 @@ async def test_mother_scope_storage_moves_records_to_mother_and_litter(hass) -> 
     assert moved["scope"] == "litter"
     assert moved["mother_id"] is None
     assert storage._data["litters"]["litter-1"]["records"][0]["id"] == "record-1"
+
+
+async def test_public_mother_dossier_events_cover_crud_and_owner_change(hass, storage, install_litter) -> None:
+    litter_id, puppy_id = install_litter()
+    mother_storage = MotherScopeStorage(hass)
+    mother_storage._data = deepcopy(storage.get_data())
+    mother_storage._data["litters"][litter_id]["mother_id"] = "mother-1"
+    mother_storage._data["mothers"] = {
+        "mother-1": {"id": "mother-1", "name": "Luna", "records": []},
+    }
+    mother_storage.async_save = AsyncMock()
+    events = []
+    hass.bus.async_listen(EVENT_DOSSIER_RECORD_CHANGED, lambda event: events.append(event.data))
+
+    record_id = await mother_storage.async_add_record(
+        litter_id, mother_id="mother-1", record_type="note", note="Private mother note",
+    )
+    await mother_storage.async_update_record(
+        litter_id, record_id, mother_id="mother-1", record_type="note", note="Updated private note",
+    )
+    await mother_storage.async_delete_record(litter_id, record_id, mother_id="mother-1")
+    await mother_storage.async_restore_record(litter_id, record_id, mother_id="mother-1")
+    await mother_storage.async_change_record_owner(
+        litter_id, record_id, source_scope="mother", target_scope="puppy", target_puppy_id=puppy_id,
+    )
+    await hass.async_block_till_done()
+
+    assert [event["action"] for event in events] == [
+        "created", "updated", "deleted", "restored", "owner_changed",
+    ]
+    assert events[0] == {
+        "action": "created", "litter_id": litter_id, "record_id": record_id,
+        "record_type": "note", "scope": "mother", "puppy_id": None,
+    }
+    assert events[-1]["previous_scope"] == "mother"
+    assert events[-1]["scope"] == "puppy"
+    assert events[-1]["puppy_id"] == puppy_id
+    assert "Private" not in str(events) and "Updated" not in str(events)
 
 
 def test_legacy_notes_migrate_to_profile_note_and_record_containers(storage, install_litter) -> None:

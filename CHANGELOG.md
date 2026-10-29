@@ -24,6 +24,8 @@ they have not been reconstructed as a complete historical changelog.
   for an explicit owner, preserving unspecified fields when changing it.
 - Emit stable Home Assistant events after a saved weight and when a weighing
   session completes, so automations can react without polling the dashboard.
+- Emit a privacy-conscious dossier change event after creating, changing,
+  moving, deleting or restoring an item from cards or automations.
 
 ### Changed
 
