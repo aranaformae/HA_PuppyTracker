@@ -219,6 +219,8 @@ Use **Settings -> Devices & services -> Puppy Tracker -> Configure -> Data
 management** for manual backup and restore. The `puppy_tracker.backup_to_file`
 action can create timestamped rotating backups from a Home Assistant
 automation.
+The `puppy_tracker.add_dossier_record` action can add a nest, mother or puppy
+entry from an automation; see [Home Assistant actions](docs/HOME_ASSISTANT.md).
 
 Read [Backup, restore and transfer](docs/backup-restore.md) before restoring or
 moving data.

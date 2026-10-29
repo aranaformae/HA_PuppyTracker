@@ -18,6 +18,8 @@ they have not been reconstructed as a complete historical changelog.
 - Log stool, urine, navel, skin and activity observations as structured daily
   care entries from Quick Log, the dossier editor or Bulk Log; see the latest
   feeding and care entry in a compact Journal dossier summary.
+- Add an administrator-only Home Assistant action to create a dossier entry for
+  an explicit nest, mother or puppy, with optional response IDs for automations.
 
 ### Changed
 

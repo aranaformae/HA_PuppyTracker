@@ -134,6 +134,39 @@ The weight is in grams. Leaving `timestamp` empty uses the current time. This
 action uses the same storage and weighing-session update path as the dashboard,
 including metric refresh and completion of an active session.
 
+### Add a dossier entry
+
+Choose **Puppy Tracker: Dossieritem toevoegen** under **Developer tools ->
+Actions**. Select the literal owner scope: `litter`, `mother` or `puppy`.
+For a puppy, also enter its ID from the selected litter. Leave `puppy_id`
+empty for the whole litter or mother. The mother must be linked to that litter.
+
+```yaml
+action: puppy_tracker.add_dossier_record
+data:
+  litter_id: 00000000-0000-0000-0000-000000000000
+  scope: puppy
+  puppy_id: 11111111-1111-1111-1111-111111111111
+  record_type: feeding
+  title: Ochtendvoeding
+  data:
+    feeding_category: bottle
+    amount: 30
+    unit: ml
+response_variable: saved_feeding
+```
+
+`record_type` uses the dossier category identifier, such as `note`, `feeding`,
+`daily_care` or `medication`. `data` is optional for a note, while structured
+types keep their normal validation (for example, Daily care needs `care_area`
+and `observation`). Optional `occurred_at` takes a date and time; otherwise the
+current time is used. Optional `followup_record_id` and `followup_due_date`
+complete one existing dossier follow-up with a new entry. If the automation
+requests a response, it receives `record_id`, `litter_id`, `scope` and
+`puppy_id` (null for non-puppy scopes). The action is administrator-only when
+called by a user; Home Assistant automations can invoke it without a user
+context. It refreshes the same dashboard and entities as a card entry.
+
 ### Back up to a file
 
 ```yaml

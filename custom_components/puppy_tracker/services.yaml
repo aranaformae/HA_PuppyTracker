@@ -305,3 +305,74 @@ backup_to_file:
           max: 3650
           step: 1
           mode: box
+
+add_dossier_record:
+  name: Dossieritem toevoegen
+  description: Maak één dossieritem voor het nest, de moederhond of een pup. Geeft desgevraagd de nieuwe record-ID terug.
+  fields:
+    litter_id:
+      name: Nest-ID
+      description: ID van het nest waaraan het item behoort.
+      required: true
+      selector:
+        text:
+    scope:
+      name: Eigenaar
+      description: Kies expliciet of het item bij het hele nest, de moederhond of een pup hoort.
+      required: true
+      selector:
+        select:
+          options:
+            - label: Hele nest
+              value: litter
+            - label: Moederhond
+              value: mother
+            - label: Pup
+              value: puppy
+    puppy_id:
+      name: Pup-ID
+      description: Verplicht wanneer Eigenaar op Pup staat; anders leeg laten.
+      required: false
+      selector:
+        text:
+    record_type:
+      name: Categorie
+      description: Dossiercategorie, bijvoorbeeld note, feeding, daily_care of medication.
+      required: true
+      selector:
+        text:
+    occurred_at:
+      name: Tijdstip
+      description: Datum en tijd van de gebeurtenis; leeg gebruikt het huidige tijdstip.
+      required: false
+      selector:
+        datetime:
+    title:
+      name: Titel
+      required: false
+      selector:
+        text:
+    note:
+      name: Notitie
+      required: false
+      selector:
+        text:
+          multiline: true
+    data:
+      name: Gestructureerde gegevens
+      description: "Optionele velden als object, bijvoorbeeld {feeding_category: bottle, amount: 30, unit: ml}."
+      required: false
+      selector:
+        object: {}
+    followup_record_id:
+      name: Bronitem-ID voor opvolging
+      description: Alleen invullen bij het uitvoeren van een bestaande dossieropvolging.
+      required: false
+      selector:
+        text:
+    followup_due_date:
+      name: Vervolgdatum van het bronitem
+      description: Gebruik samen met Bronitem-ID om de juiste geplande opvolging af te handelen.
+      required: false
+      selector:
+        date:

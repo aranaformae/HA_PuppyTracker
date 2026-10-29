@@ -12,7 +12,7 @@ import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.exceptions import ConfigEntryError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.service import async_register_admin_service
@@ -52,6 +52,7 @@ from .runtime import (
     PuppyTrackerRuntimeData,
     reconcile_dashboard_selection,
 )
+from .updates import dispatch_dossier_update
 from .session import (
     async_record_station_weight,
     recover_session,
@@ -76,12 +77,14 @@ SERVICE_CREATE_LITTER = "create_litter"
 SERVICE_ADD_PUPPY = "add_puppy"
 SERVICE_RECORD_WEIGHT = "record_weight"
 SERVICE_BACKUP_TO_FILE = "backup_to_file"
+SERVICE_ADD_DOSSIER_RECORD = "add_dossier_record"
 
 SERVICES = (
     SERVICE_CREATE_LITTER,
     SERVICE_ADD_PUPPY,
     SERVICE_RECORD_WEIGHT,
     SERVICE_BACKUP_TO_FILE,
+    SERVICE_ADD_DOSSIER_RECORD,
 )
 
 
@@ -147,6 +150,22 @@ BACKUP_TO_FILE_SCHEMA = vol.Schema(
         vol.Optional("keep_last"): vol.All(vol.Coerce(int), vol.Range(min=1, max=3650)),
         vol.Optional("litter_id"): cv.string,
         vol.Optional("puppy_id"): cv.string,
+    }
+)
+
+
+ADD_DOSSIER_RECORD_SCHEMA = vol.Schema(
+    {
+        vol.Required("litter_id"): cv.string,
+        vol.Required("scope"): vol.In(("litter", "mother", "puppy")),
+        vol.Optional("puppy_id"): cv.string,
+        vol.Required("record_type"): cv.string,
+        vol.Optional("occurred_at"): cv.string,
+        vol.Optional("title"): cv.string,
+        vol.Optional("note"): cv.string,
+        vol.Optional("data", default={}): dict,
+        vol.Optional("followup_record_id"): cv.string,
+        vol.Optional("followup_due_date"): cv.string,
     }
 )
 
@@ -297,6 +316,40 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             measurement_id,
         )
 
+    async def handle_add_dossier_record(call: ServiceCall) -> dict[str, str | None]:
+        """Create a dossier entry for one explicit owner from an HA action."""
+        values = call.data
+        litter_id = values["litter_id"]
+        scope = values["scope"]
+        puppy_id = values.get("puppy_id")
+        if scope == "puppy":
+            if not puppy_id or storage.get_puppy(litter_id, puppy_id) is None:
+                raise ValueError("Choose a puppy in the selected litter")
+        elif puppy_id:
+            raise ValueError("puppy_id is only allowed for puppy scope")
+        if scope == "mother":
+            mother = storage.get_mother_for_litter(litter_id)
+            if mother is None:
+                raise ValueError("The selected litter has no mother record")
+            mother_id = str(mother["id"])
+        else:
+            mother_id = None
+        record_id = await storage.async_add_record(
+            litter_id,
+            puppy_id=puppy_id if scope == "puppy" else None,
+            mother_id=mother_id,
+            record_type=values["record_type"],
+            occurred_at=values.get("occurred_at"),
+            title=values.get("title"),
+            note=values.get("note"),
+            data=values["data"],
+            followup_record_id=values.get("followup_record_id"),
+            followup_due_date=values.get("followup_due_date"),
+        )
+        dispatch_dossier_update(hass, puppy_id if scope == "puppy" else None)
+        return {"record_id": record_id, "litter_id": litter_id, "scope": scope,
+                "puppy_id": puppy_id if scope == "puppy" else None}
+
     async def _handle_backup_to_file_impl(call: ServiceCall) -> None:
         """Write an importable JSON backup inside the Home Assistant config directory."""
         scope = call.data["scope"]
@@ -393,6 +446,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if hass.services.has_service(DOMAIN, service):
             continue
         async_register_admin_service(hass, DOMAIN, service, handler, schema=schema)
+    if not hass.services.has_service(DOMAIN, SERVICE_ADD_DOSSIER_RECORD):
+        async_register_admin_service(
+            hass, DOMAIN, SERVICE_ADD_DOSSIER_RECORD, handle_add_dossier_record,
+            schema=ADD_DOSSIER_RECORD_SCHEMA,
+            supports_response=SupportsResponse.OPTIONAL,
+        )
 
     return True
 

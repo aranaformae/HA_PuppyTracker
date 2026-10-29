@@ -341,6 +341,7 @@ async def test_entry_unload_reports_platform_failure_and_preserves_runtime(
     ("add_puppy", {"litter_id": "litter-1", "name": "New puppy"}),
     ("record_weight", {"litter_id": "litter-1", "puppy_id": "puppy-1", "weight": 600}),
     ("backup_to_file", {"path": "backups/test.json", "scope": "litter", "litter_id": "litter-1"}),
+    ("add_dossier_record", {"litter_id": "litter-1", "scope": "puppy", "puppy_id": "puppy-1", "record_type": "note", "note": "Private note"}),
 ])
 @pytest.mark.parametrize("group", [GROUP_ID_USER, GROUP_ID_READ_ONLY])
 async def test_services_reject_non_admin_before_side_effects(hass, service_runtime, service, data, group):
@@ -351,6 +352,74 @@ async def test_services_reject_non_admin_before_side_effects(hass, service_runti
         await hass.services.async_call(DOMAIN, service, data, blocking=True, context=Context(user_id=user.id))
     assert service_runtime.storage.get_data() == before
     assert service_runtime.last_backup_status == "unknown"
+
+
+@pytest.mark.parametrize("admin", [True, False], ids=["admin", "automation"])
+@pytest.mark.parametrize("scope", ["litter", "mother", "puppy"])
+async def test_add_dossier_record_action_routes_to_exact_owner_and_returns_id(
+    hass, service_runtime, admin, scope,
+):
+    assert hass.services.supports_response(DOMAIN, "add_dossier_record") == "optional"
+    storage = service_runtime.storage
+    storage._data["litters"]["litter-1"]["mother_id"] = "mother-1"
+    storage._data["mothers"] = {"mother-1": {"id": "mother-1", "name": "Luna", "records": []}}
+    user = await hass.auth.async_create_user("Administrator", group_ids=[GROUP_ID_ADMIN]) if admin else None
+    response = await hass.services.async_call(DOMAIN, "add_dossier_record", {
+        "litter_id": "litter-1", "scope": scope, "record_type": "daily_care",
+        "data": {"care_area": "activity", "observation": "Alert"},
+        **({"puppy_id": "puppy-1"} if scope == "puppy" else {}),
+    }, blocking=True, return_response=True, context=Context(user_id=user.id if user else None))
+    assert response["scope"] == scope
+    assert response["litter_id"] == "litter-1"
+    assert response["puppy_id"] == ("puppy-1" if scope == "puppy" else None)
+    record = storage.get_record("litter-1", response["record_id"],
+                                puppy_id="puppy-1" if scope == "puppy" else None,
+                                mother_id="mother-1" if scope == "mother" else None)
+    assert record["scope"] == scope
+    assert record["data"] == {"care_area": "activity", "observation": "Alert"}
+
+
+@pytest.mark.parametrize("data", [
+    {"scope": "puppy"},
+    {"scope": "puppy", "puppy_id": "missing"},
+    {"scope": "litter", "puppy_id": "puppy-1"},
+    {"scope": "mother"},
+])
+async def test_add_dossier_record_rejects_invalid_owner_without_writing(hass, service_runtime, data):
+    before = deepcopy(service_runtime.storage.get_data())
+    with pytest.raises(ValueError):
+        await hass.services.async_call(DOMAIN, "add_dossier_record", {
+            "litter_id": "litter-1", "record_type": "note", "note": "Must not save", **data,
+        }, blocking=True)
+    assert service_runtime.storage.get_data() == before
+
+
+async def test_add_dossier_record_rejects_invalid_structured_data_without_writing(hass, service_runtime):
+    before = deepcopy(service_runtime.storage.get_data())
+    with pytest.raises(ValueError, match="daily-care"):
+        await hass.services.async_call(DOMAIN, "add_dossier_record", {
+            "litter_id": "litter-1", "scope": "litter", "record_type": "daily_care",
+            "data": {"care_area": "stool"},
+        }, blocking=True)
+    assert service_runtime.storage.get_data() == before
+
+
+async def test_add_dossier_record_action_completes_matching_followup(hass, service_runtime):
+    storage = service_runtime.storage
+    source_id = await storage.async_add_record(
+        "litter-1", puppy_id="puppy-1", record_type="deworming",
+        data={"product": "First product", "next_due_date": "2026-11-05"},
+    )
+    result = await hass.services.async_call(DOMAIN, "add_dossier_record", {
+        "litter_id": "litter-1", "scope": "puppy", "puppy_id": "puppy-1",
+        "record_type": "deworming", "followup_record_id": source_id,
+        "followup_due_date": "2026-11-05", "data": {"product": "Actual product"},
+    }, blocking=True, return_response=True)
+    source = storage.get_record("litter-1", source_id, "puppy-1")
+    completed = storage.get_record("litter-1", result["record_id"], "puppy-1")
+    assert source["data"]["product"] == "First product"
+    assert completed["data"]["followup_record_id"] == source_id
+    assert completed["data"]["product"] == "Actual product"
 
 
 @pytest.mark.parametrize("admin", [True, False], ids=["admin", "automation"])

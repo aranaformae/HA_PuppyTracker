@@ -419,19 +419,27 @@ independent state model. The weighing-station controls use runtime selection
 and session state, while a saved weight always enters authoritative
 measurement storage.
 
-Four Home Assistant actions form the supported automation boundary:
+Five Home Assistant actions form the supported automation boundary:
 
 ```text
 puppy_tracker.create_litter
 puppy_tracker.add_puppy
 puppy_tracker.record_weight
 puppy_tracker.backup_to_file
+puppy_tracker.add_dossier_record
 ```
 
 Their runtime schemas in `__init__.py` are authoritative. `services.yaml`
 mirrors those fields for the Developer Tools action UI and must be updated in
 the same change whenever an action schema changes. Litter and puppy arguments
 are stable Puppy Tracker UUIDs, not names or entity IDs.
+`add_dossier_record` requires an explicit `litter`/`mother`/`puppy` scope and
+rejects a missing or mismatched puppy ID. Its admin-only service handler calls
+the same storage mutation and dossier dispatcher as the WebSocket entry point.
+It optionally returns the saved record ID and owner identifiers through Home
+Assistant's service response mechanism. The service and response field names
+are public automation contracts; changes require documentation and migration
+guidance. This action exposes creation only, with no separate state store.
 
 ## Core hierarchy
 
