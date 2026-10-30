@@ -2,7 +2,6 @@ import {
   escapeHtml,
   fetchLitterData,
   fetchLitters,
-  fireNavigate,
   formatShortDateTime,
   formatWeight,
   languageForHass,
@@ -39,7 +38,7 @@ const TEXT = {
     loading: "Laden...",
     noCompletedSession: "Nog geen volledige sessie",
     noLitter: "Geen nest",
-    openDashboard: "Open dashboard",
+    openDashboard: "Dashboard openen",
     puppies: "Pups",
     refreshFailed: "Nieuwe Puppy Tracker-data kon niet worden geladen.",
     litterLoadFailed: "Nestdata kon niet worden geladen.",
@@ -228,7 +227,7 @@ class PuppyTrackerSummaryCard extends HTMLElement {
           .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.stat{min-width:0;padding:8px 10px;border:1px solid var(--divider-color);border-radius:12px}
           .value{font-size:18px;font-weight:700;white-space:nowrap}.label{font-size:11px;color:var(--secondary-text-color);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
           .danger .value{color:var(--error-color)}.footer{margin-top:10px;font-size:12px;color:var(--secondary-text-color);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
-          .error{color:var(--error-color);font-size:13px}
+          .error{color:var(--error-color);font-size:13px}.footer a{color:var(--primary-color)}
           @container summary-card (max-width:520px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.top{align-items:flex-start}.title{font-size:17px}select{max-width:52%}}
         </style>
         <div class="top">
@@ -242,7 +241,7 @@ class PuppyTrackerSummaryCard extends HTMLElement {
             <div class="stat"><div class="value">${summary.weigh_due_count ?? "—"}</div><div class="label">${escapeHtml(text(this._hass, "toWeigh"))}</div></div>
             <div class="stat"><div class="value">${formatWeight(summary.average_weight, "—", this._hass)}</div><div class="label">${escapeHtml(text(this._hass, "average"))}</div></div>
           </div>
-          <div class="footer"><span>${escapeHtml(sessionText)}</span>${navigate ? `<span>${escapeHtml(text(this._hass, "openDashboard"))} ›</span>` : ""}</div>
+          <div class="footer"><span>${escapeHtml(sessionText)}</span>${navigate ? `<a href="${escapeHtml(this._config.navigate_path)}">${escapeHtml(text(this._hass, "openDashboard"))} ›</a>` : ""}</div>
         `}
       </ha-card>`;
 
@@ -254,8 +253,8 @@ class PuppyTrackerSummaryCard extends HTMLElement {
     });
     if (navigate) {
       this.shadowRoot.querySelector("ha-card")?.addEventListener("click", (event) => {
-        if (event.target?.closest?.("select")) return;
-        fireNavigate(this, this._config.navigate_path);
+        if (event.defaultPrevented || event.target?.closest?.("a,button,select,input,textarea,summary")) return;
+        this.shadowRoot.querySelector(".footer a")?.click();
       });
     }
   }

@@ -5,7 +5,6 @@ import {
   escapeHtml,
   fetchLitterData,
   fetchLitters,
-  fireNavigate,
   languageForHass,
   localize,
   puppySelectorLabel,
@@ -330,18 +329,20 @@ class PuppyTrackerAttentionCard extends HTMLElement {
       this._selectedLitterId = event.target.value;
       await this._loadData();
     });
-    if (this._config.navigate_path) {
-      this.shadowRoot.querySelectorAll(".row").forEach((row) => {
-        row.classList.add("clickable");
-        row.addEventListener("click", () => fireNavigate(this, this._config.navigate_path));
-      });
-    }
     renderAttentionCare(this);
     renderCareSkippedWarning(this);
     renderMotherAttention(this);
     renderAttentionQol(this);
     addCareDirectActionButtons(this);
     renderRecurringSaveFeedback(this);
+    if (this._config.navigate_path) {
+      const link = document.createElement("a");
+      link.href = this._config.navigate_path;
+      link.className = "dashboard-link";
+      link.textContent = languageForHass(this._hass) === "en" ? "Open dashboard ›" : "Dashboard openen ›";
+      link.style.cssText = "display:inline-block;margin-top:12px;color:var(--primary-color)";
+      this.shadowRoot.querySelector("ha-card")?.append(link);
+    }
   }
 }
 

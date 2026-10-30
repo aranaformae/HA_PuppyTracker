@@ -636,16 +636,6 @@ export function selectDefaultLitter(litters, preferredId = null) {
   return (active || litters[0]).id;
 }
 
-export function fireNavigate(element, path) {
-  if (!path) return;
-  const event = new CustomEvent("hass-navigate", {
-    bubbles: true,
-    composed: true,
-    detail: { navigation_path: path },
-  });
-  element.dispatchEvent(event);
-}
-
 export function filterMeasurements(measurements, rangeHours) {
   const rows = Array.isArray(measurements) ? measurements : [];
   if (!rangeHours || rangeHours <= 0) return rows;

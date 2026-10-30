@@ -1756,6 +1756,11 @@ card's navigation event. It checks rights at click time and protects pending
 writes and unsaved forms. It does not duplicate integration configuration in
 the card.
 
+Summary and Attention expose configured dashboard destinations as native links
+with keyboard access. Summary forwards clicks outside interactive controls to
+its footer link. Attention has a separate dashboard link, so record editing,
+care completion and acknowledgement never share a navigation click target.
+
 The Workspace owns the shared litter context. Internal surfaces request a
 litter change through one composed event; the Workspace updates the other
 surface configurations instead of allowing each tab to drift independently.
