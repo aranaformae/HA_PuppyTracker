@@ -186,6 +186,9 @@ const TEXT = {
     bulk: "Meerdere pups",
     closeBulk: "Terug naar logboek",
     chooseView: "Weergave kiezen",
+    savingBlocked: "Bezig met opslaan. Wacht tot dit klaar is en probeer het opnieuw.",
+    editingBlocked: "De bewerking staat nog open. Sla je wijzigingen op of annuleer de bewerking en probeer het opnieuw.",
+    permissionBlocked: "Je hebt beheerdersrechten nodig om deze instellingen te openen.",
   },
   en: {
     home: "Home",
@@ -212,6 +215,9 @@ const TEXT = {
     bulk: "Multiple puppies",
     closeBulk: "Back to journal",
     chooseView: "Choose view",
+    savingBlocked: "Saving in progress. Wait until it finishes and try again.",
+    editingBlocked: "An edit is still open. Save your changes or cancel the edit and try again.",
+    permissionBlocked: "Administrator access is required to open these settings.",
   },
 };
 
@@ -469,17 +475,21 @@ class PuppyTrackerWorkspaceCard extends HTMLElement {
 
   _selectTab(tab) {
     if (this._setup.busy) {
+      this._showNavigationFeedback("savingBlocked");
       const select = this.shadowRoot.getElementById("workspace-tab-select");
       if (select) select.value = this._tab;
       return;
     }
     if (!this._tabs.includes(tab) && tab !== "bulk") return;
     const current = this._children.get(this._tab);
-    if (tab !== this._tab && (current?._saving || current?._busy || current?._careFormState?.busy() || !requestCloseRecordEditor(current))) {
+    const busy = this._navigationBusy([current]);
+    if (tab !== this._tab && (busy || !requestCloseRecordEditor(current))) {
+      this._showNavigationFeedback(busy ? "savingBlocked" : "editingBlocked");
       const select = this.shadowRoot.getElementById("workspace-tab-select");
       if (select) select.value = this._tab;
       return;
     }
+    this._showNavigationFeedback("");
     preserveScrollPosition(this, () => {
       if (tab !== "bulk") this._previousTab = tab;
       this._tab = tab;
@@ -549,27 +559,48 @@ class PuppyTrackerWorkspaceCard extends HTMLElement {
     this.shadowRoot.querySelector(".workspace-nav")?.classList.toggle("has-management-action", visible);
   }
 
+  _navigationBusy(children = [...this._children.values()]) {
+    return children.some((child) => child && (child._saving || child._busy || child._weightSaveBusy || child._correctionBusy
+      || [child._formState, child._careFormState, child._linkFormState].some((form) => form?.busy())));
+  }
+
+  _showNavigationFeedback(key) {
+    const message = this.shadowRoot?.getElementById("workspace-navigation-feedback");
+    if (!message) return;
+    message.textContent = key ? text(this, key) : "";
+    message.hidden = !key;
+  }
+
   _openLitterSettings(event) {
     if (this._hass?.user?.is_admin !== true || this._setup.busy) {
       event?.preventDefault();
+      this._showNavigationFeedback(this._hass?.user?.is_admin !== true ? "permissionBlocked" : "savingBlocked");
       return;
     }
     const children = [...this._children.values()];
-    if (children.some((child) => child._saving || child._busy)
+    const busy = this._navigationBusy(children);
+    if (busy
       || !confirmDiscardForms(children, this._hass)
-      || !requestCloseRecordEditor(this._children.get(this._tab))) event?.preventDefault();
+      || !requestCloseRecordEditor(this._children.get(this._tab))) {
+      event?.preventDefault();
+      this._showNavigationFeedback(busy ? "savingBlocked" : "editingBlocked");
+    } else this._showNavigationFeedback("");
   }
 
   _handleLitterChange(event) {
     const litterId = String(event?.detail?.litterId || "").trim();
     if (!litterId) return;
     if (event.cancelable) event.preventDefault();
-    if (this._setup.busy && event.cancelable) return;
+    if (this._setup.busy && event.cancelable) { this._showNavigationFeedback("savingBlocked"); return; }
     const path = event.composedPath?.() || [];
     const sourceKey = [...this._children.entries()].find(([, child]) => path.includes(child))?.[0] || null;
     if (litterId === this._litterId && (!event.cancelable || this._children.get(sourceKey)?._selectedLitterId === litterId)) return;
     const children = [...this._children.values()];
-    if (event.cancelable && !confirmDiscardForms(children, this._hass)) return;
+    if (event.cancelable && (this._navigationBusy(children) || !confirmDiscardForms(children, this._hass))) {
+      this._showNavigationFeedback(this._navigationBusy(children) ? "savingBlocked" : "editingBlocked");
+      return;
+    }
+    if (event.cancelable) this._showNavigationFeedback("");
     // Native weighing/entity updates are announcements, not permission to discard drafts.
     const keep = new Set(!event.cancelable ? children.filter((child) =>
       child._saving || child._busy || child._formState?.dirty || child._careFormState?.dirty) : []);
@@ -597,7 +628,7 @@ class PuppyTrackerWorkspaceCard extends HTMLElement {
       : event.key === "End" ? this._tabs.length - 1
         : (index + (event.key === "ArrowRight" ? 1 : -1) + this._tabs.length) % this._tabs.length;
     this._selectTab(this._tabs[next]);
-    this.shadowRoot?.querySelector(`[data-tab="${this._tabs[next]}"]`)?.focus();
+    this.shadowRoot?.querySelector(`[data-tab="${this._tab}"]`)?.focus();
   }
 
   _render() {
@@ -623,6 +654,8 @@ class PuppyTrackerWorkspaceCard extends HTMLElement {
       .tab-group{display:grid;gap:6px;flex:0 0 auto}.tab-group+.tab-group{border-left:1px solid var(--divider-color);padding-left:12px;margin-left:6px}.tab-group-label{font-size:12px;line-height:1.4;color:var(--secondary-text-color)}.tab-group-buttons{display:flex;gap:6px}.workspace-tab:focus-visible,.utility:focus-visible{outline:2px solid var(--primary-color);outline-offset:-3px}
       #workspace-setup[hidden],.workspace-nav [hidden]{display:none}#workspace-setup-open,#workspace-litter-settings{width:44px;height:44px;padding:0}@media(max-width:600px){.workspace-nav.has-setup-action,.workspace-nav.has-management-action{grid-template-columns:minmax(0,1fr)44px}}
     </style><div class="workspace">${heading}<div id="workspace-setup"></div>${summary}<div class="workspace-nav"><div class="tabs" role="tablist">${tabButtons}</div><select id="workspace-tab-select" class="mobile-select" aria-label="${escapeHtml(text(this, "chooseView"))}">${tabOptions}</select>${bulk}${setupAction}${managementAction}</div>${surfaces}</div>`;
+    this.shadowRoot.querySelector(".workspace-nav").insertAdjacentHTML("afterend",
+      `<div id="workspace-navigation-feedback" role="status" aria-live="polite" hidden style="padding:10px 12px;border:1px solid var(--divider-color);border-radius:8px;background:var(--secondary-background-color);color:var(--primary-text-color);font-size:14px;overflow-wrap:anywhere"></div>`);
     this._mountSurfaces();
     this._updateManagementAction();
     this._setup.attach(this.shadowRoot.getElementById("workspace-setup"));

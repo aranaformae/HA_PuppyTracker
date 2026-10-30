@@ -12,6 +12,9 @@ they have not been reconstructed as a complete historical changelog.
 
 ### Fixed
 
+- Explain blocked Workspace tab, litter and settings changes while saving or
+  when an edit remains open, with Dutch and English feedback.
+
 - Use reliable links for integration settings and dashboard navigation. Dashboard
   links support keyboard access; attention actions no longer share a navigation
   click target.

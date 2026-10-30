@@ -1761,6 +1761,11 @@ with keyboard access. Summary forwards clicks outside interactive controls to
 its footer link. Attention has a separate dashboard link, so record editing,
 care completion and acknowledgement never share a navigation click target.
 
+Workspace navigation guards expose a localized live status message when a
+pending write or an open editor prevents a tab, litter or settings change.
+Successful navigation clears that message; keyboard focus stays on the active
+tab when a requested switch is refused.
+
 The Workspace owns the shared litter context. Internal surfaces request a
 litter change through one composed event; the Workspace updates the other
 surface configurations instead of allowing each tab to drift independently.

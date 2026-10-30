@@ -118,9 +118,11 @@ test("Litter settings shortcut respects drafts, pending saves and current permis
   page.once("dialog", (dialog) => dialog.dismiss());
   await settings.click();
   await expect(programs.locator("#care-title")).toHaveValue("Niet opgeslagen");
+  await expect(card.getByRole("status")).toContainText("Sla je wijzigingen op of annuleer");
   await expect(page).not.toHaveURL(/\/config\/integrations\/integration\/puppy_tracker/);
   await card.evaluate((el) => { el._children.get("programs")._saving = true; });
   await settings.click();
+  await expect(card.getByRole("status")).toContainText("Bezig met opslaan");
   await expect(page).not.toHaveURL(/\/config\/integrations\/integration\/puppy_tracker/);
   await card.evaluate((el) => { el._children.get("programs")._saving = false; });
   await card.evaluate((el) => {
@@ -134,6 +136,24 @@ test("Litter settings shortcut respects drafts, pending saves and current permis
   await settings.click();
   await expect(page).toHaveURL(/\/config\/integrations\/integration\/puppy_tracker$/);
 });
+
+for (const language of ["nl", "en"]) {
+  test(`Blocked workspace navigation explains pending writes and clears on retry (${language}) @cross-browser @tablet`, async ({ page }) => {
+    const card = await mount(page, { language, default_tab: "programs" });
+    await card.evaluate((el) => { el._children.get("programs")._saving = true; });
+    await selectTab(card, "care");
+    await expect(card.locator("#workspace-navigation-feedback")).toContainText(language === "nl" ? "Bezig met opslaan" : "Saving in progress");
+    await expect(card.locator("#workspace-tab-select")).toHaveValue("programs");
+    await card.evaluate((el) => {
+      el._handleLitterChange(new CustomEvent("puppy-tracker-litter-change", { cancelable: true, detail: { litterId: "l2" } }));
+    });
+    expect(await card.evaluate((el) => el._litterId)).toBe("l1");
+    await card.evaluate((el) => { el._children.get("programs")._saving = false; });
+    await selectTab(card, "care");
+    await expect(card.locator("#workspace-tab-select")).toHaveValue("care");
+    await expect(card.locator("#workspace-navigation-feedback")).toBeHidden();
+  });
+}
 
 test("Mobile keeps daily tasks without management tabs and uses the same care label @cross-browser @tablet", async ({ page }) => {
   const card = await mount(page, { preset: "mobile", default_tab: "care", language: "en", admin: false });
