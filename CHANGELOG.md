@@ -10,11 +10,12 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+## [0.37.1] - 2026-10-30
+
 ### Fixed
 
 - Explain blocked Workspace tab, litter and settings changes while saving or
   when an edit remains open, with Dutch and English feedback.
-
 - Use reliable links for integration settings and dashboard navigation. Dashboard
   links support keyboard access; attention actions no longer share a navigation
   click target.
@@ -422,7 +423,8 @@ for explicit assignment. See [storage migrations](docs/storage-migrations.md#own
 
 - Separated daily execution from schedule management in Care workspace navigation.
 
-[Unreleased]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.37.0...HEAD
+[Unreleased]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.37.1...HEAD
+[0.37.1]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.37.0...v0.37.1
 [0.37.0]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.36.0...v0.37.0
 [0.36.0]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.35.0...v0.36.0
 [0.35.0]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.34.2...v0.35.0
