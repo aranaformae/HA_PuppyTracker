@@ -541,6 +541,19 @@ export function parseDate(value) {
   return Number.isFinite(date.getTime()) ? date : null;
 }
 
+export function calendarDate(value = Date.now(), hass = null) {
+  if (value == null || value === "") return "";
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "";
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: hass?.config?.time_zone || undefined,
+    year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(date);
+  const fields = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${fields.year}-${fields.month}-${fields.day}`;
+}
+
 export function formatDateTime(value, fallback = "—", hass = null) {
   const date = parseDate(value);
   if (!date) return fallback;
@@ -550,6 +563,7 @@ export function formatDateTime(value, fallback = "—", hass = null) {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: hass?.config?.time_zone || undefined,
   }).format(date);
 }
 
@@ -561,6 +575,7 @@ export function formatShortDateTime(value, fallback = "—", hass = null) {
     month: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: hass?.config?.time_zone || undefined,
   }).format(date);
 }
 

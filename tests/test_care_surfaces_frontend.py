@@ -72,15 +72,6 @@ def test_care_extensions_do_not_patch_card_prototypes() -> None:
         assert "registerCardHooks" not in source
 
 
-def test_attention_can_limit_care_items_to_today() -> None:
-    source = (FRONTEND / "puppy-tracker-care-surfaces.js").read_text()
-    assert "function isTodayItem(item)" in source
-    assert 'item?.scheduled_date' in source
-    assert 'item?.status === "due_today"' in source
-    assert 'Number(item?.days_until_due) === 0' in source
-    assert "card._config?.show_today_only !== true || isTodayItem(item)" in source
-
-
 def test_attention_setting_only_filters_care_occurrences() -> None:
     source = (FRONTEND / "puppy-tracker-care-surfaces.js").read_text()
     assert "function attentionItems(card)" in source

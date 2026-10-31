@@ -149,7 +149,8 @@ async def test_receipt_selection_is_litter_bound_and_voiding_invalidates_preview
     assert not storage.get_settings().get("documents")
 
 
-async def test_puppy_profile_fields_use_latest_active_weight_and_selected_litter(setup_documents, storage):
+async def test_puppy_profile_fields_use_latest_active_weight_and_selected_litter(setup_documents, storage, hass):
+    await hass.config.async_set_time_zone("UTC")
     owners, selection = setup_documents
     puppy = storage._data["litters"][selection["litter_id"]]["puppies"][selection["puppy_id"]]
     puppy["profile_note"] = "Rustig bij bezoek"
@@ -170,6 +171,23 @@ async def test_puppy_profile_fields_use_latest_active_weight_and_selected_litter
     assert document_context(storage, owners, selection["litter_id"], selection["puppy_id"], selection["owner_ids"], {}, "nl")["pup.profielnotitie"] == ""
     assert values["plaatsing.status"] == "Geplaatst" and values["plaatsing.datum"] == "25-10-2026"
     assert "pup.profielnotitie" not in template_fields(built_in_template("puppy-profile-nl"))
+
+
+@pytest.mark.parametrize(("zone", "birth_date", "birth_clock", "weighed"), [
+    ("Europe/Amsterdam", "25-10-2026", "01:30", "25-10-2026 02:30"),
+    ("America/Los_Angeles", "24-10-2026", "16:30", "24-10-2026 18:30"),
+])
+async def test_document_dates_and_times_use_ha_zone(setup_documents, storage, hass, zone, birth_date, birth_clock, weighed):
+    await hass.config.async_set_time_zone(zone)
+    owners, selection = setup_documents
+    puppy = storage._data["litters"][selection["litter_id"]]["puppies"][selection["puppy_id"]]
+    puppy["birth_time"] = "2026-10-24T23:30:00+00:00"
+    puppy["measurements"] = [{"id": "local-time", "weight": 840, "timestamp": "2026-10-25T01:30:00+00:00"}]
+    values = document_context(storage, owners, selection["litter_id"], selection["puppy_id"], selection["owner_ids"], {}, "nl")
+    assert values["pup.geboortedatum"] == birth_date
+    assert values["pup.geboortetijd"] == birth_clock
+    assert values["pup.gewicht_gemeten_op"] == weighed
+    assert values["nest.geboortedatum"] == "28-08-2026"
 
 
 async def test_all_builtin_templates_are_protected_but_can_be_copied(document_client, storage):

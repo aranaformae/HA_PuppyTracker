@@ -9,6 +9,8 @@ from zoneinfo import ZoneInfo
 
 from homeassistant.util import dt as dt_util
 
+from .time_utils import resolve_wall_time
+
 
 def _parse_birth_time(value: Any) -> datetime:
     parsed = dt_util.parse_datetime(str(value or "").strip())
@@ -55,7 +57,7 @@ def _scheduled_at(birth_time: datetime, age_days: int, time_of_day: str | None) 
     # also lets zoneinfo apply the correct DST offset for the target date.
     target = dt_util.as_local(birth_time) + timedelta(days=age_days)
     hour, minute = (int(part) for part in time_of_day.split(":"))
-    return target.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    return resolve_wall_time(target.replace(hour=hour, minute=minute, second=0, microsecond=0, fold=0))
 
 
 def _occurrence_id(program_id: str, revision: int, puppy_id: str, age_days: int) -> str:
@@ -155,7 +157,7 @@ def derive_puppy_care_occurrences(
             "record_type": str(program.get("record_type") or "note"),
             "age_days": age_days,
             "scheduled_at": scheduled.isoformat(),
-            "scheduled_date": scheduled.date().isoformat(),
+            "scheduled_date": dt_util.as_local(scheduled).date().isoformat(),
             "time_of_day": time_of_day,
             "notifications_enabled": bool(program.get("notifications_enabled", True)),
             "notification_lead_minutes": program.get("notification_lead_minutes"),

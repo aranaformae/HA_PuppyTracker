@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal
 from functools import lru_cache
 from hashlib import sha256
@@ -14,6 +14,7 @@ from typing import Any
 
 from .dog_identity import parent_details_for_litter
 from .owners import final_payment_amount, owner_for_litter
+from .time_utils import local_datetime, format_local_timestamp
 
 FORMAT = "puppy_tracker_document_template"
 VERSION = 1
@@ -238,13 +239,15 @@ def document_context(storage, owners, litter_id: str, puppy_id: str, owner_ids: 
     def formatted_date(value):
         if not value:
             return ""
-        return date.fromisoformat(str(value)[:10]).strftime("%d-%m-%Y" if language == "nl" else "%Y-%m-%d")
+        local = local_datetime(str(value)) if len(str(value)) > 10 else None
+        day = local.date() if local else date.fromisoformat(str(value)[:10])
+        return day.strftime("%d-%m-%Y" if language == "nl" else "%Y-%m-%d")
     for nl, en in {"nestnaam": "registered_name", "naam": "name", "bandkleur": "collar_color", "vachtkleur": "coat_color", "chipnummer": "chip_number", "soort": "breed"}.items():
         values[f"pup.{nl}"] = puppy.get(en) or ""
     values["nest.geboortedatum"] = formatted_date(litter.get("birth_date"))
     values["pup.geboortedatum"] = formatted_date(puppy.get("birth_time") or litter.get("birth_date"))
     birth_time = puppy.get("birth_time")
-    values["pup.geboortetijd"] = datetime.fromisoformat(birth_time).strftime("%H:%M") if birth_time else ""
+    values["pup.geboortetijd"] = format_local_timestamp(birth_time, "%H:%M", fallback="")
     def grams(value):
         if value is None or value == "":
             return ""
@@ -257,7 +260,7 @@ def document_context(storage, owners, litter_id: str, puppy_id: str, owner_ids: 
         latest = measurements[0]
         values["pup.huidig_gewicht"] = grams(latest.get("weight"))
         stamp = latest.get("timestamp")
-        values["pup.gewicht_gemeten_op"] = f"{formatted_date(stamp)} {datetime.fromisoformat(stamp).strftime('%H:%M')}" if stamp else ""
+        values["pup.gewicht_gemeten_op"] = format_local_timestamp(stamp, "%d-%m-%Y %H:%M" if language == "nl" else "%Y-%m-%d %H:%M", fallback="")
     values["pup.profielnotitie"] = (puppy.get("profile_note") or "") if include_profile_note else ""
     values["pup.geslacht"] = {"male": "Reu" if language == "nl" else "Male", "female": "Teef" if language == "nl" else "Female"}.get(puppy.get("sex"), "")
     for nl, en in (("vader", "father"), ("moeder", "mother")):

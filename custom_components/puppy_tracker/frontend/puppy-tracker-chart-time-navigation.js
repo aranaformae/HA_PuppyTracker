@@ -86,18 +86,19 @@ export function chartMetricPoints(row) {
 
 export function chartTimeTick(time) {
       const date = new Date(time);
+      const timeZone = this._hass?.config?.time_zone || undefined;
       if (this._rangeHours <= 24) {
-        return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        return date.toLocaleTimeString([], { timeZone, hour: "2-digit", minute: "2-digit" });
       }
       if (this._rangeHours <= 72) {
-        const day = date.toLocaleDateString([], { weekday: "short", day: "numeric" });
-        const clock = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        const day = date.toLocaleDateString([], { timeZone, weekday: "short", day: "numeric" });
+        const clock = date.toLocaleTimeString([], { timeZone, hour: "2-digit", minute: "2-digit" });
         return `${day} · ${clock}`;
       }
       if (this._rangeHours <= 168) {
-        return date.toLocaleDateString([], { weekday: "short", day: "numeric" });
+        return date.toLocaleDateString([], { timeZone, weekday: "short", day: "numeric" });
       }
-      return date.toLocaleDateString([], { day: "numeric", month: "short" });
+      return date.toLocaleDateString([], { timeZone, day: "numeric", month: "short" });
 }
 
 export function chartSvg(rows) {

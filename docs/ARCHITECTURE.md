@@ -1224,7 +1224,8 @@ The collapsible pickup agenda projects the same visible dossier set, excluding
 placed/archived dossiers and missing dates. One row represents one contact/litter,
 with actual puppy links only. Date-only values sort lexically and today is derived
 in HA's configured zone, falling back to the browser zone. Labels refresh on the
-next render, with no midnight timer. Agenda actions use the existing placement
+next render; a shared backend signal at HA local midnight refreshes subscribed
+cards, without a separate midnight timer per card. Agenda actions use the existing placement
 editor/revision path. Open state and agenda scroll survive whole-card renders;
 filter changes refresh agenda results within the existing details element.
 This is presentation only: no new storage fields, services, exports or migrations.
@@ -1510,6 +1511,30 @@ User interfaces must preserve timestamp precision. Weight-only corrections must 
 Generic fixed-time reminders and age-based care `time_of_day` values represent local wall-clock intent. They must use the intended Home Assistant/caller timezone and target-date DST rules rather than being reconstructed through an unrelated process timezone or a stale source-date UTC offset.
 
 Date-only dossier follow-up fields remain local calendar dates and must not shift by accidental UTC conversion.
+
+Dashboard day filters, shared timestamp labels, chart ticks and calendar query
+days use the Home Assistant zone. Browser-local time is only the fallback when
+HA has not supplied a zone. Calendar overlap, interval
+reminders and minutes remaining compare actual UTC instants, including both
+folds of an autumn clock change. Care results sort by parsed instants rather
+than offset strings. Date-only values remain dates; age and growth windows
+continue to measure elapsed time.
+
+Document-template birth dates/times and latest-weight times, PDF dossier dates
+derived from timestamps and Owners CSV puppy birth dates also use HA local time.
+Date-only parent/litter/payment/contract fields retain their original date.
+
+For general fixed-time reminders and age-based clock schedules, a nonexistent
+spring clock time moves forward by the DST gap; an ambiguous autumn clock time
+runs once at its first occurrence. Resolved slots are ordered by instant.
+Treatment courses retain their stricter validation: ambiguous/nonexistent
+dose times require review. Occurrence IDs and stored timestamps are unchanged.
+
+`day_rollover` registers one local-midnight listener per integration entry,
+using HA's timezone-aware scheduler. It sends the existing dashboard signal,
+so existing draft/save guards remain effective, and unregisters on unload.
+Tests cover 23/25-hour days and cleanup; native datetime input controls still
+use the browser's local input convention and are converted to instants on save.
 
 ## Frontend API
 

@@ -1,5 +1,6 @@
 import { FormState, SavedRecordRefresh, bindSaveFeedback, appendEditAction } from "./puppy-tracker-form-state.js";
 import {
+  calendarDate,
   escapeHtml,
   fetchLitterData,
   fetchLitters,
@@ -19,10 +20,6 @@ const TAG = "puppy-tracker-care-program-card";
 function en(card) { return languageForHass(card?._hass) === "en"; }
 function t(card, nl, english) { return en(card) ? english : nl; }
 function checked(value) { return value ? "checked" : ""; }
-function todayLocal() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-}
 function dateAfterDays(start, days) {
   const date = new Date(`${start}T12:00:00`);
   date.setDate(date.getDate() + days);
@@ -205,8 +202,8 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
       instructions: item.instructions || "",
       instructions_by_age: item.instructions_by_age || {},
       target_puppy_ids: item.target_puppy_ids || [],
-      start_date: item.start_date || todayLocal(),
-      end_date: item.end_date || todayLocal(),
+      start_date: item.start_date || calendarDate(Date.now(), this._hass),
+      end_date: item.end_date || calendarDate(Date.now(), this._hass),
       times_of_day: item.times_of_day || ["09:00"],
       treatment_product: item.treatment_product || "",
       planned_dose: item.planned_dose || "",
@@ -403,8 +400,8 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
     if (!this._formState.discard()) { this.shadowRoot.getElementById("care-template").value = ""; return; }
     this._editing = template.schedule_type === "course"
       ? { ...template, id: null, litter_id: this._selectedLitterId,
-        target_puppy_ids: [], start_date: todayLocal(),
-        end_date: dateAfterDays(todayLocal(), Math.max(1, Number(template.course_days) || 1) - 1) }
+        target_puppy_ids: [], start_date: calendarDate(Date.now(), this._hass),
+        end_date: dateAfterDays(calendarDate(Date.now(), this._hass), Math.max(1, Number(template.course_days) || 1) - 1) }
       : { ...template, id: null, litter_id: this._selectedLitterId };
     this._error = "";
     this._render();

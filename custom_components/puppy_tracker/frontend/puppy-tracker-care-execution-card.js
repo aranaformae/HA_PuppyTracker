@@ -1,4 +1,4 @@
-import { escapeHtml, fetchLitters, languageForHass, puppyDisplayLabel, requestLitterChange, selectDefaultLitter, subscribeUpdates } from "./puppy-tracker-card-common.js";
+import { calendarDate, escapeHtml, fetchLitters, languageForHass, puppyDisplayLabel, requestLitterChange, selectDefaultLitter, subscribeUpdates } from "./puppy-tracker-card-common.js";
 import { openCareResultEditor, renderCareSaveFeedback } from "./puppy-tracker-care-result-editor.js";
 import { renderCareSkippedWarning } from "./puppy-tracker-care-surfaces.js";
 
@@ -179,9 +179,9 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
   }
 
   _today() {
+    if (this._hass?.config?.time_zone) return calendarDate(Date.now(), this._hass);
     if (this._careContext?.today) return this._careContext.today;
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    return calendarDate(Date.now(), this._hass);
   }
 
   _dateOptions() {

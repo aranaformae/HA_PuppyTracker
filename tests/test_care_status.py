@@ -1,8 +1,21 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+
+import pytest
+from homeassistant.util import dt as dt_util
 
 from custom_components.puppy_tracker.care_status import care_occurrence_status
+
+
+@pytest.fixture(autouse=True)
+def _amsterdam_clock(hass):
+    """The fixture's +02:00 care clock belongs to Home Assistant's timezone."""
+    previous = dt_util.get_default_time_zone()
+    dt_util.set_default_time_zone(ZoneInfo("Europe/Amsterdam"))
+    yield
+    dt_util.set_default_time_zone(previous)
 
 
 def _occurrence() -> dict:

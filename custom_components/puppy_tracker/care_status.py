@@ -8,6 +8,8 @@ from typing import Any
 
 from homeassistant.util import dt as dt_util
 
+from .time_utils import timestamp_sort_key
+
 TERMINAL_CARE_STATUSES = {"completed", "missed"}
 
 
@@ -53,7 +55,7 @@ def matching_care_result_record(
     ]
     if not matches:
         return None
-    matches.sort(key=lambda record: str(record.get("occurred_at") or record.get("created_at") or ""))
+    matches.sort(key=lambda record: timestamp_sort_key(record.get("occurred_at") or record.get("created_at")))
     return deepcopy(matches[-1])
 
 
@@ -79,8 +81,8 @@ def care_occurrence_status(
     current = now or dt_util.now()
     if current.tzinfo is None:
         current = current.replace(tzinfo=dt_util.get_default_time_zone())
-    current_local = current.astimezone(scheduled.tzinfo)
-    days_until = (scheduled.date() - current_local.date()).days
+    current_local = dt_util.as_local(current)
+    days_until = (dt_util.as_local(scheduled).date() - current_local.date()).days
 
     item["days_until_due"] = days_until
     item["result_record_id"] = None
@@ -89,7 +91,7 @@ def care_occurrence_status(
         item["status"] = "overdue"
     elif days_until > 0:
         item["status"] = "upcoming"
-    elif occurrence.get("time_of_day") and current_local < scheduled:
+    elif occurrence.get("time_of_day") and dt_util.as_utc(current) < dt_util.as_utc(scheduled):
         # An explicit care clock time is a real due instant. Keep the occurrence
         # visible as upcoming on Today/Attention, but do not make it actionable
         # for notifications until that local wall-clock time has arrived.

@@ -300,7 +300,8 @@ async def service_runtime(hass, storage, install_litter, monkeypatch):
     entry = MockConfigEntry(domain=DOMAIN, data={})
     entry.add_to_hass(hass)
     assert await integration.async_setup_entry(hass, entry) is True
-    return entry.runtime_data
+    yield entry.runtime_data
+    await entry._async_process_on_unload(hass)
 
 
 @pytest.mark.parametrize("unload_ok", [True, False], ids=["success", "platform-failure"])

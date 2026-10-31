@@ -1,4 +1,4 @@
-import { puppySelectorLabel, downloadExportFile, escapeHtml, languageForHass, preserveScrollPosition, subscribeUpdates, createUuid } from "./puppy-tracker-card-common.js";
+import { calendarDate, puppySelectorLabel, downloadExportFile, escapeHtml, languageForHass, preserveScrollPosition, subscribeUpdates, createUuid } from "./puppy-tracker-card-common.js";
 import { FormState, SavedRecordRefresh, bindSaveFeedback, appendEditAction } from "./puppy-tracker-form-state.js";
 import { collarColor } from "./puppy-tracker-collar-chart-colors.js";
 
@@ -466,7 +466,7 @@ function formattedDate(card, value, includeTime = false) {
   const date = new Date(includeTime ? value : `${value}T12:00:00`);
   if (!Number.isFinite(date.getTime())) return String(value);
   return new Intl.DateTimeFormat(languageForHass(card?._hass) === "en" ? "en-US" : "nl-NL", includeTime
-    ? { dateStyle: "medium", timeStyle: "short" }
+    ? { dateStyle: "medium", timeStyle: "short", timeZone: card._hass?.config?.time_zone || undefined }
     : { dateStyle: "medium" }).format(date);
 }
 
@@ -478,8 +478,9 @@ function configuredCsvDelimiter(config) {
   return config?.csv_delimiter === "semicolon" || config?.csv_delimiter === ";" ? ";" : ",";
 }
 
-function dateOnly(value, fallback = "") {
+function dateOnly(value, fallback = "", hass = null) {
   const selected = String(value || fallback || "");
+  if (selected.includes("T")) return calendarDate(selected, hass);
   return /^\d{4}-\d{2}-\d{2}/.test(selected) ? selected.slice(0, 10) : selected;
 }
 
@@ -1546,7 +1547,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
             puppy?.litter_name || (litterId ? this._litterLabel(litterId) : ""),
             puppy?.registered_name,
             puppy?.name,
-            puppy ? dateOnly(puppy.birth_time, puppy.litter_birth_date) : "",
+            puppy ? dateOnly(puppy.birth_time, puppy.litter_birth_date, this._hass) : "",
             puppy ? optionLabel(this, puppy.sex, SEX_LABELS, puppy.sex) : "",
             puppy?.coat_color,
             puppy?.collar_color,

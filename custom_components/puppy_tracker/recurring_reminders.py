@@ -17,6 +17,7 @@ from .const import DEFAULT_NOTIFICATION_LEAD_MINUTES, DOMAIN
 from .records import record_sort_key, validate_record_type
 from .mother_storage import MotherScopeStorage
 from .storage_lock import CoordinatedLock, mutation_coordinator
+from .time_utils import resolve_wall_time
 
 STORE_KEY = f"{DOMAIN}_recurring_reminders"
 STORE_VERSION = 1
@@ -238,7 +239,7 @@ def scheduled_due_at(reminder: dict[str, Any], *, now: datetime | None = None) -
         if minutes <= 0:
             return None
         base = last or start
-        return base + timedelta(minutes=minutes)
+        return (dt_util.as_utc(base) + timedelta(minutes=minutes)).astimezone(base.tzinfo)
 
     times = _normalize_times(reminder.get("fixed_times"))
     if not times:
@@ -257,9 +258,11 @@ def scheduled_due_at(reminder: dict[str, Any], *, now: datetime | None = None) -
     local_anchor = anchor.astimezone(tz) if tz is not None else anchor
     for day_offset in range(0, 2):
         day = (local_anchor + timedelta(days=day_offset)).date()
+        candidates = []
         for text in times:
             hour, minute = (int(part) for part in text.split(":"))
-            candidate = datetime(day.year, day.month, day.day, hour, minute, tzinfo=tz)
+            candidates.append(resolve_wall_time(datetime(day.year, day.month, day.day, hour, minute, tzinfo=tz)))
+        for candidate in sorted(candidates, key=dt_util.as_utc):
             if candidate >= start and (last is None or candidate > last) and (consumed is None or candidate > consumed):
                 return candidate
     return None
@@ -311,7 +314,7 @@ def reminder_status(
             "status": status,
             "minutes_until_due": None,
         }
-    minutes = int((due - now).total_seconds() // 60)
+    minutes = int((dt_util.as_utc(due) - dt_util.as_utc(now)).total_seconds() // 60)
     lead_minutes = int(
         reminder.get("notification_lead_minutes")
         if reminder.get("notification_lead_minutes") is not None

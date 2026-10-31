@@ -10,6 +10,16 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+### Fixed
+
+- Align Today/Attention care filters, schedule defaults, displayed timestamps and
+  charts with Home Assistant's timezone, even on devices in another zone.
+- Correct reminder countdowns, care day status and calendar boundaries across
+  midnight and daylight-saving changes. Refresh subscribed dashboards at local
+  midnight and preserve strict DST checks for treatment courses.
+- Use the local birth date and time in document templates, PDF dossiers and
+  Owners CSV exports, including births close to UTC midnight.
+
 ### Changed
 
 - Use consistent saving progress and explicit retry labels across logging,

@@ -1395,13 +1395,14 @@ class PuppyTrackerOverviewCard extends HTMLElement {
 
   _formatTimeTick(time) {
     const date = new Date(time);
+    const timeZone = this._hass?.config?.time_zone || undefined;
     if (this._rangeHours <= 24) {
-      return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      return date.toLocaleTimeString([], { timeZone, hour: "2-digit", minute: "2-digit" });
     }
     if (this._rangeHours <= 168) {
-      return date.toLocaleDateString([], { weekday: "short", day: "numeric" });
+      return date.toLocaleDateString([], { timeZone, weekday: "short", day: "numeric" });
     }
-    return date.toLocaleDateString([], { day: "numeric", month: "short" });
+    return date.toLocaleDateString([], { timeZone, day: "numeric", month: "short" });
   }
 
   _formatDateTime(value) {
@@ -1409,6 +1410,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
     const date = new Date(value);
     if (!Number.isFinite(date.getTime())) return value;
     return date.toLocaleString([], {
+      timeZone: this._hass?.config?.time_zone || undefined,
       day: "2-digit",
       month: "2-digit",
       hour: "2-digit",

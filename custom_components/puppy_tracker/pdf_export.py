@@ -23,7 +23,7 @@ from .managed_files import normalize_logo
 from .metrics import calculate_puppy_metrics
 from .owners import final_payment_amount, owner_address_parts, owner_for_litter
 from .storage import PuppyTrackerStorage
-from .time_utils import format_local_timestamp, timestamp_sort_key
+from .time_utils import format_local_timestamp, local_datetime, timestamp_sort_key
 
 PAGE_WIDTH = 595.28
 PAGE_HEIGHT = 841.89
@@ -360,6 +360,8 @@ def _format_date(value: Any, language: str = "nl") -> str:
     text = str(value or "").strip()
     if not text:
         return "—"
+    if len(text) > 10 and (local := local_datetime(text)) is not None:
+        text = local.date().isoformat()
     match = re.match(r"^(\d{4})-(\d{2})-(\d{2})", text)
     if not match:
         return text

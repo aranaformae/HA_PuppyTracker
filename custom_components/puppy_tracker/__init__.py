@@ -19,6 +19,7 @@ from homeassistant.helpers.service import async_register_admin_service
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .api import async_setup_api
+from .day_rollover import async_setup_day_rollover
 from .managed_files_http import async_setup_managed_files_http
 from .backup import SCHEDULER_BACKUP_VERSION, serialize_export
 from .attention_acknowledgement_api import async_setup_attention_acknowledgement_api
@@ -244,6 +245,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     runtime.selected_puppy_id = (remaining_puppy_ids(runtime.weighing_session) or [None])[0]
     reconcile_dashboard_selection(runtime)
     entry.runtime_data = runtime
+    async_setup_day_rollover(hass, entry)
 
     async_setup_api(hass)
     async_setup_managed_files_http(hass)

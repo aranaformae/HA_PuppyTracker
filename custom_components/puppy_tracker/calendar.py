@@ -53,7 +53,7 @@ async def async_setup_entry(
 
 def _overlaps(event: CalendarEvent, start: datetime, end: datetime) -> bool:
     """Match Home Assistant's exclusive end boundary for calendar queries."""
-    return event.start_datetime_local < end and event.end_datetime_local > start
+    return dt_util.as_utc(event.start_datetime_local) < dt_util.as_utc(end) and dt_util.as_utc(event.end_datetime_local) > dt_util.as_utc(start)
 
 
 def _recurring_reminder_events(
@@ -117,7 +117,7 @@ def care_calendar_events(
     end: datetime,
 ) -> list[CalendarEvent]:
     """Derive open follow-ups, care occurrences and reminders on demand."""
-    if end <= start:
+    if dt_util.as_utc(end) <= dt_util.as_utc(start):
         return []
     storage = runtime.storage
     litter = storage.get_litter(litter_id)
@@ -140,8 +140,9 @@ def care_calendar_events(
         )
 
     events: list[CalendarEvent] = []
-    days_ahead = (end.date() - start.date()).days + 1
-    for action in upcoming_actions(records, today=start.date(), days_ahead=days_ahead,
+    local_start, local_end = dt_util.as_local(start), dt_util.as_local(end)
+    days_ahead = (local_end.date() - local_start.date()).days + 1
+    for action in upcoming_actions(records, today=local_start.date(), days_ahead=days_ahead,
                                    include_overdue=False, litter_id=litter_id):
         due = date.fromisoformat(action["due_date"])
         summary = action["title"]
@@ -186,7 +187,7 @@ def care_calendar_events(
                 if status["status"] not in ("completed", "missed"):
                     events.append(event)
     events.extend(_recurring_reminder_events(runtime, litter_id, litter, puppies, start, end))
-    return sorted(events, key=lambda item: (item.start_datetime_local, item.uid or ""))
+    return sorted(events, key=lambda item: (dt_util.as_utc(item.start_datetime_local), item.uid or ""))
 
 
 class LitterCareCalendar(CalendarEntity):

@@ -1,4 +1,4 @@
-import { escapeHtml, languageForHass, puppyDisplayLabel } from "./puppy-tracker-card-common.js";
+import { calendarDate, escapeHtml, languageForHass, puppyDisplayLabel } from "./puppy-tracker-card-common.js";
 import { findCareOccurrence, openCareResultEditor, renderCareSaveFeedback } from "./puppy-tracker-care-result-editor.js";
 
 function t(card, nl, en) {
@@ -19,12 +19,10 @@ function attentionItems(card) {
   return openItems(card).filter((item) => item?.counts_for_attention !== false);
 }
 
-function isTodayItem(item) {
-  const now = new Date();
-  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  return String(item?.scheduled_date || "") === today
-    || item?.status === "due_today"
-    || Number(item?.days_until_due) === 0;
+function isTodayItem(card, item) {
+  const day = item?.scheduled_at ? calendarDate(item.scheduled_at, card._hass) : item?.scheduled_date;
+  if (day) return day === calendarDate(Date.now(), card._hass);
+  return item?.status === "due_today" || (item?.days_until_due != null && Number(item.days_until_due) === 0);
 }
 
 function statusText(card, item) {
@@ -188,7 +186,7 @@ export function renderTodayCare(card) {
     const items = openItems(card).filter((item) => ["overdue", "due_today", "upcoming"].includes(item.status));
     const relevant = items
       .filter((item) => item.status !== "upcoming" || Number(item.days_until_due) <= 7)
-      .filter((item) => card._config?.show_today_only !== true || isTodayItem(item));
+      .filter((item) => card._config?.show_today_only !== true || isTodayItem(card, item));
     root.querySelector(".care-summary")?.remove();
     if (!relevant.length) return;
     const section = document.createElement("div");
@@ -207,7 +205,7 @@ export function renderAttentionCare(card) {
     root.querySelectorAll("[data-care-occurrence]").forEach((row) => row.remove());
     const items = attentionItems(card)
       .filter((item) => item.status === "overdue" || item.status === "due_today" || (item.status === "upcoming" && Number(item.days_until_due) <= 3))
-      .filter((item) => card._config?.show_today_only !== true || isTodayItem(item));
+      .filter((item) => card._config?.show_today_only !== true || isTodayItem(card, item));
     if (!items.length) return;
     let list = root.querySelector(".list");
     const allOk = root.querySelector(".all-ok");

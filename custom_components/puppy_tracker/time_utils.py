@@ -7,6 +7,16 @@ from datetime import datetime
 from homeassistant.util import dt as dt_util
 
 
+def resolve_wall_time(value: datetime) -> datetime:
+    """Resolve a local clock value to a real instant in its timezone.
+
+    In the spring gap, move forward by the skipped hour. In an autumn fold,
+    use the supplied fold (normally the first occurrence). Clinical courses
+    validate ambiguous/nonexistent times separately and require user review.
+    """
+    return dt_util.as_utc(value).astimezone(value.tzinfo)
+
+
 def parse_timestamp(value: str | None) -> datetime | None:
     """Parse a stored timestamp and return an aware UTC datetime."""
     if not value:
