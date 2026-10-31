@@ -38,6 +38,10 @@ Two version fields must be identical:
 - `custom_components/puppy_tracker/manifest.json`: `version`
 - `custom_components/puppy_tracker/const.py`: `VERSION`
 
+The minimum Home Assistant version in `hacs.json` must match the supported
+baseline in README and the oldest Home Assistant version in the CI matrix.
+Update these together when changing the supported baseline.
+
 `frontend.py` derives the frontend cache version from `VERSION`. Do not update
 only the manifest or add a second independent frontend version.
 

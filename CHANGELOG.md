@@ -19,16 +19,15 @@ they have not been reconstructed as a complete historical changelog.
   midnight and preserve strict DST checks for treatment courses.
 - Use the local birth date and time in document templates, PDF dossiers and
   Owners CSV exports, including births close to UTC midnight.
+- After saving a care program or reminder, distinguish a failed overview refresh
+  from a failed save and offer a refresh that cannot create a duplicate item.
 
 ### Changed
 
 - Use consistent saving progress and explicit retry labels across logging,
   weighing, owner and schedule forms, while retaining input after a failed save.
-
-### Fixed
-
-- After saving a care program or reminder, distinguish a failed overview refresh
-  from a failed save and offer a refresh that cannot create a duplicate item.
+- Enforce the documented Home Assistant 2026.9.4 minimum in HACS, matching the
+  oldest Home Assistant version covered by CI.
 
 ## [0.37.1] - 2026-10-30
 
