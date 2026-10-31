@@ -1,6 +1,7 @@
 // Puppy Tracker Card v1.3.1
 import { collarColor } from "./puppy-tracker-collar-chart-colors.js";
 import { announceLitterChange, languageForHass, puppySelectorLabel } from "./puppy-tracker-card-common.js";
+import { bindSaveFeedback } from "./puppy-tracker-form-state.js";
 
 const WEIGHING_TEXT = {
   nl: {
@@ -1035,6 +1036,8 @@ class PuppyTrackerCard extends HTMLElement {
     }
 
     this._weightSaveBusy = true;
+    this._weightSaveFailed = false;
+    this._updateSessionControls(station);
     const controls = [...this.shadowRoot.querySelectorAll("#weight-input, #save-weight, #toggle-session, #puppy-select, #litter-select, [data-puppy-option]")].map((element) => [element, element.disabled]);
     controls.forEach(([element]) => { element.disabled = true; });
     try {
@@ -1096,7 +1099,7 @@ class PuppyTrackerCard extends HTMLElement {
       this._localMessageType = "success";
       this._scheduleRender(true);
     } catch (err) {
-      if (current()) this._setError(err);
+      if (current()) { this._weightSaveFailed = true; this._setError(err); }
     } finally {
       this._weightSaveBusy = false;
       controls.forEach(([element, disabled]) => { if (element.isConnected) element.disabled = disabled; });
@@ -1437,6 +1440,7 @@ class PuppyTrackerCard extends HTMLElement {
     }
     const save = this.shadowRoot.getElementById("save-weight");
     if (save) save.title = admin ? "" : this._t("adminWeight");
+    bindSaveFeedback(this, "#save-weight", { busy: this._weightSaveBusy, failed: this._weightSaveFailed && this._localMessageType === "error" });
     this.shadowRoot.querySelectorAll("[data-puppy-option]").forEach((element) => { element.disabled = blocked; });
     const lastState = this._state(station.ids.last);
     const last = lastState?.attributes || {};

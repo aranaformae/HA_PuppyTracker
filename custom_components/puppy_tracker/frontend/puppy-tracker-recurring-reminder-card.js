@@ -1,4 +1,4 @@
-import { FormState, appendEditAction } from "./puppy-tracker-form-state.js";
+import { FormState, SavedRecordRefresh, bindSaveFeedback, appendEditAction } from "./puppy-tracker-form-state.js";
 import {
   puppySelectorLabel,
   puppyDisplayLabel,
@@ -75,6 +75,7 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
     this._loadSequence = 0;
     this._deletedReminderIds = new Set();
     this._formState = new FormState(this);
+    this._savedRefresh = new SavedRecordRefresh(this, () => this._loadCurrent({ afterSave: true }), () => this._selectedLitterId);
     this._status = "";
   }
 
@@ -125,7 +126,7 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
     this._render();
   }
 
-  async _loadCurrent() {
+  async _loadCurrent({ afterSave = false } = {}) {
     if (!this._hass || !this._selectedLitterId) return;
     const sequence = ++this._loadSequence;
     try {
@@ -144,8 +145,10 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
       }
       this._items = loadedItems.filter((item) => !this._deletedReminderIds.has(String(item?.id || "")));
       this._error = "";
+      this._savedRefresh.refreshed();
     } catch (error) {
       if (sequence !== this._loadSequence) return;
+      if (afterSave) throw error;
       this._error = error?.message || t(this, "Herinneringen konden niet worden geladen.", "Reminders could not be loaded.");
     }
     this._render();
@@ -262,6 +265,10 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
       return;
     }
     this._saving = true;
+    this._saveFailed = false;
+    this._error = "";
+    this._status = "";
+    this._savedRefresh.reset();
     this._render();
     try {
       let result;
@@ -276,8 +283,9 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
       this._formState.reset();
       this._showEditor = false;
       this._editing = null;
-      await this._loadCurrent();
+      await this._savedRefresh.run();
     } catch (error) {
+      this._saveFailed = true;
       this._error = error?.message || t(this, "Herinnering kon niet worden opgeslagen.", "Reminder could not be saved.");
     } finally {
       this._saving = false;
@@ -366,9 +374,11 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
       if (!requestLitterChange(this, event.target.value)) { event.target.value = this._selectedLitterId; return; }
       this._selectedLitterId = event.target.value; this._editing = null; this._showEditor = false; await this._loadCurrent();
     });
-    this.shadowRoot.getElementById("add-reminder")?.addEventListener("click", () => { if (!this._formState.discard()) return; this._editing = null; this._showEditor = true; this._render(); });
+    this.shadowRoot.getElementById("add-reminder")?.addEventListener("click", () => { if (!this._formState.discard()) return; this._error = ""; this._saveFailed = false; this._editing = null; this._showEditor = true; this._render(); });
     this.shadowRoot.querySelectorAll("button.edit").forEach((button) => button.addEventListener("click", () => {
       if (!this._formState.discard()) return;
+      this._error = "";
+      this._saveFailed = false;
       this._editing = this._items.find((item) => item.id === button.dataset.id) || null; this._showEditor = true; this._render();
     }));
     this.shadowRoot.getElementById("cancel-reminder")?.addEventListener("click", () => { if (!this._formState.discard()) return; this._editing = null; this._showEditor = false; this._render(); });
@@ -394,8 +404,10 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
         });
       }
       this.shadowRoot.querySelector("ha-card").append(status);
+      this._savedRefresh.bind(status);
     }
     renderRecurringSaveFeedback(this);
+    bindSaveFeedback(this, "#save-reminder");
   }
 }
 

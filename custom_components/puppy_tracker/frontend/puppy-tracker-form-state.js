@@ -6,6 +6,18 @@ const controls = (root) => [...(root?.querySelectorAll("input,select,textarea") 
 const key = (input, index) => input.id || (input.name ? `${input.name}:${input.type === "checkbox" || input.type === "radio" ? input.value : ""}` : `field-${index}`);
 const values = (root) => Object.fromEntries(controls(root).map((input, index) => [key(input, index), { value: input.value, checked: input.checked }]));
 
+// Called explicitly by form renderers; it never submits or resets a draft.
+export function bindSaveFeedback(card, selector, { busy = card._saving, failed = card._saveFailed && card._error, root = card.shadowRoot || card } = {}) {
+  (root.querySelector("ha-card") || root.querySelector("form") || root.querySelector('[role="dialog"]'))?.setAttribute("aria-busy", String(Boolean(busy || card._loading)));
+  const button = root.querySelector(selector);
+  if (button && button._saveIdleHtml === undefined) button._saveIdleHtml = button.innerHTML;
+  if (button && (busy || failed)) {
+    button.textContent = busy ? text(card, "Bezig met opslaan…", "Saving…") : text(card, "Opnieuw proberen", "Try again");
+    if (busy) button.disabled = true;
+  } else if (button && button.innerHTML !== button._saveIdleHtml) button.innerHTML = button._saveIdleHtml;
+  if (failed) root.querySelectorAll(".error").forEach((error) => error.setAttribute("role", "alert"));
+}
+
 // A short-lived form snapshot, never serialized to browser or integration storage.
 export class FormState {
   constructor(card, { repeat = null, preserve = true, busy = () => card._saving || card._busy } = {}) {

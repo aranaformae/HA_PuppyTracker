@@ -1,4 +1,4 @@
-import { FormState, appendEditAction } from "./puppy-tracker-form-state.js";
+import { FormState, SavedRecordRefresh, bindSaveFeedback, appendEditAction } from "./puppy-tracker-form-state.js";
 import {
   escapeHtml,
   fetchLitterData,
@@ -101,6 +101,7 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
     this._unsubscribe = null;
     this._query = "";
     this._formState = new FormState(this, { repeat: "#age-instruction-list" });
+    this._savedRefresh = new SavedRecordRefresh(this, () => this._loadCurrent({ afterSave: true }), () => this._selectedLitterId);
     this._status = "";
   }
 
@@ -167,7 +168,7 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
     this._render();
   }
 
-  async _loadCurrent() {
+  async _loadCurrent({ afterSave = false } = {}) {
     if (!this._hass || !this._selectedLitterId) return;
     try {
       const response = await this._hass.callWS({
@@ -177,7 +178,9 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
       this._programs = response?.programs || [];
       this._litterData = await fetchLitterData(this._hass, this._selectedLitterId);
       this._error = "";
+      this._savedRefresh.refreshed();
     } catch (error) {
+      if (afterSave) throw error;
       this._error = error?.message || t(this, "Zorgprogramma's konden niet worden geladen.", "Care programs could not be loaded.");
     }
     this._render();
@@ -306,6 +309,10 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
       return;
     }
     this._saving = true;
+    this._saveFailed = false;
+    this._error = "";
+    this._status = "";
+    this._savedRefresh.reset();
     this._render();
     try {
       if (data.schedule_type === "course") {
@@ -336,8 +343,9 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
       this._formState.reset();
       this._showEditor = false;
       this._editing = null;
-      await this._loadCurrent();
+      await this._savedRefresh.run();
     } catch (error) {
+      this._saveFailed = true;
       this._error = error?.message || t(this, "Zorgprogramma kon niet worden opgeslagen.", "Care program could not be saved.");
     } finally {
       this._saving = false;
@@ -569,6 +577,8 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
     });
     this.shadowRoot.getElementById("add-program")?.addEventListener("click", () => {
       if (!this._formState.discard()) return;
+      this._error = "";
+      this._saveFailed = false;
       this._editing = null;
       this._showEditor = true;
       this._render();
@@ -582,6 +592,8 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
     });
     this.shadowRoot.querySelectorAll(".edit").forEach((button) => button.addEventListener("click", () => {
       if (!this._formState.discard()) return;
+      this._error = "";
+      this._saveFailed = false;
       this._editing = this._programs.find((item) => item.id === button.dataset.id) || null;
       this._showEditor = true;
       this._render();
@@ -648,7 +660,9 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
         });
       }
       this.shadowRoot.querySelector("ha-card").append(status);
+      this._savedRefresh.bind(status);
     }
+    bindSaveFeedback(this, "#save-program");
   }
 }
 

@@ -1,4 +1,4 @@
-import { FormState, savedOwnerLabel, savedRecordFeedback } from "./puppy-tracker-form-state.js";
+import { FormState, bindSaveFeedback, savedOwnerLabel, savedRecordFeedback } from "./puppy-tracker-form-state.js";
 import {
   puppySelectorLabel,
   addDossierRecord, changeDossierRecordOwner, deleteDossierRecord, deleteMotherDossierRecord,
@@ -560,6 +560,7 @@ class PuppyTrackerRecordEditor extends HTMLElement {
       }
       this._busy = true;
       this.shadowRoot.querySelectorAll("button,input,select,textarea").forEach((input) => { input.disabled = true; });
+      bindSaveFeedback(this, "#record-save", { busy: true });
       error.hidden = true;
       if (this._mode === "measurement") {
         const form = this.shadowRoot.querySelector("form");
@@ -619,6 +620,7 @@ class PuppyTrackerRecordEditor extends HTMLElement {
     } catch (err) {
       error.textContent = err?.message || localize(this._hass, "dossierItemCouldNotSave");
       error.hidden = false;
+      bindSaveFeedback(this, "#record-save", { busy: false, failed: true });
     } finally {
       this._busy = false;
       if (!this._closed) {

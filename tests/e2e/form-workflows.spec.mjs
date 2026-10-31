@@ -19,6 +19,10 @@ async function mount(page, tag, config = {}) {
       callWS: async (msg) => {
         state.calls.push(copy(msg));
         const mutation = /\/(add|save|create|update|link|record)$/.test(msg.type);
+        if (state.failRefresh && ["puppy_tracker/care_programs", "puppy_tracker/recurring_reminders"].includes(msg.type)) {
+          state.failRefresh = false;
+          throw new Error("Temporary overview failure");
+        }
         if (mutation && state.pauseNext) { state.pauseNext = false; await new Promise((resolve) => { state.resume = resolve; }); }
         if (mutation && state.failNext) { state.failNext = false; throw new Error("Temporary save failure"); }
         if (msg.type === "puppy_tracker/litters") return { litters: [{ id: "l1", name: "First litter", active: true }, { id: "l2", name: "Second litter", active: true }] };
@@ -72,6 +76,7 @@ test("Quick Log protects changed drafts and offers exact-owner editing after ret
   await page.evaluate(() => { window.formFixture.failNext = true; });
   await card.locator("#quick-save").click();
   await expect(card.locator(".error")).toContainText("Temporary save failure");
+  await expect(card.locator("#quick-save")).toHaveText("Try again");
   await expect(card.locator("#quick-note")).toHaveValue("Keep Bob's observation");
   await card.locator("#quick-save").click();
   await expect(card.getByRole("status")).toContainText("Note saved for Bob (Blue)");
@@ -103,6 +108,7 @@ test("Owners retain raw form values through rendering, failed saving and cancell
   await page.evaluate(() => { window.formFixture.failNext = true; });
   await card.locator('.owner-editor button[type="submit"]').click();
   await expect(card.locator("#owner-error")).toContainText("Temporary save failure");
+  await expect(card.locator('.owner-editor button[type="submit"]')).toHaveText("Try again");
   await expect(card.locator('[name="phone"]')).toHaveValue("0612345678");
   page.once("dialog", (dialog) => dialog.dismiss());
   await card.locator("#cancel-owner").click();
@@ -195,6 +201,7 @@ for (const [surface, tag, title, lead, save, cancel] of [
     await page.evaluate(() => { window.formFixture.failNext = true; });
     await card.locator(save).click();
     await expect(card.locator(".error").last()).toContainText("Temporary save failure");
+    await expect(card.locator(save)).toHaveText("Try again");
     await expect(card.locator(title)).toHaveValue("Edited care title");
     page.once("dialog", (dialog) => dialog.dismiss());
     await card.locator(cancel).click();
@@ -202,12 +209,29 @@ for (const [surface, tag, title, lead, save, cancel] of [
     await page.evaluate(() => { window.formFixture.pauseNext = true; });
     await card.locator(save).click();
     await expect(card.locator(title)).toBeDisabled();
+    await expect(card.locator(save)).toHaveText("Saving…");
+    await expect(card.locator("ha-card")).toHaveAttribute("aria-busy", "true");
     await workspace.evaluate((element) => element._selectTab("calculator"));
     await expect(card).toBeVisible();
     await page.evaluate(() => window.formFixture.resume());
     await expect(card.getByRole("status")).toContainText("Edited care title");
     await card.getByRole("status").getByRole("button", { name: "Edit", exact: true }).click();
     await expect(card.locator(title)).toHaveValue("Edited care title");
+  });
+
+  test(`${surface} confirms a saved write when overview refresh fails and retries only the read`, { tag: ["@cross-browser", "@tablet"] }, async ({ page }) => {
+    const card = await mount(page, tag);
+    await card.locator("button.edit").first().click();
+    await card.locator(title).fill("Confirmed saved schedule");
+    await page.evaluate(() => { window.formFixture.failRefresh = true; });
+    await card.locator(save).click();
+    await expect(card.locator(title)).toHaveCount(0);
+    await expect(card.getByRole("status").first()).toContainText("Confirmed saved schedule");
+    await expect(card.locator(".saved-refresh-warning")).toContainText("Saved, but the overview could not be refreshed.");
+    await card.locator("[data-retry-saved-refresh]").click();
+    await expect(card.locator(".saved-refresh-warning")).toHaveCount(0);
+    expect(await page.evaluate(() => window.formFixture.calls.filter((call) => /\/(create|update)$/.test(call.type)).length)).toBe(1);
+    await expect(card.locator("ha-card")).toHaveAttribute("aria-busy", "false");
   });
 }
 
@@ -280,6 +304,7 @@ for (const [tag, config, open, note, save, cancel] of [
     await page.evaluate(() => { window.formFixture.failNext = true; });
     await card.locator(save).click();
     await expect(card.locator(".error").first()).toContainText("Temporary save failure");
+    await expect(card.locator(save)).toHaveText("Try again");
     await expect(card.locator(note)).toHaveValue("Do not lose this observation");
     page.once("dialog", (dialog) => dialog.dismiss());
     await card.locator(cancel).click();
@@ -304,6 +329,7 @@ test("a care-result draft survives cancelled closing and a failed save", { tag: 
   await page.evaluate(() => { window.formFixture.failNext = true; });
   await card.locator(".care-result-save").click();
   await expect(card.locator(".care-result-error")).toContainText("Temporary save failure");
+  await expect(card.locator(".care-result-save")).toHaveText("Try again");
   await expect(card.locator(".care-result-note")).toHaveValue("Keep this care observation");
   await card.locator(".care-result-save").click();
   await expect(card.locator(".care-result-overlay")).toHaveCount(0);

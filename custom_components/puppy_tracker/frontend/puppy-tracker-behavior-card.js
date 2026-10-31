@@ -1,4 +1,4 @@
-import { FormState, SavedRecordRefresh, savedOwnerLabel, savedRecordFeedback, savedEditButton } from "./puppy-tracker-form-state.js";
+import { FormState, SavedRecordRefresh, bindSaveFeedback, savedOwnerLabel, savedRecordFeedback, savedEditButton } from "./puppy-tracker-form-state.js";
 import {
   puppySelectorLabel,
   addDossierRecord,
@@ -315,6 +315,7 @@ class PuppyTrackerBehaviorCard extends HTMLElement {
     const context = { litterId: this._selectedLitterId, scope: "puppy", puppyId: this._selectedPuppyId, ownerName: savedOwnerLabel(this, "puppy", this._selectedPuppyId) };
     this._dataRequest += 1;
     this._saving = true;
+    this._saveFailed = false;
     this._error = "";
     this._status = "";
     this._savedRecord = null;
@@ -329,6 +330,7 @@ class PuppyTrackerBehaviorCard extends HTMLElement {
       await this._savedRefresh.run();
       this._refreshDeferred = false;
     } catch (error) {
+      this._saveFailed = true;
       this._error = error?.message || text(this, "saveFailed");
     } finally {
       this._saving = false;
@@ -388,6 +390,7 @@ class PuppyTrackerBehaviorCard extends HTMLElement {
     status?.querySelector("[data-edit-saved]")?.addEventListener("click", (event) => openRecordEditor(this, this._savedRecord, { trigger: event.currentTarget }));
     this.shadowRoot.querySelectorAll("#behavior-litter,#behavior-puppy").forEach((select) => { select.disabled = this._saving || (select.id === "behavior-puppy" && (this._loading || !puppyOptions)); });
     this.shadowRoot.querySelector("ha-card")?.setAttribute("aria-busy", String(this._loading || this._saving));
+    bindSaveFeedback(this, "#behavior-save");
     this.shadowRoot.getElementById("behavior-puppy")?.addEventListener("change", (event) => this._changePuppy(event.target.value));
     this.shadowRoot.getElementById("behavior-add")?.addEventListener("click", () => this._startEditor());
     this.shadowRoot.getElementById("behavior-cancel")?.addEventListener("click", () => this._cancelEditor());

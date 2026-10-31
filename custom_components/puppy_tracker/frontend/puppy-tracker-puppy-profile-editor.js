@@ -1,4 +1,5 @@
 import { escapeHtml, languageForHass } from "./puppy-tracker-card-common.js";
+import { bindSaveFeedback } from "./puppy-tracker-form-state.js";
 
 const LABELS = {
   nl: {
@@ -140,6 +141,7 @@ export class PuppyProfileEditor extends HTMLElement {
       chip_number: read("chip"), profile_note: read("note"),
     };
     this._busy = true;
+    bindSaveFeedback(this, 'button[type="submit"]', { busy: true });
     root.querySelectorAll("button,input,select,textarea").forEach((control) => { control.disabled = true; });
     const error = root.querySelector(".error");
     error.hidden = true;
@@ -158,6 +160,7 @@ export class PuppyProfileEditor extends HTMLElement {
       const t = LABELS[languageForHass(this._hass)] || LABELS.nl;
       error.textContent = err?.code === "stale_profile" ? t.stale : (err?.message || t.failed);
       error.hidden = false;
+      bindSaveFeedback(this, 'button[type="submit"]', { busy: false, failed: true });
     }
   }
 }

@@ -1,4 +1,4 @@
-import { FormState, SavedRecordRefresh, savedOwnerLabel, savedRecordFeedback, savedEditButton } from "./puppy-tracker-form-state.js";
+import { FormState, SavedRecordRefresh, bindSaveFeedback, savedOwnerLabel, savedRecordFeedback, savedEditButton } from "./puppy-tracker-form-state.js";
 import {
   puppySelectorLabel,
   addDossierRecord,
@@ -325,6 +325,7 @@ class PuppyTrackerTemperatureCard extends HTMLElement {
     const context = { litterId: this._selectedLitterId, scope: this._scope, puppyId: this._scope === "puppy" ? this._selectedPuppyId : null, ownerName: savedOwnerLabel(this, this._scope, this._selectedPuppyId) };
     this._loadSequence += 1;
     this._saving = true;
+    this._saveFailed = false;
     this._error = "";
     this._status = "";
     this._savedRecord = null;
@@ -346,6 +347,7 @@ class PuppyTrackerTemperatureCard extends HTMLElement {
       this._draft = null;
       await this._savedRefresh.run();
     } catch (error) {
+      this._saveFailed = true;
       this._error = error?.message || text(this, "failed");
     } finally {
       this._saving = false;
@@ -451,6 +453,7 @@ class PuppyTrackerTemperatureCard extends HTMLElement {
     if (addButton) addButton.disabled = !this._hasOwner || this._loading || this._saving || this._showEditor;
     this.shadowRoot.querySelectorAll(".selectors select").forEach((select) => { select.disabled = this._saving || this._loading; });
     this.shadowRoot.querySelectorAll(".editor input,.editor textarea,.editor button").forEach((input) => { input.disabled = this._saving; });
+    bindSaveFeedback(this, '.editor button[type="submit"]');
     this.shadowRoot.getElementById("cancel-temperature")?.addEventListener("click", () => this._closeEditor());
     this.shadowRoot.querySelector(".editor")?.addEventListener("submit", (event) => {
       event.preventDefault();

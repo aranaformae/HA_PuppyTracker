@@ -1,4 +1,4 @@
-import { FormState, savedRecordFeedback, savedEditButton } from "./puppy-tracker-form-state.js";
+import { FormState, bindSaveFeedback, savedRecordFeedback, savedEditButton } from "./puppy-tracker-form-state.js";
 import { canEditRecords, closeRecordEditor, openRecordEditor, recordReminderExecution, rememberReminderExecution, RECORD_ACTION_STYLE } from "./puppy-tracker-record-editor.js";
 import { loadRecurringReminders, renderRecurringSaveFeedback } from "./puppy-tracker-recurring-surfaces.js";
 import {
@@ -747,6 +747,7 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
 
     this._invalidateReuse();
     this._saving = true;
+    this._saveFailed = false;
     this._formState.clearErrors();
     this._error = "";
     this._render();
@@ -790,6 +791,7 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
       await this._finishDraft(true);
     } catch (error) {
       this._saving = false;
+      this._saveFailed = true;
       this._error = reminder && error?.code === "invalid_reminder"
         ? text(this._hass, "reminderChanged") : error?.message || text(this._hass, "saveFailed");
       this._render();
@@ -871,6 +873,7 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
       </ha-card>`;
 
     this._formState.bind(this.shadowRoot.querySelector(".editor"));
+    bindSaveFeedback(this, "#quick-save");
     const actionStyle = document.createElement("style");
     actionStyle.textContent = RECORD_ACTION_STYLE;
     this.shadowRoot.append(actionStyle);

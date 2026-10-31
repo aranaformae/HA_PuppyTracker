@@ -1,5 +1,5 @@
 import { puppySelectorLabel, downloadExportFile, escapeHtml, languageForHass, preserveScrollPosition, subscribeUpdates, createUuid } from "./puppy-tracker-card-common.js";
-import { FormState, SavedRecordRefresh, appendEditAction } from "./puppy-tracker-form-state.js";
+import { FormState, SavedRecordRefresh, bindSaveFeedback, appendEditAction } from "./puppy-tracker-form-state.js";
 import { collarColor } from "./puppy-tracker-collar-chart-colors.js";
 
 const TAG = "puppy-tracker-owner-card";
@@ -864,6 +864,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     this._busy = true;
     this._error = "";
     this._status = "";
+    this._saveFailed = false;
     this._savedRefresh.reset();
     this._render();
     try {
@@ -876,6 +877,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
     } catch (error) {
       if (!this._isCurrent(context)) return;
       this._conflict = error?.code === "owner_conflict";
+      this._saveFailed = !this._conflict;
       this._error = this._conflict ? text(this, "changedElsewhere")
         : error?.code === "owner_linked" ? text(this, "unlinkBeforeDelete") : error?.message || String(error);
     } finally {
@@ -889,6 +891,7 @@ class PuppyTrackerOwnerCard extends HTMLElement {
 
   _updateActionState() {
     const blocked = this._busy || this._conflict || !this._isCurrent(this._context);
+    bindSaveFeedback(this, '.owner-editor button[type="submit"]', { busy: this._busy, failed: this._saveFailed && this._error && !this._conflict });
     this.querySelectorAll('button[type="submit"], #add-owner, [data-edit], [data-edit-owner-section], [data-mark-paid], [data-add-dossier], [data-matrix-edit-owner], [data-add-payment], [data-void-payment], [data-cancel-payment]')
       .forEach((button) => { button.disabled = blocked; });
     this.querySelectorAll("[data-delete], [data-assign-owner]").forEach((button) => { button.disabled = blocked || this._showEditor; });

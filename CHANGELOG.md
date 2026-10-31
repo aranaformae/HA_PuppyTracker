@@ -10,6 +10,16 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+### Changed
+
+- Use consistent saving progress and explicit retry labels across logging,
+  weighing, owner and schedule forms, while retaining input after a failed save.
+
+### Fixed
+
+- After saving a care program or reminder, distinguish a failed overview refresh
+  from a failed save and offer a refresh that cannot create a duplicate item.
+
 ## [0.37.1] - 2026-10-30
 
 ### Fixed

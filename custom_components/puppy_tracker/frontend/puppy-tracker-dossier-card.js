@@ -1,4 +1,4 @@
-import { FormState } from "./puppy-tracker-form-state.js";
+import { FormState, bindSaveFeedback } from "./puppy-tracker-form-state.js";
 import {
   puppySelectorLabel,
   escapeHtml,
@@ -682,6 +682,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
     const input = this.shadowRoot?.getElementById("profile-note");
     const profileNote = input?.value?.trim() || null;
     this._saving = true;
+    this._saveFailed = false;
     this._status = localize(this._hass, "profileNoteSave");
     this._error = "";
     this._render();
@@ -707,6 +708,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
       await this._loadLitterAndRecords(false);
     } catch (err) {
       this._saving = false;
+      this._saveFailed = true;
       this._error = err?.message || localize(this._hass, "profileNoteCouldNotSave");
     }
     this._render();
@@ -1059,6 +1061,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
     });
     this.shadowRoot.getElementById("profile-edit")?.addEventListener("click", () => this._startProfileEdit());
     this._formState.bind(this._profileEditing ? this.shadowRoot.querySelector(".profile-panel") : null);
+    bindSaveFeedback(this, "#profile-save");
     this.shadowRoot.getElementById("profile-cancel")?.addEventListener("click", async () => {
       if (!this._formState.discard()) return;
       this._profileEditing = false;

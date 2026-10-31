@@ -1654,12 +1654,21 @@ and retain a usable litter selector after a failed read. Behavior rechecks edito
 state after background reads and defers replacement while a draft is open. Report
 also invalidates outstanding responses when administrator access is revoked.
 
-Temperature and Behavior separate confirmed writes from subsequent overview reads.
+Temperature, Behavior, Care Programs and Reminders separate confirmed writes from subsequent overview reads.
 The shared `SavedRecordRefresh` feedback keeps the saved-record owner/ID intact,
 shows a localized refresh warning without reporting a write failure, and offers
 a read-only retry. A true write failure retains the draft and shows no success.
 Retry results are scoped to the originating owner/lifecycle and cannot replace
 a new draft. The helper stores transient UI state only; it adds no write retries.
+
+`bindSaveFeedback` supplies the same localized Saving/Try again button states
+and `aria-busy` feedback for Quick Log, Temperature, Behavior, Care Programs,
+Reminders, profile notes, owner/puppy editors, weighing and the shared record and
+care-result editors. Call sites
+retain their own mutation guards, validation and draft lifecycle. Write failures
+keep the draft; retry is an explicit user action. Bulk Log already retains only
+failed puppies for retry and displays progress/partial success; the feeding
+calculator keeps its existing queued autosave state and explicit retry control.
 
 Report has one export lifecycle for PDF, CSV, litter JSON and mother JSON. Before
 the first await it snapshots the client, context, litter/subject, range, language,

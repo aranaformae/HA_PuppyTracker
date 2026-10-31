@@ -1,5 +1,5 @@
 import { escapeHtml, fetchLitterData, languageForHass, puppyDisplayLabel } from "./puppy-tracker-card-common.js";
-import { FormState, appendEditAction, savedOwnerLabel, savedRecordFeedback } from "./puppy-tracker-form-state.js";
+import { FormState, bindSaveFeedback, appendEditAction, savedOwnerLabel, savedRecordFeedback } from "./puppy-tracker-form-state.js";
 import { canEditRecords, openCareAdministrationEditor, openRecordEditor } from "./puppy-tracker-record-editor.js";
 
 function t(card, nl, en) {
@@ -118,6 +118,7 @@ export function openCareResultEditor(card, item, options = {}) {
     if (scoreInput && !scoreInput.validity.valid) { formState.error(".care-result-score", scoreInput.validationMessage); return; }
     const status = overlay.querySelector(".care-result-status")?.value || "completed";
     saving = true;
+    bindSaveFeedback(card, ".care-result-save", { root: overlay, busy: true });
     overlay.querySelectorAll("button,input,select,textarea").forEach((input) => { input.disabled = true; });
     error.hidden = true;
     try {
@@ -151,6 +152,7 @@ export function openCareResultEditor(card, item, options = {}) {
       saving = false;
       error.textContent = err?.message || t(card, "Resultaat kon niet worden opgeslagen.", "Result could not be saved.");
       error.hidden = false;
+      bindSaveFeedback(card, ".care-result-save", { root: overlay, busy: false, failed: true });
       overlay.querySelectorAll("button,input,select,textarea").forEach((input) => { input.disabled = false; });
     }
   });
