@@ -34,7 +34,10 @@ async function mount(page, surface = "attention", scope = "puppy", type = "medic
         if (message.type === "puppy_tracker/recurring_reminders") return { reminders: [copy(reminder)] };
         if (message.type.endsWith("/records")) return { can_manage_records: true, owner: { id: "m1", name: "Luna" }, records: copy(records.filter((r) => !r.deleted)), actions: { actions: [] } };
         if (message.type === "puppy_tracker/mother/attention") return { dossier_actions: { actions: [] } };
-        if (message.type === "puppy_tracker/care_occurrences") return { occurrences: [], skipped: [] };
+        if (message.type === "puppy_tracker/care_occurrences") return { occurrences: [], skipped: [], execution: {
+          can_manage_records: true, litter: { id: "l1", name: "Test litter", mother: "Luna" },
+          puppies: [{ id: "p2", name: "Bob", collar_color: "Blue" }], reminders: [copy(reminder)], followups: [],
+        } };
         if (message.type === "puppy_tracker/attention_acknowledgements") return { acknowledgements: state.ack ? { [`recurring:r1:${due}`]: {} } : {} };
         if (message.type === "puppy_tracker/attention_acknowledgement/set") { state.ack = true; return { ok: true }; }
         if (message.type === "puppy_tracker/recurring_reminder/postpone") {
@@ -83,17 +86,18 @@ async function mount(page, surface = "attention", scope = "puppy", type = "medic
         throw new Error(`Unexpected call ${message.type}`);
       },
     };
-    const card = document.createElement(surface === "mobile" ? "puppy-tracker-workspace-card" : `puppy-tracker-${surface === "reminders" ? "recurring-reminder" : surface}-card`);
-    card.setConfig({ litter_id: "l1", preset: "mobile", default_tab: "today", show_summary: false });
+    const workspace = ["mobile", "care", "mobilecare"].includes(surface);
+    const card = document.createElement(workspace ? "puppy-tracker-workspace-card" : `puppy-tracker-${surface === "reminders" ? "recurring-reminder" : surface}-card`);
+    card.setConfig({ litter_id: "l1", preset: surface === "care" ? "care" : "mobile", default_tab: ["care", "mobilecare"].includes(surface) ? "care" : "today", show_summary: false });
     document.querySelector("#cards").append(card);
     card.hass = hass;
   }, { surface, scope, type, language });
-  const card = page.locator(surface === "mobile" ? "puppy-tracker-workspace-card puppy-tracker-today-card" : `puppy-tracker-${surface === "reminders" ? "recurring-reminder" : surface}-card`);
+  const card = page.locator(["care", "mobilecare"].includes(surface) ? "puppy-tracker-workspace-card puppy-tracker-care-execution-card" : surface === "mobile" ? "puppy-tracker-workspace-card puppy-tracker-today-card" : `puppy-tracker-${surface === "reminders" ? "recurring-reminder" : surface}-card`);
   await expect(card.locator('[data-complete-reminder="r1"]')).toBeVisible();
   return card;
 }
 
-for (const surface of ["attention", "today", "reminders", "mobile"]) {
+for (const surface of ["attention", "today", "reminders", "mobile", "care", "mobilecare"]) {
   for (const scope of ["puppy", "mother", "litter"]) {
     test(`${surface} executes ${scope} reminder without changing history @cross-browser @tablet`, async ({ page }, testInfo) => {
       const type = scope === "mother" ? "temperature" : scope === "litter" ? "feeding" : "medication";
@@ -371,3 +375,35 @@ test("postpone validation, busy saves, cancellation and stale errors keep the ch
   await expect(editor.locator("#reminder-until")).toHaveValue(value);
   expect(await page.evaluate(() => window.recurringFixture.records)).toHaveLength(1);
 });
+
+for (const surface of ["care", "mobilecare"]) {
+  test(`${surface} retains filters and enables stable controls after undo @cross-browser @tablet`, async ({ page }) => {
+    const card = await mount(page, surface, "mother", "temperature");
+    await card.locator('[data-source="program"]').click();
+    await card.locator('[data-source="followup"]').click();
+    await card.locator('[data-complete-reminder="r1"]').click();
+    const editor = page.locator("puppy-tracker-record-editor");
+    await editor.locator("#record-data-temperature_c").fill("38.4");
+    await page.evaluate(async () => {
+      window.recurringFixture.fail = true;
+      for (const callback of window.recurringFixture.subscriptions) await callback({});
+    });
+    await editor.locator("#record-save").click();
+    await expect(editor.locator(".error")).toContainText("Temporary failure");
+    await expect(editor.locator("#record-data-temperature_c")).toHaveValue("38.4");
+    await page.evaluate(() => { window.recurringFixture.fail = false; });
+    await editor.locator("#record-save").click();
+    await expect(editor).toHaveCount(0);
+    page.once("dialog", (dialog) => dialog.accept());
+    await card.getByRole("button", { name: "Undo execution", exact: true }).click();
+    await expect(card.locator('[data-complete-reminder="r1"]')).toBeEnabled();
+    await expect(card.locator('[data-source="reminder"]')).toBeEnabled();
+    await expect(card.locator('[data-source="program"]')).toHaveAttribute("aria-pressed", "false");
+    await card.locator('[data-postpone-reminder="r1"]').click();
+    await expect(editor.locator("h2")).toHaveText("Postpone once");
+    await editor.locator("#record-cancel").click();
+    await card.locator('[data-source="reminder"]').click();
+    await expect(card.locator(".rows .row")).toHaveCount(0);
+    await expect(card.locator(".empty")).toContainText("No care sources selected");
+  });
+}

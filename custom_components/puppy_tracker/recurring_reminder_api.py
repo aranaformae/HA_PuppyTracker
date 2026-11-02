@@ -10,14 +10,12 @@ from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
-from .const import DEFAULT_NOTIFICATION_LEAD_MINUTES, DOMAIN, SIGNAL_DASHBOARD_UPDATE
-from .mother_storage import MotherScopeStorage
+from .const import DOMAIN, SIGNAL_DASHBOARD_UPDATE
 from .recurring_reminders import (
     RecurringReminderStore,
-    reminder_status,
-    reminder_owner_records,
     validate_reminder_owner as _validate_owner,
 )
+from .recurring_reminder_view import async_reminder_items
 from .runtime import get_runtime_data, get_runtime_storage
 from .updates import dispatch_dossier_update
 
@@ -44,22 +42,6 @@ async def async_reconcile_recurring_reminders(hass: HomeAssistant, *, litter_id:
     await store.async_reconcile_records(storage, litter_id=litter_id)
 
 
-def _owner_label(storage, reminder: dict[str, Any]) -> str:
-    scope = reminder.get("owner_scope")
-    litter_id = str(reminder.get("litter_id") or "")
-    owner_id = str(reminder.get("owner_id") or "")
-    litter = storage.get_litter(litter_id) or {}
-    if scope == "litter":
-        return str(litter.get("name") or "Hele nest")
-    if scope == "puppy":
-        puppy = storage.get_puppy(litter_id, owner_id) or {}
-        return str(puppy.get("name") or "Pup")
-    if scope == "mother" and isinstance(storage, MotherScopeStorage):
-        mother = storage.get_mother(owner_id) or {}
-        return str(mother.get("name") or "Moederhond")
-    return owner_id
-
-
 @websocket_api.websocket_command({
     vol.Required("type"): f"{DOMAIN}/recurring_reminders",
     vol.Optional("litter_id"): str,
@@ -70,32 +52,7 @@ async def websocket_list_reminders(hass, connection, msg) -> None:
     storage = get_runtime_storage(hass)
     if store is None or storage is None:
         return
-    await async_reconcile_recurring_reminders(hass, litter_id=msg.get("litter_id"))
-    settings = storage.get_settings()
-    default_lead_minutes = int(
-        settings.get("notification_lead_minutes", DEFAULT_NOTIFICATION_LEAD_MINUTES)
-    )
-    items = []
-    histories = {}
-    for reminder in store.get_reminders(litter_id=msg.get("litter_id")):
-        item = reminder_status(reminder, notification_lead_minutes=default_lead_minutes)
-        item["owner_name"] = _owner_label(storage, reminder)
-        owner = tuple(reminder[key] for key in ("litter_id", "owner_scope", "owner_id"))
-        if owner not in histories:
-            try:
-                histories[owner] = {record["id"]: record for record in reminder_owner_records(storage, reminder)}
-            except ValueError:
-                histories[owner] = None
-        item["owner_available"] = histories[owner] is not None
-        item["last_execution"] = (histories[owner] or {}).get(reminder.get("last_completed_record_id"))
-        items.append(item)
-    items.sort(
-        key=lambda item: (
-            item.get("next_due_at") is None,
-            str(item.get("next_due_at") or ""),
-            str(item.get("title") or ""),
-        )
-    )
+    items = await async_reminder_items(store, storage, litter_id=msg.get("litter_id"))
     connection.send_result(msg["id"], {"reminders": items})
 
 

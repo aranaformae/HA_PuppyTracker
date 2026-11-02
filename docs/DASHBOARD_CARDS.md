@@ -35,7 +35,16 @@ Care navigation is grouped into **Daily** (Carry out care, Calculator) and
 **Herinneringen**. Daily work records what happened; management changes the
 schedule or instructions. On phones the same groups appear in the view selector.
 No extra navigation step or dashboard card is needed. Mobile keeps daily tasks
-only, using the same **Carry out care** label.
+only, using the same **Carry out care** label. This shared execution list combines
+care programs, recurring reminders and dossier follow-ups. Its three source
+chips can be toggled independently, including all off. Today includes overdue
+work; selecting another day shows that scheduled date. A hidden day selector
+shows the loaded date range (Mobile defaults to today and overdue work).
+Reminders show only their current open moment, not projected future repeats.
+Each row names its source and owner, including puppy collar colour. Completion
+uses the existing review form; reminder postponement and immediate undo remain
+available. The list scrolls internally and keeps its selected filters during
+live updates. Program progress remains a separate collapsible summary.
 
 With custom `tabs`, empty groups disappear. Daily tabs precede management tabs;
 the configured order within each group is retained. Keyboard navigation follows

@@ -1,6 +1,9 @@
-import { calendarDate, escapeHtml, fetchLitters, languageForHass, puppyDisplayLabel, requestLitterChange, selectDefaultLitter, subscribeUpdates } from "./puppy-tracker-card-common.js";
+import { calendarDate, escapeHtml, fetchLitters, formatDateTime, languageForHass, puppyDisplayLabel, requestLitterChange, selectDefaultLitter, subscribeUpdates } from "./puppy-tracker-card-common.js";
 import { openCareResultEditor, renderCareSaveFeedback } from "./puppy-tracker-care-result-editor.js";
 import { renderCareSkippedWarning } from "./puppy-tracker-care-surfaces.js";
+import { canEditRecords, openFollowupEditor, openReminderEditor, reminderActionButtons, RECORD_ACTION_STYLE } from "./puppy-tracker-record-editor.js";
+import { renderRecurringSaveFeedback } from "./puppy-tracker-recurring-surfaces.js";
+import { recordTypeLabel } from "./puppy-tracker-dossier-schema.js";
 
 const TAG = "puppy-tracker-care-execution-card";
 function t(card, nl, en) { return languageForHass(card?._hass) === "en" ? en : nl; }
@@ -14,6 +17,8 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
     this._litters = [];
     this._selectedLitterId = null;
     this._scheduledOccurrences = [];
+    this._otherActions = [];
+    this._sources = new Set(["program", "reminder", "followup"]);
     this._careContext = null;
     this.__careSkipped = [];
     this._loading = false;
@@ -95,10 +100,10 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
   async _loadOccurrences() {
     const request = ++this._occurrenceRequest;
     const litterId = this._selectedLitterId;
-    if (!litterId) { this._scheduledOccurrences = []; this._careContext = null; this.__careSkipped = []; return; }
-    const response = await this._hass.callWS({ type: "puppy_tracker/care_occurrences", litter_id: litterId });
+    if (!litterId) { this._scheduledOccurrences = []; this._otherActions = []; this._careContext = null; this.__careSkipped = []; return; }
+    const maxDays = Math.max(0, Math.min(365, Math.trunc(Number(this._config.days_ahead)) || 0));
+    const response = await this._hass.callWS({ type: "puppy_tracker/care_occurrences", litter_id: litterId, include_execution: true, days_ahead: maxDays });
     if (request !== this._occurrenceRequest || litterId !== this._selectedLitterId) return;
-    const maxDays = Number(this._config.days_ahead);
     const today = response?.context?.today || this._today();
     const end = new Date(`${today}T12:00:00Z`);
     end.setUTCDate(end.getUTCDate() + maxDays);
@@ -108,6 +113,13 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
         : item?.status !== "upcoming" || maxDays < 0 || Number(item.days_until_due) <= maxDays);
     this._careContext = response?.context || null;
     this.__careSkipped = response?.skipped || [];
+    const execution = response?.execution || {};
+    this._litterData = execution;
+    this._otherActions = [
+      ...(execution.reminders || []).filter((item) => item.enabled !== false && item.next_due_at && item.owner_available !== false)
+        .map((item) => ({ ...item, source: "reminder", scheduled_date: calendarDate(item.next_due_at, this._hass) })),
+      ...(execution.followups || []).map((item) => ({ ...item, source: "followup", scheduled_date: item.due_date })),
+    ].filter((item) => item.scheduled_date && (!horizon || item.scheduled_date <= horizon));
     this._ensureSelectedDate();
   }
 
@@ -116,10 +128,15 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
     this._selectedDate = null;
     this._selectedDayExplicit = false;
     this._scheduledOccurrences = [];
+    this._otherActions = [];
     this._careContext = null;
     this.__careSkipped = [];
     this._careSaveMessage = "";
     this._savedRecord = null;
+    this._status = "";
+    this._reminderSaveMessage = "";
+    this._reminderPostponeMessage = "";
+    this._reminderUndo = null;
     this._litterData = null;
     this._loading = true;
     this._render();
@@ -143,7 +160,8 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
 
   async _queueRefresh() {
     if (!this._hass || !this._selectedLitterId || !this.isConnected) return;
-    if (this.__careResultEditorOpen) { this._refreshDeferred = true; return; }
+    if (this.__careResultEditorOpen || this._executionEditorOpen) { this._refreshDeferred = true; return; }
+    this._refreshDeferred = false;
     if (this._refreshing) { this._refreshAgain = true; return; }
     this._refreshing = true;
     try {
@@ -178,6 +196,36 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
     });
   }
 
+  async _openAction(item, button) {
+    if (!canEditRecords(this) || this._executionEditorOpen) return;
+    this._executionEditorOpen = true;
+    try {
+      const options = { trigger: button, onClosed: ({ saved }) => {
+        this._executionEditorOpen = false;
+        if (!saved && this._refreshDeferred) { this._refreshDeferred = false; this._queueRefresh(); }
+      } };
+      const editor = await (item.source === "reminder"
+        ? openReminderEditor(this, item, { ...options, mode: button?.dataset.postponeReminder ? "postpone" : "reminder" })
+        : openFollowupEditor(this, item, options));
+      if (!editor) this._executionEditorOpen = false;
+    } catch (error) {
+      this._executionEditorOpen = false;
+      this._error = error?.message || t(this, "Openen mislukt.", "Could not open the form.");
+      this._render();
+    }
+  }
+
+  _sourceLabel(source) {
+    return { program: t(this, "Zorgprogramma's", "Care programs"), reminder: t(this, "Herinneringen", "Reminders"), followup: t(this, "Vervolgacties", "Follow-ups") }[source];
+  }
+
+  get _executionItems() {
+    return [...this._occurrences.map((item) => ({ ...item, source: "program" })), ...this._otherActions]
+      .filter((item) => this._sources.has(item.source))
+      .map((item) => ({ ...item, key: `${item.source}:${item.id}` }))
+      .sort((a, b) => String(a.next_due_at || a.scheduled_at || a.scheduled_date).localeCompare(String(b.next_due_at || b.scheduled_at || b.scheduled_date)) || a.key.localeCompare(b.key));
+  }
+
   _today() {
     if (this._hass?.config?.time_zone) return calendarDate(Date.now(), this._hass);
     if (this._careContext?.today) return this._careContext.today;
@@ -185,7 +233,7 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
   }
 
   _dateOptions() {
-    const dates = new Set(this._scheduledOccurrences.map((item) => String(item?.scheduled_date || "").slice(0, 10)).filter(Boolean));
+    const dates = new Set([...this._scheduledOccurrences, ...this._otherActions].map((item) => String(item?.scheduled_date || "").slice(0, 10)).filter(Boolean));
     dates.add(this._today());
     if (this._selectedDate) dates.add(this._selectedDate);
     return [...dates].sort();
@@ -200,10 +248,20 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
   }
 
   _emptyState() {
-    if (this._loading || this._error || this.__careSkipped.length) return null;
+    if (this._loading || this._error) return null;
     const action = (key, nl, en) => this._hass?.user?.is_admin === true && this.workspaceActions?.[key]
       ? { action: key, label: t(this, nl, en) } : {};
     if (!this._selectedLitterId) return { message: t(this, "Nog geen nest beschikbaar.", "No litter available yet."), ...action("settings", "Nest aanmaken", "Create a litter") };
+    if (!this._sources.size) return { message: t(this, "Geen soorten zorg geselecteerd. Kies een filter om zorgacties te tonen.", "No care sources selected. Choose a filter to show care actions.") };
+    if (this._litterData?.litter?.active === false) return { message: t(this, "Dit nest is niet actief. Kies een actief nest om zorg uit te voeren.", "This litter is inactive. Choose an active litter to carry out care.") };
+    if (this.__careSkipped.length && this._sources.has("program")) return null;
+    if (this._otherActions.length || !this._sources.has("program")) {
+      const nextDate = [...new Set(this._executionItems.map((item) => item.scheduled_date))].sort().find((date) => date !== this._selectedDate);
+      return { message: this._config.show_day_selector === false
+        ? t(this, "Geen openstaande zorg voor het gekozen bereik en filters.", "No pending care for the selected range and filters.")
+        : t(this, "Geen openstaande zorg voor de gekozen dag en filters.", "No pending care for the selected day and filters."),
+        ...(this._config.show_day_selector !== false && nextDate ? { action: "date", date: nextDate, label: t(this, "Toon dag met openstaande zorg", "Show day with pending care") } : {}) };
+    }
     if (this._careContext?.program_count === 0) return { message: t(this, "Nog geen zorgprogramma's voor dit nest.", "No care programs for this litter yet."), ...action("programs", "Zorgprogramma toevoegen", "Add care program") };
     if (this._careContext?.enabled_program_count === 0) return { message: t(this, "Alle zorgprogramma's voor dit nest staan uit.", "All care programs for this litter are disabled."), ...action("programs", "Zorgprogramma's beheren", "Manage care programs") };
     if (this._careContext?.active_puppy_count === 0) return { message: t(this, "Er zijn geen actieve pups in dit nest.", "There are no active puppies in this litter."), ...action("settings", "Pups beheren", "Manage puppies") };
@@ -224,8 +282,9 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
   }
 
   _matchingOccurrences() {
-    if (this._config.show_day_selector === false) return this._occurrences;
-    return this._occurrences.filter((item) => String(item?.scheduled_date || "").slice(0, 10) === this._selectedDate);
+    if (this._config.show_day_selector === false) return this._executionItems;
+    return this._executionItems.filter((item) => String(item?.scheduled_date || "").slice(0, 10) === this._selectedDate
+      || (this._selectedDate === this._today() && item.scheduled_date < this._selectedDate));
   }
 
   _pageSize() { return Math.max(5, Math.min(200, Number(this._config.max_items) || 50)); }
@@ -254,7 +313,7 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
       if (item.status === "completed") group.completed += 1;
       if (item.status === "missed") group.missed += 1;
     }
-    region.hidden = !groups.size || Boolean(this._error) || this._loading;
+    region.hidden = !this._sources.has("program") || !groups.size || Boolean(this._error) || this._loading;
     const heading = t(this, `Dagvoortgang · ${this._formatDate(date)}`, `Daily progress · ${this._formatDate(date)}`);
     if (region.querySelector("summary").textContent !== heading) region.querySelector("summary").textContent = heading;
     const list = region.querySelector(".progress-list");
@@ -282,6 +341,7 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
     this.shadowRoot.innerHTML = `<ha-card>
       <div class="head"><div><div class="title"></div><div class="sub"></div></div><div class="selectors"></div></div>
       <div class="error" role="alert" hidden></div><div class="state" role="status" hidden></div>
+      <div class="source-filters" role="group"></div><div class="execution-note"></div><div class="execution-status" role="status" hidden></div>
       <details class="care-progress" open hidden><summary></summary><div class="progress-list"></div></details>
       <div class="rows" tabindex="-1"></div>
       <div class="list-footer" hidden><span role="status"></span><button id="show-more" type="button"><ha-icon icon="mdi:chevron-down"></ha-icon><span></span></button></div>
@@ -316,15 +376,26 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
         if (dates[index]) { this._selectedDate = dates[index]; this._selectedDayExplicit = true; this._render(); }
         return;
       }
-      const row = event.target.closest(".row[data-care-occurrence]");
+      if (button?.dataset.source) {
+        const source = button.dataset.source;
+        if (this._sources.has(source)) this._sources.delete(source); else this._sources.add(source);
+        this._render();
+        return;
+      }
+      const row = event.target.closest(".row[data-execution-key]");
       if (!row || this._hass?.user?.is_admin === false || event.target.closest(".care-result-overlay")) return;
-      const item = this._occurrences.find((candidate) => candidate.id === row.dataset.careOccurrence);
-      if (item) this._openResult(item, button?.dataset.action || "completed");
+      const item = this._executionItems.find((candidate) => candidate.key === row.dataset.executionKey);
+      if (!item) return;
+      if (item.source === "program") this._openResult(item, button?.dataset.action || "completed");
+      else this._openAction(item, button || row);
     });
+    const style = document.createElement("style");
+    style.textContent = `${RECORD_ACTION_STYLE}.source-filters{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.source-filters button{min-height:44px;padding:8px 12px;border:1px solid var(--divider-color);border-radius:20px;background:var(--secondary-background-color);color:var(--primary-text-color);font:inherit;cursor:pointer}.source-filters button[aria-pressed=true]{background:var(--primary-color);color:var(--text-primary-color,#fff)}.execution-note{font-size:.8rem;color:var(--secondary-text-color);margin-top:8px}.execution-status{margin-top:10px}.source-label{font-size:.75rem;font-weight:600}.actions .recurring-actions{flex-wrap:wrap}.actions .record-edit-button{display:inline-flex;align-items:center;gap:5px;width:auto;padding:8px 10px;min-width:44px;min-height:44px}.actions .record-edit-button span{color:inherit}.actions [data-postpone-reminder]{background:var(--secondary-background-color);color:var(--primary-text-color)}`;
+    this.shadowRoot.append(style);
   }
 
   _render() {
-    if (this.__careResultEditorOpen) { this._refreshDeferred = true; return; }
+    if (this.__careResultEditorOpen || this._executionEditorOpen) { this._refreshDeferred = true; return; }
     this._ensureSelectedDate();
     this._ensureView();
     this._renderLanguage = languageForHass(this._hass);
@@ -332,6 +403,20 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
     const root = this.shadowRoot;
     root.querySelector(".title").textContent = this._config.title || t(this, "Zorg uitvoeren", "Carry out care");
     root.querySelector(".sub").textContent = t(this, "Los van Aandacht en Vandaag", "Independent of Attention and Today");
+    const filters = root.querySelector(".source-filters");
+    filters.setAttribute("aria-label", t(this, "Soorten zorg", "Care sources"));
+    for (const source of ["program", "reminder", "followup"]) {
+      let button = filters.querySelector(`[data-source="${source}"]`);
+      if (!button) { button = document.createElement("button"); button.type = "button"; button.dataset.source = source; filters.append(button); }
+      button.textContent = this._sourceLabel(source);
+      button.setAttribute("aria-pressed", String(this._sources.has(source)));
+    }
+    root.querySelector(".execution-note").textContent = this._config.show_day_selector !== false && this._selectedDate === this._today()
+      ? t(this, "Vandaag en nog openstaande zorg van eerdere dagen. Herinneringen tonen alleen het huidige openstaande moment.", "Today and pending care from earlier days. Reminders show only their current open moment.")
+      : t(this, "Herinneringen tonen alleen het huidige openstaande moment.", "Reminders show only their current open moment.");
+    const status = root.querySelector(".execution-status");
+    status.textContent = this._status || "";
+    status.hidden = !this._status;
     const dates = this._dateOptions();
     const selectedIndex = dates.indexOf(this._selectedDate);
     const showLitter = this._config.show_litter_selector !== false && this._litters.length > 1;
@@ -359,25 +444,27 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
     loading.hidden = !this._loading;
     this._renderProgress();
 
-    const context = JSON.stringify([this._selectedLitterId, showDay, this._selectedDate, this._pageSize()]);
+    const context = JSON.stringify([this._selectedLitterId, showDay, this._selectedDate, [...this._sources], this._pageSize()]);
     const list = root.querySelector(".rows");
     const scrollTop = context === this._viewContext ? list.scrollTop : 0;
     if (context !== this._viewContext) this._visibleLimit = this._pageSize();
     this._viewContext = context;
     const matching = this._matchingOccurrences();
     const visible = this._visibleOccurrences();
-    const existing = new Map([...list.querySelectorAll(".row")].map((row) => [row.dataset.careOccurrence, row]));
+    const existing = new Map([...list.querySelectorAll(".row")].map((row) => [row.dataset.executionKey, row]));
     const focused = root.activeElement;
     const focusedIndex = [...list.children].findIndex((row) => row.contains(focused));
     const seen = new Set();
     visible.forEach((item, index) => {
-      const row = existing.get(item.id) || document.createElement("div");
+      const row = existing.get(item.key) || document.createElement("div");
       row.className = `row ${item.status === "overdue" ? "danger" : item.status === "due_today" ? "warning" : ""}`;
-      row.dataset.careOccurrence = item.id;
-      const markup = `<div class="main"><strong>${escapeHtml(item.title || t(this, "Zorgactie", "Care action"))}</strong><span>${escapeHtml(puppyDisplayLabel(this, item.puppy_id, item.puppy_name || t(this, "Pup", "Puppy"), item.collar_color))} · ${escapeHtml(item.scheduled_date || "")} · ${escapeHtml(item.status === "overdue" ? t(this, "Te laat", "Overdue") : item.status === "due_today" ? t(this, "Vandaag", "Today") : t(this, `Over ${item.days_until_due} dagen`, `In ${item.days_until_due} days`))}</span>${item.instructions ? `<small>${escapeHtml(item.instructions)}</small>` : ""}</div><div class="actions"><button data-action="completed" data-id="${escapeHtml(item.id)}" ${this._renderAdmin ? "" : "disabled"}>${escapeHtml(t(this, "Uitvoering registreren", "Record completion"))}</button><button class="secondary" data-action="missed" data-id="${escapeHtml(item.id)}" ${this._renderAdmin ? "" : "disabled"}>${escapeHtml(t(this, "Als gemist registreren", "Record as missed"))}</button></div>`;
+      if (item.source === "program") row.dataset.careOccurrence = item.id;
+      else delete row.dataset.careOccurrence;
+      row.dataset.executionKey = item.key;
+      const markup = this._rowMarkup(item);
       if (row._markup !== markup) { row.innerHTML = markup; row._markup = markup; }
       if (list.children[index] !== row) list.insertBefore(row, list.children[index] || null);
-      seen.add(item.id);
+      seen.add(item.key);
     });
     for (const [id, row] of existing) if (!seen.has(id)) row.remove();
     let empty = list.querySelector(".empty");
@@ -397,10 +484,36 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
     const more = root.getElementById("show-more");
     more.hidden = visible.length >= matching.length;
     more.querySelector("span").textContent = t(this, "Meer tonen", "Show more");
-    const skippedKey = JSON.stringify([this._renderLanguage, this.__careSkipped]);
-    if (skippedKey !== this._skippedKey) { renderCareSkippedWarning(this); this._skippedKey = skippedKey; }
+    const skippedKey = JSON.stringify([this._renderLanguage, this.__careSkipped, this._sources.has("program")]);
+    if (skippedKey !== this._skippedKey) {
+      if (this._sources.has("program")) renderCareSkippedWarning(this);
+      else root.querySelector(".care-skipped-warning")?.remove();
+      this._skippedKey = skippedKey;
+    }
     const feedbackKey = JSON.stringify([this._careSaveMessage, this._savedRecord, this._renderAdmin, this._litterData?.can_manage_records]);
     if (feedbackKey !== this._feedbackKey) { renderCareSaveFeedback(this); this._feedbackKey = feedbackKey; }
+    const reminderFeedbackKey = JSON.stringify([this._reminderSaveMessage, this._reminderPostponeMessage, this._reminderUndo, this._reminderUndoError, this._busy, this._renderAdmin, this._litterData?.can_manage_records]);
+    if (reminderFeedbackKey !== this._reminderFeedbackKey) { renderRecurringSaveFeedback(this); this._reminderFeedbackKey = reminderFeedbackKey; }
+  }
+
+  _rowMarkup(item) {
+    const source = item.source;
+    const scope = item.owner_scope || item.scope || "puppy";
+    const owner = scope === "puppy"
+      ? puppyDisplayLabel(this, item.puppy_id || item.owner_id, item.puppy_name || item.owner_name || t(this, "Pup", "Puppy"), item.collar_color)
+      : scope === "mother" ? `${t(this, "Moederhond", "Mother dog")} · ${this._litterData?.litter?.mother || item.owner_name || ""}`
+        : `${t(this, "Hele nest", "Whole litter")} · ${this._litterData?.litter?.name || item.owner_name || ""}`;
+    const title = source === "followup" ? recordTypeLabel(this._hass, item.record_type) : item.title || t(this, "Zorgactie", "Care action");
+    const date = item.next_due_at || item.scheduled_at
+      ? formatDateTime(item.next_due_at || item.scheduled_at, "", this._hass) : this._formatDate(item.scheduled_date);
+    const state = item.status === "overdue" ? t(this, "Te laat", "Overdue")
+      : item.postponed ? t(this, "Uitgesteld", "Postponed")
+        : item.scheduled_date === this._today() ? t(this, "Vandaag", "Today") : t(this, "Gepland", "Scheduled");
+    const actions = source === "program"
+      ? `<button data-action="completed" data-id="${escapeHtml(item.id)}" ${this._renderAdmin ? "" : "disabled"}>${escapeHtml(t(this, "Uitvoering registreren", "Record completion"))}</button><button class="secondary" data-action="missed" data-id="${escapeHtml(item.id)}" ${this._renderAdmin ? "" : "disabled"}>${escapeHtml(t(this, "Als gemist registreren", "Record as missed"))}</button>`
+      : source === "reminder" ? reminderActionButtons(this, item, { labels: true })
+        : canEditRecords(this) ? `<button data-action="followup">${escapeHtml(t(this, "Uitvoering registreren", "Record completion"))}</button>` : "";
+    return `<div class="main"><span class="source-label">${escapeHtml(this._sourceLabel(source))}</span><strong>${escapeHtml(title)}</strong><span>${escapeHtml(owner)} · ${escapeHtml(date)} · ${escapeHtml(state)}</span>${item.instructions || item.source_title ? `<small>${escapeHtml(item.instructions || item.source_title)}</small>` : ""}</div><div class="actions">${actions}</div>`;
   }
 }
 

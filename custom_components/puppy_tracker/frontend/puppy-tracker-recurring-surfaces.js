@@ -118,6 +118,10 @@ export function bindReminderButtons(card, root, items) {
 
 export function renderRecurringSaveFeedback(card) {
   const root = card.shadowRoot;
+  if (!card._reminderUndoBusy && card._reminderUndoControls) {
+    for (const [control, disabled] of card._reminderUndoControls) if (control.isConnected) control.disabled = disabled;
+    card._reminderUndoControls = null;
+  }
   bindLastExecutions(card, root, []);
   root?.querySelector(".recurring-save-feedback")?.remove();
   root?.querySelector(".recurring-postpone-feedback")?.remove();
@@ -160,7 +164,10 @@ export function renderRecurringSaveFeedback(card) {
     status.append(error);
   }
   root?.querySelector("ha-card")?.append(status);
-  if (card._reminderUndoBusy) root?.querySelectorAll("button,input,select,textarea").forEach((control) => { control.disabled = true; });
+  if (card._reminderUndoBusy) {
+    card._reminderUndoControls ||= Array.from(root?.querySelectorAll("button,input,select,textarea") || [], (control) => [control, control.disabled]);
+    root?.querySelectorAll("button,input,select,textarea").forEach((control) => { control.disabled = true; });
+  }
 }
 
 async function undoExecution(card, undo) {

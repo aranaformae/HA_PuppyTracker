@@ -59,21 +59,21 @@ export function openFollowupEditor(card, action, options = {}) {
     ? { ...options, mode: "followup", dueDate: action.due_date || action.due_at } : options);
 }
 
-export function reminderCompleteButton(card, reminder) {
+export function reminderCompleteButton(card, reminder, { labels = false } = {}) {
   if (!canEditRecords(card) || reminder?.enabled === false || !reminder?.next_due_at || !reminder?.updated_at) return "";
   const label = copy(card._hass, "Uitvoering registreren", "Record completion");
-  return `<button type="button" class="record-edit-button" data-complete-reminder="${escape(reminder.id)}" title="${escape(label)}" aria-label="${escape(label)}"><ha-icon icon="mdi:clipboard-check-outline"></ha-icon></button>`;
+  return `<button type="button" class="record-edit-button" data-complete-reminder="${escape(reminder.id)}" title="${escape(label)}" aria-label="${escape(label)}"><ha-icon icon="mdi:clipboard-check-outline"></ha-icon>${labels ? `<span>${escape(label)}</span>` : ""}</button>`;
 }
 
-export function reminderPostponeButton(card, reminder) {
+export function reminderPostponeButton(card, reminder, { labels = false } = {}) {
   if (!reminderCompleteButton(card, reminder) || reminder.owner_available === false) return "";
   const label = copy(card._hass, "Eenmalig uitstellen", "Postpone once");
-  return `<button type="button" class="record-edit-button" data-postpone-reminder="${escape(reminder.id)}" title="${escape(label)}" aria-label="${escape(label)}"><ha-icon icon="mdi:clock-edit-outline"></ha-icon></button>`;
+  return `<button type="button" class="record-edit-button" data-postpone-reminder="${escape(reminder.id)}" title="${escape(label)}" aria-label="${escape(label)}"><ha-icon icon="mdi:clock-edit-outline"></ha-icon>${labels ? `<span>${escape(label)}</span>` : ""}</button>`;
 }
 
-export function reminderActionButtons(card, reminder) {
-  const complete = reminderCompleteButton(card, reminder);
-  return complete ? `<div class="recurring-actions">${complete}${reminderPostponeButton(card, reminder)}</div>` : "";
+export function reminderActionButtons(card, reminder, options = {}) {
+  const complete = reminderCompleteButton(card, reminder, options);
+  return complete ? `<div class="recurring-actions">${complete}${reminderPostponeButton(card, reminder, options)}</div>` : "";
 }
 
 export function openReminderEditor(card, reminder, options = {}) {

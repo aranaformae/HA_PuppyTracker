@@ -23,24 +23,33 @@ normal structured puppy dossier record
 `care_programs.py` owns persistent program definitions. `care_occurrences.py` derives occurrences from a program and puppy `birth_time`. `care_results.py` records outcomes through the normal dossier storage. `care_program_api.py` exposes the backend contract to frontend surfaces.
 
 The Care preset of `custom:puppy-tracker-workspace-card` contains the dedicated
-daily execution workflow. It lists open occurrences and records `completed` or
-`missed` directly, regardless of `counts_for_attention`. This lets a dashboard
-keep Today and Attention focused on signal-only items while still providing a
+daily execution workflow. Its list combines open program occurrences, recurring
+reminders and dossier follow-ups. Source chips can independently show or hide
+each kind, including all off. Program outcomes can be `completed` or `missed`,
+regardless of `counts_for_attention`. Reminder completion and dossier follow-ups
+use the existing shared record editor, with an opportunity to check the actual
+product, result and next due date before saving a new linked entry. Reminder
+postponement and immediate undo use the same rules as Today and Reminders.
+This lets a dashboard keep Today and Attention focused on signal-only items while still providing a
 complete operational checklist.
 
 The execution card can be navigated by scheduled day. With
 `show_day_selector: true` (the default), it provides a date selector and
-previous/next day buttons and shows only open occurrences for the selected
-date. The card keeps its occurrence list at a maximum height of `60vh` and
+previous/next day buttons. Today includes open care from earlier days so overdue
+work stays reachable; another selected date shows only work scheduled that day.
+The card keeps its action list at a maximum height of `60vh` and
 scrolls that list internally, so a long day does not push the rest of a mobile
 dashboard out of view. `show_day_selector: false` restores one continuous list
 over the loaded date range. `max_items` sets the initial number of visible rows
 and the **Show more** batch size. A visible shown/total count and **Show more**
 keep every matching action reachable. `days_ahead` controls which future
-occurrences are loaded.
+actions are loaded. Recurring reminders contribute only their current open
+moment; navigating forward does not predict future repetitions. The sources
+retain their own planning rules and saved data. Only active litter/puppy owners
+are included; mother follow-ups are limited to the selected litter.
 
-Live updates retain the list, scroll position, selected day and expanded row
-limit. Completing the last action on a selected day leaves that empty day
+Live updates retain source filters, the list, scroll position, selected day and
+expanded row limit. Completing the last action on a selected day leaves that empty day
 selected instead of jumping to today. Changing the day or litter starts a fresh
 list. Unrelated Home Assistant state updates do not reload care actions.
 Missing birth times and other skipped schedules show the same warning as Today

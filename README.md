@@ -166,8 +166,11 @@ its recurrence. You can cancel postponement from Today/Mobile or Reminders.
 In the Care workspace, **Daily** contains **Carry out care** and Calculator;
 **Management** contains Care programs and Reminders. Administrators can use
 the settings icon to open the integration's litter settings.
-Carry out care is the complete checklist even when a program is not
-configured to appear in Attention. See
+Carry out care combines programs, recurring reminders and dossier follow-ups
+in one list, with filters for each source. Check the actual details before
+recording completion as a new logbook entry. Today's list also keeps overdue
+care visible; reminders show their current open moment. Programs remain
+available even when excluded from Attention. See
 [Age-based care programs](docs/CARE_PROGRAMS.md) and
 [Notifications](docs/NOTIFICATIONS.md).
 

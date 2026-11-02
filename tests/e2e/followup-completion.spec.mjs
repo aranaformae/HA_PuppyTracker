@@ -40,7 +40,10 @@ async function mount(page, surface, scope, recordType = "deworming") {
         }
         if (message.type === "puppy_tracker/mother/attention") return { owner: { name: "Luna" }, dossier_actions: { actions: actions("mother") } };
         if (message.type === "puppy_tracker/attention_acknowledgements") return { acknowledgements: {} };
-        if (message.type === "puppy_tracker/care_occurrences") return { occurrences: [], skipped: [] };
+        if (message.type === "puppy_tracker/care_occurrences") return { occurrences: [], skipped: [], execution: {
+          can_manage_records: true, litter: { id: "l1", name: "Test litter", mother: "Luna" },
+          puppies: [{ id: "p1", name: "Alice", collar_color: "Red" }], reminders: [], followups: actions(scope),
+        } };
         if (message.type === "puppy_tracker/recurring_reminders") return { reminders: [] };
         if (message.type.endsWith("/record/add")) {
           if (state.fail) throw new Error("Temporary failure");
@@ -54,20 +57,20 @@ async function mount(page, surface, scope, recordType = "deworming") {
         throw new Error(`Unexpected command ${message.type}`);
       },
     };
-    const card = document.createElement(`puppy-tracker-${surface}-card`);
-    card.setConfig({ litter_id: "l1", default_selected: scope, puppy_id: scope === "puppy" ? "p1" : undefined, show_history: true, show_litter_selector: false });
+    const card = document.createElement(["care", "mobile"].includes(surface) ? "puppy-tracker-workspace-card" : `puppy-tracker-${surface}-card`);
+    card.setConfig({ litter_id: "l1", preset: surface === "mobile" ? "mobile" : "care", default_tab: "care", default_selected: scope, puppy_id: scope === "puppy" ? "p1" : undefined, show_history: true, show_litter_selector: false });
     document.querySelector("#cards").append(card);
     card.hass = hass;
   }, { surface, scope, recordType });
-  const card = page.locator(`puppy-tracker-${surface}-card`);
+  const card = page.locator(["care", "mobile"].includes(surface) ? "puppy-tracker-workspace-card puppy-tracker-care-execution-card" : `puppy-tracker-${surface}-card`);
   const key = `${scope}-source:next_due_date`;
-  const selector = surface === "dossier" ? `[data-complete-followup="${key}"]` : `[data-complete-followup="${scope === "mother" ? "mother" : "dossier"}:${key}"]`;
+  const selector = ["care", "mobile"].includes(surface) ? `[data-execution-key="followup:${key}"] [data-action="followup"]` : surface === "dossier" ? `[data-complete-followup="${key}"]` : `[data-complete-followup="${scope === "mother" ? "mother" : "dossier"}:${key}"]`;
   const button = card.locator(selector);
   await expect(button).toBeVisible();
   return { card, button };
 }
 
-for (const surface of ["dossier", "attention"]) {
+for (const surface of ["dossier", "attention", "care", "mobile"]) {
   for (const scope of ["puppy", "mother", "litter"]) {
     test(`${surface} completes ${scope} follow-up as a new editable fact @cross-browser @tablet`, async ({ page }, testInfo) => {
       const { card, button } = await mount(page, surface, scope);

@@ -10,6 +10,18 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+### Added
+
+- Combine care programs, recurring reminders and dossier follow-ups in
+  **Carry out care** in both Care and Mobile, with independent source filters,
+  owner labels, day navigation and existing review/completion forms. Today also
+  includes overdue work; reminder postponement and immediate undo are retained.
+
+### Fixed
+
+- Restore the enabled state of retained controls after undoing a reminder
+  execution, including in care lists that update without rebuilding the page.
+
 ## [0.37.2] - 2026-11-02
 
 ### Fixed

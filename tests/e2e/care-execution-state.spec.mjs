@@ -23,7 +23,7 @@ async function mountCare(page, language = "en") {
       callWS: async (msg) => {
         state.calls.push(structuredClone(msg));
         if (msg.type === "puppy_tracker/litters") return { litters: [{ id: "l1", name: "Nest", active: true }, { id: "l2", name: "Other litter", active: true }] };
-        if (msg.type === "puppy_tracker/care_occurrences") return { occurrences: structuredClone(state.occurrences), skipped: structuredClone(state.skipped) };
+        if (msg.type === "puppy_tracker/care_occurrences") return { occurrences: structuredClone(state.occurrences), skipped: structuredClone(state.skipped), execution: structuredClone(state.execution || {}) };
         if (msg.type === "puppy_tracker/care_occurrence/record") {
           state.occurrences = state.occurrences.filter((item) => item.id !== msg.occurrence_id);
           return { record_id: "saved" };
@@ -152,3 +152,52 @@ test("care config changes reload their context and reject stale responses", asyn
   });
   expect(result).toEqual({ configReloaded: true, ids: ["fresh"], skipped: [] });
 });
+
+for (const language of ["nl", "en"]) {
+  test(`mixed care sources retain identity, date filters and drafts (${language}) @cross-browser @tablet`, async ({ page }, testInfo) => {
+    const card = await mountCare(page, language);
+    await page.evaluate(async () => {
+      for (const [key, value] of Object.entries({
+        "--primary-color": "#039be5", "--text-primary-color": "#fff", "--primary-text-color": "#212121",
+        "--secondary-text-color": "#666", "--card-background-color": "#fff",
+        "--secondary-background-color": "#f4f4f4", "--divider-color": "#ddd", "--error-color": "#b71c1c",
+      })) document.documentElement.style.setProperty(key, value);
+      const state = window.careState;
+      state.occurrences = [{ ...state.occurrences[0], id: "shared" }];
+      state.execution = { can_manage_records: true, litter: { id: "l1", name: "Nest", mother: "Luna" },
+        puppies: [{ id: "p1", name: "Nova", collar_color: "paars" }],
+        reminders: [{ id: "shared", title: "Temperature", owner_scope: "mother", owner_id: "m1", owner_name: "Luna", record_type: "temperature",
+          next_due_at: new Date(Date.now() - 60000).toISOString(), updated_at: "v1", enabled: true, status: "overdue" }],
+        followups: [{ id: "shared", title: "Ontworming", record_type: "deworming", source_record_id: "source", scope: "litter", due_date: window.careDates[1], status: "upcoming" }],
+      };
+      await window.refreshCare();
+    });
+    await expect(card.locator(".rows .row")).toHaveCount(2);
+    await expect(card.locator('[data-execution-key="reminder:shared"]')).toContainText("Luna");
+    await expect(card.locator('[data-execution-key="program:shared"]')).toContainText("Nova (paars)");
+    await expect(card.locator('[data-execution-key="reminder:shared"]')).not.toHaveAttribute("data-care-occurrence");
+    await card.screenshot({ path: testInfo.outputPath("unified-care.png") });
+    const note = language === "en" ? "Reminders show only" : "Herinneringen tonen alleen";
+    await expect(card.locator(".execution-note")).toContainText(note);
+    await card.locator('[data-source="program"]').click();
+    await expect(card.locator(".rows .row")).toHaveCount(1);
+    await card.locator('[data-complete-reminder="shared"]').click();
+    const editor = page.locator("puppy-tracker-record-editor");
+    await editor.locator("#record-data-temperature_c").fill("38.4");
+    await page.evaluate(async () => {
+      window.careState.execution.reminders[0].title = "Changed elsewhere";
+      await window.refreshCare();
+    });
+    await expect(editor.locator("#record-data-temperature_c")).toHaveValue("38.4");
+    page.once("dialog", (dialog) => dialog.accept());
+    await editor.locator("#record-cancel").click();
+    await expect(card.locator('[data-execution-key="reminder:shared"]')).toContainText("Changed elsewhere");
+    await card.locator("#next-day").click();
+    await expect(card.locator(".rows .row")).toHaveCount(1);
+    await expect(card.locator('[data-execution-key="followup:shared"]')).toContainText(language === "en" ? "Deworming" : "Ontworming");
+    await card.locator('[data-source="followup"]').click();
+    await expect(card.locator(".rows .row")).toHaveCount(0);
+    await card.locator('[data-source="reminder"]').click();
+    await expect(card.locator(".empty")).toContainText(language === "en" ? "No care sources selected" : "Geen soorten zorg geselecteerd");
+  });
+}

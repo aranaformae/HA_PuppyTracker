@@ -968,6 +968,26 @@ care_notifications.py
 
 The full contract is documented in [`CARE_PROGRAMS.md`](CARE_PROGRAMS.md).
 
+The execution surface requests `care_occurrences` with `include_execution: true`
+and a bounded `days_ahead` (0–365). Other clients retain the original response
+by default. The optional `execution` projection in `care_execution.py` adds
+follow-ups from `upcoming_actions`, reconciled reminder items from the same
+`async_reminder_items` builder in `recurring_reminder_view.py` as reminder
+management, minimal litter/puppy identity and the authenticated `can_manage_records` permission. It creates no
+new task store and exposes no buyer/contact data. Inactive owners and mother
+records belonging to another litter are excluded. Failure to derive the added
+reminder/follow-up sources fails the refresh visibly rather than presenting a
+partial list as complete. Skipped program schedules
+retain their existing explicit warning.
+
+The frontend keys rows by source plus ID, retains source/date filters and DOM
+nodes on refresh, and defers refresh while a completion editor is open. Program
+completion keeps the care result flow; follow-ups and reminders call the shared
+record editor and canonical write endpoints. Reminder undo restores the prior
+disabled state of retained controls. Today's action list includes overdue work;
+program progress still describes only the selected scheduled day. Future
+reminder slots are not synthesized.
+
 ### Persistent definition, derived occurrence, dossier fact
 
 The model is:

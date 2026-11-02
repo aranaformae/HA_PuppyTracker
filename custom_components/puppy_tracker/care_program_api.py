@@ -13,6 +13,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.util import dt as dt_util
 
 from .care_occurrences import derive_litter_care_occurrences
+from .care_execution import async_execution_sources
 from .care_course_conflicts import course_schedule_conflicts
 from .care_programs import (
     AgeBasedCareProgramStore,
@@ -202,6 +203,8 @@ async def websocket_care_program_conflicts(hass, connection, msg) -> None:
     vol.Required("type"): f"{DOMAIN}/care_occurrences",
     vol.Required("litter_id"): str,
     vol.Optional("program_id"): str,
+    vol.Optional("include_execution", default=False): bool,
+    vol.Optional("days_ahead", default=14): vol.All(int, vol.Range(min=0, max=365)),
 })
 @websocket_api.async_response
 async def websocket_list_care_occurrences(hass, connection, msg) -> None:
@@ -223,6 +226,8 @@ async def websocket_list_care_occurrences(hass, connection, msg) -> None:
             return
 
     puppies = [puppy for puppy in (litter.get("puppies") or {}).values() if isinstance(puppy, dict)]
+    if msg.get("include_execution") and litter.get("active", True) is False:
+        puppies = []
     occurrences: list[dict[str, Any]] = []
     skipped: list[dict[str, str]] = []
     records_by_puppy: dict[str, dict[str, list[dict[str, Any]]]] = {}
@@ -250,9 +255,16 @@ async def websocket_list_care_occurrences(hass, connection, msg) -> None:
                     "reason": reason,
                 })
     occurrences.sort(key=lambda item: (item["scheduled_at"], item["puppy_id"], item["program_id"]))
+    execution = {}
+    if msg.get("include_execution"):
+        execution = {"execution": {
+            **await async_execution_sources(get_runtime_data(hass), litter, days_ahead=msg.get("days_ahead", 14)),
+            "can_manage_records": bool(connection.user and connection.user.is_admin),
+        }}
     connection.send_result(msg["id"], {
         "occurrences": occurrences,
         "skipped": skipped,
+        **execution,
         "context": {
             "program_count": len(programs),
             "enabled_program_count": sum(bool(program.get("enabled", True)) for program in programs),
