@@ -2202,3 +2202,27 @@ Type-specific schemas should be added only when the corresponding feature is imp
 ## Pre-1.0 rule
 
 The pre-1.0 period is the time to correct naming and architecture. Once 1.0 is released, domain names, entity identities, storage contracts, owner-scope semantics, WebSocket message shapes, occurrence identity rules and dashboard element names should be treated as compatibility-sensitive public interfaces.
+
+### Shared notification check lifecycle and status contracts
+
+`notification_runner.py` owns signal/timer subscriptions, one pending task,
+coalesced reruns, cancellation and restart for both notification managers.
+Managers retain delivery state, notification IDs/tags and their own business
+rules; stopping the runner precedes persistent/mobile cleanup. Start/stop are
+idempotent. A signal arriving while a check runs is evaluated again; a failed
+check cannot leave the scheduler permanently busy. Stopping suppresses queued
+reruns and unsubscribes before cancellation, so no orphan timer/check survives.
+
+`due_status.py` centralizes stable status names, not deadline calculations.
+`upcoming.py`, `care_status.py` and `recurring_reminders.py` retain their distinct
+calendar-day, age/clock and instant-based rules. Program notification lead status
+is a delivery projection. Disabled one-time reminders report disabled rather
+than completed. Inactive owner eligibility is separate from retained historical
+ownership: recurring and grouped program notices are retracted for inactive
+litters/pups without discarding their definitions or facts.
+
+Canonical dashboard aggregation uses `open_count` once across litter/active-pup
+records. `dossier_open_count` and `dossier_has_open_actions` expose that meaning;
+legacy due-soon aliases retain it for existing clients. Published enum values,
+entity unique IDs, tags and events are preserved. See
+[status/count semantics](HOME_ASSISTANT.md#derived-care-counts-and-compatibility-names).

@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import asyncio
-from contextlib import suppress
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Any
 
 from homeassistant.components.persistent_notification import (
@@ -12,9 +10,7 @@ from homeassistant.components.persistent_notification import (
     async_dismiss as async_dismiss_persistent_notification,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
-from homeassistant.helpers.dispatcher import async_dispatcher_connect
-from homeassistant.helpers.event import async_track_time_interval
+from homeassistant.core import HomeAssistant
 
 from .care_notifications import async_check_care_notifications, async_clear_care_notifications
 from .const import (
@@ -24,9 +20,11 @@ from .const import (
     DOMAIN,
     SIGNAL_DASHBOARD_UPDATE,
 )
+from .due_status import TIMED_NOTIFICATION_STATUSES
+from .notification_runner import NotificationCheckRunner
 from .notification_delivery import async_clear_notify_entities, async_send_notify_entities, normalize_notify_entities
 from .recurring_reminder_api import async_reconcile_recurring_reminders
-from .recurring_reminders import RecurringReminderStore, reminder_status
+from .recurring_reminders import RecurringReminderStore, reminder_owner_is_active, reminder_status
 from .runtime import PuppyTrackerRuntimeData
 
 CHECK_INTERVAL = timedelta(minutes=10)
@@ -39,32 +37,14 @@ class RecurringReminderNotificationManager:
         self.hass = hass
         self.entry = entry
         self.runtime = runtime
-        self._unsub: list[CALLBACK_TYPE] = []
-        self._task: asyncio.Task[Any] | None = None
-        self._check_scheduled = False
-        self._rerun_requested = False
-        self._stopping = False
+        self._runner = NotificationCheckRunner(hass, lambda: self.async_check())
         self._states: dict[str, tuple[str, str | None]] = {}
 
     async def async_start(self) -> None:
-        self._stopping = False
-        self._unsub.append(async_dispatcher_connect(self.hass, SIGNAL_DASHBOARD_UPDATE, self._handle_signal))
-        self._unsub.append(async_track_time_interval(self.hass, self._handle_interval, CHECK_INTERVAL))
-        self._schedule()
+        self._runner.start((SIGNAL_DASHBOARD_UPDATE,), CHECK_INTERVAL)
 
     async def async_stop(self) -> None:
-        self._stopping = True
-        for unsub in self._unsub:
-            unsub()
-        self._unsub.clear()
-        if self._task is not None and not self._task.done():
-            self._task.cancel()
-            with suppress(asyncio.CancelledError):
-                await self._task
-        self._task = None
-        self._check_scheduled = False
-        self._rerun_requested = False
-
+        await self._runner.async_stop()
         settings = self.runtime.storage.get_settings()
         notify_entities = normalize_notify_entities(
             settings.get("notify_entities", DEFAULT_NOTIFY_ENTITIES)
@@ -80,40 +60,6 @@ class RecurringReminderNotificationManager:
         await async_clear_care_notifications(
             self.hass, notify_entities=notify_entities
         )
-
-    @callback
-    def _handle_signal(self, *args: Any) -> None:
-        self._schedule()
-
-    @callback
-    def _handle_interval(self, now: datetime) -> None:
-        self._schedule()
-
-    @callback
-    def _schedule(self) -> None:
-        if self._stopping:
-            return
-        if self._check_scheduled:
-            self._rerun_requested = True
-            return
-        self._check_scheduled = True
-        self._task = self.hass.async_create_task(self._async_check_runner())
-
-    async def _async_check_runner(self) -> None:
-        """Run again when state changes while a notification check is active."""
-        try:
-            while True:
-                self._rerun_requested = False
-                await self.async_check()
-                await asyncio.sleep(0)
-                if not self._rerun_requested:
-                    break
-        finally:
-            self._check_scheduled = False
-            self._task = None
-            if self._rerun_requested and not self._stopping:
-                self._rerun_requested = False
-                self._schedule()
 
     async def async_check(self) -> None:
         await async_reconcile_recurring_reminders(self.hass)
@@ -142,10 +88,9 @@ class RecurringReminderNotificationManager:
                     notification_lead_minutes=default_lead_minutes,
                 )
                 reminder_id = str(item["id"])
-                if not notifications_enabled or item.get("status") not in {
-                    "due_soon",
-                    "overdue",
-                }:
+                if (not notifications_enabled
+                    or not reminder_owner_is_active(self.runtime.storage, item)
+                    or item.get("status") not in TIMED_NOTIFICATION_STATUSES):
                     if reminder_id in self._states:
                         async_dismiss_persistent_notification(
                             self.hass, self._notification_id(reminder_id)

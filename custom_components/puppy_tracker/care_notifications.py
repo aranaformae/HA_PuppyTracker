@@ -22,10 +22,10 @@ from .const import (
     DEFAULT_NOTIFY_ENTITIES,
     DOMAIN,
 )
+from .due_status import CARE_NOTIFICATION_STATUSES as DUE_STATUSES
 from .notification_delivery import async_clear_notify_entities, async_send_notify_entities, normalize_notify_entities
 from .runtime import PuppyTrackerRuntimeData
 
-DUE_STATUSES = {"due_soon", "due_today", "overdue"}
 DATA_NOTIFICATION_STATE = f"{DOMAIN}_care_notification_state"
 
 
@@ -64,6 +64,8 @@ async def async_check_care_notifications(
             continue
         litter_id = str(program.get("litter_id") or "")
         litter = runtime.storage.get_litter(litter_id) or {}
+        if not litter or litter.get("active", True) is False:
+            continue
         puppies = [
             puppy
             for puppy in (litter.get("puppies") or {}).values()

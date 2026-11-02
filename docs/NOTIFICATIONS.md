@@ -47,7 +47,7 @@ preferences; no migration or re-entry is needed.
   advance notification until the chosen time. It does not log a completion or
   change the recurrence. At the new time, normal notification checks resume.
 - A clocked care occurrence can become `due_soon`, then `due_today` at its
-  scheduled local time, and `overdue` after it passes.
+  scheduled local time. It becomes `overdue` on the next local calendar day.
 - An unclocked age-based occurrence is due for its complete local calendar day.
 
 Care-program delivery requires both the general Puppy Tracker notification
@@ -99,3 +99,24 @@ reported to the options flow.
 
 Implementation details and state ownership are documented in
 [Architecture](ARCHITECTURE.md#notification-architecture).
+
+## Status and count meanings
+
+The three schedules keep their own deadline rules:
+
+| Source | Upcoming | Due | Overdue |
+| --- | --- | --- | --- |
+| Dossier follow-up | A later local date | Today, for the full calendar day | Before today |
+| Age-based care/treatment | A later date, or today's clock time not yet reached | Today, from its scheduled time (or all day without a clock) | Before today |
+| Recurring reminder | Outside the notification lead window | Within the lead window, including its deadline | Its deadline has passed |
+
+Postponed reminders wait until their chosen effective time. Disabled reminders
+are not completed; completed/missed care remains historical and is not open work.
+Dashboard counts can include future work. A list of open actions is therefore
+not a count of overdue or immediately actionable notifications. Deactivated
+puppies/litters stop generating notices and previously active mobile tags are
+retracted once.
+
+Checks triggered during another check are coalesced into a follow-up run. Both
+notification coordinators share scheduling/stop/restart behavior, while keeping
+separate weight, follow-up, program and recurring-reminder delivery rules.

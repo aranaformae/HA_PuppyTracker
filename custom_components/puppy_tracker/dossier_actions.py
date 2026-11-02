@@ -40,12 +40,12 @@ def dossier_action_summary(
     actions = upcoming_actions(records, today=today)
     summary = upcoming_summary(actions)
     return {
-        "open_count": summary["total_count"],
+        "open_count": summary["open_count"],
         "overdue_count": summary["overdue_count"],
         "due_today_count": summary["due_today_count"],
         "upcoming_count": summary["upcoming_count"],
         "attention_count": summary["attention_count"],
-        "due_soon_count": summary["total_count"],
+        "due_soon_count": summary["open_count"],
         "next_action": summary["next_action"],
         "actions": summary["actions"],
     }

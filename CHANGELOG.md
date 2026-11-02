@@ -19,6 +19,9 @@ they have not been reconstructed as a complete historical changelog.
 
 ### Changed
 
+- Share notification scheduling, queued rechecks and shutdown handling while
+  retaining separate weight/care/reminder rules and existing automation fields.
+
 - Show explicit litter, puppy and buyer selections for reports and documents,
   with separate CSV and full-history JSON scope summaries. Opening Documents
   prefills an untouched form from an individual report selection; whole-litter
@@ -30,6 +33,10 @@ they have not been reconstructed as a complete historical changelog.
   and day instructions, with the same safe save, retry, cancel and focus behavior.
 
 ### Fixed
+
+- Count open puppy follow-ups once in nest totals, distinguish disabled one-time
+  reminders from completed ones, and withdraw care/reminder mobile notifications
+  when their puppy or litter becomes inactive.
 
 - Preserve drafts and block context changes while care results are being saved;
   restore the original disabled state of fields after a failed save.

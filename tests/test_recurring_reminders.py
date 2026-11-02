@@ -218,3 +218,11 @@ def test_frontend_ignores_stale_reminder_refreshes_after_delete() -> None:
     assert "this._deletedReminderIds = new Set()" in source
     assert "if (sequence !== this._loadSequence) return;" in source
     assert "this._deletedReminderIds.add(reminderId)" in source
+
+
+def test_disabled_one_time_reminder_is_not_reported_as_completed():
+    from homeassistant.util import dt as dt_util
+
+    now = dt_util.now()
+    reminder = {"enabled": False, "schedule_mode": "once", "due_at": now.isoformat()}
+    assert reminder_status(reminder, now=now)["status"] == "disabled"

@@ -167,7 +167,8 @@ def _puppy_summary(
 
     summary["dossier_actions"] = action_summary
     summary["dossier_needs_attention"] = bool(action_summary["attention_count"])
-    summary["dossier_due_soon"] = bool(action_summary["due_soon_count"])
+    summary["dossier_has_open_actions"] = bool(action_summary["open_count"])
+    summary["dossier_due_soon"] = summary["dossier_has_open_actions"]  # Legacy API alias.
     return summary
 
 
@@ -242,22 +243,13 @@ def _litter_summary(
             "last_weight": session.get("last_weight"),
         }
 
-    litter_actions = upcoming_summary(
-        upcoming_actions(
-            _records_for_upcoming(storage, litter_id),
-            today=dt_util.now().date(),
-        )
-    )
-    puppy_action_summaries = [
-        puppy_summaries[puppy_id].get("dossier_actions") or {}
-        for puppy_id, _puppy in active
-    ]
-    dossier_attention_count = litter_actions.get("attention_count", 0) + sum(
-        int(item.get("attention_count", 0)) for item in puppy_action_summaries
-    )
-    dossier_due_soon_count = litter_actions.get("due_soon_count", 0) + sum(
-        int(item.get("due_soon_count", 0)) for item in puppy_action_summaries
-    )
+    active_ids = {puppy_id for puppy_id, _puppy in active}
+    records = [record for record in _records_for_upcoming(storage, litter_id)
+               if not record.get("puppy_id") or record["puppy_id"] in active_ids]
+    litter_actions = upcoming_summary(upcoming_actions(records, today=dt_util.now().date()))
+    # This projection already includes the puppies: never add their counts twice.
+    dossier_attention_count = litter_actions["attention_count"]
+    dossier_open_count = litter_actions["open_count"]
 
     return {
         "active_puppies": len(active),
@@ -265,7 +257,8 @@ def _litter_summary(
         "attention_count": len(attention),
         "weigh_due_count": len(weigh_due),
         "dossier_attention_count": dossier_attention_count,
-        "dossier_due_soon_count": dossier_due_soon_count,
+        "dossier_open_count": dossier_open_count,
+        "dossier_due_soon_count": dossier_open_count,  # Legacy API alias.
         "dossier_actions": litter_actions,
         "upcoming_count": litter_actions["upcoming_count"],
         "overdue_count": litter_actions["overdue_count"],

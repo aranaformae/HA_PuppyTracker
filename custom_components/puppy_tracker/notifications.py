@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-from contextlib import suppress
 from copy import deepcopy
-from datetime import datetime, timedelta
+from datetime import timedelta
 import logging
 import re
 from typing import Any
@@ -15,9 +14,7 @@ from homeassistant.components.persistent_notification import (
     async_dismiss as async_dismiss_persistent_notification,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
-from homeassistant.helpers.dispatcher import async_dispatcher_connect
-from homeassistant.helpers.event import async_track_time_interval
+from homeassistant.core import HomeAssistant
 
 from .care_reminders import CareReminderStore
 from .const import (
@@ -31,6 +28,7 @@ from .const import (
 )
 from .metrics import calculate_puppy_status
 from .notification_delivery import async_clear_notify_entities
+from .notification_runner import NotificationCheckRunner
 from .runtime import PuppyTrackerRuntimeData
 from .session import SESSION_COMPLETED, get_session
 from .storage import PuppyTrackerStorage
@@ -89,12 +87,8 @@ class PuppyNotificationManager:
         self.entry = entry
         self.storage = storage
         self.runtime = runtime
-        self._unsub: list[CALLBACK_TYPE] = []
         self._check_lock = asyncio.Lock()
-        self._pending_task: asyncio.Task[Any] | None = None
-        self._check_scheduled = False
-        self._rerun_requested = False
-        self._stopping = False
+        self._runner = NotificationCheckRunner(hass, lambda: self.async_check())
         self._puppy_state: dict[str, dict[str, Any]] = {}
         session = get_session(runtime)
         # A restored completed checkpoint is history, not a new completion event.
@@ -107,87 +101,16 @@ class PuppyNotificationManager:
 
     async def async_start(self) -> None:
         """Start monitoring."""
-        self._stopping = False
-        self._unsub.append(
-            async_dispatcher_connect(
-                self.hass,
-                SIGNAL_UPDATE,
-                self._handle_signal,
-            )
-        )
-        self._unsub.append(
-            async_dispatcher_connect(
-                self.hass,
-                SIGNAL_DASHBOARD_UPDATE,
-                self._handle_signal,
-            )
-        )
-        self._unsub.append(
-            async_track_time_interval(
-                self.hass,
-                self._handle_interval,
-                CHECK_INTERVAL,
-            )
-        )
-        self._schedule_check()
+        self._runner.start((SIGNAL_UPDATE, SIGNAL_DASHBOARD_UPDATE), CHECK_INTERVAL)
 
     async def async_stop(self) -> None:
-        """Stop monitoring callbacks."""
-        self._stopping = True
-        for unsub in self._unsub:
-            unsub()
-        self._unsub.clear()
-
-        if self._pending_task is not None and not self._pending_task.done():
-            self._pending_task.cancel()
-            with suppress(asyncio.CancelledError):
-                await self._pending_task
-        self._pending_task = None
-        self._check_scheduled = False
-        self._rerun_requested = False
+        """Stop checks before retracting this manager's active notifications."""
+        await self._runner.async_stop()
         settings = self.storage.get_settings()
         await self._async_dismiss_all_known_notifications(
             list(settings.get("notify_entities", DEFAULT_NOTIFY_ENTITIES))
         )
         self._puppy_state.clear()
-
-    @callback
-    def _handle_signal(self, *args: Any) -> None:
-        self._schedule_check()
-
-    @callback
-    def _handle_interval(self, now: datetime) -> None:
-        self._schedule_check()
-
-    @callback
-    def _schedule_check(self) -> None:
-        """Schedule a check without losing changes that arrive mid-check."""
-        if self._stopping:
-            return
-        if self._check_scheduled:
-            self._rerun_requested = True
-            return
-
-        self._check_scheduled = True
-        self._pending_task = self.hass.async_create_task(
-            self._async_check_runner()
-        )
-
-    async def _async_check_runner(self) -> None:
-        """Run checks until all coalesced state changes are evaluated."""
-        try:
-            while True:
-                self._rerun_requested = False
-                await self.async_check()
-                await asyncio.sleep(0)
-                if not self._rerun_requested:
-                    break
-        finally:
-            self._check_scheduled = False
-            self._pending_task = None
-            if self._rerun_requested and not self._stopping:
-                self._rerun_requested = False
-                self._schedule_check()
 
     async def async_check(self) -> None:
         """Evaluate all active puppies, sessions and dossier reminders."""

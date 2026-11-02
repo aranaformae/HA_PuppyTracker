@@ -78,49 +78,51 @@ async def test_completion_toggle_disables_creation_but_never_cleanup(hass, stora
     assert manager._last_session_litter_id is None
 
 
+@pytest.mark.parametrize("weight", [False, True])
 async def test_recurring_manager_rechecks_after_signal_during_active_check(
-    hass, storage
+    hass, storage, weight
 ) -> None:
     """A dashboard update arriving mid-check must not wait for the timer."""
     runtime = PuppyTrackerRuntimeData(storage=storage)
-    manager = RecurringReminderNotificationManager(hass, MagicMock(), runtime)
+    manager = PuppyNotificationManager(hass, MagicMock(), storage, runtime) if weight else RecurringReminderNotificationManager(hass, MagicMock(), runtime)
     calls = 0
 
     async def check() -> None:
         nonlocal calls
         calls += 1
         if calls == 1:
-            manager._schedule()
+            manager._runner.schedule()
 
     manager.async_check = check
-    manager._schedule()
-    task = manager._task
+    manager._runner.schedule()
+    task = manager._runner.task
     assert task is not None
     await task
 
     assert calls == 2
 
 
+@pytest.mark.parametrize("weight", [False, True])
 async def test_recurring_manager_does_not_restart_check_while_stopping(
-    hass, storage
+    hass, storage, weight
 ) -> None:
     """Cancellation cannot leave an orphaned follow-up notification task."""
     runtime = PuppyTrackerRuntimeData(storage=storage)
-    manager = RecurringReminderNotificationManager(hass, MagicMock(), runtime)
+    manager = PuppyNotificationManager(hass, MagicMock(), storage, runtime) if weight else RecurringReminderNotificationManager(hass, MagicMock(), runtime)
     started = asyncio.Event()
 
     async def check() -> None:
         started.set()
-        manager._schedule()
+        manager._runner.schedule()
         await asyncio.sleep(60)
 
     manager.async_check = check
-    manager._schedule()
+    manager._runner.schedule()
     await started.wait()
     await manager.async_stop()
 
-    assert manager._task is None
-    assert manager._stopping is True
+    assert manager._runner.task is None
+    assert manager._runner.stopping is True
 
 
 async def test_future_recurring_reminder_does_not_send_clear_calls(
@@ -242,3 +244,70 @@ async def test_disabling_notifications_clears_active_mobile_tags(
         hass, ["notify.phone"], manager._puppy_notification_id(puppy_id)
     )
     assert manager._puppy_state == {}
+
+
+@pytest.mark.parametrize("inactive", ["litter", "puppy"])
+async def test_recurring_inactive_owner_retracts_existing_notifications_once(hass, storage, install_litter, monkeypatch, inactive):
+    litter_id, puppy_id = install_litter()
+    reminders = RecurringReminderStore(hass)
+    reminders._store.async_save = AsyncMock()
+    reminder_id = await reminders.async_create({
+        "litter_id": litter_id, "owner_scope": "puppy", "owner_id": puppy_id,
+        "title": "Action", "record_type": "note", "schedule_mode": "once",
+        "start_at": "2026-08-01T09:00:00+00:00", "due_at": "2026-08-02T09:00:00+00:00",
+    })
+    runtime = PuppyTrackerRuntimeData(storage=storage, recurring_reminders=reminders)
+    manager = RecurringReminderNotificationManager(hass, MagicMock(), runtime)
+    manager._states[reminder_id] = ("overdue", "old")
+    target = storage._data["litters"][litter_id]
+    if inactive == "puppy":
+        target = target["puppies"][puppy_id]
+    target["active"] = False
+    clear = AsyncMock()
+    monkeypatch.setattr("custom_components.puppy_tracker.recurring_notifications.async_reconcile_recurring_reminders", AsyncMock())
+    monkeypatch.setattr("custom_components.puppy_tracker.recurring_notifications.async_check_care_notifications", AsyncMock())
+    monkeypatch.setattr("custom_components.puppy_tracker.recurring_notifications.async_clear_notify_entities", clear)
+    await manager.async_check()
+    await manager.async_check()
+    assert manager._states == {}
+    clear.assert_awaited_once()
+
+
+async def test_api_open_counts_keep_legacy_aliases_with_the_same_values(storage, install_litter):
+    from datetime import timedelta
+    from homeassistant.util import dt as dt_util
+    from custom_components.puppy_tracker.api import _puppy_summary, _litter_summary
+
+    litter_id, puppy_id = install_litter()
+    await storage.async_add_record(litter_id, puppy_id=puppy_id, record_type="deworming",
+                                   data={"product": "Product", "next_due_date": (dt_util.now().date() + timedelta(days=20)).isoformat()})
+    litter = storage.get_litter(litter_id)
+    puppy = litter["puppies"][puppy_id]
+    summary = _puppy_summary(storage, litter_id, puppy_id, puppy)
+    assert summary["dossier_has_open_actions"] is summary["dossier_due_soon"] is True
+    assert summary["dossier_actions"]["upcoming_count"] == 1
+    assert summary["dossier_actions"]["attention_count"] == 0
+    whole = _litter_summary(storage, litter_id, litter, {puppy_id: summary})
+    assert whole["dossier_open_count"] == whole["dossier_due_soon_count"] == 1
+
+
+async def test_inactive_litter_retracts_grouped_care_notifications_once(hass, storage, install_litter, monkeypatch):
+    from custom_components.puppy_tracker import care_notifications
+    from custom_components.puppy_tracker.care_programs import AgeBasedCareProgramStore, normalize_care_program
+
+    litter_id, _ = install_litter(litter_overrides={"active": False})
+    storage._data["settings"]["notifications_enabled"] = True
+    store = AgeBasedCareProgramStore(hass)
+    program = normalize_care_program({"litter_id": litter_id, "title": "ENS", "record_type": "note", "schedule_type": "once", "start_age_days": 3}, program_id="ens")
+    store._data = {"programs": {"ens": program}}
+    runtime = PuppyTrackerRuntimeData(storage=storage, care_programs=store)
+    state = care_notifications._state(hass)
+    state["active_groups"] = {"old"}
+    clear, create = AsyncMock(), Mock()
+    monkeypatch.setattr(care_notifications, "async_clear_notify_entities", clear)
+    monkeypatch.setattr(care_notifications, "async_create_persistent_notification", create)
+    await care_notifications.async_check_care_notifications(hass, runtime)
+    await care_notifications.async_check_care_notifications(hass, runtime)
+    clear.assert_awaited_once()
+    create.assert_not_called()
+    assert not state["active_groups"]

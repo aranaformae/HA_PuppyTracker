@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 from zoneinfo import ZoneInfo
 
 from custom_components.puppy_tracker.care_notifications import (
+    DUE_STATUSES,
     _apply_notification_lead,
     _message,
     async_check_care_notifications,
@@ -21,7 +22,6 @@ def test_age_based_care_notifications_share_existing_coordinator_lifecycle() -> 
     assert "async_check_care_notifications" in recurring
     assert "await async_check_care_notifications(self.hass, self.runtime)" in recurring
     assert "await async_clear_care_notifications(" in recurring
-    assert "async_track_time_interval" in recurring
 
 
 def test_age_based_care_notifications_respect_global_and_program_switches() -> None:
@@ -34,7 +34,7 @@ def test_age_based_care_notifications_respect_global_and_program_switches() -> N
 
 def test_age_based_care_notifications_only_push_due_open_occurrences() -> None:
     source = CARE.read_text(encoding="utf-8")
-    assert 'DUE_STATUSES = {"due_soon", "due_today", "overdue"}' in source
+    assert DUE_STATUSES == {"due_soon", "due_today", "overdue"}
     assert "care_occurrence_status" in source
     assert "_apply_notification_lead(item, default_lead_minutes)" in source
     assert 'item.get("status") not in DUE_STATUSES' in source

@@ -8,6 +8,8 @@ from typing import Any
 
 from homeassistant.util import dt as dt_util
 
+from .due_status import STATUS_OVERDUE, STATUS_DUE_TODAY, STATUS_UPCOMING
+
 DAYS_AHEAD_DEFAULT = 30
 
 ACTIONABLE_RECORD_TYPES: dict[str, dict[str, str]] = {
@@ -32,10 +34,6 @@ ACTIONABLE_RECORD_TYPES: dict[str, dict[str, str]] = {
         "icon": "mdi:stethoscope",
     },
 }
-
-STATUS_OVERDUE = "overdue"
-STATUS_DUE_TODAY = "due_today"
-STATUS_UPCOMING = "upcoming"
 
 _STATUS_ORDER = {
     STATUS_OVERDUE: 0,
@@ -242,7 +240,7 @@ def upcoming_summary(actions: list[dict[str, Any]]) -> dict[str, Any]:
         "due_today_count": len(due_today),
         "total_count": len(actions),
         "attention_count": len(overdue) + len(due_today),
-        "due_soon_count": len(actions),
+        "due_soon_count": len(actions),  # Public legacy alias of open_count, not a lead window.
         "next_action": deepcopy(actions[0]) if actions else None,
         "actions": deepcopy(actions),
     }

@@ -311,3 +311,20 @@ mode: single
 
 Monitor the backup-status sensor in a separate automation when a failed backup
 must generate a notification.
+
+## Derived care counts and compatibility names
+
+`dossier_actions.open_count` counts every open follow-up in the returned date
+window, including future ones. `upcoming_count`, `due_today_count` and
+`overdue_count` partition that set; `attention_count` is due today plus overdue.
+The dashboard litter summary's `dossier_open_count` counts litter and active-puppy
+actions once; the puppy summary's `dossier_has_open_actions` is its boolean form.
+Mother actions remain in the mother-specific projection.
+
+Existing `due_soon_count`, `dossier_due_soon_count`, `dossier_due_soon` and an
+action's `due_soon` flag are retained compatibility names for open follow-ups.
+They do **not** indicate the minute-based `due_soon` notification lead window of
+a recurring reminder/program. Existing status strings, entity IDs, notification
+tags and public event payloads are unchanged. New consumers should use the
+explicit open/upcoming/today/overdue counts instead. Duplicate aggregation of
+puppy actions in the nest total has been corrected.

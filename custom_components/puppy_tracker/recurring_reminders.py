@@ -12,6 +12,10 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
+from .due_status import (
+    STATUS_COMPLETED, STATUS_DISABLED, STATUS_POSTPONED,
+    STATUS_OVERDUE, STATUS_DUE_SOON, STATUS_UPCOMING,
+)
 from .care_programs import normalize_notification_lead_minutes
 from .const import DEFAULT_NOTIFICATION_LEAD_MINUTES, DOMAIN
 from .records import record_sort_key, validate_record_type
@@ -306,7 +310,7 @@ def reminder_status(
     planning = {"scheduled_due_at": _iso(scheduled_due_at(reminder, now=now)),
                 "postponed": bool(postponed), "postpone_before": _iso(postpone_before(reminder, now=now))}
     if due is None:
-        status = "completed" if reminder.get("schedule_mode") == "once" else "disabled"
+        status = STATUS_COMPLETED if reminder.get("schedule_mode") == "once" and reminder.get("enabled", True) is not False else STATUS_DISABLED
         return {
             **deepcopy(reminder),
             **planning,
@@ -323,13 +327,13 @@ def reminder_status(
     if not 0 <= lead_minutes <= 10080:
         lead_minutes = DEFAULT_NOTIFICATION_LEAD_MINUTES
     if postponed and due > now:
-        status = "postponed"
+        status = STATUS_POSTPONED
     elif minutes < 0:
-        status = "overdue"
+        status = STATUS_OVERDUE
     elif minutes <= lead_minutes:
-        status = "due_soon"
+        status = STATUS_DUE_SOON
     else:
-        status = "upcoming"
+        status = STATUS_UPCOMING
     return {
         **deepcopy(reminder),
         **planning,
@@ -352,6 +356,20 @@ def validate_reminder_owner(storage, reminder: dict[str, Any]) -> None:
         if mother is not None and str(mother.get("id")) == owner_id:
             return
     raise ValueError("Unknown reminder owner for this litter")
+
+
+def reminder_owner_is_active(storage, reminder: dict[str, Any]) -> bool:
+    """Notification eligibility, separate from retained historical ownership."""
+    try:
+        validate_reminder_owner(storage, reminder)
+    except ValueError:
+        return False
+    litter_id = reminder["litter_id"]
+    if (storage.get_litter(litter_id) or {}).get("active", True) is False:
+        return False
+    return reminder["owner_scope"] != "puppy" or (storage.get_puppy(
+        litter_id, reminder["owner_id"],
+    ) or {}).get("active", True) is not False
 
 
 def reminder_owner_records(storage, reminder: dict[str, Any]) -> list[dict[str, Any]]:

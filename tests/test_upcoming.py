@@ -189,6 +189,8 @@ def test_summary_counts_match_derived_actions() -> None:
     assert summary["due_today_count"] == 1
     assert summary["upcoming_count"] == 1
     assert summary["total_count"] == 3
+    assert summary["open_count"] == summary["due_soon_count"] == 3
+    assert summary["attention_count"] == 2
 
 
 def test_record_changes_are_reflected_without_persistent_action_state() -> None:
