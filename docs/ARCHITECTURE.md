@@ -2285,3 +2285,34 @@ or duplicate subscriptions. The dependencies are acyclic and relative imports
 inherit the release-versioned static route; helpers are not extra frontend
 entrypoints in `CARD_FILES`. Load-order and two-card tests supplement existing
 editing, payment, cross-litter privacy, matrix, export and lifecycle tests.
+
+### Derived automation transitions
+
+`DerivedAutomationEventManager` owns runtime-only due/attention baselines and
+uses the coalescing check runner for confirmed update signals and a one-minute
+time fallback. It starts with a silent baseline before API setup and stops
+through both entry cleanup and explicit unload. Unlike notification delivery,
+its projections do not depend on notification enablement or lead windows.
+
+`project_automation_state` reuses care occurrence/status, recurring scheduling
+and record-completion, upcoming follow-up and canonical weight status functions.
+Histories and care-result indexes are shared per owner in a pass; observing
+reminder completion is a pure projection, not a scheduler write. Program
+`counts_for_attention` affects attention only. Existing entity contracts remain
+unchanged; the new aggregate is explicitly documented in the events guide.
+
+`MutationCoordinator.snapshot()` drains all active cross-store operations and
+uses the existing exclusive barrier while a synchronous projection and event
+diff run. No intermediate write/restore state enters the baseline. Successful
+outer restores increment `restore_generation`; failed/cancelled restores do not.
+Generation changes and backward UTC clock corrections silently rebaseline, as
+does startup. DST is compared in UTC. The manager updates its baseline before
+queuing event callbacks; repeated checks and today/overdue status changes do not
+reannounce the same due identity. Stop cancels queued checks without clear events.
+
+The two new stable event contracts are documented in
+[AUTOMATION_EVENTS.md](AUTOMATION_EVENTS.md). Payloads are assembled from an
+explicit identifier/code/count allowlist; names, notes, clinical data and buyer
+information are never copied into event data. There is no persistent event log,
+new task store or storage migration. Existing weight/session/dossier events are
+unchanged.

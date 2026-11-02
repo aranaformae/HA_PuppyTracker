@@ -31,6 +31,7 @@ Home Assistant 2026.9.4 or newer is the supported baseline.
   over time.
 - Store owner/contact, placement and payment information, record an ordered top
   three puppy shortlist with notes, and link contacts to puppies later.
+- Let Home Assistant automations react to care becoming due or changes in puppy attention.
 - Create configurable PDF reports with central breeder details and export CSV or JSON data.
 - Create puppy information sheets, payment overviews, receipts for individual recorded payments,
   reservation notes, handover records and checklists from Dutch/English [document templates](docs/DOCUMENT_TEMPLATES.md).
@@ -254,6 +255,7 @@ The most useful starting points are:
 - [Temperature card](docs/temperature-card.md)
 - [Behavior observations](docs/BEHAVIOR.md)
 - [Reports and exports](docs/REPORTS_EXPORTS.md)
+- [Automation events](docs/AUTOMATION_EVENTS.md)
 - [Age-based care programs and template format](docs/CARE_PROGRAMS.md)
 - [Notifications](docs/NOTIFICATIONS.md)
 - [Backup, restore and transfer](docs/backup-restore.md)

@@ -196,3 +196,14 @@ are separate from that review. Contributor guidance, issue forms and release
 procedures are documented in [CONTRIBUTING.md](../CONTRIBUTING.md) and
 [Commit and release conventions](RELEASING.md). These procedures do not extend
 the security review to future attachment types or new API boundaries.
+
+### Derived automation event payloads
+
+The care-due and puppy-attention events expose stable dog/litter/task identifiers,
+scheduling instants, generic monitoring reason codes and counts only. They do
+not copy titles, names, note text, day instructions, results, medication/doses,
+measurements, buyer contact details or payment data into the event bus. The
+payloads use an explicit allowlist and are tested with private sentinel data.
+Identifiers remain operational information; these events are not an owner portal
+or a replacement for HA's event-bus permission model. See
+[Automation events](AUTOMATION_EVENTS.md) for the supported contract.

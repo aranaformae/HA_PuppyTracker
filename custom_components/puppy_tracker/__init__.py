@@ -19,6 +19,7 @@ from homeassistant.helpers.service import async_register_admin_service
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .api import async_setup_api
+from .automation_events import DerivedAutomationEventManager
 from .day_rollover import async_setup_day_rollover
 from .managed_files_http import async_setup_managed_files_http
 from .backup import SCHEDULER_BACKUP_VERSION, serialize_export
@@ -246,6 +247,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     reconcile_dashboard_selection(runtime)
     entry.runtime_data = runtime
     async_setup_day_rollover(hass, entry)
+    runtime.automation_event_manager = DerivedAutomationEventManager(hass, runtime)
+    entry.async_on_unload(runtime.automation_event_manager.async_stop)
+    await runtime.automation_event_manager.async_start()
 
     async_setup_api(hass)
     async_setup_managed_files_http(hass)
@@ -557,6 +561,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     runtime = entry.runtime_data
     if isinstance(runtime, PuppyTrackerRuntimeData):
+        if runtime.automation_event_manager is not None:
+            await runtime.automation_event_manager.async_stop()
         notification_manager = runtime.notification_manager
         if notification_manager is not None:
             await notification_manager.async_stop()

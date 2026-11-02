@@ -16,6 +16,7 @@ class MutationCoordinator:
         self._restoring: asyncio.Task | None = None
         self._waiting_restores = 0
         self._changed = asyncio.Event()
+        self.restore_generation = 0
 
     def _notify(self) -> None:
         self._changed.set()
@@ -51,6 +52,21 @@ class MutationCoordinator:
 
     @asynccontextmanager
     async def restore(self):
+        """Advance the baseline generation only after a successful outer restore."""
+        outer = self._restoring is not asyncio.current_task()
+        async with self._exclusive():
+            yield
+            if outer:
+                self.restore_generation += 1
+
+    @asynccontextmanager
+    async def snapshot(self):
+        """Read committed cross-store state without observing in-flight writes."""
+        async with self._exclusive():
+            yield
+
+    @asynccontextmanager
+    async def _exclusive(self):
         task = asyncio.current_task()
         if self._restoring is task:
             yield

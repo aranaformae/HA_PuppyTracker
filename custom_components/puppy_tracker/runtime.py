@@ -14,6 +14,7 @@ from .session import SESSION_ACTIVE, new_session_state, sync_station_session
 from .storage import PuppyTrackerStorage
 
 if TYPE_CHECKING:
+    from .automation_events import DerivedAutomationEventManager
     from .attention_acknowledgements import AttentionAcknowledgementStore
     from .care_programs import AgeBasedCareProgramStore
     from .care_templates import CareProgramTemplateStore
@@ -45,6 +46,7 @@ class PuppyTrackerRuntimeData:
     weighing_undo: dict[str, Any] | None = None
     notification_manager: PuppyNotificationManager | None = None
     recurring_notification_manager: RecurringReminderNotificationManager | None = None
+    automation_event_manager: DerivedAutomationEventManager | None = None
     last_backup_at: str | None = None
     last_backup_status: str = "unknown"
     last_backup_path: str | None = None

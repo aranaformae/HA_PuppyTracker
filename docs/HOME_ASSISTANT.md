@@ -249,6 +249,21 @@ actions:
       message: "Voeding geregistreerd voor {{ trigger.event.data.scope }}"
 ```
 
+### React to care and attention changes
+
+`puppy_tracker_care_due_changed` reports `transition: due` or `cleared` for
+program occurrences, recurring reminders and dossier follow-ups.
+`puppy_tracker_puppy_attention_changed` reports `started`, `changed` or `cleared`
+for puppy weight concerns, due care that counts for attention and the puppy's
+own dossier follow-ups. Solving care does not clear an unresolved weight concern.
+
+These events are independent of notification delivery preferences. Startup and
+successful imports silently establish a baseline; events are not a replay of
+existing work. A clear may also mean postponement, disabling or archiving,
+so it must not be treated as proof of execution. See
+[Automation events](AUTOMATION_EVENTS.md) for payload fields, timing, privacy,
+restart/restore behavior and YAML examples.
+
 ### Planned care calendar
 
 Each litter has a read-only **planned care** calendar entity. Add that entity

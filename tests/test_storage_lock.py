@@ -63,3 +63,21 @@ async def test_cancelling_waiting_restore_and_lock_waiter_releases_barrier():
         async with lock:
             pass
     assert not gate._active
+
+
+async def test_snapshot_is_not_a_restore_and_only_successful_restores_advance_generation():
+    gate = MutationCoordinator()
+    async with gate.snapshot():
+        pass
+    assert gate.restore_generation == 0
+    with pytest.raises(OSError):
+        async with gate.restore():
+            raise OSError("restore failed")
+    assert gate.restore_generation == 0
+    async with gate.restore():
+        async with gate.restore():
+            pass
+    assert gate.restore_generation == 1
+    async with gate.snapshot():
+        pass
+    assert gate.restore_generation == 1

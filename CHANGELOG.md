@@ -12,6 +12,10 @@ they have not been reconstructed as a complete historical changelog.
 
 ### Added
 
+- Add care-due/cleared and puppy-attention transition events for automations,
+  independent of notification delivery, with deduplication, privacy-limited
+  payloads and silent startup/import baselines.
+
 - Export a separate mother PDF dossier with selectable identity, temperature
   chart/table, completed care, notes and optional litter context. Choose one
   litter or all linked litters and a period; puppy/buyer data stays excluded.
