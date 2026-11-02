@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from functools import partial
+
 import voluptuous as vol
 
 from homeassistant.components import websocket_api
@@ -11,10 +13,41 @@ from .const import DOMAIN
 from .dossier_actions import dossier_action_summary
 from .mother_backup_http import async_signed_mother_export_path
 from .mother_context import mother_context_payload
+from .mother_pdf import MOTHER_PDF_SECTIONS, build_mother_pdf
 from .mother_storage import MotherScopeStorage
 from .runtime import get_runtime_storage
 
 DATA_MOTHER_DASHBOARD_API_REGISTERED = f"{DOMAIN}_mother_dashboard_api_registered"
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/mother/pdf",
+    vol.Required("litter_id"): str,
+    vol.Optional("history_scope", default="all"): vol.In(("current", "all")),
+    vol.Optional("range_hours"): vol.All(vol.Coerce(float), vol.Range(min=0, max=24 * 3650)),
+    vol.Optional("language", default="nl"): vol.In(("nl", "en")),
+    vol.Optional("dossier_types"): vol.All([str], vol.Length(max=100)),
+    vol.Optional("sections", default={}): {vol.Optional(key): bool for key in MOTHER_PDF_SECTIONS},
+    vol.Optional("branding", default={}): {vol.Optional("logo_base64"): vol.All(str, vol.Length(max=700_000))},
+})
+@websocket_api.async_response
+async def websocket_mother_pdf(hass, connection, msg) -> None:
+    """Generate from an immutable mother-only projection off the HA event loop."""
+    try:
+        storage = _storage(hass)
+        snapshot = storage.get_data()
+        branding = {**storage.get_breeder(), **msg.get("branding", {})}
+        filename, mime_type, content = await hass.async_add_executor_job(partial(
+            build_mother_pdf, snapshot, msg["litter_id"], history_scope=msg.get("history_scope", "all"),
+            range_hours=msg.get("range_hours"), language=msg.get("language", "nl"),
+            sections=msg.get("sections"), dossier_types=msg.get("dossier_types"), branding=branding,
+        ))
+    except ValueError as err:
+        connection.send_error(msg["id"], "not_found", str(err))
+        return
+    connection.send_result(msg["id"], {"filename": filename, "mime_type": mime_type,
+                                       "content": content, "encoding": "base64"})
 
 
 def _storage(hass: HomeAssistant) -> MotherScopeStorage:
@@ -114,4 +147,5 @@ def async_setup_mother_dashboard_api(hass: HomeAssistant) -> None:
         return
     websocket_api.async_register_command(hass, websocket_mother_attention)
     websocket_api.async_register_command(hass, websocket_mother_export_url)
+    websocket_api.async_register_command(hass, websocket_mother_pdf)
     hass.data[DATA_MOTHER_DASHBOARD_API_REGISTERED] = True

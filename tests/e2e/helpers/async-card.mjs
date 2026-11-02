@@ -29,6 +29,7 @@ export async function mountAsyncCard(page, kind, { language = "en", config = {},
         else if (message.type.endsWith("record/add")) result = { record: { id: `record-${state.calls.length}`, type: message.record_type, occurred_at: message.occurred_at, note: message.note, data: clone(message.data), deleted: false } };
         else if (message.type === "puppy_tracker/report/logo") result = { logo_url: "" };
         else if (message.type === "puppy_tracker/export") result = { content: message.format === "pdf" ? "%PDF-1.4\n%%EOF" : "test", encoding: "utf-8", mime_type: "application/octet-stream", filename: `test.${message.format}` };
+        else if (message.type === "puppy_tracker/mother/pdf") result = { content: btoa("%PDF-1.4\n%%EOF"), encoding: "base64", mime_type: "application/pdf", filename: "puppy-tracker-mother.pdf" };
         else if (message.type === "puppy_tracker/mother/export_url") result = { url: "data:application/json,%7B%7D" };
         else throw new Error(`Unexpected WS call: ${message.type}`);
         if (state.hold.has(message.type)) result = await new Promise((resolve, reject) => state.pending.push({ message, resolve: (value = result) => resolve(value), reject }));

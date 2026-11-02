@@ -33,8 +33,9 @@ Select a litter first, then choose one of these subjects:
   part of the report and historical export.
 - **One puppy** creates an individual dossier for that puppy. Whole-litter
   dossier records can still be included through the dossier-source filter.
-- **Mother** offers JSON dossier export only. It can contain the mother's
-  complete history across all linked litters or only the selected litter.
+- **Mother** offers a selectable PDF dossier and JSON history export. Both can
+  cover the mother's complete history across linked litters or only the selected
+  litter. The period applies to the PDF; JSON retains complete selected history.
 
 The PDF preview summary identifies the litter, selected subject and period,
 with matching counts before downloading. The data-export section shows separate
@@ -162,6 +163,34 @@ selection in this browser's local card state. A saved custom profile is not
 integration data and is therefore not part of a JSON backup or automatically
 shared with another browser.
 
+## Mother PDF dossier
+
+Choose **Mother**, then **PDF**. Select **Only this litter** or **All litters**
+and the report period before downloading. The preview identifies that selection
+and the enabled sections; mother reports do not show puppy item counts.
+
+Each section can be switched independently: identity, history summary,
+temperature chart, temperature measurements, completed care and reminders,
+and ordinary dossier items. Optional litter context adds linked litter names
+and birth dates. The mother profile note requires Identity and is off by
+default. Breeder logo/name are on by default; breeder contact details are opt-in.
+Puppy report profiles do not apply to the mother; its selection is remembered
+separately in this browser.
+
+The period filters historical records, chart points and history-summary counts.
+Identity and optional litter context describe the stored profile. Temperature
+entries appear only in the temperature sections, including temperatures logged
+through reminders. Other care-program and reminder executions appear only in
+completed care; remaining notes use the dossier-category filter. Care results
+include stored day instructions. Empty sections show an explanatory message.
+The chart separates histories from different litters instead of joining them.
+
+Mother PDFs contain no puppy records, buyer details, placement or puppy growth
+analysis. Mother data is never silently added to a puppy report. Language may
+be Dutch, English or automatic; entered notes retain their original wording.
+JSON remains the full mother history for the selected litter scope and ignores
+PDF section, category and period filters.
+
 ## Dossier filters
 
 When **Dossier items** is enabled, its expandable filters control two separate
@@ -173,7 +202,7 @@ dimensions:
 
 For an individual puppy report, enabling both sources prints matching
 whole-litter records once and that puppy's matching records. Mother records are
-not mixed into a puppy PDF; use the mother JSON export for those.
+not mixed into a puppy PDF; select Mother for a separate PDF or JSON export instead.
 
 ## Period and current state
 

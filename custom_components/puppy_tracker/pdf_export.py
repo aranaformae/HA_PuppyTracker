@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from homeassistant.util import dt as dt_util
 
@@ -804,7 +804,7 @@ class _PdfReport:
                 remaining = [lines[available:] for lines in remaining]
         self.y += 8
 
-    def chart(self, series: list[tuple[str, list[dict[str, Any]], tuple[float, float, float]]], language: str = "nl") -> bool:
+    def chart(self, series: list[tuple[str, list[dict[str, Any]], tuple[float, float, float]]], language: str = "nl", *, title: str | None = None, format_value: Callable[[float], str] | None = None, min_padding: float = 10.0) -> bool:
         plot_series = []
         points_all: list[tuple[float, float]] = []
         for name, rows, color in series:
@@ -821,12 +821,13 @@ class _PdfReport:
                 points_all.extend(points)
         if not points_all:
             return False
+        value_label = format_value or (lambda value: _format_weight(value, language))
         chart_height = 150
         min_t = min(t for t, _ in points_all)
         max_t = max(t for t, _ in points_all)
         min_w_raw = min(w for _, w in points_all)
         max_w_raw = max(w for _, w in points_all)
-        pad = max(10.0, (max_w_raw - min_w_raw) * 0.1)
+        pad = max(min_padding, (max_w_raw - min_w_raw) * 0.1)
         lower = max(0.0, min_w_raw - pad)
         upper = max_w_raw + pad
         target_step = (upper - lower) / 5
@@ -835,7 +836,7 @@ class _PdfReport:
         min_w = math.floor(lower / step) * step
         max_w = math.ceil(upper / step) * step
         weight_ticks = [min_w + index * step for index in range(round((max_w - min_w) / step) + 1)]
-        label_width = max(_estimate_width(_format_weight(value, language), 7.5) for value in weight_ticks)
+        label_width = max(_estimate_width(value_label(value), 7.5) for value in weight_ticks)
         chart_left = MARGIN + label_width + 10
         chart_width = PAGE_WIDTH - MARGIN - chart_left
 
@@ -848,13 +849,13 @@ class _PdfReport:
         legend_heights = [max(len(entry[0]) for entry in row) * 10 + 4 for row in legend_rows]
         self._flush_pending(16 + chart_height + 32 + sum(legend_heights) + 8)
 
-        self.text(MARGIN, self.y, _pdf_text(language, "weight_chart"), size=11, bold=True)
+        self.text(MARGIN, self.y, title or _pdf_text(language, "weight_chart"), size=11, bold=True)
         self.y += 16
         chart_top = self.y
         for value in weight_ticks:
             top = chart_top + (1 - (value - min_w) / (max_w - min_w)) * chart_height
             self.line(chart_left, top, chart_left + chart_width, top, gray=0.88, width=0.4)
-            label = _format_weight(value, language)
+            label = value_label(value)
             self.text(chart_left - 10 - _estimate_width(label, 7.5), top - 4, label, size=7.5, gray=0.35)
 
         for index in range(5) if max_t > min_t else (2,):

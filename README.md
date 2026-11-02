@@ -212,11 +212,13 @@ See [Puppy dossiers and owners](docs/puppy-dossiers.md) and the focused
 
 ## Reports And Backups
 
-- **PDF** is a readable pup- or nestdossier with selectable sections, dossier
+- **PDF** is a readable puppy, litter or mother dossier with selectable sections, dossier
   categories, report profiles, owner information, care results and
   collar-colour charts. Individual puppy reports can include the derived
   behavior profile and its observation history. Choose Dutch or English and
   check the content summary before downloading.
+  Mother reports have separate identity, temperature, completed care and dossier
+  sections, with history from one litter or all linked litters.
 - **CSV** from Report contains effective weight measurements for analysis;
   Owners has a separate contact and contract-data CSV for mail merge.
 - **JSON** is the importable backup and transfer format.

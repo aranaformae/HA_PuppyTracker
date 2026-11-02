@@ -584,8 +584,9 @@ individually selectable in the card.
 
 The report selection contains one unambiguous **Whole litter** option, every
 individual puppy and the linked mother. Inactive puppies remain selectable so
-their historical dossier can still be exported. Mother export is JSON-only;
-when the mother is selected, PDF profiles and section controls are hidden.
+their historical dossier can still be exported. Mother offers PDF and JSON. Selecting Mother shows its own PDF sections and
+history scope; puppy report profiles and CSV are hidden. The period filters
+the mother PDF, while JSON retains the complete selected history.
 
 The period filters PDF/CSV measurements, PDF chart data, care results and
 general dossier items. The PDF summary, weight-attention state and owner
@@ -620,7 +621,7 @@ the per-puppy summary and matching observation history. Its expandable dossier
 filters can include whole-litter records,
 selected-puppy records, any available categories, or none. For a single-puppy
 report, whole-litter items are included once when that source is selected;
-mother records remain in the mother JSON export only. The PDF language can be
+mother records belong in a separate mother PDF or JSON export. The PDF language can be
 automatic (following Home Assistant), Dutch or English. User-entered notes
 remain as written. The preview shows the chosen scope, period, language,
 sections and matching item counts before download.

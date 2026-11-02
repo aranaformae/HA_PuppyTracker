@@ -12,6 +12,10 @@ they have not been reconstructed as a complete historical changelog.
 
 ### Added
 
+- Export a separate mother PDF dossier with selectable identity, temperature
+  chart/table, completed care, notes and optional litter context. Choose one
+  litter or all linked litters and a period; puppy/buyer data stays excluded.
+
 - Combine care programs, recurring reminders and dossier follow-ups in
   **Carry out care** in both Care and Mobile, with independent source filters,
   owner labels, day navigation and existing review/completion forms. Today also

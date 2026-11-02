@@ -476,17 +476,17 @@ test("@mobile @tablet report controls stay within the card", async ({ page }) =>
   await expect(card.locator(".preview-summary")).toBeVisible();
 });
 
-test("mother export exposes its history scope and only downloads JSON", async ({ page }) => {
+test("mother keeps JSON history export alongside its PDF controls", async ({ page }) => {
   const card = await mountReport(page);
 
   await card.locator("#puppy").selectOption("__mother__");
   await expect(card.locator("#mother-export-scope")).toBeVisible();
-  await expect(card.locator("#pdf")).toHaveCount(0);
+  await expect(card.locator("#pdf")).toBeVisible();
   await expect(card.locator("#csv")).toHaveCount(0);
-  await expect(card.locator("#range")).toHaveCount(0);
+  await expect(card.locator("#range")).toBeVisible();
   await expect(card.locator("#profile")).toHaveCount(0);
-  await expect(card.locator(".pdf-sections")).toHaveCount(0);
-  await expect(card.locator(".preview")).toHaveCount(0);
+  await expect(card.locator(".pdf-sections")).toBeVisible();
+  await expect(card.locator(".preview")).toBeVisible();
   await expect(card.locator("#json")).toHaveText("Mother JSON backup");
   await card.locator("#mother-export-scope").selectOption("current");
   await card.locator("#data-export > summary").click();

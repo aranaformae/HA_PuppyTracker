@@ -1626,8 +1626,8 @@ registering global hooks or replacing methods on a card prototype.
 The Report card owns its complete selection and export model directly: whole
 litter, individual puppy and mother are explicit states in the card. Inactive
 puppies remain available because deactivation ends operational tracking but
-does not erase reportable history. Mother-history scope and its JSON-only export
-path are not late selector or method patches. This keeps export behavior
+does not erase reportable history. Mother-history scope and its PDF/JSON export
+paths are direct card states, rather than late selector or method patches. This keeps export behavior
 independent of frontend module load order and gives WebKit an explicit download
 filename for signed mother exports. Runtime labels, export progress and
 Lovelace editor choices are also localized by the card itself.
@@ -1746,7 +1746,7 @@ keep the draft; retry is an explicit user action. Bulk Log already retains only
 failed puppies for retry and displays progress/partial success; the feeding
 calculator keeps its existing queued autosave state and explicit retry control.
 
-Report has one export lifecycle for PDF, CSV, litter JSON and mother JSON. Before
+Report has one export lifecycle for puppy/litter PDF, mother PDF, CSV, litter JSON and mother JSON. Before
 the first await it snapshots the client, context, litter/subject, range, language,
 normalized sections and copies of source/category arrays. Logo loading cannot
 read a later selection. The busy guard disables controls and rejects handler
@@ -2226,3 +2226,22 @@ records. `dossier_open_count` and `dossier_has_open_actions` expose that meaning
 legacy due-soon aliases retain it for existing clients. Published enum values,
 entity unique IDs, tags and events are preserved. See
 [status/count semantics](HOME_ASSISTANT.md#derived-care-counts-and-compatibility-names).
+
+### Mother PDF projection
+
+`mother_pdf.py` builds a read-only mother report from a main-storage snapshot
+through `mother_context_payload`. The admin-only `puppy_tracker/mother/pdf`
+WebSocket command captures storage and breeder branding before executor work.
+It accepts `litter_id`, `history_scope` (`all`/`current`), optional `range_hours`,
+`language`, `dossier_types`, allowed boolean `sections` and optional logo data.
+It returns filename, PDF MIME type and base64 content. The signed mother JSON
+route is unchanged.
+
+The projection includes canonical non-deleted mother records only. It separates
+temperature readings, completed care/reminders and ordinary dossier entries,
+then applies period/category filters to their relevant sections. Temperature
+values are keyed by record ID so equal timestamps do not overwrite readings.
+Shared PDF layout/chart primitives support Celsius labels without changing
+weight-chart defaults. Independent mother controls persist separately from puppy
+profiles. No buyer or puppy data enters this projection; current/all litter
+scope is explicit both in the selection summary and the PDF.

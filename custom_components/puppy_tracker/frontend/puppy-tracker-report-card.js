@@ -14,20 +14,21 @@ import {
   selectDefaultLitter,
   subscribeUpdates,
 } from "./puppy-tracker-card-common.js";
-import { recordTypeLabel } from "./puppy-tracker-dossier-schema.js";
+import { TYPE_FIELDS, recordTypeLabel } from "./puppy-tracker-dossier-schema.js";
 import "./puppy-tracker-documents.js";
 
 const REPORT_TEXT = {
   nl: {
-    title: "Rapport & export", subtitle: "Maak een PDF-dossier, exporteer gegevens of gebruik een documentsjabloon.", litter: "Nest", selection: "Selectie", period: "Periode", all: "Alles", wholeLitter: "Hele nest", mother: "Moederhond", motherHistory: "Moederhistorie", allLitters: "Alle nesten", currentLitterOnly: "Alleen dit nest", hours24: "24 uur", days3: "3 dagen", days7: "7 dagen", days14: "14 dagen", days30: "30 dagen", puppies: "Pups", measurements: "Metingen", attention: "Gewichtsaandacht", pdf: "PDF downloaden", csv: "CSV", json: "JSON-nestback-up", motherJson: "Moeder JSON-back-up", note: "PDF en CSV volgen de gekozen pup en periode. De periode filtert metingen, grafiek en zorgresultaten; samenvatting, gewichtsaandacht en baasjes tonen de actuele stand. JSON is altijd een volledige importeerbare nestback-up.", motherNote: "Moeder JSON bevat standaard de volledige historie over alle nesten; dit is hierboven te beperken tot het huidige nest.", loadFailed: "Rapportgegevens konden niet worden geladen.", refreshFailed: "Nieuwe Puppy Tracker-data kon niet worden geladen.", dataFailed: "Nestdata kon niet worden geladen.", exportFailed: "Export mislukt.", motherExportFailed: "Moederexport mislukt.", pdfDone: "PDF-rapport gedownload.", csvDone: "CSV gedownload.", jsonDone: "JSON-nestback-up gedownload.", motherDone: "Moederdossier gedownload.", preparingExport: "{format} voorbereiden…", preparingMother: "Moederdossier voorbereiden…", motherJsonOnly: "Voor de moeder is momenteel alleen JSON-dossierexport beschikbaar.", puppy: "Pup", inactive: "inactief", litterName: "Nest", pdfSections: "Onderdelen in PDF", summarySection: "Samenvatting", chartSection: "Grafiek", measurementSection: "Metingen", careSection: "Zorgresultaten", behaviorSection: "Gedragsprofiel", attentionSection: "Gewichtsaandacht", ownersSection: "Baasjes en plaatsing", ownerContactSection: "Contactgegevens", profile: "PDF-profiel", customProfile: "Aangepast", saveProfile: "Profiel opslaan", profileNamePrompt: "Naam voor dit PDF-profiel",
+    title: "Rapport & export", subtitle: "Maak een PDF-dossier, exporteer gegevens of gebruik een documentsjabloon.", litter: "Nest", selection: "Selectie", period: "Periode", all: "Alles", wholeLitter: "Hele nest", mother: "Moederhond", motherHistory: "Moederhistorie", allLitters: "Alle nesten", currentLitterOnly: "Alleen dit nest", hours24: "24 uur", days3: "3 dagen", days7: "7 dagen", days14: "14 dagen", days30: "30 dagen", puppies: "Pups", measurements: "Metingen", attention: "Gewichtsaandacht", pdf: "PDF downloaden", csv: "CSV", json: "JSON-nestback-up", motherJson: "Moeder JSON-back-up", note: "PDF en CSV volgen de gekozen pup en periode. De periode filtert metingen, grafiek en zorgresultaten; samenvatting, gewichtsaandacht en baasjes tonen de actuele stand. JSON is altijd een volledige importeerbare nestback-up.", motherNote: "Moeder JSON bevat standaard de volledige historie over alle nesten; dit is hierboven te beperken tot het huidige nest.", loadFailed: "Rapportgegevens konden niet worden geladen.", refreshFailed: "Nieuwe Puppy Tracker-data kon niet worden geladen.", dataFailed: "Nestdata kon niet worden geladen.", exportFailed: "Export mislukt.", motherExportFailed: "Moederexport mislukt.", pdfDone: "PDF-rapport gedownload.", csvDone: "CSV gedownload.", jsonDone: "JSON-nestback-up gedownload.", motherDone: "Moederdossier gedownload.", preparingExport: "{format} voorbereiden…", preparingMother: "Moederdossier voorbereiden…", motherJsonOnly: "Voor de moeder zijn PDF en JSON beschikbaar.", puppy: "Pup", inactive: "inactief", litterName: "Nest", pdfSections: "Onderdelen in PDF", summarySection: "Samenvatting", chartSection: "Grafiek", measurementSection: "Metingen", careSection: "Zorgresultaten", behaviorSection: "Gedragsprofiel", attentionSection: "Gewichtsaandacht", ownersSection: "Baasjes en plaatsing", ownerContactSection: "Contactgegevens", profile: "PDF-profiel", customProfile: "Aangepast", saveProfile: "Profiel opslaan", profileNamePrompt: "Naam voor dit PDF-profiel",
   },
   en: {
-    title: "Report & export", subtitle: "Create a PDF report, export data or use a document template.", litter: "Litter", selection: "Selection", period: "Period", all: "All", wholeLitter: "Whole litter", mother: "Mother", motherHistory: "Mother history", allLitters: "All litters", currentLitterOnly: "Current litter only", hours24: "24 hours", days3: "3 days", days7: "7 days", days14: "14 days", days30: "30 days", puppies: "Puppies", measurements: "Measurements", attention: "Weight attention", pdf: "Download PDF", csv: "CSV", json: "Litter JSON backup", motherJson: "Mother JSON backup", note: "PDF and CSV follow the selected puppy and period. The period filters measurements, chart data and care results; summary, weight attention and owners show the current state. JSON is always a complete importable litter backup.", motherNote: "Mother JSON includes the complete history across all litters by default; limit it to the current litter above if needed.", loadFailed: "Report data could not be loaded.", refreshFailed: "New Puppy Tracker data could not be loaded.", dataFailed: "Litter data could not be loaded.", exportFailed: "Export failed.", motherExportFailed: "Mother export failed.", pdfDone: "PDF report downloaded.", csvDone: "CSV downloaded.", jsonDone: "Litter JSON backup downloaded.", motherDone: "Mother dossier downloaded.", preparingExport: "Preparing {format}…", preparingMother: "Preparing mother dossier…", motherJsonOnly: "Only JSON dossier export is currently available for the mother.", puppy: "Puppy", inactive: "inactive", litterName: "Litter", pdfSections: "PDF sections", summarySection: "Summary", chartSection: "Chart", measurementSection: "Measurements", careSection: "Care results", behaviorSection: "Behavior profile", attentionSection: "Weight attention", ownersSection: "Owners and placement", ownerContactSection: "Contact details", profile: "PDF profile", customProfile: "Custom", saveProfile: "Save profile", profileNamePrompt: "Name for this PDF profile",
+    title: "Report & export", subtitle: "Create a PDF report, export data or use a document template.", litter: "Litter", selection: "Selection", period: "Period", all: "All", wholeLitter: "Whole litter", mother: "Mother", motherHistory: "Mother history", allLitters: "All litters", currentLitterOnly: "Current litter only", hours24: "24 hours", days3: "3 days", days7: "7 days", days14: "14 days", days30: "30 days", puppies: "Puppies", measurements: "Measurements", attention: "Weight attention", pdf: "Download PDF", csv: "CSV", json: "Litter JSON backup", motherJson: "Mother JSON backup", note: "PDF and CSV follow the selected puppy and period. The period filters measurements, chart data and care results; summary, weight attention and owners show the current state. JSON is always a complete importable litter backup.", motherNote: "Mother JSON includes the complete history across all litters by default; limit it to the current litter above if needed.", loadFailed: "Report data could not be loaded.", refreshFailed: "New Puppy Tracker data could not be loaded.", dataFailed: "Litter data could not be loaded.", exportFailed: "Export failed.", motherExportFailed: "Mother export failed.", pdfDone: "PDF report downloaded.", csvDone: "CSV downloaded.", jsonDone: "Litter JSON backup downloaded.", motherDone: "Mother dossier downloaded.", preparingExport: "Preparing {format}…", preparingMother: "Preparing mother dossier…", motherJsonOnly: "PDF and JSON exports are available for the mother.", puppy: "Puppy", inactive: "inactive", litterName: "Litter", pdfSections: "PDF sections", summarySection: "Summary", chartSection: "Chart", measurementSection: "Measurements", careSection: "Care results", behaviorSection: "Behavior profile", attentionSection: "Weight attention", ownersSection: "Owners and placement", ownerContactSection: "Contact details", profile: "PDF profile", customProfile: "Custom", saveProfile: "Save profile", profileNamePrompt: "Name for this PDF profile",
   },
 };
 
 Object.assign(REPORT_TEXT.nl, {
-  reportSelectionHint: "Keuze voor PDF en CSV; documenten hieronder hebben een eigen selectie.", motherSelectionHint: "Keuze voor de JSON-export van de moeder.",
+  motherProfileNote: "Profielnotitie moeder", motherChart: "Temperatuurgrafiek", motherMeasurements: "Temperatuurmetingen", motherCare: "Uitgevoerde zorg en herinneringen", motherSummary: "Samenvatting moederhistorie", litterContext: "Nestcontext", motherPdfHint: "Temperatuurmetingen en uitvoeringen hebben eigen onderdelen. Dossieritems bevat de overige moederregistraties; pup- en kopersgegevens worden niet meegenomen.",
+  reportSelectionHint: "Keuze voor PDF en CSV; documenten hieronder hebben een eigen selectie.", motherSelectionHint: "Keuze voor de PDF- en JSON-export van de moeder. De periode geldt alleen voor de PDF.",
   pdfHeading: "PDF-dossier", dataHeading: "Gegevens exporteren en back-up", csvDescription: "CSV gebruikt de gekozen pup en periode.", backupDescription: "JSON is een volledige importeerbare back-up van het nest.",
   adminOnly: "Rapporten en exports zijn alleen beschikbaar voor beheerders.",
   identitySection: "Identiteit", dossierSection: "Dossieritems", pdfLanguage: "PDF-taal",
@@ -42,7 +43,8 @@ Object.assign(REPORT_TEXT.nl, {
   note: "PDF en CSV volgen de gekozen pup en periode. De PDF-periode filtert metingen, grafiek, zorgresultaten, gedrag en dossieritems; samenvatting, gewichtsaandacht en baasjes tonen de actuele stand. JSON blijft een volledige importeerbare nestback-up.",
 });
 Object.assign(REPORT_TEXT.en, {
-  reportSelectionHint: "Selection for PDF and CSV; documents below have their own selection.", motherSelectionHint: "Selection for the mother's JSON export.",
+  motherProfileNote: "Mother profile note", motherChart: "Temperature chart", motherMeasurements: "Temperature measurements", motherCare: "Completed care and reminders", motherSummary: "Mother history summary", litterContext: "Litter context", motherPdfHint: "Temperature measurements and executions have their own sections. Dossier items contains other mother records; puppy and buyer data are excluded.",
+  reportSelectionHint: "Selection for PDF and CSV; documents below have their own selection.", motherSelectionHint: "Selection for the mother's PDF and JSON exports. The period applies only to PDF.",
   pdfHeading: "PDF report", dataHeading: "Data export and backup", csvDescription: "CSV uses the selected puppy and period.", backupDescription: "JSON is a complete importable litter backup.",
   adminOnly: "Reports and exports are only available to administrators.",
   identitySection: "Identity", dossierSection: "Dossier items", pdfLanguage: "PDF language",
@@ -61,6 +63,20 @@ const LITTER_VALUE = "__litter__";
 const MOTHER_VALUE = "__mother__";
 const PDF_SECTION_DEFAULTS = { identity: true, summary: true, chart: true, measurements: true, care: true, behavior: true, dossier: true, attention: true, owners: true, owner_contact: false, brand_logo: true, breeder_name: true, breeder_contact: false, profile_note: false };
 const PDF_SECTION_LABELS = { identity: "identitySection", summary: "summarySection", chart: "chartSection", measurements: "measurementSection", care: "careSection", behavior: "behaviorSection", dossier: "dossierSection", attention: "attentionSection", owners: "ownersSection", owner_contact: "ownerContactSection", brand_logo: "brandLogoSection", breeder_name: "breederNameSection", breeder_contact: "breederContactSection", profile_note: "profileNoteSection" };
+const MOTHER_SECTION_DEFAULTS = { identity: true, summary: true, chart: true, measurements: true, care: true, dossier: true, litter_context: false, brand_logo: true, breeder_name: true, breeder_contact: false, profile_note: false };
+const MOTHER_SECTION_LABELS = { identity: "identitySection", summary: "motherSummary", chart: "motherChart", measurements: "motherMeasurements", care: "motherCare", dossier: "dossierSection", litter_context: "litterContext", brand_logo: "brandLogoSection", breeder_name: "breederNameSection", breeder_contact: "breederContactSection", profile_note: "motherProfileNote" };
+function motherSections(value = {}) {
+  value = value && typeof value === "object" ? value : {};
+  const normalized = Object.fromEntries(Object.entries(MOTHER_SECTION_DEFAULTS).map(([key, fallback]) => [key, typeof value[key] === "boolean" ? value[key] : fallback]));
+  if (!normalized.identity) normalized.profile_note = false;
+  return normalized;
+}
+
+
+function _rangeLabel(hass, range) {
+  const key = { "24h": "hours24", "3d": "days3", "7d": "days7", "14d": "days14", "30d": "days30", all: "all" }[range] || "all";
+  return `${reportText(hass, "period")}: ${reportText(hass, key)}`;
+}
 
 async function reportLogo(url) {
   if (!url) return null;
@@ -174,6 +190,8 @@ class PuppyTrackerReportCard extends HTMLElement {
     this._reportProfile = this._state.reportProfile || "full";
     this._sectionState = normalizeSections(this._state.sectionState || REPORT_PROFILES.full.sections);
     this._motherExportScope = this._state.motherExportScope || "all";
+    this._motherSections = motherSections(this._state.motherSections);
+    this._motherDossierTypes = Array.isArray(this._state.motherDossierTypes) ? this._state.motherDossierTypes : null;
     this._pdfLanguage = ["auto", "nl", "en"].includes(this._state.pdfLanguage) ? this._state.pdfLanguage : "auto";
     this._dossierTypes = Array.isArray(this._state.dossierTypes) ? this._state.dossierTypes : null;
     this._dossierScopes = Array.isArray(this._state.dossierScopes) ? this._state.dossierScopes.filter((scope) => ["litter", "puppy"].includes(scope)) : ["litter", "puppy"];
@@ -422,6 +440,7 @@ class PuppyTrackerReportCard extends HTMLElement {
   }
 
   _availableDossierTypes() {
+    if (this._selectedPuppyId === MOTHER_VALUE) return Object.keys(TYPE_FIELDS).filter(type => !["temperature", "behavior_observation"].includes(type));
     const records = [
       ...(this._dossierScopes.includes("litter") ? this._data?.litter?.records || [] : []),
       ...(this._dossierScopes.includes("puppy") ? this._selectedPuppies().flatMap((puppy) => puppy.records || []) : []),
@@ -430,7 +449,7 @@ class PuppyTrackerReportCard extends HTMLElement {
   }
 
   _persistState() {
-    saveCardState(this, { ...this._state, range: this._range, puppyId: this._selectedPuppyId, reportProfile: this._reportProfile, sectionState: this._sectionState, motherExportScope: this._motherExportScope, pdfLanguage: this._pdfLanguage, dossierTypes: this._dossierTypes, dossierScopes: this._dossierScopes });
+    saveCardState(this, { ...this._state, range: this._range, puppyId: this._selectedPuppyId, reportProfile: this._reportProfile, sectionState: this._sectionState, motherExportScope: this._motherExportScope, motherSections: this._motherSections, motherDossierTypes: this._motherDossierTypes, pdfLanguage: this._pdfLanguage, dossierTypes: this._dossierTypes, dossierScopes: this._dossierScopes });
   }
 
   _applyProfile(profileName) {
@@ -466,8 +485,8 @@ class PuppyTrackerReportCard extends HTMLElement {
     const text = key => reportText(this._hass, key);
     const litter = this._data?.litter || this._litters.find(item => item.id === this._selectedLitterId);
     const nest = `${text("litter")}: ${litter?.name || "—"}`;
-    if (format === "json" && this._selectedPuppyId === MOTHER_VALUE) {
-      return `${nest} · ${text("mother")}: ${litter?.mother || "—"} · ${text("motherHistory")}: ${text(this._motherExportScope === "current" ? "currentLitterOnly" : "allLitters")}`;
+    if (this._selectedPuppyId === MOTHER_VALUE) {
+      return `${nest} · ${text("mother")}: ${litter?.mother || "—"} · ${text("motherHistory")}: ${text(this._motherExportScope === "current" ? "currentLitterOnly" : "allLitters")}${format === "json" ? "" : ` · ${_rangeLabel(this._hass, this._range)}`}`;
     }
     const puppy = this._data?.puppies?.find(item => item.id === this._selectedPuppyId);
     const scope = format === "json" || !puppy ? text("wholeLitter") : puppySelectorLabel(puppy, text("puppy"));
@@ -478,7 +497,7 @@ class PuppyTrackerReportCard extends HTMLElement {
   async _export(format) {
     if (this._exporting || !["pdf", "csv", "json"].includes(format) || !this._hass || this._hass.user?.is_admin === false || !this._selectedLitterId || this._loading || !this._data) return;
     const mother = this._selectedPuppyId === MOTHER_VALUE;
-    if (mother && format !== "json") {
+    if (mother && format === "csv") {
       this._status = reportText(this._hass, "motherJsonOnly");
       this._render();
       return;
@@ -494,9 +513,9 @@ class PuppyTrackerReportCard extends HTMLElement {
       } : {},
     };
     if (format === "pdf") Object.assign(snapshot.options, {
-      sections: normalizeSections(this._sectionState),
+      sections: mother ? motherSections(this._motherSections) : normalizeSections(this._sectionState),
       language: this._pdfLanguage === "auto" ? languageForHass(snapshot.hass) : this._pdfLanguage,
-      dossier_types: this._dossierTypes === null ? null : [...this._dossierTypes],
+      dossier_types: (mother ? this._motherDossierTypes : this._dossierTypes) === null ? null : [...(mother ? this._motherDossierTypes : this._dossierTypes)],
       dossier_scopes: [...this._dossierScopes],
       branding: {},
     });
@@ -509,7 +528,7 @@ class PuppyTrackerReportCard extends HTMLElement {
     this._status = reportText(snapshot.hass, mother ? "preparingMother" : "preparingExport", { format: format.toUpperCase() });
     this._render();
     try {
-      if (mother) {
+      if (mother && format === "json") {
         const result = await snapshot.hass.callWS({ type: "puppy_tracker/mother/export_url", litter_id: snapshot.litterId, history_scope: snapshot.motherScope });
         if (!current()) return;
         const anchor = document.createElement("a");
@@ -528,7 +547,12 @@ class PuppyTrackerReportCard extends HTMLElement {
           if (!current()) return;
           if (logo) snapshot.options.branding.logo_base64 = logo;
         }
-        const result = await fetchExport(snapshot.hass, snapshot.litterId, format, snapshot.options);
+        const result = mother
+          ? await snapshot.hass.callWS({ type: "puppy_tracker/mother/pdf", litter_id: snapshot.litterId, history_scope: snapshot.motherScope,
+            ...(snapshot.options.range_hours ? { range_hours: snapshot.options.range_hours } : {}),
+            language: snapshot.options.language, sections: snapshot.options.sections, branding: snapshot.options.branding,
+            ...(snapshot.options.dossier_types === null ? {} : { dossier_types: snapshot.options.dossier_types }) })
+          : await fetchExport(snapshot.hass, snapshot.litterId, format, snapshot.options);
         if (!current()) return;
         downloadExportFile(result);
       }
@@ -559,7 +583,9 @@ class PuppyTrackerReportCard extends HTMLElement {
     const motherSelected = this._selectedPuppyId === MOTHER_VALUE;
     const puppies = this._data?.puppies || [];
     const selected = this._selectedPuppies();
-    const sections = normalizeSections(this._sectionState);
+    const sections = motherSelected ? motherSections(this._motherSections) : normalizeSections(this._sectionState);
+    const sectionLabels = motherSelected ? MOTHER_SECTION_LABELS : PDF_SECTION_LABELS;
+    const dossierTypes = motherSelected ? this._motherDossierTypes : this._dossierTypes;
     const warnings = sections.attention ? selected.filter((p) => p.summary?.needs_attention).length : 0;
     const measurementCount = sections.measurements || sections.chart ? selected.reduce((sum, p) => sum + this._measurementRows(p).length, 0) : 0;
     const measurementLabel = sections.measurements ? "measurements" : sections.chart ? "chartPoints" : "measurements";
@@ -573,13 +599,13 @@ class PuppyTrackerReportCard extends HTMLElement {
     const profiles = { ...REPORT_PROFILES, ...(this._state.reportProfiles || {}) };
     if (this._reportProfile === "custom" && !profiles.custom) profiles.custom = { nl: reportText(this._hass, "customProfile"), en: reportText(this._hass, "customProfile"), sections };
     const profileOptions = Object.entries(profiles).map(([key, profile]) => `<option value="${escapeHtml(key)}" ${key === this._reportProfile ? "selected" : ""}>${escapeHtml(profileLabel(this._hass, profile))}</option>`).join("");
-    const sectionControls = Object.entries(PDF_SECTION_LABELS).map(([key, labelKey]) => `<label><input type="checkbox" data-pdf-section="${key}" ${sections[key] ? "checked" : ""} ${(key === "owner_contact" && !sections.owners) || (key === "profile_note" && !sections.identity) ? "disabled" : ""}> ${escapeHtml(reportText(this._hass, labelKey))}</label>`).join("");
+    const sectionControls = Object.entries(sectionLabels).map(([key, labelKey]) => `<label><input type="checkbox" data-pdf-section="${key}" ${sections[key] ? "checked" : ""} ${(key === "owner_contact" && !sections.owners) || (key === "profile_note" && !sections.identity) ? "disabled" : ""}> ${escapeHtml(reportText(this._hass, labelKey))}</label>`).join("");
     const availableTypes = this._availableDossierTypes();
-    const categoryControls = availableTypes.map((type) => `<label><input type="checkbox" data-dossier-type="${escapeHtml(type)}" ${this._dossierTypes === null || this._dossierTypes.includes(type) ? "checked" : ""}> ${escapeHtml(recordTypeLabel(this._hass, type))}</label>`).join("");
-    const dossierControls = sections.dossier ? `<details class="dossier-filters" ${this._filtersOpen ? "open" : ""}><summary>${escapeHtml(reportText(this._hass, "dossierSources"))} / ${escapeHtml(reportText(this._hass, "dossierCategories"))}</summary><div class="filter-row"><strong>${escapeHtml(reportText(this._hass, "dossierSources"))}</strong><label><input type="checkbox" data-dossier-scope="litter" ${this._dossierScopes.includes("litter") ? "checked" : ""}> ${escapeHtml(reportText(this._hass, "litterSource"))}</label><label><input type="checkbox" data-dossier-scope="puppy" ${this._dossierScopes.includes("puppy") ? "checked" : ""}> ${escapeHtml(reportText(this._hass, "puppySource"))}</label></div>${availableTypes.length ? `<div class="filter-row"><strong>${escapeHtml(reportText(this._hass, "dossierCategories"))}</strong><button type="button" class="small-button" id="all-dossier-types">${escapeHtml(reportText(this._hass, "selectAll"))}</button><button type="button" class="small-button" id="no-dossier-types">${escapeHtml(reportText(this._hass, "selectNone"))}</button>${categoryControls}</div>` : ""}</details>` : "";
-    const selectedSectionNames = Object.entries(PDF_SECTION_LABELS).filter(([key]) => sections[key]).map(([, key]) => reportText(this._hass, key)).join(" · ") || reportText(this._hass, "noSections");
+    const categoryControls = availableTypes.map((type) => `<label><input type="checkbox" data-dossier-type="${escapeHtml(type)}" ${dossierTypes === null || dossierTypes.includes(type) ? "checked" : ""}> ${escapeHtml(recordTypeLabel(this._hass, type))}</label>`).join("");
+    const dossierControls = sections.dossier ? `<details class="dossier-filters" ${this._filtersOpen ? "open" : ""}><summary>${motherSelected ? "" : `${escapeHtml(reportText(this._hass, "dossierSources"))} / `}${escapeHtml(reportText(this._hass, "dossierCategories"))}</summary>${motherSelected ? "" : `<div class="filter-row"><strong>${escapeHtml(reportText(this._hass, "dossierSources"))}</strong><label><input type="checkbox" data-dossier-scope="litter" ${this._dossierScopes.includes("litter") ? "checked" : ""}> ${escapeHtml(reportText(this._hass, "litterSource"))}</label><label><input type="checkbox" data-dossier-scope="puppy" ${this._dossierScopes.includes("puppy") ? "checked" : ""}> ${escapeHtml(reportText(this._hass, "puppySource"))}</label></div>`}${availableTypes.length ? `<div class="filter-row"><strong>${escapeHtml(reportText(this._hass, "dossierCategories"))}</strong><button type="button" class="small-button" id="all-dossier-types">${escapeHtml(reportText(this._hass, "selectAll"))}</button><button type="button" class="small-button" id="no-dossier-types">${escapeHtml(reportText(this._hass, "selectNone"))}</button>${categoryControls}</div>` : ""}</details>` : "";
+    const selectedSectionNames = Object.entries(sectionLabels).filter(([key]) => sections[key]).map(([, key]) => reportText(this._hass, key)).join(" · ") || reportText(this._hass, "noSections");
     const languageLabel = this._pdfLanguage === "auto" ? reportText(this._hass, "automaticLanguage") : reportText(this._hass, this._pdfLanguage === "en" ? "englishLanguage" : "dutchLanguage");
-    const pdfSettings = `<div class="pdf-settings"><div class="field"><label>${escapeHtml(reportText(this._hass, "profile"))}</label><select id="profile">${profileOptions}</select></div><div class="field"><label>${escapeHtml(reportText(this._hass, "pdfLanguage"))}</label><select id="pdf-language"><option value="auto" ${this._pdfLanguage === "auto" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "automaticLanguage"))}</option><option value="nl" ${this._pdfLanguage === "nl" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "dutchLanguage"))}</option><option value="en" ${this._pdfLanguage === "en" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "englishLanguage"))}</option></select></div></div>`;
+    const pdfSettings = `<div class="pdf-settings">${motherSelected ? "" : `<div class="field"><label>${escapeHtml(reportText(this._hass, "profile"))}</label><select id="profile">${profileOptions}</select></div>`}<div class="field"><label>${escapeHtml(reportText(this._hass, "pdfLanguage"))}</label><select id="pdf-language"><option value="auto" ${this._pdfLanguage === "auto" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "automaticLanguage"))}</option><option value="nl" ${this._pdfLanguage === "nl" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "dutchLanguage"))}</option><option value="en" ${this._pdfLanguage === "en" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "englishLanguage"))}</option></select></div></div>`;
     const reportMarkup = `
       <ha-card><style>
         ha-card{padding:16px;container-type:inline-size;container-name:report-card}.title{font-size:18px;font-weight:600;margin-bottom:3px}.sub{font-size:12px;color:var(--secondary-text-color);margin-bottom:12px}.controls{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}.field{min-width:0}.field label{display:block;font-size:11px;color:var(--secondary-text-color);margin:0 0 4px 2px}.field select{width:100%;min-width:0;min-height:42px;border:1px solid var(--divider-color);border-radius:8px;background:var(--card-background-color);color:var(--primary-text-color);padding:0 9px;font-size:14px}.pdf-sections,.filter-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px}.pdf-sections label,.filter-row label{font-size:12px;display:flex;align-items:center;gap:5px}.pdf-sections input,.filter-row input{accent-color:var(--primary-color)}.dossier-filters{margin-top:10px;border-top:1px solid var(--divider-color);padding-top:10px;font-size:12px}.dossier-filters summary{cursor:pointer;font-weight:600}.filter-row strong{font-size:11px;color:var(--secondary-text-color)}.small-button{border:1px solid var(--divider-color);background:var(--secondary-background-color);color:var(--primary-text-color);min-height:32px;border-radius:6px;padding:0 9px;cursor:pointer}.preview{margin-top:12px;border-top:1px solid var(--divider-color);padding-top:10px}.preview-summary{font-size:12px;line-height:1.5}.preview-summary span{display:block;color:var(--secondary-text-color)}.preview-counts{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin-top:8px}.box{min-width:0;border:1px solid var(--divider-color);border-radius:8px;padding:10px}.box span{display:block;font-size:11px;color:var(--secondary-text-color)}.box b{display:block;margin-top:3px;font-size:16px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.actions button{min-height:42px;border:0;border-radius:8px;padding:0 13px;font-weight:600;cursor:pointer;background:var(--primary-color);color:var(--text-primary-color,#fff)}.actions button.secondary{background:var(--secondary-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color)}.status{font-size:12px;color:var(--secondary-text-color);margin-top:9px}.error{color:var(--error-color)}.note{font-size:11px;color:var(--secondary-text-color);margin-top:10px;line-height:1.4}
@@ -591,10 +617,10 @@ class PuppyTrackerReportCard extends HTMLElement {
       </style>
       <div class="title">${escapeHtml(this._config.title ?? reportText(this._hass, "title"))}</div><div class="sub">${escapeHtml(reportText(this._hass, "subtitle"))}</div>
       ${this._exportError || this._error ? `<div class="error" role="alert">${escapeHtml(this._exportError || this._error)}</div>` : ""}
-      <div class="controls"><div class="field"><label for="litter">${escapeHtml(reportText(this._hass, "litter"))}</label><select id="litter">${litterOptions}</select></div><div class="field"><label for="puppy">${escapeHtml(reportText(this._hass, "selection"))}</label><select id="puppy">${puppyOptions}</select></div>${motherSelected ? motherScopeField : `<div class="field"><label for="range">${escapeHtml(reportText(this._hass, "period"))}</label><select id="range"><option value="24h" ${this._range === "24h" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "hours24"))}</option><option value="3d" ${this._range === "3d" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "days3"))}</option><option value="7d" ${this._range === "7d" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "days7"))}</option><option value="14d" ${this._range === "14d" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "days14"))}</option><option value="30d" ${this._range === "30d" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "days30"))}</option><option value="all" ${this._range === "all" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "all"))}</option></select></div>`}</div>
+      <div class="controls"><div class="field"><label for="litter">${escapeHtml(reportText(this._hass, "litter"))}</label><select id="litter">${litterOptions}</select></div><div class="field"><label for="puppy">${escapeHtml(reportText(this._hass, "selection"))}</label><select id="puppy">${puppyOptions}</select></div>${motherScopeField}<div class="field"><label for="range">${escapeHtml(reportText(this._hass, "period"))}</label><select id="range"><option value="24h" ${this._range === "24h" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "hours24"))}</option><option value="3d" ${this._range === "3d" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "days3"))}</option><option value="7d" ${this._range === "7d" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "days7"))}</option><option value="14d" ${this._range === "14d" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "days14"))}</option><option value="30d" ${this._range === "30d" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "days30"))}</option><option value="all" ${this._range === "all" ? "selected" : ""}>${escapeHtml(reportText(this._hass, "all"))}</option></select></div></div>
       <p class="section-help">${escapeHtml(reportText(this._hass, motherSelected ? "motherSelectionHint" : "reportSelectionHint"))}</p>
-      ${motherSelected ? "" : `<details class="report-section" id="pdf-report" ${this._pdfOpen ? "open" : ""}><summary>${escapeHtml(reportText(this._hass, "pdfHeading"))}</summary>${pdfSettings}<div class="pdf-sections"><strong>${escapeHtml(reportText(this._hass, "pdfSections"))}</strong>${sectionControls}<button class="small-button" id="save-profile" type="button">${escapeHtml(reportText(this._hass, "saveProfile"))}</button></div>${dossierControls}
-      <div class="preview"><div class="preview-summary"><strong>${escapeHtml(reportText(this._hass, "preview"))}</strong><span id="pdf-selection-context">${escapeHtml(this._exportContext("pdf"))}</span><span>${escapeHtml(languageLabel)}</span><span>${escapeHtml(reportText(this._hass, "selectedSections"))}: ${escapeHtml(selectedSectionNames)}</span></div><div class="preview-counts"><div class="box"><span>${escapeHtml(reportText(this._hass, "puppies"))}</span><b>${selected.length}</b></div><div class="box"><span>${escapeHtml(reportText(this._hass, measurementLabel))}</span><b>${measurementCount}</b></div><div class="box"><span>${escapeHtml(reportText(this._hass, "careCount"))}</span><b>${careCount}</b></div><div class="box"><span>${escapeHtml(reportText(this._hass, "behaviorCount"))}</span><b>${behaviorCount}</b></div><div class="box"><span>${escapeHtml(reportText(this._hass, "dossierCount"))}</span><b>${dossierCount}</b></div><div class="box"><span>${escapeHtml(reportText(this._hass, "attention"))}</span><b>${warnings}</b></div></div></div><div class="actions"><button id="pdf">${escapeHtml(reportText(this._hass, "pdf"))}</button></div></details>`}
+      <details class="report-section" id="pdf-report" ${this._pdfOpen ? "open" : ""}><summary>${escapeHtml(reportText(this._hass, "pdfHeading"))}</summary>${motherSelected ? `<p class="section-help">${escapeHtml(reportText(this._hass, "motherPdfHint"))}</p>` : ""}${pdfSettings}<div class="pdf-sections"><strong>${escapeHtml(reportText(this._hass, "pdfSections"))}</strong>${sectionControls}${motherSelected ? "" : `<button class="small-button" id="save-profile" type="button">${escapeHtml(reportText(this._hass, "saveProfile"))}</button>`}</div>${dossierControls}
+      <div class="preview"><div class="preview-summary"><strong>${escapeHtml(reportText(this._hass, "preview"))}</strong><span id="pdf-selection-context">${escapeHtml(this._exportContext("pdf"))}</span><span>${escapeHtml(languageLabel)}</span><span>${escapeHtml(reportText(this._hass, "selectedSections"))}: ${escapeHtml(selectedSectionNames)}</span></div>${motherSelected ? "" : `<div class="preview-counts"><div class="box"><span>${escapeHtml(reportText(this._hass, "puppies"))}</span><b>${selected.length}</b></div><div class="box"><span>${escapeHtml(reportText(this._hass, measurementLabel))}</span><b>${measurementCount}</b></div><div class="box"><span>${escapeHtml(reportText(this._hass, "careCount"))}</span><b>${careCount}</b></div><div class="box"><span>${escapeHtml(reportText(this._hass, "behaviorCount"))}</span><b>${behaviorCount}</b></div><div class="box"><span>${escapeHtml(reportText(this._hass, "dossierCount"))}</span><b>${dossierCount}</b></div><div class="box"><span>${escapeHtml(reportText(this._hass, "attention"))}</span><b>${warnings}</b></div></div>`}</div><div class="actions"><button id="pdf">${escapeHtml(reportText(this._hass, "pdf"))}</button></div></details>
       <details class="report-section" id="data-export" ${this._dataExportOpen ? "open" : ""}><summary>${escapeHtml(reportText(this._hass, "dataHeading"))}</summary>${motherSelected ? "" : `<p id="csv-selection-context" class="section-help"><strong>CSV</strong> · ${escapeHtml(this._exportContext("csv"))}</p><p class="section-help">${escapeHtml(reportText(this._hass, "csvDescription"))}</p>`}<p id="json-selection-context" class="section-help"><strong>JSON</strong> · ${escapeHtml(this._exportContext("json"))}</p><p class="section-help">${escapeHtml(reportText(this._hass, motherSelected ? "motherNote" : "backupDescription"))}</p><div class="actions">${motherSelected ? "" : `<button class="secondary" id="csv">${escapeHtml(reportText(this._hass, "csv"))}</button>`}<button class="secondary" id="json">${escapeHtml(reportText(this._hass, motherSelected ? "motherJson" : "json"))}</button></div></details>
       <div class="status" role="status">${escapeHtml(this._status)}</div>
       </ha-card>`;
@@ -625,16 +651,16 @@ class PuppyTrackerReportCard extends HTMLElement {
     }));
     listen("#litter", "change", (e) => this._changeLitter(e.target.value));
     listen("#puppy", "change", (e) => { this._selectedPuppyId = e.target.value; this._persistState(); this._render(); });
-    listen("#mother-export-scope", "change", (e) => { this._motherExportScope = e.target.value; this._persistState(); const context = this.shadowRoot.querySelector("#json-selection-context"); if (context) context.textContent = `JSON · ${this._exportContext("json")}`; });
+    listen("#mother-export-scope", "change", (e) => { this._motherExportScope = e.target.value; this._persistState(); this._render(); });
     listen("#range", "change", (e) => { this._range = e.target.value; this._persistState(); this._render(); });
     listen("#profile", "change", (e) => this._applyProfile(e.target.value));
     listen("#pdf-language", "change", (e) => { this._pdfLanguage = e.target.value; this._persistState(); this._render(); });
-    listen("[data-pdf-section]", "change", () => { this._sectionState = normalizeSections(Object.fromEntries([...this.shadowRoot.querySelectorAll("[data-pdf-section]")].map((item) => [item.dataset.pdfSection, item.checked]))); this._reportProfile = "custom"; this._persistState(); this._render(); });
+    listen("[data-pdf-section]", "change", () => { const chosen = Object.fromEntries([...this.shadowRoot.querySelectorAll("[data-pdf-section]")].map((item) => [item.dataset.pdfSection, item.checked])); if (motherSelected) this._motherSections = motherSections(chosen); else { this._sectionState = normalizeSections(chosen); this._reportProfile = "custom"; } this._persistState(); this._render(); });
     this.shadowRoot.querySelector(".dossier-filters")?.addEventListener("toggle", (event) => { this._filtersOpen = event.target.open; });
     listen("[data-dossier-scope]", "change", () => { this._dossierScopes = [...this.shadowRoot.querySelectorAll("[data-dossier-scope]:checked")].map((item) => item.dataset.dossierScope); this._persistState(); this._render(); });
-    listen("[data-dossier-type]", "change", () => { this._dossierTypes = [...this.shadowRoot.querySelectorAll("[data-dossier-type]:checked")].map((item) => item.dataset.dossierType); this._persistState(); this._render(); });
-    listen("#all-dossier-types", "click", () => { this._dossierTypes = null; this._persistState(); this._render(); });
-    listen("#no-dossier-types", "click", () => { this._dossierTypes = []; this._persistState(); this._render(); });
+    listen("[data-dossier-type]", "change", () => { const types = [...this.shadowRoot.querySelectorAll("[data-dossier-type]:checked")].map((item) => item.dataset.dossierType); if (motherSelected) this._motherDossierTypes = types; else this._dossierTypes = types; this._persistState(); this._render(); });
+    listen("#all-dossier-types", "click", () => { if (motherSelected) this._motherDossierTypes = null; else this._dossierTypes = null; this._persistState(); this._render(); });
+    listen("#no-dossier-types", "click", () => { if (motherSelected) this._motherDossierTypes = []; else this._dossierTypes = []; this._persistState(); this._render(); });
     listen("#save-profile", "click", () => this._saveCustomProfile());
     listen("#pdf", "click", () => this._export("pdf"));
     listen("#csv", "click", () => this._export("csv"));
