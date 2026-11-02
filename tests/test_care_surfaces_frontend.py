@@ -86,45 +86,6 @@ def test_care_summary_has_a_scroll_fallback_outside_today_qol() -> None:
     assert "overflow-y:auto" in source
 
 
-def test_open_care_rows_launch_structured_result_entry() -> None:
-    editor = (FRONTEND / "puppy-tracker-care-result-editor.js").read_text()
-    surfaces = (FRONTEND / "puppy-tracker-care-surfaces.js").read_text()
-    execution = (FRONTEND / "puppy-tracker-care-execution-card.js").read_text()
-    assert "export function openCareResultEditor(card, item" in editor
-    assert 'type: "puppy_tracker/care_occurrence/record"' in editor
-    assert "program_id: item.program_id" in editor
-    assert "puppy_id: item.puppy_id" in editor
-    assert "occurrence_id: item.id" in editor
-    assert 'value="completed"' in editor
-    assert 'value="missed"' in editor
-    assert 'fields.has("result")' in editor
-    assert 'fields.has("score")' in editor
-    assert 'fields.has("note")' in editor
-    assert 'role="dialog"' in editor
-    assert 'aria-modal="true"' in editor
-    assert "openCareResultEditor(card, item)" in surfaces
-    assert "openCareResultEditor(this, item" in execution
-    assert "addCareDirectActionButtons" in surfaces
-    assert "row.click()" not in surfaces
-
-
-def test_care_result_save_refreshes_backend_derived_status() -> None:
-    editor = (FRONTEND / "puppy-tracker-care-result-editor.js").read_text()
-    surfaces = (FRONTEND / "puppy-tracker-care-surfaces.js").read_text()
-    execution = (FRONTEND / "puppy-tracker-care-execution-card.js").read_text()
-    record_call = editor.index('type: "puppy_tracker/care_occurrence/record"')
-    refresh = editor.index("await refreshCard(card);", record_call)
-    assert record_call < refresh
-    assert "await card._loadData();" in editor
-    assert "await card._loadOccurrences();" in editor
-    assert "data-care-occurrence" in surfaces
-    assert "wireCareRows(card);" in surfaces
-    assert "findCareOccurrence" in surfaces
-    assert "subscribeUpdates" in execution
-    assert "this._refreshAgain = true" in execution
-    assert "this._config.show_day_selector === false" in execution
-
-
 def test_skipped_puppies_are_not_silently_hidden() -> None:
     source = (FRONTEND / "puppy-tracker-care-surfaces.js").read_text()
     assert "export function renderCareSkippedWarning(card)" in source

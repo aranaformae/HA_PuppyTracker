@@ -62,6 +62,3 @@ def test_care_program_card_exposes_filtering_and_overflow_controls() -> None:
     assert "Stappen en instructies" in source
     assert "age-instruction-row" in source
     assert "instructions_by_age:" in source
-    result_editor = (FRONTEND / "puppy-tracker-care-result-editor.js").read_text(encoding="utf-8")
-    assert "care-result-instructions" in result_editor
-    assert "Observation / note" in result_editor

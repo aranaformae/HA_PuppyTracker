@@ -17,8 +17,16 @@ they have not been reconstructed as a complete historical changelog.
   owner labels, day navigation and existing review/completion forms. Today also
   includes overdue work; reminder postponement and immediate undo are retained.
 
+### Changed
+
+- Use one shared execution editor for ENS/ESI, treatments, reminders and dossier
+  follow-ups. Ordinary care programs keep only their configured result fields
+  and day instructions, with the same safe save, retry, cancel and focus behavior.
+
 ### Fixed
 
+- Preserve drafts and block context changes while care results are being saved;
+  restore the original disabled state of fields after a failed save.
 - Restore the enabled state of retained controls after undoing a reminder
   execution, including in care lists that update without rebuilding the page.
 

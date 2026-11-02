@@ -75,10 +75,10 @@ for (const language of ["nl", "en"]) {
       top: node.shadowRoot.querySelector(".rows").scrollTop, pageTop: window.scrollY }))).toEqual({ sameList: true, sameRow: true, focused: true, top: before.top, pageTop: 500 });
     await expect(card.locator(".rows .row")).toHaveCount(20);
     await card.locator('[data-care-occurrence="c10"] .main').click();
-    await expect(card.locator(".care-result-dialog")).toBeVisible();
+    await expect(page.locator("puppy-tracker-record-editor").locator("dialog")).toBeVisible();
     const saveScroll = await card.locator(".rows").evaluate((node) => node.scrollTop);
     expect(saveScroll).toBeGreaterThan(0);
-    await card.locator(".care-result-save").click();
+    await page.locator("puppy-tracker-record-editor").locator("#record-save").click();
     await expect(card.locator('[data-care-occurrence="c10"]')).toHaveCount(0);
     await expect(card.locator(".rows .row")).toHaveCount(20);
     expect(await card.locator(".rows").evaluate((node) => node.scrollTop)).toBe(saveScroll);
@@ -116,11 +116,11 @@ test("care completion keeps an empty selected day and restores a fresh list per 
   await card.locator("#day-select").selectOption(tomorrow);
   await expect(card.locator(".rows .row")).toHaveCount(1);
   await card.locator('[data-care-occurrence="tomorrow"] .main').click();
-  await card.locator(".care-result-note").fill("Calm reaction");
+  await page.locator("puppy-tracker-record-editor").locator("#record-note").fill("Calm reaction");
   await page.evaluate(async () => { await window.refreshCare(); });
-  await expect(card.locator(".care-result-note")).toHaveValue("Calm reaction");
-  await card.locator(".care-result-save").click();
-  await expect(card.locator(".care-result-dialog")).toHaveCount(0);
+  await expect(page.locator("puppy-tracker-record-editor").locator("#record-note")).toHaveValue("Calm reaction");
+  await page.locator("puppy-tracker-record-editor").locator("#record-save").click();
+  await expect(page.locator("puppy-tracker-record-editor").locator("dialog")).toHaveCount(0);
   await expect(card.locator("#day-select")).toHaveValue(tomorrow);
   await expect(card.locator(".rows .row")).toHaveCount(0);
   await expect(card.locator(".care-save-feedback")).toContainText("Nova (paars)");

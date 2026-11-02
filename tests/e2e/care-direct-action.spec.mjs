@@ -59,14 +59,14 @@ test(`Attention care and acknowledgement actions match admin permissions (${isAd
     await expect(row.locator(".care-direct-action")).toHaveCount(0);
     await expect(row.getByRole("button", { name: "Mark as seen" })).toBeDisabled();
     await row.locator(".main").click();
-    await expect(card.locator(".care-result-dialog")).toHaveCount(0);
+    await expect(page.locator("puppy-tracker-record-editor").locator("dialog")).toHaveCount(0);
     return;
   }
   await expect(row.getByRole("button", { name: "Record completion" })).toBeVisible();
   await expect(row.getByRole("button", { name: "Mark as seen" })).toBeVisible();
 
   await row.getByRole("button", { name: "Record completion" }).click();
-  await expect(card.locator(".care-result-dialog")).toBeVisible();
+  await expect(page.locator("puppy-tracker-record-editor").locator("dialog")).toBeVisible();
 });
 }
 
@@ -98,6 +98,6 @@ test("non-admin care execution remains readable without write controls @cross-br
   await expect(card.locator('button[data-action="completed"]')).toBeDisabled();
   await expect(card.locator('button[data-action="missed"]')).toBeDisabled();
   await card.locator(".main").click();
-  await expect(card.locator(".care-result-dialog")).toHaveCount(0);
+  await expect(page.locator("puppy-tracker-record-editor").locator("dialog")).toHaveCount(0);
   expect(await page.evaluate(() => window.__carePermissionCalls.some((message) => message.type === "puppy_tracker/care_occurrence/record"))).toBe(false);
 });

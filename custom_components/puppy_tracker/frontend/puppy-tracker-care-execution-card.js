@@ -1,7 +1,7 @@
 import { calendarDate, escapeHtml, fetchLitters, formatDateTime, languageForHass, puppyDisplayLabel, requestLitterChange, selectDefaultLitter, subscribeUpdates } from "./puppy-tracker-card-common.js";
 import { openCareResultEditor, renderCareSaveFeedback } from "./puppy-tracker-care-result-editor.js";
 import { renderCareSkippedWarning } from "./puppy-tracker-care-surfaces.js";
-import { canEditRecords, openFollowupEditor, openReminderEditor, reminderActionButtons, RECORD_ACTION_STYLE } from "./puppy-tracker-record-editor.js";
+import { canEditRecords, closeRecordEditor, openFollowupEditor, openReminderEditor, recordEditorState, reminderActionButtons, RECORD_ACTION_STYLE } from "./puppy-tracker-record-editor.js";
 import { renderRecurringSaveFeedback } from "./puppy-tracker-recurring-surfaces.js";
 import { recordTypeLabel } from "./puppy-tracker-dossier-schema.js";
 
@@ -74,6 +74,7 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
   }
 
   disconnectedCallback() {
+    closeRecordEditor(this);
     const unsubscribe = this._unsubscribe;
     this._unsubscribe = null;
     if (unsubscribe) Promise.resolve(unsubscribe()).catch(() => undefined);
@@ -160,7 +161,7 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
 
   async _queueRefresh() {
     if (!this._hass || !this._selectedLitterId || !this.isConnected) return;
-    if (this.__careResultEditorOpen || this._executionEditorOpen) { this._refreshDeferred = true; return; }
+    if (recordEditorState(this).open) { this._refreshDeferred = true; return; }
     this._refreshDeferred = false;
     if (this._refreshing) { this._refreshAgain = true; return; }
     this._refreshing = true;
@@ -197,19 +198,15 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
   }
 
   async _openAction(item, button) {
-    if (!canEditRecords(this) || this._executionEditorOpen) return;
-    this._executionEditorOpen = true;
+    if (!canEditRecords(this) || recordEditorState(this).open) return;
     try {
       const options = { trigger: button, onClosed: ({ saved }) => {
-        this._executionEditorOpen = false;
         if (!saved && this._refreshDeferred) { this._refreshDeferred = false; this._queueRefresh(); }
       } };
-      const editor = await (item.source === "reminder"
+      await (item.source === "reminder"
         ? openReminderEditor(this, item, { ...options, mode: button?.dataset.postponeReminder ? "postpone" : "reminder" })
         : openFollowupEditor(this, item, options));
-      if (!editor) this._executionEditorOpen = false;
     } catch (error) {
-      this._executionEditorOpen = false;
       this._error = error?.message || t(this, "Openen mislukt.", "Could not open the form.");
       this._render();
     }
@@ -383,7 +380,7 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
         return;
       }
       const row = event.target.closest(".row[data-execution-key]");
-      if (!row || this._hass?.user?.is_admin === false || event.target.closest(".care-result-overlay")) return;
+      if (!row || this._hass?.user?.is_admin === false) return;
       const item = this._executionItems.find((candidate) => candidate.key === row.dataset.executionKey);
       if (!item) return;
       if (item.source === "program") this._openResult(item, button?.dataset.action || "completed");
@@ -395,7 +392,7 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
   }
 
   _render() {
-    if (this.__careResultEditorOpen || this._executionEditorOpen) { this._refreshDeferred = true; return; }
+    if (recordEditorState(this).open) { this._refreshDeferred = true; return; }
     this._ensureSelectedDate();
     this._ensureView();
     this._renderLanguage = languageForHass(this._hass);

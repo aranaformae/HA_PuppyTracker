@@ -170,7 +170,10 @@ Carry out care combines programs, recurring reminders and dossier follow-ups
 in one list, with filters for each source. Check the actual details before
 recording completion as a new logbook entry. Today's list also keeps overdue
 care visible; reminders show their current open moment. Programs remain
-available even when excluded from Attention. See
+available even when excluded from Attention. Every care action uses the same
+save-and-cancel controls. ENS/ESI stays short: day instructions and only the
+configured result, score and note fields. Treatments also show the actual
+product and amount. See
 [Age-based care programs](docs/CARE_PROGRAMS.md) and
 [Notifications](docs/NOTIFICATIONS.md).
 

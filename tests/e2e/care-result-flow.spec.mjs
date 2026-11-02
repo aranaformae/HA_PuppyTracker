@@ -93,14 +93,14 @@ for (const language of ["nl", "en"]) {
     const execute = row.getByRole("button", { name: language === "en" ? "Record completion" : "Uitvoering registreren" });
     await expect(execute).toBeVisible();
     await execute.click();
-    await expect(card.locator(".care-result-dialog")).toBeVisible();
-    await card.locator(".care-result-value").fill("rustig");
-    await card.locator(".care-result-score").fill("8.5");
-    await card.locator(".care-result-note").fill("Geen bijzonderheden");
-    await card.getByRole("button", { name: language === "en" ? "Save" : "Opslaan" }).click();
+    await expect(page.locator("puppy-tracker-record-editor").locator("dialog")).toBeVisible();
+    await page.locator("puppy-tracker-record-editor").locator("#record-care-result").fill("rustig");
+    await page.locator("puppy-tracker-record-editor").locator("#record-care-score").fill("8.5");
+    await page.locator("puppy-tracker-record-editor").locator("#record-note").fill("Geen bijzonderheden");
+    await page.locator("puppy-tracker-record-editor #record-save").click();
 
     await expect(card.locator('[data-care-occurrence="program-1:p1:3"]')).toHaveCount(0);
-    await expect(card.locator(".care-result-dialog")).toHaveCount(0);
+    await expect(page.locator("puppy-tracker-record-editor").locator("dialog")).toHaveCount(0);
 
     const calls = await page.evaluate(() => window.__careRecordCalls);
     expect(calls).toHaveLength(1);

@@ -144,7 +144,7 @@ export class FormState {
 }
 
 export function confirmDiscardForms(cards, hass) {
-  const forms = cards.flatMap((card) => [card?._formState, card?._careFormState, card?._linkFormState]).filter(Boolean);
+  const forms = cards.flatMap((card) => [card?._formState, card?._linkFormState]).filter(Boolean);
   if (forms.some((form) => form.busy())) return false;
   return !forms.some((form) => form.dirty) || window.confirm(text({ _hass: hass },
     "Niet-opgeslagen wijzigingen weggooien?", "Discard unsaved changes?"));

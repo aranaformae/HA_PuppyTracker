@@ -33,6 +33,17 @@ postponement and immediate undo use the same rules as Today and Reminders.
 This lets a dashboard keep Today and Attention focused on signal-only items while still providing a
 complete operational checklist.
 
+All care execution opens the same native modal editor as reminders and dossier
+follow-ups. For ordinary age-based programs (including ENS/ESI), the editor
+shows the puppy and collar colour, care day/instructions, status and only the
+configured `result_fields`. Fields are optional; an empty selection still allows
+a completed/missed outcome. Clinical courses keep their product/dose fields and
+editable execution time. The ordinary compact flow records the current time.
+Failed saves keep the draft; Escape, Cancel and replacing the editor ask before
+discarding changed values and are blocked while saving. A confirmed write closes
+the form even if refreshing the list subsequently fails. The saved result remains
+editable through the existing feedback action.
+
 The execution card can be navigated by scheduled day. With
 `show_day_selector: true` (the default), it provides a date selector and
 previous/next day buttons. Today includes open care from earlier days so overdue

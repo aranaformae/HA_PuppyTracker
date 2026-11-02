@@ -2,7 +2,7 @@ import { FormState, bindSaveFeedback, savedOwnerLabel, savedRecordFeedback } fro
 import {
   puppySelectorLabel,
   addDossierRecord, changeDossierRecordOwner, deleteDossierRecord, deleteMotherDossierRecord,
-  escapeHtml, fetchRecords, formatDateTime, languageForHass, localize,
+  escapeHtml, fetchLitterData, fetchRecords, formatDateTime, languageForHass, localize,
   restoreDossierRecord, restoreMotherDossierRecord, updateDossierRecord, updateMotherDossierRecord,
 } from "./puppy-tracker-card-common.js";
 import {
@@ -21,6 +21,11 @@ export function closeRecordEditor(card) {
 
 export function requestCloseRecordEditor(card) {
   return !activeEditor || activeEditor._card !== card || activeEditor.requestClose();
+}
+
+export function recordEditorState(card) {
+  const editor = activeEditor?._card === card ? activeEditor : null;
+  return { open: Boolean(editor), busy: Boolean(editor?._busy), dirty: Boolean(editor?._formState.dirty) };
 }
 
 export function canEditRecords(card) {
@@ -172,20 +177,19 @@ export async function openRecordEditor(card, context, options = {}) {
   return editor;
 }
 
-export function openCareAdministrationEditor(card, item, options = {}) {
+export function openCareExecutionEditor(card, item, options = {}) {
   const puppy = (card._litterData || card._data)?.puppies?.find((entry) => entry.id === item.puppy_id);
-  const ownerName = puppySelectorLabel(puppy, item.puppy_name || localize(card._hass, "puppy"));
+  const ownerName = puppySelectorLabel(puppy || { name: item.puppy_name, collar_color: item.collar_color }, localize(card._hass, "puppy"));
   return openRecordEditor(card, {
     litterId: item.litter_id || card._selectedLitterId,
     scope: "puppy", puppyId: item.puppy_id, ownerName,
-  }, { ...options, mode: "care", occurrence: item });
+  }, { ...options, mode: "care", occurrence: structuredClone(item) });
 }
 
 class PuppyTrackerRecordEditor extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
-    this._dirty = false;
     this._busy = false;
     this._closed = false;
     this._record = null;
@@ -271,18 +275,21 @@ class PuppyTrackerRecordEditor extends HTMLElement {
       }
       if (this._mode === "care") {
         const item = this._options.occurrence;
+        const course = item.schedule_type === "course";
         const productKey = item.record_type === "deworming" ? "product" : "medication";
         this._draft = {
-          record_type: item.record_type, occurred_at: localDate(), title: item.title || "", note: "",
+          record_type: item.record_type || "note", occurred_at: localDate(), title: item.title || "", note: "",
           data: {
-            care_schedule_type: "course", care_occurrence_id: item.id,
+            care_schedule_type: item.schedule_type || "once", care_occurrence_id: item.id,
+            care_age_days: item.age_days,
             care_scheduled_at: item.scheduled_at, care_instruction: item.instructions,
             care_status: this._options.initialStatus === "missed" ? "missed" : "completed",
-            [productKey]: item.treatment_product || "",
-            dose: item.planned_dose || "", unit: item.planned_unit || "", route: item.planned_route || "",
+            ...(course ? { [productKey]: item.treatment_product || "",
+              dose: item.planned_dose || "", unit: item.planned_unit || "", route: item.planned_route || "" } : {}),
           },
         };
-        this.shadowRoot.getElementById("record-dialog-title").textContent = copy(this._hass, "Uitvoering registreren", "Record completion");
+        this.shadowRoot.getElementById("record-dialog-title").textContent = course
+          ? copy(this._hass, "Uitvoering registreren", "Record completion") : item.title || copy(this._hass, "Zorgactie", "Care action");
       }
       this._renderForm();
     } catch (error) {
@@ -303,10 +310,9 @@ class PuppyTrackerRecordEditor extends HTMLElement {
       <label>${escape(text("Uitstellen tot", "Postpone until"))}<input id="reminder-until" type="datetime-local" step="1" required value="${escape(defaultTime > base ? localDate(defaultTime) : "")}"></label>
       <div class="actions">${[15, 30, 60].map((minutes) => `<button type="button" data-postpone-minutes="${minutes}" ${boundary && base + minutes * 60000 >= boundary.getTime() ? "disabled" : ""}>+${minutes} min</button>`).join("")}</div>
       <div class="error" role="alert" hidden></div><div class="actions">${reminder.postponed ? `<button type="button" id="reminder-reset">${escape(text("Uitstel opheffen", "Cancel postponement"))}</button>` : ""}<button type="button" id="record-cancel">${escape(localize(this._hass, "cancel"))}</button><button type="submit" class="primary">${escape(text("Eenmalig uitstellen", "Postpone once"))}</button></div></form>`;
-    body.querySelector("input").addEventListener("input", () => { this._dirty = true; });
+    this._formState.bind(body.querySelector("form"));
     body.querySelectorAll("[data-postpone-minutes]").forEach((button) => button.addEventListener("click", () => {
       body.querySelector("input").value = localDate(Math.max(Date.now(), new Date(reminder.next_due_at).getTime()) + Number(button.dataset.postponeMinutes) * 60000);
-      this._dirty = true;
     }));
     body.querySelector("#record-cancel").addEventListener("click", () => this.requestClose());
     body.querySelector("#reminder-reset")?.addEventListener("click", () => this._savePostponement(true));
@@ -353,7 +359,7 @@ class PuppyTrackerRecordEditor extends HTMLElement {
   requestClose() {
     if (this._closed) return true;
     if (this._busy) return false;
-    if (this._dirty && !window.confirm(copy(this._hass, "Niet-opgeslagen wijzigingen weggooien?", "Discard unsaved changes?"))) return false;
+    if (!this._formState.confirmDiscard()) return false;
     this._close(false);
     return true;
   }
@@ -398,7 +404,6 @@ class PuppyTrackerRecordEditor extends HTMLElement {
   _renderMeasurement() {
     const body = this.shadowRoot.querySelector(".body");
     body.innerHTML = `<form><label>${escape(copy(this._hass, "Gewicht (g)", "Weight (g)"))}<input id="measurement-weight" type="number" min="1" max="10000" step="any" required value="${escape(this._draft.weight)}"></label><label>${escape(localize(this._hass, "dateAndTime"))}<input id="measurement-time" type="datetime-local" step="1" required value="${escape(this._draft.occurred_at)}"></label><label>${escape(copy(this._hass, "Reden voor correctie", "Reason for correction"))}<input id="measurement-reason"></label><div class="error" role="alert" hidden></div><div class="actions"><button type="button" id="record-cancel">${escape(localize(this._hass, "cancel"))}</button><button type="submit" class="primary" id="record-save">${escape(copy(this._hass, "Correctie opslaan", "Save correction"))}</button></div></form>`;
-    body.querySelector("form").addEventListener("input", () => { this._dirty = true; });
     this._formState.bind(body.querySelector("form"));
     body.querySelector("#record-cancel").addEventListener("click", () => this.requestClose());
     body.querySelector("form").addEventListener("submit", (event) => { event.preventDefault(); this._save(); });
@@ -414,13 +419,18 @@ class PuppyTrackerRecordEditor extends HTMLElement {
       }).join("");
   }
 
+  get _compactCare() {
+    return this._mode === "care" && this._options.occurrence.schedule_type !== "course";
+  }
+
   _careFields() {
     const data = this._draft.data;
     if (!data.care_occurrence_id) return "";
-    if (data.care_schedule_type === "course") {
-      return `<div class="context">${data.care_scheduled_at ? `${escape(formatDateTime(data.care_scheduled_at, "", this._hass))}\n` : ""}${escape(data.care_instruction || "")}</div><label>${escape(localize(this._hass, "careStatus"))}<select id="record-care-status"><option value="completed" ${data.care_status !== "missed" ? "selected" : ""}>${escape(localize(this._hass, "completed"))}</option><option value="missed" ${data.care_status === "missed" ? "selected" : ""}>${escape(localize(this._hass, "missed"))}</option></select></label>`;
-    }
-    return `<div class="context">${data.care_age_days !== undefined ? `<strong>${escape(localize(this._hass, "careAgeDay"))}: ${escape(data.care_age_days)}</strong>` : ""}${data.care_scheduled_at ? `${escape(formatDateTime(data.care_scheduled_at, "", this._hass))}\n` : ""}${escape(data.care_instruction || "")}</div><div class="grid"><label>${escape(localize(this._hass, "careStatus"))}<select id="record-care-status"><option value="completed" ${data.care_status !== "missed" ? "selected" : ""}>${escape(localize(this._hass, "completed"))}</option><option value="missed" ${data.care_status === "missed" ? "selected" : ""}>${escape(localize(this._hass, "missed"))}</option></select></label><label>${escape(localize(this._hass, "careResult"))}<input id="record-care-result" value="${escape(data.care_result ?? "")}"></label><label>${escape(localize(this._hass, "careScore"))}<input type="number" step="0.1" id="record-care-score" value="${escape(data.care_score ?? "")}"></label></div>`;
+    const fields = this._compactCare ? new Set(this._options.occurrence.result_fields || []) : new Set(["result", "score"]);
+    const context = `<div class="context">${data.care_age_days !== undefined ? `<strong>${escape(localize(this._hass, "careAgeDay"))}: ${escape(data.care_age_days)}</strong>` : ""}${data.care_scheduled_at ? `${escape(formatDateTime(data.care_scheduled_at, "", this._hass))}\n` : ""}${data.care_instruction ? `<strong>${escape(localize(this._hass, "careInstruction"))}</strong><div class="care-instruction">${escape(data.care_instruction)}</div>` : ""}</div>`;
+    const status = `<label>${escape(localize(this._hass, "careStatus"))}<select id="record-care-status"><option value="completed" ${data.care_status !== "missed" ? "selected" : ""}>${escape(localize(this._hass, "completed"))}</option><option value="missed" ${data.care_status === "missed" ? "selected" : ""}>${escape(localize(this._hass, "missed"))}</option></select></label>`;
+    if (data.care_schedule_type === "course") return context + status;
+    return `${context}<div class="grid">${status}${fields.has("result") ? `<label>${escape(localize(this._hass, "careResult"))}<input id="record-care-result" value="${escape(data.care_result ?? "")}"></label>` : ""}${fields.has("score") ? `<label>${escape(localize(this._hass, "careScore"))}<input type="number" step="0.1" id="record-care-score" value="${escape(data.care_score ?? "")}"></label>` : ""}</div>`;
   }
 
   _behaviorFields() {
@@ -455,15 +465,18 @@ class PuppyTrackerRecordEditor extends HTMLElement {
     const label = execution ? copy(this._hass, "Uitvoering opslaan", "Save completion") : this._mode === "move" ? localize(this._hass, "changeOwner") : this._mode === "restore" ? localize(this._hass, "restore") : this._mode === "delete" ? localize(this._hass, "delete") : this._mode === "add" ? localize(this._hass, "add") : localize(this._hass, "saveChanges");
     const scheduled = this._mode === "reminder" ? formatDateTime(this._options.reminder.next_due_at, "", this._hass)
       : this._mode === "care" ? formatDateTime(this._options.occurrence.scheduled_at, "", this._hass) : this._options.dueDate;
-    const followupContext = execution ? `<div class="context">${this._mode === "reminder" ? `<strong>${escape(this._options.reminder.title)}</strong>` : ""}${escape(copy(this._hass, "Geplande datum", "Scheduled date"))}: ${escape(scheduled)}</div>` : "";
+    const followupContext = execution && this._mode !== "care" ? `<div class="context">${this._mode === "reminder" ? `<strong>${escape(this._options.reminder.title)}</strong>` : ""}${escape(copy(this._hass, "Geplande datum", "Scheduled date"))}: ${escape(scheduled)}</div>` : "";
     const chooseOwner = this._mode === "add" && this._options.chooseOwner
       ? `<label>${escape(copy(this._hass, "Voor wie?", "For whom?"))}<select id="record-new-owner" required><option value="">${escape(copy(this._hass, "Kies een eigenaar", "Choose an owner"))}</option>${this._owners().map((owner) => { const key = `${owner.scope}:${owner.puppyId || ""}`; return `<option value="${escape(key)}" ${key === this._draft.newOwner ? "selected" : ""}>${escape(owner.name)}</option>`; }).join("")}</select></label>` : "";
-    body.innerHTML = `<form novalidate>${chooseOwner}${followupContext}${isEdit ? `<div class="grid"><label>${escape(localize(this._hass, "type"))}<select id="record-type" ${lockedType ? "disabled" : ""}>${recordTypeOptions(this._hass, this._draft.record_type)}</select></label><label>${escape(localize(this._hass, "dateAndTime"))}<input type="datetime-local" step="1" id="record-occurred" value="${escape(this._draft.occurred_at)}" required></label></div>${this._mode === "care" ? "" : `<label>${escape(localize(this._hass, "title"))}<input id="record-title" maxlength="160" value="${escape(this._draft.title)}"></label>`}<label>${escape(localize(this._hass, "note"))}<textarea id="record-note" rows="4">${escape(this._draft.note)}</textarea></label><div class="grid record-type-fields">${this._fields()}</div>${this._careFields()}${this._behaviorFields()}`
+    const note = this._mode !== "care" || this._options.occurrence.result_fields?.includes("note")
+      ? `<label>${escape(localize(this._hass, "note"))}<textarea id="record-note" rows="4">${escape(this._draft.note)}</textarea></label>` : "";
+    const editContent = this._compactCare
+      ? `${this._careFields()}${note}`
+      : `<div class="grid"><label>${escape(localize(this._hass, "type"))}<select id="record-type" ${lockedType ? "disabled" : ""}>${recordTypeOptions(this._hass, this._draft.record_type)}</select></label><label>${escape(localize(this._hass, "dateAndTime"))}<input type="datetime-local" step="1" id="record-occurred" value="${escape(this._draft.occurred_at)}" required></label></div>${this._mode === "care" ? "" : `<label>${escape(localize(this._hass, "title"))}<input id="record-title" maxlength="160" value="${escape(this._draft.title)}"></label>`}${note}<div class="grid record-type-fields">${this._fields()}</div>${this._careFields()}${this._behaviorFields()}`;
+    body.innerHTML = `<form novalidate>${chooseOwner}${followupContext}${isEdit ? editContent
       : this._mode === "move" ? `<label>${escape(localize(this._hass, "changeOwner"))}<select id="record-owner">${this._owners().map((owner, index) => `<option value="${index}">${escape(owner.name)}</option>`).join("")}</select></label>`
         : `<div class="context">${escape(this._record.title || recordTypeLabel(this._hass, this._record.type))}</div><p>${escape(this._mode === "restore" ? copy(this._hass, "Dit verwijderde item herstellen?", "Restore this deleted item?") : localize(this._hass, "confirmDeleteRecord", { title: this._record.title || recordTypeLabel(this._hass, this._record.type) }))}</p>`}
       <div class="error" role="alert" hidden></div><div class="actions"><button type="button" id="record-cancel">${escape(localize(this._hass, "cancel"))}</button><button type="submit" class="primary" id="record-save">${escape(label)}</button></div></form>`;
-    body.querySelector("form").addEventListener("input", () => { this._dirty = true; });
-    body.querySelector("form").addEventListener("change", () => { this._dirty = true; });
     this._formState.bind(body.querySelector("form"));
     body.querySelector("#record-new-owner")?.addEventListener("change", () => this._updateNewOwnerLabel());
     this._updateNewOwnerLabel();
@@ -485,6 +498,7 @@ class PuppyTrackerRecordEditor extends HTMLElement {
 
   async _save() {
     if (this._busy || this._closed) return;
+    const controls = Array.from(this.shadowRoot.querySelectorAll("button,input,select,textarea"), (control) => [control, control.disabled]);
     this._formState.clearErrors();
     const error = this.shadowRoot.querySelector(".error");
     if (this._mode !== "measurement") this._capture();
@@ -530,13 +544,13 @@ class PuppyTrackerRecordEditor extends HTMLElement {
           }
           delete data.next_due_date;
         }
-        const validation = course && data.care_status === "missed" ? "" : requiredFieldsMessage(this._hass, this._draft.record_type, data);
+        const validation = this._compactCare || (course && data.care_status === "missed") ? "" : requiredFieldsMessage(this._hass, this._draft.record_type, data);
         if (validation) {
           const field = (TYPE_FIELDS[this._draft.record_type] || []).find((item) => item.required && !data[item.key]);
           if (field) this._formState.error(`#record-data-${field.key}`, validation);
           throw new Error(validation);
         }
-        const clinicalValidation = clinicalValidationMessage(this._hass, this._draft.record_type, data);
+        const clinicalValidation = this._compactCare ? "" : clinicalValidationMessage(this._hass, this._draft.record_type, data);
         if (clinicalValidation) { this._formState.error(`#record-data-${clinicalValidationField(this._draft.record_type, data)}`, clinicalValidation); throw new Error(clinicalValidation); }
         if (this._mode === "followup" && this._draft.record_type === "test" && !String(data.test_name || "").trim()) {
           const message = copy(this._hass, "Vul de testnaam in voor deze opvolging.", "Enter the test name for this follow-up.");
@@ -595,7 +609,14 @@ class PuppyTrackerRecordEditor extends HTMLElement {
             puppy_id: item.puppy_id, occurrence_id: item.id,
             status: data.care_status, occurred_at: payload.occurred_at,
             note: payload.note, data: data.care_data,
+            result: data.care_result ?? undefined, score: data.care_score ?? undefined,
           });
+          if (result?.record_id && !canEditRecords(this._card)) {
+            try { this._card._litterData = await fetchLitterData(this._hass, litterId); }
+            catch (_error) { /* The write succeeded; feedback does not depend on refreshing permissions. */ }
+          }
+          const puppy = (this._card._litterData || this._card._data)?.puppies?.find((entry) => entry.id === puppyId);
+          if (puppy) this._context.ownerName = puppySelectorLabel(puppy);
           this._card._careSaveMessage = savedRecordFeedback(this._card, result, this._context, item.title || copy(this._hass, "Zorgactie", "Care action"));
         } else if (["add", "followup"].includes(this._mode)) {
           if (scope === "mother") await this._hass.callWS({ type: "puppy_tracker/mother/record/add", litter_id: litterId, ...payload });
@@ -612,11 +633,15 @@ class PuppyTrackerRecordEditor extends HTMLElement {
           : this._mode === "add" ? localize(this._hass, "dossierItemAdded")
             : localize(this._hass, "dossierItemUpdated");
       this._close(true);
+      if (!this._card.isConnected) return;
       try {
         if (this._mode === "care" && typeof this._options.onSaved === "function") await this._options.onSaved(this._options.occurrence);
         else await refreshRecordSource(this._card);
       }
-      catch (refreshError) { this._card._error = refreshError.message; this._card._render?.(); }
+      catch (refreshError) {
+        this._card._error = `${copy(this._hass, "Opgeslagen, maar vernieuwen mislukt. Herlaad de kaart.", "Saved, but refresh failed. Reload the card.")} ${refreshError?.message || ""}`.trim();
+        this._card._render?.();
+      }
     } catch (err) {
       error.textContent = err?.message || localize(this._hass, "dossierItemCouldNotSave");
       error.hidden = false;
@@ -624,8 +649,7 @@ class PuppyTrackerRecordEditor extends HTMLElement {
     } finally {
       this._busy = false;
       if (!this._closed) {
-        this.shadowRoot.querySelectorAll("button,input,select,textarea").forEach((input) => { input.disabled = false; });
-        if (["followup", "reminder"].includes(this._mode) || this._draft.record_type === "behavior_observation" || this._draft.data?.care_occurrence_id) this.shadowRoot.getElementById("record-type")?.setAttribute("disabled", "");
+        controls.forEach(([control, disabled]) => { if (control.isConnected) control.disabled = disabled; });
       }
     }
   }

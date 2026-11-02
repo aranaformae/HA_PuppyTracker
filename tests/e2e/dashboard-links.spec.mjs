@@ -53,6 +53,6 @@ test("attention acknowledgement and care execution stay on the dashboard @cross-
   await card.locator('[data-attention-type="weight"] .attention-ack-button').click();
   await expect(page).toHaveURL(/cards.html\?production=1$/);
   await card.locator(".care-direct-action").click();
-  await expect(card.locator(".care-result-dialog")).toBeVisible();
+  await expect(page.locator("puppy-tracker-record-editor").locator("dialog")).toBeVisible();
   await expect(page).toHaveURL(/cards.html\?production=1$/);
 });

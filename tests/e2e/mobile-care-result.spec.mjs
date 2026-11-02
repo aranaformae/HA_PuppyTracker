@@ -59,10 +59,10 @@ test("mobile care items open the result editor so a note can be saved", { tag: "
   const row = care.locator(".row");
   await expect(row).toBeVisible();
   await row.locator(".main").click();
-  await expect(care.locator(".care-result-dialog")).toBeVisible();
-  await care.locator(".care-result-note").fill("Rustig en goed gereageerd.");
-  await care.getByRole("button", { name: "Opslaan" }).click();
-  await expect(care.locator(".care-result-dialog")).toHaveCount(0);
+  await expect(page.locator("puppy-tracker-record-editor").locator("dialog")).toBeVisible();
+  await page.locator("puppy-tracker-record-editor").locator("#record-note").fill("Rustig en goed gereageerd.");
+  await page.locator("puppy-tracker-record-editor #record-save").click();
+  await expect(page.locator("puppy-tracker-record-editor").locator("dialog")).toHaveCount(0);
   await expect(care.locator(".row")).toHaveCount(0);
 
   const calls = await page.evaluate(() => window.__mobileCareRecordCalls);
@@ -111,8 +111,8 @@ test("mobile care shows overdue actions and refreshes after an external update",
   const care = page.locator("puppy-tracker-care-execution-card");
   await expect(care.locator(".row")).toHaveCount(2);
   await care.getByRole("button", { name: "Record completion", exact: true }).first().click();
-  await expect(care.locator('.care-result-dialog[role="dialog"]')).toBeVisible();
-  await care.getByRole("button", { name: "Cancel" }).click();
+  await expect(page.locator("puppy-tracker-record-editor").locator("dialog")).toBeVisible();
+  await page.locator("puppy-tracker-record-editor #record-cancel").click();
 
   await page.evaluate(async () => {
     window.__clearCareOccurrences();

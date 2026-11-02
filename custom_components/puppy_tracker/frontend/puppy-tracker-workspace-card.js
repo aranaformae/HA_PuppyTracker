@@ -5,7 +5,7 @@ import {
   preserveScrollPosition,
 } from "./puppy-tracker-card-common.js";
 import { confirmDiscardForms } from "./puppy-tracker-form-state.js";
-import { requestCloseRecordEditor } from "./puppy-tracker-record-editor.js";
+import { recordEditorState, requestCloseRecordEditor } from "./puppy-tracker-record-editor.js";
 import { WorkspaceSetup } from "./puppy-tracker-workspace-setup.js";
 const TAG = "puppy-tracker-workspace-card";
 const EDITOR_TAG = "puppy-tracker-workspace-card-editor";
@@ -496,7 +496,7 @@ class PuppyTrackerWorkspaceCard extends HTMLElement {
       if (tab !== "bulk") this._saveTab(tab);
       let child = this._children.get(tab);
       if (this._litterId && child?._selectedLitterId && child._selectedLitterId !== this._litterId
-        && !child._formState?.dirty && !child._careFormState?.dirty && !child._saving && !child._busy) child = this._replaceSurface(tab);
+        && !child._formState?.dirty && !recordEditorState(child).dirty && !child._saving && !child._busy) child = this._replaceSurface(tab);
       if (child && this._hass) child.hass = this._hass;
       this._updateVisibility();
     });
@@ -560,8 +560,8 @@ class PuppyTrackerWorkspaceCard extends HTMLElement {
   }
 
   _navigationBusy(children = [...this._children.values()]) {
-    return children.some((child) => child && (child._saving || child._busy || child._weightSaveBusy || child._correctionBusy
-      || [child._formState, child._careFormState, child._linkFormState].some((form) => form?.busy())));
+    return children.some((child) => child && (recordEditorState(child).busy || child._saving || child._busy || child._weightSaveBusy || child._correctionBusy
+      || [child._formState, child._linkFormState].some((form) => form?.busy())));
   }
 
   _showNavigationFeedback(key) {
@@ -596,17 +596,18 @@ class PuppyTrackerWorkspaceCard extends HTMLElement {
     const sourceKey = [...this._children.entries()].find(([, child]) => path.includes(child))?.[0] || null;
     if (litterId === this._litterId && (!event.cancelable || this._children.get(sourceKey)?._selectedLitterId === litterId)) return;
     const children = [...this._children.values()];
-    if (event.cancelable && (this._navigationBusy(children) || !confirmDiscardForms(children, this._hass))) {
+    if (event.cancelable && (this._navigationBusy(children) || !confirmDiscardForms(children, this._hass)
+      || children.some((child) => !requestCloseRecordEditor(child)))) {
       this._showNavigationFeedback(this._navigationBusy(children) ? "savingBlocked" : "editingBlocked");
       return;
     }
     if (event.cancelable) this._showNavigationFeedback("");
     // Native weighing/entity updates are announcements, not permission to discard drafts.
     const keep = new Set(!event.cancelable ? children.filter((child) =>
-      child._saving || child._busy || child._formState?.dirty || child._careFormState?.dirty) : []);
+      child._saving || child._busy || child._formState?.dirty || recordEditorState(child).dirty || recordEditorState(child).busy) : []);
     for (const child of children) {
       if (keep.has(child)) continue;
-      child._formState?.reset(); child._careFormState?.reset();
+      child._formState?.reset();
     }
     this._litterId = litterId;
     preserveScrollPosition(this, () => {

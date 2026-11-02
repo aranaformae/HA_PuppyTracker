@@ -107,7 +107,7 @@ test("Empty Care navigates to available management without adding mobile managem
 test("Care keeps the selected day after completion and can jump to pending care @cross-browser @tablet", async ({ page }) => {
   const card = await mount(page);
   await card.locator('.row [data-action="completed"]').click();
-  await card.locator(".care-result-save").click();
+  await page.locator("puppy-tracker-record-editor").locator("#record-save").click();
   await expect(card.locator(".empty")).toContainText("All care for this day is completed");
   await expect(card.locator(".row")).toHaveCount(0);
   const today = await page.evaluate(() => window.careOverview.today);
@@ -160,7 +160,7 @@ for (const language of ["nl", "en"]) {
     await expect(ens.locator(".progress-state")).toHaveText(language === "nl" ? "1 open · 1 gemist" : "1 pending · 1 missed");
     await expect(esi.locator(".progress-count")).toHaveText(language === "nl" ? "1 van 2 pups uitgevoerd" : "1 of 2 puppies completed");
     await card.locator('[data-care-occurrence="ens:6"] [data-action="completed"]').click();
-    await card.locator(".care-result-save").click();
+    await page.locator("puppy-tracker-record-editor").locator("#record-save").click();
     await expect(ens.locator(".progress-count")).toHaveText(language === "nl" ? "6 van 7 pups uitgevoerd" : "6 of 7 puppies completed");
     await expect(ens.locator(".progress-state")).toContainText(language === "nl" ? "1 gemist" : "1 missed");
     await page.evaluate(async () => { window.careOverview.occurrences[0].status = "due_today"; await window.refreshOverview(); });

@@ -46,6 +46,13 @@ uses the existing review form; reminder postponement and immediate undo remain
 available. The list scrolls internally and keeps its selected filters during
 live updates. Program progress remains a separate collapsible summary.
 
+ENS/ESI, clinical treatments, reminders and dossier follow-ups share one modal
+editor and save/cancel behavior. Ordinary age-based programs show only status,
+day instructions and their configured response/score/note fields; they do not
+require extra dossier fields. Clinical treatments retain actual product/dose
+inputs. Escape and Cancel preserve a changed draft unless discarding is
+confirmed; closing or switching context is blocked while a save runs.
+
 With custom `tabs`, empty groups disappear. Daily tabs precede management tabs;
 the configured order within each group is retained. Keyboard navigation follows
 that visible order. The YAML keys (`care`, `calculator`, `programs`, `reminders`),

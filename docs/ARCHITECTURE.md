@@ -298,8 +298,18 @@ draft asks for confirmation, and a busy guard prevents duplicate writes. Source
 card disconnection closes its dialog; close restores the original focus with
 `preventScroll`. Backend admin checks remain the authorization boundary.
 
-The separate scheduled-care execution dialog creates a fact; it does not edit
-an existing dossier fact. Weight-event pencils fetch the exact active measurement
+Scheduled-care execution uses this same editor in `care` mode and creates a
+new fact. `openCareExecutionEditor` snapshots the occurrence and owner context;
+`puppy-tracker-care-result-editor.js` now only adapts source-card refresh and
+saved-result feedback. It owns no overlay, form state, validation or write loop.
+Ordinary age-based programs render compact fields selected by `result_fields`;
+clinical courses retain their specialized administration fields. Both use the
+same transient FormState, native dialog, validation, busy guard, error/retry,
+close and focus restoration lifecycle. Existing saved care results still expose
+editable result and score fields. The canonical care endpoint validates the
+current program and occurrence, preserves instructions in the fact and rejects
+duplicate results. Ordinary completion sends the actual registration timestamp;
+no scheduling data or saved dossier record is rewritten. Weight-event pencils fetch the exact active measurement
 and call `measurement/correct`, preserving the original version. They never call
 `record/update`. Behavior labels and criteria live in
 `puppy-tracker-behavior-schema.js`, shared by the specialized observation entry
@@ -323,8 +333,14 @@ owner context. Once that draft is finished, reopening its tab resynchronizes
 with the Workspace litter. Repeated same-litter announcements do not rebuild
 surfaces. Backend owner IDs and authorization remain authoritative.
 Saving a form is distinct from refreshing its history, and only successful saves
-clear its draft. The care-result dialog also guards close/replacement and locks
-all its controls while sending its result.
+clear its draft. `recordEditorState` exposes the active editor's open/busy/dirty
+state to the Care surface and Workspace. This replaces the former care-popup
+flags and separate `_careFormState`. Refresh deferral and context navigation use
+that shared state; cancelable litter changes request editor closure, while native
+announcements preserve dirty/busy source cards. After an unsuccessful save,
+controls regain their previous disabled state, including locked categories and
+hidden missed-treatment fields. A failure after a confirmed write is reported as
+a refresh failure, with the result already saved and no retry-write prompt.
 
 The frontend cards are projections of the same authoritative entities and
 WebSocket data; they must not maintain a second measurement or care-result
