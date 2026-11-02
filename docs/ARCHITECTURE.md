@@ -2316,3 +2316,22 @@ explicit identifier/code/count allowlist; names, notes, clinical data and buyer
 information are never copied into event data. There is no persistent event log,
 new task store or storage migration. Existing weight/session/dossier events are
 unchanged.
+
+### Age-based planned weighing
+
+`weighing_schedule.py` validates four per-litter phases (`until_age_days`,
+`interval_hours`) and an enable flag under `growth_analysis.weighing_schedule`.
+Absent/disabled profiles retain fixed-interval behavior. Invalid manually edited
+profiles or unknown birth time fall back to the fixed interval; import candidates
+reject invalid profiles before mutation. New optional configuration groups retain
+collapsed values and drafts without rewriting unrelated settings.
+
+Canonical `calculate_puppy_status` selects the phase using elapsed UTC birth
+age and suppresses only missing/due weighing conditions after its final end.
+Weight-loss and configured growth checks remain independent. Metrics, native
+Status attributes, litter counts, notifications and derived automation events
+therefore share the same boundary rules. API summaries add
+`weighing_schedule_mode`, `weighing_schedule_phase`,
+`weighing_schedule_finished` and the effective `max_hours_between_weighings`
+(null when finished). There is no new status code, task store, timer or schema
+version; each existing monitoring refresh recomputes from canonical facts.

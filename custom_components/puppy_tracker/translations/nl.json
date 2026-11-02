@@ -265,7 +265,6 @@
               "breed_profile": "Rasprofiel",
               "size_class": "Maatklasse",
               "min_daily_growth_percent": "Override minimale dagelijkse groei (%)",
-              "max_hours_between_weighings": "Override maximale tijd tussen wegingen (uur)",
               "growth_monitoring_days": "Override leeftijd groeibewaking (dagen)",
               "first_day_max_weight_loss_percent": "Override maximaal verlies op dag één (%)",
               "expected_adult_weight_min_grams": "Verwacht volwassen minimum (g)",
@@ -278,7 +277,6 @@
               "breed_profile": "Beschrijvend rasprofiel voor toekomstige groeianalyse. Er wordt geen rasspecifieke diagnose of curve toegepast.",
               "size_class": "Optionele maatklasse voor toekomstige groeianalyse.",
               "min_daily_growth_percent": "Laat leeg om de algemene integratie-instelling te gebruiken.",
-              "max_hours_between_weighings": "Laat leeg om de algemene integratie-instelling te gebruiken.",
               "growth_monitoring_days": "Laat leeg om de algemene integratie-instelling te gebruiken.",
               "first_day_max_weight_loss_percent": "Laat leeg om de huidige algemene grens voor dag één te gebruiken.",
               "expected_adult_weight_min_grams": "Optionele schatting op basis van ouderdieren/fokker; laat leeg als deze onbekend is.",
@@ -286,6 +284,33 @@
               "growth_milestones_percent": "Bijvoorbeeld 200, 400 voor 2x en 4x geboortegewicht. Laat leeg voor 200, 400.",
               "double_weight_reference_days": "Referentieperiode voor de 2x mijlpaal; laat leeg voor 14 dagen.",
               "milestone_projection_measurements": "Aantal recente groeiperioden voor de schatting; gebruik 2 tot 8."
+            }
+          },
+          "weighing_section": {
+            "name": "Weegschema",
+            "data": {
+              "max_hours_between_weighings": "Override maximale tijd tussen wegingen (uur)",
+              "weighing_schedule_enabled": "Weegschema op leeftijd gebruiken",
+              "weighing_phase_1_until_days": "Fase 1: tot leeftijd (dagen)",
+              "weighing_phase_1_hours": "Fase 1: tijd tussen wegingen (uur)",
+              "weighing_phase_2_until_days": "Fase 2: tot leeftijd (dagen)",
+              "weighing_phase_2_hours": "Fase 2: tijd tussen wegingen (uur)",
+              "weighing_phase_3_until_days": "Fase 3: tot leeftijd (dagen)",
+              "weighing_phase_3_hours": "Fase 3: tijd tussen wegingen (uur)",
+              "weighing_phase_4_until_days": "Fase 4: tot leeftijd (dagen)",
+              "weighing_phase_4_hours": "Fase 4: tijd tussen wegingen (uur)"
+            },
+            "data_description": {
+              "max_hours_between_weighings": "Alleen bij een uitgeschakeld leeftijdsschema. Leeg: gebruik de integratie-instelling.",
+              "weighing_schedule_enabled": "Fases gelden tot de ingevulde leeftijd; daarna begint de volgende fase. Na fase 4 stoppen automatische weegoproepen. 28 dagen = 4 weken, 42 = 6 weken, 52,5 = 7,5 weken. Gewichtsverlies blijft zichtbaar.",
+              "weighing_phase_1_until_days": "Leeftijd in dagen, eventueel met een halve dag. De grenzen moeten oplopen.",
+              "weighing_phase_1_hours": "Maximale tijd sinds de vorige weging in deze leeftijdsfase.",
+              "weighing_phase_2_until_days": "Leeftijd in dagen, eventueel met een halve dag. De grenzen moeten oplopen.",
+              "weighing_phase_2_hours": "Maximale tijd sinds de vorige weging in deze leeftijdsfase.",
+              "weighing_phase_3_until_days": "Leeftijd in dagen, eventueel met een halve dag. De grenzen moeten oplopen.",
+              "weighing_phase_3_hours": "Maximale tijd sinds de vorige weging in deze leeftijdsfase.",
+              "weighing_phase_4_until_days": "Leeftijd in dagen, eventueel met een halve dag. De grenzen moeten oplopen.",
+              "weighing_phase_4_hours": "Maximale tijd sinds de vorige weging in deze leeftijdsfase."
             }
           }
         }
@@ -402,7 +427,7 @@
         },
         "data_description": {
           "min_daily_growth_percent": "Markeer de genormaliseerde dagelijkse groei als deze onder dit percentage ligt.",
-          "max_hours_between_weighings": "Markeer een puppy wanneer binnen dit aantal uren geen nieuw gewicht is geregistreerd.",
+          "max_hours_between_weighings": "Standaard tijd tussen wegingen. Een vast interval of leeftijdsschema in de nestinstellingen gaat voor.",
           "growth_monitoring_days": "Na deze leeftijd wordt de minimale dagelijkse groeigrens niet meer toegepast. Gewichtsverlies kan nog steeds worden gemarkeerd."
         }
       },
@@ -562,7 +587,8 @@
       "backup_too_large": "De back-up is groter dan de importlimiet van 128 MB.",
       "storage_changed": "Puppy Tracker-data is na de voorvertoning gewijzigd. Controleer de back-up opnieuw voordat je importeert.",
       "invalid_logo": "Kies een geldige PNG/JPEG van maximaal 2 MB en 16 miljoen pixels. Kies uploaden óf verwijderen en selecteer het bestand opnieuw.",
-      "logo_save_failed": "Logo kon niet worden opgeslagen. De vorige instellingen blijven behouden; selecteer het bestand opnieuw en probeer nogmaals."
+      "logo_save_failed": "Logo kon niet worden opgeslagen. De vorige instellingen blijven behouden; selecteer het bestand opnieuw en probeer nogmaals.",
+      "invalid_weighing_schedule": "Controleer het weegschema: de vier eindleeftijden moeten oplopen tot maximaal 56 dagen; elk interval moet tussen 1 en 168 uur liggen."
     },
     "abort": {
       "no_litters": "Er zijn nog geen nesten beschikbaar.",

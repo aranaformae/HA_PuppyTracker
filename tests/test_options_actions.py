@@ -459,3 +459,39 @@ async def test_management_failed_forms_retain_drafts_and_do_not_change_context(o
     assert retained["basic"]["name"] == "Draft litter"
     assert retained["father_section"]["father_chip_number"] == "000456"
     assert storage.get_litter(litter_id)["name"] == "Luna 2026"
+
+
+async def test_weighing_schedule_can_be_enabled_edited_disabled_and_retained(options_flow):
+    flow, storage = options_flow
+    litter_id = flow._selected_litter_id
+    form = await flow.async_step_edit_litter()
+    values = _prefilled_litter_input(form)
+    values["weighing_section"]["weighing_schedule_enabled"] = True
+    values["weighing_section"]["weighing_phase_1_hours"] = 8
+    result = await flow.async_step_edit_litter(form["data_schema"](values))
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    profile = storage.get_litter(litter_id)["growth_analysis"]["weighing_schedule"]
+    assert profile["enabled"] and profile["phases"][0]["interval_hours"] == 8
+    form = await flow.async_step_edit_litter()
+    assert _prefilled_litter_input(form)["weighing_section"]["weighing_phase_4_until_days"] == 52.5
+    # Editing another group must keep the configured weighing schedule.
+    await flow.async_step_edit_litter(form["data_schema"]({"basic": {"name": "Updated"}}))
+    assert storage.get_litter(litter_id)["growth_analysis"]["weighing_schedule"] == profile
+    form = await flow.async_step_edit_litter()
+    values = _prefilled_litter_input(form)
+    values["weighing_section"]["weighing_schedule_enabled"] = False
+    await flow.async_step_edit_litter(form["data_schema"](values))
+    profile = storage.get_litter(litter_id)["growth_analysis"]["weighing_schedule"]
+    assert not profile["enabled"] and profile["phases"][0]["interval_hours"] == 8
+
+
+async def test_invalid_weighing_age_order_keeps_the_draft(options_flow):
+    flow, storage = options_flow
+    form = await flow.async_step_edit_litter()
+    values = _prefilled_litter_input(form)
+    values["weighing_section"]["weighing_schedule_enabled"] = True
+    values["weighing_section"]["weighing_phase_2_until_days"] = 5
+    result = await flow.async_step_edit_litter(form["data_schema"](values))
+    assert result["errors"] == {"base": "invalid_weighing_schedule"}
+    assert _prefilled_litter_input(result)["weighing_section"]["weighing_phase_2_until_days"] == 5
+    assert storage.get_litter(flow._selected_litter_id)["growth_analysis"]["weighing_schedule"] is None

@@ -8,6 +8,8 @@ from typing import Any
 
 from homeassistant.util import dt as dt_util
 
+from .weighing_schedule import weighing_interval
+
 from .const import (
     DEFAULT_LITTER_GROWTH_ANALYSIS,
     DEFAULT_GROWTH_MONITORING_DAYS,
@@ -727,7 +729,10 @@ def calculate_puppy_status(
     settings = effective_growth_settings(storage, litter_id)
 
     min_growth = float(settings["min_daily_growth_percent"])
-    max_hours = float(settings["max_hours_between_weighings"])
+    now = dt_util.now()
+    birth = birth_datetime(storage, litter_id, puppy_id)
+    plan = weighing_interval(settings, birth, now)
+    max_hours = plan["max_hours_between_weighings"]
     monitoring_days = int(settings["growth_monitoring_days"])
 
     result: dict[str, Any] = {
@@ -742,16 +747,17 @@ def calculate_puppy_status(
         "first_day_weight_change_percent": None,
         "growth_check_active": False,
         "min_daily_growth_percent": min_growth,
-        "max_hours_between_weighings": max_hours,
         "growth_monitoring_days": monitoring_days,
+        **plan,
     }
 
     series = measurement_series(storage, litter_id, puppy_id)
     if not series:
+        if plan["weighing_schedule_finished"]:
+            result.update(status="OK", status_code="ok", needs_attention=False)
         return result
 
     latest_time, latest = series[-1]
-    now = dt_util.now()
     hours_since = max(0, (now - latest_time).total_seconds() / 3600)
     result["hours_since_weighing"] = round(hours_since, 1)
 
@@ -761,14 +767,13 @@ def calculate_puppy_status(
         result["daily_growth_grams"] = growth["daily_change_grams"]
         result["daily_growth_sample_hours"] = growth["sample_interval_hours"]
 
-    birth = birth_datetime(storage, litter_id, puppy_id)
     age_hours = (now - birth).total_seconds() / 3600 if birth is not None else None
 
     current = finite_number(latest.get("weight"))
     puppy = storage.get_puppy(litter_id, puppy_id) or {}
     birth_weight = finite_number(puppy.get("birth_weight"))
 
-    if hours_since >= max_hours:
+    if max_hours is not None and hours_since >= max_hours:
         result.update(
             {
                 "status": "Wegen",
@@ -886,6 +891,10 @@ def calculate_puppy_metrics(
         "needs_attention": bool(status.get("needs_attention", False)),
         "weight_loss": bool(status.get("weight_loss", False)),
         "hours_since_weighing": status.get("hours_since_weighing"),
+        "max_hours_between_weighings": status.get("max_hours_between_weighings"),
+        "weighing_schedule_mode": status.get("weighing_schedule_mode"),
+        "weighing_schedule_phase": status.get("weighing_schedule_phase"),
+        "weighing_schedule_finished": bool(status.get("weighing_schedule_finished", False)),
         "first_day_weight_change_percent": status.get(
             "first_day_weight_change_percent"
         ),

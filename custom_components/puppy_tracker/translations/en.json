@@ -265,7 +265,6 @@
               "breed_profile": "Breed profile",
               "size_class": "Size class",
               "min_daily_growth_percent": "Minimum daily growth override (%)",
-              "max_hours_between_weighings": "Maximum weighing interval override (hours)",
               "growth_monitoring_days": "Growth monitoring age override (days)",
               "first_day_max_weight_loss_percent": "Maximum day-one loss override (%)",
               "expected_adult_weight_min_grams": "Expected adult minimum (g)",
@@ -278,7 +277,6 @@
               "breed_profile": "Descriptive breed profile used for future growth analysis. It does not apply a breed-specific diagnosis or curve.",
               "size_class": "Optional size class for future growth analysis.",
               "min_daily_growth_percent": "Leave empty to use the integration monitoring setting.",
-              "max_hours_between_weighings": "Leave empty to use the integration monitoring setting.",
               "growth_monitoring_days": "Leave empty to use the integration monitoring setting.",
               "first_day_max_weight_loss_percent": "Leave empty to use the current general day-one limit.",
               "expected_adult_weight_min_grams": "Optional parent/breeder-based estimate; leave empty when unknown.",
@@ -286,6 +284,33 @@
               "growth_milestones_percent": "For example 200, 400 for 2x and 4x birth weight. Leave empty for 200, 400.",
               "double_weight_reference_days": "Reference period for the 2x milestone; leave empty for 14 days.",
               "milestone_projection_measurements": "Number of recent growth periods used for the estimate; use 2 to 8."
+            }
+          },
+          "weighing_section": {
+            "name": "Weighing schedule",
+            "data": {
+              "max_hours_between_weighings": "Maximum weighing interval override (hours)",
+              "weighing_schedule_enabled": "Use age-based weighing schedule",
+              "weighing_phase_1_until_days": "Phase 1: until age (days)",
+              "weighing_phase_1_hours": "Phase 1: weighing interval (hours)",
+              "weighing_phase_2_until_days": "Phase 2: until age (days)",
+              "weighing_phase_2_hours": "Phase 2: weighing interval (hours)",
+              "weighing_phase_3_until_days": "Phase 3: until age (days)",
+              "weighing_phase_3_hours": "Phase 3: weighing interval (hours)",
+              "weighing_phase_4_until_days": "Phase 4: until age (days)",
+              "weighing_phase_4_hours": "Phase 4: weighing interval (hours)"
+            },
+            "data_description": {
+              "max_hours_between_weighings": "Used only when the age-based schedule is off. Empty: use the integration setting.",
+              "weighing_schedule_enabled": "Each phase ends at its entered age, when the next begins. After phase 4, planned weighing alerts stop. 28 days = 4 weeks, 42 = 6 weeks, 52.5 = 7.5 weeks. Weight loss remains visible.",
+              "weighing_phase_1_until_days": "Age in days, including half-days. End ages must increase.",
+              "weighing_phase_1_hours": "Maximum elapsed time since the last weighing in this age phase.",
+              "weighing_phase_2_until_days": "Age in days, including half-days. End ages must increase.",
+              "weighing_phase_2_hours": "Maximum elapsed time since the last weighing in this age phase.",
+              "weighing_phase_3_until_days": "Age in days, including half-days. End ages must increase.",
+              "weighing_phase_3_hours": "Maximum elapsed time since the last weighing in this age phase.",
+              "weighing_phase_4_until_days": "Age in days, including half-days. End ages must increase.",
+              "weighing_phase_4_hours": "Maximum elapsed time since the last weighing in this age phase."
             }
           }
         }
@@ -402,7 +427,7 @@
         },
         "data_description": {
           "min_daily_growth_percent": "Flag normalized daily growth below this percentage. General veterinary guidance describes approximately 5–10% daily weight gain as normal during the neonatal period.",
-          "max_hours_between_weighings": "Flag a puppy when no new weight has been recorded within this number of hours.",
+          "max_hours_between_weighings": "Default interval between weighings. A litter-specific fixed interval or age-based schedule takes precedence.",
           "growth_monitoring_days": "After this age the minimum daily growth threshold is no longer applied. Weight loss can still be flagged."
         }
       },
@@ -562,7 +587,8 @@
       "backup_too_large": "The backup is larger than the 128 MB import limit.",
       "storage_changed": "Puppy Tracker data changed after the preview. Review the backup again before importing it.",
       "invalid_logo": "Choose a valid PNG/JPEG of at most 2 MB and 16 million pixels. Choose upload or remove, and select the file again.",
-      "logo_save_failed": "The logo could not be saved. Previous settings were retained; select the file again and retry."
+      "logo_save_failed": "The logo could not be saved. Previous settings were retained; select the file again and retry.",
+      "invalid_weighing_schedule": "Check the weighing schedule: four increasing end ages up to 56 days, with intervals between 1 and 168 hours."
     },
     "abort": {
       "no_litters": "There are no litters available yet.",

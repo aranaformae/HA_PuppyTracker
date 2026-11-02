@@ -10,6 +10,12 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+### Added
+
+- Configure an age-based weighing schedule per litter: prefilled 12/24/48/72-hour
+  phases ending at 10/28/42/52.5 days, with editable ages and intervals. Planned
+  weighing alerts stop after the final phase; actual weight concerns remain.
+
 ## [0.38.0] - 2026-11-02
 
 ### Added

@@ -640,6 +640,12 @@ export function describeStatus(summary, hass = null) {
     return localize(hass, "weightSinceBirth", { percent: formatPercent(summary.first_day_weight_change_percent, "—", hass) });
   }
   if (code === "first_24h") return localize(hass, "first24h");
+  if (code === "ok" && summary?.weighing_schedule_finished) return languageForHass(hass) === "en"
+    ? "No further planned weighings for this age" : "Geen geplande wegingen meer op deze leeftijd";
+  if (code === "ok" && summary?.weighing_schedule_mode === "age_based" && Number.isFinite(summary.max_hours_between_weighings)) {
+    const hours = summary.max_hours_between_weighings;
+    return languageForHass(hass) === "en" ? `Planned weighing every ${hours} hours` : `Geplande weging iedere ${hours} uur`;
+  }
   if (code === "ok") return localize(hass, "noActiveWeightAlert");
   return summary?.status || localize(hass, "dossierItem");
 }

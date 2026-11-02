@@ -36,6 +36,7 @@ from .dog_identity import DEFAULT_DOG_BREED, puppy_selector_label
 from .measurements import measurement_status
 from .runtime import PuppyTrackerRuntimeData
 from .storage import PuppyTrackerStorage
+from .weighing_schedule import DEFAULT_WEIGHING_PHASES, InvalidWeighingSchedule
 from .time_utils import (
     current_selector_datetime,
     format_local_timestamp,
@@ -51,6 +52,34 @@ def _optional_suggested_value(key: str, value: Any) -> Any:
     if value in (None, ""):
         return vol.Optional(key)
     return vol.Optional(key, description={"suggested_value": value})
+
+
+LITTER_EDIT_GROUPS = ("basic", "mother_section", "father_section", "weighing_section", "growth_section")
+
+
+def _litter_field_group(key: str) -> str:
+    if key in ("name", "birth_date"):
+        return "basic"
+    if key.startswith("mother"):
+        return "mother_section"
+    if key.startswith("father"):
+        return "father_section"
+    if key.startswith("weighing_") or key == "max_hours_between_weighings":
+        return "weighing_section"
+    return "growth_section"
+
+
+def _weighing_schedule_input(values: dict, litter: dict) -> dict | None:
+    previous = (litter.get("growth_analysis") or {}).get("weighing_schedule")
+    phases = [{"until_age_days": values[f"weighing_phase_{index}_until_days"],
+               "interval_hours": values[f"weighing_phase_{index}_hours"]}
+              for index in range(1, len(DEFAULT_WEIGHING_PHASES) + 1)]
+    enabled = values.get("weighing_schedule_enabled", False)
+    if not enabled and previous is None and phases == [
+        {"until_age_days": days, "interval_hours": hours} for days, hours in DEFAULT_WEIGHING_PHASES
+    ]:
+        return None
+    return {"enabled": enabled, "phases": phases}
 
 
 class PuppyTrackerManagementOptionsFlow(
@@ -300,6 +329,7 @@ class PuppyTrackerManagementOptionsFlow(
         )
 
         if user_input is not None:
+            weighing_changed = bool(user_input.get("weighing_section"))
             flat_schema = self._litter_edit_schema(litter, mother_profile).schema
             existing = {
                 marker.schema: (
@@ -312,21 +342,12 @@ class PuppyTrackerManagementOptionsFlow(
                 or marker.default is not vol.UNDEFINED
             }
             existing["name"] = litter.get("name", "")
-            for group in ("mother_section", "father_section", "growth_section"):
+            for group in LITTER_EDIT_GROUPS[1:]:
                 if not user_input.get(group):
-                    user_input[group] = {
-                        key: value for key, value in existing.items()
-                        if (key.startswith("mother") if group == "mother_section" else
-                            key.startswith("father") if group == "father_section" else
-                            key not in ("name", "birth_date") and
-                            not key.startswith(("mother", "father")))
-                    }
-            user_input = {
-                **user_input.get("basic", {}),
-                **user_input.get("mother_section", {}),
-                **user_input.get("father_section", {}),
-                **user_input.get("growth_section", {}),
-            }
+                    user_input[group] = {key: value for key, value in existing.items()
+                                         if _litter_field_group(key) == group}
+            user_input = {key: value for group in LITTER_EDIT_GROUPS
+                          for key, value in user_input.get(group, {}).items()}
             try:
                 await storage.async_update_litter(
                     self._selected_litter_id,
@@ -359,6 +380,8 @@ class PuppyTrackerManagementOptionsFlow(
                         "size_class": user_input.get("size_class") or "unknown",
                         "min_daily_growth_percent": user_input.get("min_daily_growth_percent"),
                         "max_hours_between_weighings": user_input.get("max_hours_between_weighings"),
+                        "weighing_schedule": _weighing_schedule_input(user_input, litter) if weighing_changed
+                        else (litter.get("growth_analysis") or {}).get("weighing_schedule"),
                         "growth_monitoring_days": user_input.get("growth_monitoring_days"),
                         "first_day_max_weight_loss_percent": user_input.get("first_day_max_weight_loss_percent"),
                         "expected_adult_weight_min_grams": user_input.get("expected_adult_weight_min_grams"),
@@ -384,7 +407,7 @@ class PuppyTrackerManagementOptionsFlow(
                     return await self.async_step_choose_litter_puppy()
                 return self.async_create_entry(title="", data={})
 
-            except Exception:
+            except Exception as err:
                 _LOGGER.exception(
                     "Error managing litter"
                 )
@@ -396,9 +419,7 @@ class PuppyTrackerManagementOptionsFlow(
                         mother_profile,
                         draft=user_input,
                     ),
-                    errors={
-                        "base": "unknown"
-                    },
+                    errors={"base": "invalid_weighing_schedule" if isinstance(err, InvalidWeighingSchedule) else "unknown"},
                 )
 
         return self.async_show_form(
@@ -415,18 +436,9 @@ class PuppyTrackerManagementOptionsFlow(
     ) -> vol.Schema:
         """Show related litter fields together without extra navigation steps."""
         flat = self._litter_edit_schema(litter, mother_profile).schema
-        groups: dict[str, dict[Any, Any]] = {
-            "basic": {}, "mother_section": {}, "father_section": {}, "growth_section": {}
-        }
+        groups: dict[str, dict[Any, Any]] = {group: {} for group in LITTER_EDIT_GROUPS}
         for marker, validator in flat.items():
-            key = marker.schema
-            group = (
-                "basic" if key in ("name", "birth_date") else
-                "mother_section" if key.startswith("mother") else
-                "father_section" if key.startswith("father") else
-                "growth_section"
-            )
-            groups[group][marker] = validator
+            groups[_litter_field_group(marker.schema)][marker] = validator
         return vol.Schema({
             (vol.Required(group) if group == "basic" else vol.Optional(group)): section(
                 self.add_suggested_values_to_schema(vol.Schema(fields), draft or {}),
@@ -592,6 +604,21 @@ class PuppyTrackerManagementOptionsFlow(
                     )
                 )
             )
+
+        schedule = growth.get("weighing_schedule") or {}
+        fields[vol.Required("weighing_schedule_enabled", default=schedule.get("enabled", False))] = selector.BooleanSelector()
+        phases = schedule.get("phases") or [
+            {"until_age_days": days, "interval_hours": hours} for days, hours in DEFAULT_WEIGHING_PHASES
+        ]
+        for index, phase in enumerate(phases, 1):
+            for suffix, key, maximum, step in (
+                ("until_days", "until_age_days", 56, 0.5),
+                ("hours", "interval_hours", 168, 1),
+            ):
+                fields[vol.Required(f"weighing_phase_{index}_{suffix}", default=phase[key])] = selector.NumberSelector(
+                    selector.NumberSelectorConfig(min=0.5 if suffix == "until_days" else 1,
+                                                  max=maximum, step=step, mode=selector.NumberSelectorMode.BOX)
+                )
 
         return vol.Schema(
             fields

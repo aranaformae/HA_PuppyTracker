@@ -14,6 +14,7 @@ from .care_programs import normalize_care_program_backup_data
 from .care_reminders import CARE_REMINDER_CATEGORIES, MAX_CARE_REMINDER_LEAD_DAYS
 from .care_templates import normalize_care_template_backup_data
 from .const import DOMAIN
+from .weighing_schedule import normalize_weighing_schedule
 from .dog_identity import parent_details_for_litter
 from .integrity import inspect_and_repair_data
 from .mother_integrity import inspect_mother_data, merge_integrity_reports
@@ -732,6 +733,13 @@ def _normalize_candidate_schema(candidate: dict[str, Any]) -> None:
 
 
 def _validate_candidate(candidate: dict[str, Any]) -> dict[str, Any]:
+    litters = candidate.get("litters")
+    for litter in litters.values() if isinstance(litters, dict) else ():
+        if isinstance(litter, dict) and isinstance(litter.get("growth_analysis"), dict):
+            try:
+                normalize_weighing_schedule(litter["growth_analysis"].get("weighing_schedule"))
+            except ValueError as err:
+                raise BackupValidationError("invalid_backup", str(err)) from err
     _normalize_candidate_schema(candidate)
     _changed, base_report = inspect_and_repair_data(candidate, repair=False)
     _mother_changed, mother_report = inspect_mother_data(candidate, repair=False)

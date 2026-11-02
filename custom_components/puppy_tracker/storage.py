@@ -14,6 +14,7 @@ from homeassistant.helpers.storage import Store
 from .behavior import BEHAVIOR_RECORD_TYPE, validate_behavior_data
 from .care_results import normalize_course_record_edit
 from .storage_lock import CoordinatedLock, mutation_coordinator
+from .weighing_schedule import normalize_weighing_schedule
 from .const import (
     DEFAULT_DOUBLE_WEIGHT_REFERENCE_DAYS,
     DEFAULT_GROWTH_MILESTONES_PERCENT,
@@ -105,6 +106,7 @@ def _normalize_litter_growth_analysis(value: Any) -> dict[str, Any]:
     result = deepcopy(DEFAULT_LITTER_GROWTH_ANALYSIS)
     result["breed_profile"] = str(raw.get("breed_profile") or "unknown").strip() or "unknown"
     result["size_class"] = str(raw.get("size_class") or "unknown").strip() or "unknown"
+    result["weighing_schedule"] = normalize_weighing_schedule(raw.get("weighing_schedule"))
     raw_milestones = raw.get("growth_milestones_percent")
     if raw_milestones in (None, ""):
         milestones = list(DEFAULT_GROWTH_MILESTONES_PERCENT)

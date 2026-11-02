@@ -43,6 +43,7 @@ DEFAULT_LITTER_GROWTH_ANALYSIS = {
     "size_class": "unknown",
     "min_daily_growth_percent": None,
     "max_hours_between_weighings": None,
+    "weighing_schedule": None,
     "growth_monitoring_days": None,
     "first_day_max_weight_loss_percent": None,
     "expected_adult_weight_min_grams": None,

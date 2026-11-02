@@ -96,7 +96,7 @@ def test_litter_sections_serialize_for_home_assistant() -> None:
     schema = flow._litter_section_schema({"name": "Luna 2026"})
     fields = probatio.to_field_list(schema, custom_serializer=cv.custom_serializer)
     assert [field["name"] for field in fields] == [
-        "basic", "mother_section", "father_section", "growth_section"
+        "basic", "mother_section", "father_section", "weighing_section", "growth_section"
     ]
     assert all(field["type"] == "expandable" for field in fields)
     assert fields[0]["expanded"] is True

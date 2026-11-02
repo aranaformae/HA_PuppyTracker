@@ -120,12 +120,12 @@ Tracker -> Configure -> Growth and notifications -> Default growth thresholds**.
 hours between weighings and the number of puppy-age days during which growth is
 actively checked.
 
-To override growth context for one litter, open **Configure -> Manage litter ->
+To override growth context for one litter, open **Configure -> Nests and puppies ->
 Edit litter details -> Growth analysis for this litter**. Available fields include:
 
 - breed profile and size class;
 - minimum daily growth percentage;
-- maximum hours between weighings;
+- maximum hours between weighings (in the separate **Weighing schedule** section);
 - growth-monitoring age in days;
 - first-day maximum weight loss percentage;
 - expected adult-weight minimum and maximum;
@@ -228,3 +228,43 @@ Analysis-card estimate, not an attention rule or an adult-weight prediction.
 CSV exports contain effective measurements for external analysis. PDF reports
 can include the selected period's chart and measurement table. JSON backups
 retain the complete measurement and correction history.
+
+## Age-based weighing schedule
+
+Open **Settings -> Devices & services -> Puppy Tracker -> Configure -> Nests and
+puppies -> Edit litter details -> Weighing schedule**. Enable the age-based
+schedule for that litter. Existing litters keep their fixed interval until you
+enable it; the integration-wide interval remains the fallback.
+
+The prefilled personal breeder workflow has four editable phases:
+
+| Puppy age | Maximum time since last weighing |
+| --- | --- |
+| Birth to less than 10 days | 12 hours |
+| 10 days to less than 28 days (4 weeks) | 24 hours |
+| 28 days to less than 42 days (6 weeks) | 48 hours |
+| 42 days to less than 52.5 days (7.5 weeks) | 72 hours |
+| From 52.5 days | No planned weighing alerts |
+
+Each end age and interval is editable per litter. End ages must increase, up to
+56 days, and intervals must be between 1 and 168 hours. Half-day end ages are
+supported. Disabling the schedule retains its phase values for later use and
+restores the litter-specific fixed interval, or the global fallback if empty.
+
+Age is elapsed time from each puppy's birth timestamp; DST does not add or
+remove an age hour. The interval for the puppy's current phase is measured
+from its last effective weighing. Twice daily therefore means a 12-hour
+interval, not two fixed clock-time appointments. Without a usable birth time,
+fixed-interval monitoring remains active.
+
+The last phase ends automatic **weighing due** and **missing weighing** alerts,
+including their counts, notifications and automation transitions. You can still
+weigh manually, and actual weight loss or applicable low-growth concerns remain
+visible. The separate growth-monitoring age window is unchanged.
+
+Cards using shared status details show the active interval or that no further
+weighings are planned. The native puppy Status entity also exposes the current
+mode, phase, interval and finished flag as attributes. The schedule is stored
+with the litter and included in full/litter backups and transfers; historical
+measurements are never rewritten. These prefilled phases are a configurable
+personal workflow, not a universal veterinary or breed-specific recommendation.

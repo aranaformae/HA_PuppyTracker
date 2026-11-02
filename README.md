@@ -31,6 +31,7 @@ Home Assistant 2026.9.4 or newer is the supported baseline.
   over time.
 - Store owner/contact, placement and payment information, record an ordered top
   three puppy shortlist with notes, and link contacts to puppies later.
+- Configure weighing intervals by puppy age per litter, including an end to planned weighing reminders.
 - Let Home Assistant automations react to care becoming due or changes in puppy attention.
 - Create configurable PDF reports with central breeder details and export CSV or JSON data.
 - Create puppy information sheets, payment overviews, receipts for individual recorded payments,
