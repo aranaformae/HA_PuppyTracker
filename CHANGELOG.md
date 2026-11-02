@@ -10,6 +10,8 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+## [0.38.0] - 2026-11-02
+
 ### Added
 
 - Add care-due/cleared and puppy-attention transition events for automations,
@@ -491,7 +493,8 @@ for explicit assignment. See [storage migrations](docs/storage-migrations.md#own
 
 - Separated daily execution from schedule management in Care workspace navigation.
 
-[Unreleased]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.37.2...HEAD
+[Unreleased]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.38.0...HEAD
+[0.38.0]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.37.2...v0.38.0
 [0.37.2]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.37.1...v0.37.2
 [0.37.1]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.37.0...v0.37.1
 [0.37.0]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.36.0...v0.37.0
