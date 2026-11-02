@@ -19,6 +19,12 @@ they have not been reconstructed as a complete historical changelog.
 
 ### Changed
 
+- Show explicit litter, puppy and buyer selections for reports and documents,
+  with separate CSV and full-history JSON scope summaries. Opening Documents
+  prefills an untouched form from an individual report selection; whole-litter
+  and mother reports require choosing a document puppy. Started documents and
+  template drafts retain their own choices across report changes and reopening.
+
 - Use one shared execution editor for ENS/ESI, treatments, reminders and dossier
   follow-ups. Ordinary care programs keep only their configured result fields
   and day instructions, with the same safe save, retry, cancel and focus behavior.

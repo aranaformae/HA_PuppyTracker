@@ -180,7 +180,22 @@ not a new Lovelace card. It retains that DOM subtree across report refreshes,
 including active input focus. The component keeps drafts locally, locks only
 its own actions while working, clears private state on principal changes and
 rejects late responses after disconnect/revocation. PDF report settings and
-document selections remain independent.
+document selections remain independent. The report supplies an immutable
+`{litterId, puppyId}` hint only when opening the document section, after its own
+data has loaded. `prefillSelection` queues that hint if the document model is
+still loading, validates IDs against that model, and can preselect a primary
+buyer only for one valid linked contact. A whole-litter/mother/unknown puppy
+leaves the document puppy empty; it never falls back to the first puppy.
+
+Manual document/template/payment/party/detail changes, a checked preview and
+opening/restoring a template editor protect document selection from reseeding.
+The hint is not a live binding: report refreshes and top-level changes cannot
+mutate an open form or its preview/save snapshot. Shared document controls keep
+using the same canonical selection and fingerprint endpoints. The context block
+uses those IDs to resolve names; updating it after extra-buyer or preview-party
+changes does not replace input controls. PDF/CSV and litter/mother JSON each
+render a scope summary matching their existing export contracts. The archive
+remains global and is labelled independently.
 
 `puppy-tracker-document-draft.js` maintains one bounded (500 kB) local recovery
 copy per HA user ID and browser origin. A 600 ms debounce avoids writes and DOM

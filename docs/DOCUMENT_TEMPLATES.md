@@ -17,8 +17,11 @@ only when you need to copy, edit, create, import or download a template.
    The existing free-text report contact field remains separate.
 2. Complete the puppy and parent identities in the integration options. Add or
    update the buyers in the Owners card and link them to the puppy.
-3. Open **Documents and contracts**, choose a template, litter and puppy, then
-   explicitly select the **primary buyer**. Payment amounts and pickup date
+3. Open **Documents and contracts** and check its litter, puppy and buyer summary.
+   An untouched form takes the report's litter and individual puppy. With a
+   whole-litter or mother report, choose the document puppy explicitly. Choose a
+   template and the **primary buyer** (preselected only when there is exactly one
+   linked contact). Payment amounts and pickup date
    come from that buyer's dossier for the selected litter. Additional buyers
    must also be linked to the puppy; their contact details are included too.
    For a payment receipt, select one active, recorded payment from that buyer's
@@ -30,7 +33,16 @@ only when you need to copy, edit, create, import or download a template.
 6. Choose **Save and download document**. The archive retains the exact PDF and
    the template/data snapshot used to create it. Later edits do not change it.
 
-Changing the selection invalidates the previous check. If another dashboard
+Documents and the PDF/CSV report retain separate selections. Changing report
+choices does not update an open document. On reopening, only a form with no
+manual changes, preview or template editing can adopt the current report choice.
+Date, signing place, parties, payment and template choices remain intact once
+you start. Template editing and restored drafts are protected too. The context
+summary in the editor describes the real-data preview selection; the ordinary
+template preview still uses sample field names. The archive shows all saved
+documents, not only the selected litter or puppy.
+
+Changing the document selection invalidates the previous check. If another dashboard
 changes source data or the template after checking, final saving is refused
 until you check again. Retrying the same save after a lost response does not
 create a duplicate document.

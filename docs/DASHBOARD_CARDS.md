@@ -562,7 +562,13 @@ remain above both sections because they also determine the CSV export.
 Its collapsible **Documents and contracts** panel creates and archives
 per-puppy contracts from editable text/field templates. It has its own litter,
 puppy and buyer selections, independent of the PDF dossier's period and section
-switches. No extra card type or YAML options are needed. See
+switches. A document summary identifies its litter, puppy and primary/additional
+buyers. On opening, an untouched form can take the report's individual puppy;
+whole-litter/mother reports require an explicit document puppy. Only a single
+linked contact can be preselected as primary buyer. Starting a document or editing
+a template prevents automatic reselection on reopening or report refreshes.
+CSV and JSON show their own scope summaries; JSON retains complete history.
+No extra card type or YAML options are needed. See
 [Document templates](DOCUMENT_TEMPLATES.md).
 
 ```yaml

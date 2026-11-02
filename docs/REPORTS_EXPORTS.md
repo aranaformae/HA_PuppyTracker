@@ -36,8 +36,21 @@ Select a litter first, then choose one of these subjects:
 - **Mother** offers JSON dossier export only. It can contain the mother's
   complete history across all linked litters or only the selected litter.
 
-The preview immediately shows the selected subject and matching counts before
-the PDF is downloaded.
+The PDF preview summary identifies the litter, selected subject and period,
+with matching counts before downloading. The data-export section shows separate
+CSV and JSON summaries: CSV follows the puppy and period; litter JSON always
+contains the whole litter and complete history. Mother JSON instead identifies
+the mother and whether her history covers all litters or only this litter.
+
+Documents have their own litter, puppy and primary/additional buyer summary.
+Opening that section prefills the report litter and individual puppy only if
+its form is untouched. A single linked contact can be preselected; with multiple
+contacts you choose the primary buyer explicitly. Whole-litter and mother
+selections do not silently choose a document puppy. Changing the report while
+Documents is open has no effect on its selection. Closing/reopening can refresh
+an untouched form, but entered data, checked previews and template drafts are
+preserved. The saved-document archive covers all archived documents, independently
+of either selection.
 
 While an export is being prepared, its choices and download buttons are locked.
 The download uses the litter, subject, period, language and PDF options selected

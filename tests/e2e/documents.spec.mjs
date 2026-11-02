@@ -4,7 +4,7 @@ import { mountAsyncCard } from "./helpers/async-card.mjs";
 
 const previewContent = readFileSync(new URL("./fixtures/document-preview.pdf", import.meta.url)).toString("base64");
 
-async function mountDocuments(page, language = "nl", openManagement = true) {
+async function mountDocuments(page, language = "nl", openManagement = true, initialPuppy = "a1", initialLitter = "a") {
   const report = await mountAsyncCard(page, "report", { language });
   await report.evaluate((el, examplePdf) => {
     const original = el._hass.callWS;
@@ -12,8 +12,8 @@ async function mountDocuments(page, language = "nl", openManagement = true) {
     const model = {
       fields: { "pup.naam": { nl: "Roepnaam pup", en: "Puppy call name" }, "contract.plaats": { nl: "Plaats ondertekening", en: "Signing location" } },
       templates: [{ id: "handover-example-nl", template, builtin: true, revision: "original" }],
-      litters: [{ id: "a", name: "Luna 2026", puppies: [{ id: "a1", name: "Nova", collar_color: "paars", owner_ids: ["o1", "o2"] }, { id: "a2", name: "Groen", collar_color: "groen", owner_ids: ["o3"] }] }],
-      owners: [{ id: "o1", name: "Alex" }, { id: "o2", name: "Sam" }, { id: "o3", name: "Robin" }], documents: [],
+      litters: [{ id: "a", name: "Luna 2026", puppies: [{ id: "a1", name: "Nova", collar_color: "paars", owner_ids: ["o1", "o2"] }, { id: "a2", name: "Groen", collar_color: "groen", owner_ids: ["o3"] }] }, { id: "b", name: "Second litter", puppies: [{ id: "b1", name: "Bo", collar_color: "blauw", owner_ids: ["o4"] }] }],
+      owners: [{ id: "o1", name: "Alex" }, { id: "o2", name: "Sam" }, { id: "o3", name: "Robin" }, { id: "o4", name: "Jamie" }], documents: [],
     };
     window.__docs = { calls: [], failSave: false, holdPreview: false, badTemplatePreview: false, model };
     const state = window.__docs;
@@ -41,6 +41,8 @@ async function mountDocuments(page, language = "nl", openManagement = true) {
     } };
   }, previewContent);
   expect(await page.evaluate(() => window.__docs.calls)).toHaveLength(0);
+  if (initialLitter !== "a") await report.locator("#litter").selectOption(initialLitter);
+  await report.locator("#puppy").selectOption(initialPuppy);
   await report.locator("#contract-documents > summary").click();
   const panel = report.locator("puppy-tracker-documents");
   await expect(panel.locator("#document-buyer, #template-name")).toBeVisible();
@@ -674,4 +676,129 @@ test("Revoked admin permission discards a delayed preview", async ({ page }) => 
   await expect(panel).toHaveCount(0);
   expect(downloads).toHaveLength(0);
   expect(await report.evaluate(el => el._documentPanel._model)).toBeNull();
+});
+
+for (const language of ["nl", "en"]) {
+  test(`report and document summaries match their independent export selections (${language}) @cross-browser @tablet`, async ({ page }, testInfo) => {
+    const { report, panel } = await mountDocuments(page, language, false, "a2");
+    await expect(panel.locator("#document-puppy")).toHaveValue("a2");
+    await expect(panel.locator("#document-buyer")).toHaveValue("o3");
+    const context = panel.locator("#document-selection-context");
+    await expect(context).toContainText("Luna 2026");
+    await expect(context).toContainText("Groen");
+    await expect(context).not.toContainText("Groen (groen)");
+    await expect(context).toContainText("Robin");
+    await expect(context).toContainText(language === "nl" ? "Selectie voor dit document" : "Selection for this document");
+    await report.locator("#range").selectOption("14d");
+    await expect(report.locator("#pdf-selection-context")).toContainText("A2 (Red)");
+    await expect(report.locator("#pdf-selection-context")).toContainText(language === "nl" ? "14 dagen" : "14 days");
+    await report.locator("#data-export > summary").click();
+    await expect(report.locator("#csv-selection-context")).toContainText("A2 (Red)");
+    await expect(report.locator("#json-selection-context")).toContainText(language === "nl" ? "Hele nest" : "Whole litter");
+    await expect(report.locator("#json-selection-context")).not.toContainText("14");
+    await context.screenshot({ path: testInfo.outputPath("document-selection-context.png") });
+    await panel.locator("#document-place").fill("Teststad");
+    const download = page.waitForEvent("download");
+    await panel.locator("#preview-document").click(); await download;
+    expect((await page.evaluate(() => window.__docs.calls.filter(c => c.type.endsWith("/preview")).at(-1)))).toMatchObject({ litter_id: "a", puppy_id: "a2", owner_ids: ["o3"] });
+  });
+
+  for (const scope of ["__litter__", "__mother__"]) {
+    test(`${scope} report never silently selects the first document puppy (${language}) @cross-browser @tablet`, async ({ page }) => {
+      const { panel, report } = await mountDocuments(page, language, false, scope);
+      await expect(panel.locator("#document-litter")).toHaveValue("a");
+      await expect(panel.locator("#document-puppy")).toHaveValue("");
+      await expect(panel.locator("#document-buyer")).toHaveValue("");
+      await expect(panel.locator("#document-selection-context")).toContainText(language === "nl" ? "Nog niet gekozen" : "Not selected yet");
+      await expect(panel.locator("#preview-document")).toBeDisabled();
+      if (scope === "__mother__") {
+        await report.locator("#data-export > summary").click();
+        await expect(report.locator("#json-selection-context")).toContainText(language === "nl" ? "Alle nesten" : "All litters");
+        await report.locator("#mother-export-scope").selectOption("current");
+        await expect(report.locator("#json-selection-context")).toContainText(language === "nl" ? "Alleen dit nest" : "Current litter only");
+      }
+    });
+  }
+}
+
+test("only pristine documents adopt a new report selection when reopened @cross-browser @tablet", async ({ page }) => {
+  const { report, panel } = await mountDocuments(page, "en", false);
+  await report.locator("#puppy").selectOption("a2");
+  // Report changes alone never alter even a pristine open document.
+  await expect(panel.locator("#document-puppy")).toHaveValue("a1");
+  await report.locator("#contract-documents > summary").click();
+  await report.locator("#contract-documents > summary").click();
+  await expect(panel.locator("#document-puppy")).toHaveValue("a2");
+  await expect(panel.locator("#document-buyer")).toHaveValue("o3");
+  await panel.locator("#document-place").fill("Keep my input");
+  await panel.locator("#document-date").fill("2026-12-12");
+  await report.locator("#litter").selectOption("b");
+  await expect(report.locator("#puppy option[value=b1]")).toHaveCount(1);
+  await report.locator("#puppy").selectOption("b1");
+  await report.locator("#contract-documents > summary").click();
+  await report.locator("#contract-documents > summary").click();
+  await expect(panel.locator("#document-litter")).toHaveValue("a");
+  await expect(panel.locator("#document-puppy")).toHaveValue("a2");
+  await expect(panel.locator("#document-buyer")).toHaveValue("o3");
+  await expect(panel.locator("#document-place")).toHaveValue("Keep my input");
+  await expect(panel.locator("#document-date")).toHaveValue("2026-12-12");
+  const download = page.waitForEvent("download");
+  await panel.locator("#preview-document").click(); await download;
+  await expect(panel.locator("#save-document")).toBeEnabled();
+  expect((await page.evaluate(() => window.__docs.calls.filter(c => c.type.endsWith("/preview")).at(-1)))).toMatchObject({ litter_id: "a", puppy_id: "a2", owner_ids: ["o3"], details: { place: "Keep my input", date: "2026-12-12" } });
+});
+
+test("report changes preserve template edits, preview parties and focused inputs @cross-browser @tablet", async ({ page }) => {
+  const { report, panel } = await mountDocuments(page, "en");
+  await panel.locator("#document-buyer").selectOption("o1");
+  await panel.locator("#document-others").selectOption("o2");
+  await expect(panel.locator("#document-selection-context")).toContainText("Sam");
+  await panel.locator("#edit-template").click();
+  await panel.locator("#template-name").fill("Keep this template");
+  await panel.locator("#draft-place").fill("Keep preview place");
+  await panel.locator("#template-name").focus();
+  await report.evaluate(async el => { el._selectedPuppyId = "a2"; el._render(); await el._queueRefresh(); });
+  await expect(panel.locator("#template-name")).toBeFocused();
+  await report.locator("#contract-documents > summary").click();
+  await report.locator("#contract-documents > summary").click();
+  await expect(panel.locator("#template-name")).toHaveValue("Keep this template");
+  await expect(panel.locator("#draft-puppy")).toHaveValue("a1");
+  await expect(panel.locator("#draft-buyer")).toHaveValue("o1");
+  await expect(panel.locator("#draft-others")).toHaveValues(["o2"]);
+  await expect(panel.locator("#draft-place")).toHaveValue("Keep preview place");
+  await expect(panel.locator("#document-selection-context")).toContainText("Real data for the template preview");
+  await expect(panel.locator("#document-selection-context")).toContainText("Nova (paars)");
+});
+
+test("initial prefill uses the chosen litter rather than the first model litter @cross-browser @tablet", async ({ page }) => {
+  const { panel } = await mountDocuments(page, "en", false, "b1", "b");
+  await expect(panel.locator("#document-litter")).toHaveValue("b");
+  await expect(panel.locator("#document-puppy")).toHaveValue("b1");
+  await expect(panel.locator("#document-buyer")).toHaveValue("o4");
+  await expect(panel.locator("#document-selection-context")).toContainText("Second litter");
+  await expect(panel.locator("#document-selection-context")).toContainText("Bo (blauw)");
+  await expect(panel.locator("#document-selection-context")).toContainText("Jamie");
+});
+
+test("a delayed document preview keeps its parties while report selection changes @cross-browser @tablet", async ({ page }) => {
+  const { report, panel } = await mountDocuments(page, "en", false);
+  await panel.locator("#document-buyer").selectOption("o1");
+  await panel.locator("#document-others").selectOption("o2");
+  await panel.locator("#document-place").fill("Original place");
+  await page.evaluate(() => { window.__docs.holdPreview = true; });
+  await panel.locator("#preview-document").click();
+  await expect.poll(() => page.evaluate(() => Boolean(window.__docs.releasePreview))).toBe(true);
+  await report.locator("#litter").selectOption("b");
+  await expect(report.locator("#puppy option[value=b1]")).toHaveCount(1);
+  await report.locator("#puppy").selectOption("b1");
+  await report.locator("#contract-documents > summary").click();
+  await report.locator("#contract-documents > summary").click();
+  const preview = page.waitForEvent("download");
+  await page.evaluate(() => window.__docs.releasePreview()); await preview;
+  await expect(panel.locator("#document-puppy")).toHaveValue("a1");
+  await expect(panel.locator("#document-buyer")).toHaveValue("o1");
+  await expect(panel.locator("#save-document")).toBeEnabled();
+  const download = page.waitForEvent("download");
+  await panel.locator("#save-document").click(); await download;
+  expect((await page.evaluate(() => window.__docs.calls.find(c => c.type === "puppy_tracker/documents/save")))).toMatchObject({ litter_id: "a", puppy_id: "a1", owner_ids: ["o1", "o2"], details: { place: "Original place" }, expected_fingerprint: "checked" });
 });

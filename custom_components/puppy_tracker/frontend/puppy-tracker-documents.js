@@ -7,6 +7,7 @@ const templateUsesLogo = template => Boolean(template?.logo || (template?.waterm
 
 const COPY = {
   nl: {
+    archiveHint: "Dit archief toont alle opgeslagen documenten, los van de selectie hierboven.", selectionContext: "Selectie voor dit document", previewSelectionContext: "Echte gegevens voor het sjabloonvoorbeeld", selectionHint: "Dit onderdeel heeft een eigen selectie. Wijzigingen bij PDF en CSV veranderen een begonnen document niet.", notSelected: "Nog niet gekozen", choosePuppy: "Kies eerst een pup voor dit document.",
     standardNl: "Standaard · Nederlands", standardEn: "Standaard · Engels", ownTemplates: "Eigen sjablonen",
     draftHint: "Wijzigingen worden automatisch als concept in deze browser bewaard.", draftPending: "Concept lokaal bewaren…", draftSaved: "Concept lokaal bewaard. Het sjabloon is nog niet opgeslagen in Home Assistant.", draftRestored: "Je lokale concept is hersteld. Gebruik Sjabloon opslaan om het definitief op te slaan.", draftUnavailable: "Automatisch bewaren is niet gelukt. Houd deze pagina open of download je concept.", draftRestoreFailed: "Het lokale concept kon niet worden hersteld. Je kunt een gedownload concept opnieuw importeren.", draftConflict: "Een ander tabblad heeft een concept bewaard. Deze invoer is behouden; download je concept voordat je deze pagina sluit.", draftClearFailed: "De lokale conceptkopie kon niet worden verwijderd. Controleer deze bij het opnieuw openen.",
     watermark: "Watermerk", watermarkNone: "Geen watermerk", watermarkTextMode: "Tekst", watermarkLogoMode: "Logo", watermarkText: "Watermerktekst", watermarkTextHint: "Leeg laten om de documenttitel te gebruiken.", watermarkLogoHint: "Gebruikt het ingestelde fokkerlogo, of anders het Puppy Tracker-logo. Licht op iedere pagina, onafhankelijk van het logo bovenaan.",
@@ -32,6 +33,7 @@ const COPY = {
     choose_document_parties: "Kies een pup en gekoppelde koper(s).", unknown_template_field: "Er staat een onbekend of ongeldig invulveld in het sjabloon. Gebruik de veldkiezer.", invalid_template: "Controleer de sjabloonnaam, taal en onderdelen.", invalid_template_block: "Controleer de onderdelen. Een gegevensblok heeft minstens één veld nodig.", unsupported_template_version: "Dit sjabloonformaat wordt niet ondersteund.", document_limit: "De document- of sjabloonlimiet is bereikt. Verwijder ongebruikte items voordat je verdergaat.", importError: "Kies een geldig Puppy Tracker-sjabloonbestand van maximaal 150 kB.",
   },
   en: {
+    archiveHint: "This archive shows all saved documents, independently of the selection above.", selectionContext: "Selection for this document", previewSelectionContext: "Real data for the template preview", selectionHint: "This section has its own selection. Changes to PDF and CSV do not change a document you have started.", notSelected: "Not selected yet", choosePuppy: "First choose a puppy for this document.",
     standardNl: "Standard · Dutch", standardEn: "Standard · English", ownTemplates: "My templates",
     draftHint: "Changes are automatically kept as a draft in this browser.", draftPending: "Saving local draft…", draftSaved: "Draft saved locally. The template has not yet been saved to Home Assistant.", draftRestored: "Your local draft has been restored. Use Save template to save it permanently.", draftUnavailable: "Automatic saving failed. Keep this page open or download your draft.", draftRestoreFailed: "The local draft could not be restored. You can import a downloaded draft again.", draftConflict: "Another tab saved a draft. Your input is preserved; download your draft before closing this page.", draftClearFailed: "The local draft copy could not be removed. Check it when reopening.",
     watermark: "Watermark", watermarkNone: "No watermark", watermarkTextMode: "Text", watermarkLogoMode: "Logo", watermarkText: "Watermark text", watermarkTextHint: "Leave empty to use the document title.", watermarkLogoHint: "Uses the configured breeder logo, or the Puppy Tracker logo as fallback. Faintly on every page, independently of the header logo.",
@@ -66,6 +68,7 @@ class PuppyTrackerDocuments extends HTMLElement {
     this._template = ""; this._litter = ""; this._puppy = ""; this._buyer = ""; this._others = []; this._payment = ""; this._manageOpen = false;
     this._details = { date: "", place: "" }; this._preview = null; this._requestId = null; this._editor = null; this._templateEditor = null; this._draftMissing = []; this._inspectGeneration = 0; this._inspectionKey = ""; this._dirty = false;
     this._draftStore = null; this._draftState = ""; this._draftChecked = false;
+    this._selectionTouched = false; this._pendingPrefill = null;
     this._inlinePreview = new DocumentPdfPreview(key => this.t(key), () => this._closeInlinePreview());
     this._inlinePreviewOpen = false;
     this._pageHide = () => this._flushDraft();
@@ -87,6 +90,7 @@ class PuppyTrackerDocuments extends HTMLElement {
     if (changed || value?.user?.is_admin === false) {
       this._epoch++; this._model = null; this._editor = null; this._templateEditor = null; this._dirty = false; this._preview = null; this._busy = false;
       this._buyer = ""; this._others = []; this._payment = ""; this._manageOpen = false; this._requestId = null; this._details = { date: "", place: "" }; this._error = ""; this._status = "";
+      this._selectionTouched = false; this._pendingPrefill = null;
       this._render();
     } else if (reconnected) { this._epoch++; this._busy = false; this._preview = null; this._render(); }
     if (this.isConnected && !this._model && !this._busy && value?.user?.is_admin !== false) this._load();
@@ -171,6 +175,25 @@ class PuppyTrackerDocuments extends HTMLElement {
     const error = this.shadowRoot.querySelector("#document-error");
     if (error) error.textContent = this._error;
   }
+  // Only seed a pristine form on opening, never mirror live report changes.
+  prefillSelection(context) {
+    if (!context?.litterId || this._selectionTouched || this._editor || this._preview || (this._busy && this._model)) return false;
+    if (!this._model) { this._pendingPrefill = { ...context }; return true; }
+    return this._applyPrefill(context);
+  }
+  _applyPrefill(context) {
+    const litter = this._model.litters.find(item => item.id === context.litterId);
+    if (!litter) return false;
+    const puppy = litter.puppies.find(item => item.id === context.puppyId);
+    const puppyId = puppy?.id || "";
+    if (this._litter === litter.id && this._puppy === puppyId) return true;
+    this._litter = litter.id; this._puppy = puppyId;
+    const linked = (puppy?.owner_ids || []).filter(id => this._model.owners.some(owner => owner.id === id));
+    this._buyer = linked.length === 1 ? linked[0] : "";
+    this._others = []; this._payment = "";
+    this._invalidate(); this._render();
+    return true;
+  }
   _load() {
     this._run(async (hass, current) => {
       const model = await hass.callWS({ type: "puppy_tracker/documents/list" });
@@ -183,12 +206,14 @@ class PuppyTrackerDocuments extends HTMLElement {
         const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: hass.config?.time_zone || undefined, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date()).map(p => [p.type, p.value]));
         this._details.date = `${p.year}-${p.month}-${p.day}`;
       }
+      const prefill = this._pendingPrefill; this._pendingPrefill = null;
+      if (prefill && !this._selectionTouched && !this._editor) this._applyPrefill(prefill);
       this._restoreDraft();
     });
   }
   _syncSelection() {
     const puppies = this._model?.litters.find(l => l.id === this._litter)?.puppies || [];
-    if (!puppies.some(p => p.id === this._puppy)) this._puppy = puppies[0]?.id || "";
+    if (!puppies.some(p => p.id === this._puppy)) this._puppy = "";
     const ids = puppies.find(p => p.id === this._puppy)?.owner_ids || [];
     if (!ids.includes(this._buyer)) this._buyer = "";
     this._others = this._others.filter(id => ids.includes(id) && id !== this._buyer);
@@ -202,9 +227,11 @@ class PuppyTrackerDocuments extends HTMLElement {
     this._preview = null; this._requestId = null;
     const save = this.shadowRoot.querySelector("#save-document"); if (save) save.disabled = true;
     const checks = this.shadowRoot.querySelector("#document-checks"); if (checks) checks.replaceChildren();
+    this._updateSelectionContext();
   }
   _selection() { return { template_id: this._template, litter_id: this._litter, puppy_id: this._puppy, owner_ids: [this._buyer, ...this._others].filter(Boolean), details: { ...this._details }, ...(this._needsPayment() ? { payment_id: this._payment } : {}) }; }
   _check() {
+    this._selectionTouched = true;
     const selection = this._selection();
     this._run(async (hass, current) => {
       const usesLogo = templateUsesLogo(this._model.templates.find(t => t.id === selection.template_id)?.template);
@@ -230,6 +257,7 @@ class PuppyTrackerDocuments extends HTMLElement {
     });
   }
   _edit(value, id = null, revision = null, view = null, mode = "advanced") {
+    this._selectionTouched = true;
     this._inlinePreview.clear(); this._inlinePreviewOpen = false;
     this._draftMissing = [];
     this._editor = { template: structuredClone(value), id: id || createUuid(), revision };
@@ -283,10 +311,11 @@ class PuppyTrackerDocuments extends HTMLElement {
     });
   }
   _draftPreviewChanged(render = false) {
+    this._selectionTouched = true;
     this._draftMissing = [];
     this._closeInlinePreview();
     if (render) this._render();
-    else this.shadowRoot.querySelector("#draft-preview-missing")?.replaceChildren();
+    else { this.shadowRoot.querySelector("#draft-preview-missing")?.replaceChildren(); this._updateSelectionContext(); }
     this._scheduleFieldInspection();
   }
   _scheduleFieldInspection() {
@@ -345,6 +374,21 @@ class PuppyTrackerDocuments extends HTMLElement {
       this._invalidate(); this._status = this.t("templateDeleted");
     });
   }
+  _selectionContext() {
+    const litter = this._model?.litters.find(item => item.id === this._litter);
+    const puppy = litter?.puppies.find(item => item.id === this._puppy);
+    const linked = (this._model?.owners || []).filter(owner => puppy?.owner_ids?.includes(owner.id));
+    const rows = [["litter", litter?.name], ["puppy", puppy ? puppySelectorLabel(puppy) : null],
+      ["buyer", linked.find(owner => owner.id === this._buyer)?.name]];
+    if (this._others.length) rows.push(["others", linked.filter(owner => this._others.includes(owner.id) && owner.id !== this._buyer).map(owner => owner.name).join(", ")]);
+    return `<strong>${esc(this.t(this._editor ? "previewSelectionContext" : "selectionContext"))}</strong><dl>${rows.map(([key, value]) => `<div><dt>${esc(this.t(key))}</dt><dd>${esc(value || this.t("notSelected"))}</dd></div>`).join("")}</dl><p>${esc(this.t("selectionHint"))}</p>`;
+  }
+  _updateSelectionContext() {
+    const node = this.shadowRoot.querySelector("#document-selection-context");
+    if (!node) return;
+    const markup = this._selectionContext();
+    if (node.innerHTML !== markup) node.innerHTML = markup;
+  }
   _options(rows, selected) { return `<option value="">${esc(this.t("choose"))}</option>${rows.map(([id, name]) => `<option value="${esc(id)}" ${id === selected ? "selected" : ""}>${esc(name)}</option>`).join("")}`; }
   _defaultTemplate() {
     return this._model?.templates.find(t => t.builtin && t.template.language === this.language)?.id || this._model?.templates[0]?.id || "";
@@ -378,14 +422,14 @@ class PuppyTrackerDocuments extends HTMLElement {
       .used-field-chips{display:flex;gap:5px;flex-wrap:wrap}.field-chip{display:inline-block;padding:1px 5px;border:1px solid var(--primary-color,#03a9f4);border-radius:4px;background:var(--secondary-background-color,#e8f2f7);font-size:.8rem;font-weight:600}.field-picker{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:8px}.simple-block{padding:8px 12px;margin:8px 0;border:1px solid var(--divider-color,#d5d9df);border-radius:8px}.block-tools{margin:6px 0}.insert-menu{margin:5px 0 12px}.insert-menu>summary{font-size:.85rem;color:var(--primary-color,#03a9f4);padding:5px 0}
       .field-info{display:block;font-size:.75rem;font-weight:400;color:var(--secondary-text-color,#666);overflow-wrap:anywhere}.inline-optional{display:flex;align-items:center;gap:5px;margin-top:4px;font-size:.75rem;font-weight:400;white-space:nowrap}.inline-optional input{margin:0}
       .document-editor-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}.document-editor-layout.has-preview{grid-template-columns:repeat(auto-fit,minmax(min(100%,430px),1fr))}#template-editor{min-width:0}#preview-panel{display:none;min-width:0;max-height:80vh;overflow:auto;border:1px solid var(--divider-color,#d5d9df);border-radius:8px;padding:12px;background:var(--card-background-color,#fff)}#preview-panel.open{display:block}.preview-toolbar,.preview-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:space-between}.preview-controls{margin:10px 0}.preview-controls span{font-size:.85rem}.preview-canvas{overflow:auto;max-height:65vh;text-align:center;background:var(--secondary-background-color,#f4f6f8);padding:4px}.preview-canvas canvas{display:block;margin:auto;touch-action:pan-x pan-y}.draft-preview-data{border-bottom:1px solid var(--divider-color,#d5d9df);padding-bottom:14px;margin-bottom:14px}.draft-preview-data h3{margin:0}.draft-preview-data p{margin:4px 0 12px}.document-workflow{display:grid;gap:12px}.document-workflow>h3{margin:0}.document-workflow>.grid{margin-bottom:0}#template-management{margin-top:20px;border-top:1px solid var(--divider-color,#d5d9df)}#template-management>summary{min-height:44px;color:var(--primary-text-color,#212121)}#template-management>p{margin:0 0 10px}#template-management .actions{margin:0 0 8px}@media(max-width:800px){#preview-panel.open{position:fixed;inset:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px);z-index:1000;max-height:none;border-radius:0;padding:16px;box-shadow:0 0 0 100vmax #0009}.preview-canvas{max-height:calc(100dvh - 160px)}}
-      </style><fieldset ${this._busy ? "disabled" : ""}>${!model ? `<p>${esc(this.t("loading"))}</p><button type="button" id="refresh-documents">${esc(this.t("refresh"))}</button>` : this._editor ? `<section class="draft-preview-data"><h3>${esc(this.t("realPreview"))}</h3><p>${esc(this.t("realPreviewHint"))}</p><div class="grid"><label>${esc(this.t("litter"))}<select id="draft-litter">${this._options(model.litters.map(l => [l.id, l.name]), this._litter)}</select></label><label>${esc(this.t("puppy"))}<select id="draft-puppy">${this._options(puppies.map(p => [p.id, puppySelectorLabel(p)]), this._puppy)}</select></label><label>${esc(this.t("buyer"))}<select id="draft-buyer">${this._options(owners.map(o => [o.id, o.name]), this._buyer)}</select></label><label>${esc(this.t("others"))}<select multiple id="draft-others" size="2">${owners.filter(o => o.id !== this._buyer).map(o => `<option value="${esc(o.id)}" ${this._others.includes(o.id) ? "selected" : ""}>${esc(o.name)}</option>`).join("")}</select></label><label>${esc(this.t("date"))}<input type="date" id="draft-date" value="${esc(this._details.date)}"></label><label>${esc(this.t("place"))}<input id="draft-place" maxlength="200" value="${esc(this._details.place)}"></label></div>${draftNeedsPayment ? `<label>${esc(this.t("receipt"))}<select id="draft-payment">${this._options(payments.map(p => [p.id, `${p.date} · € ${p.amount} · ${paymentKinds[p.kind] || p.kind}`]), this._payment)}</select></label>` : ""}<div class="actions"><button type="button" id="preview-template-real" ${!this._litter || !this._puppy || !this._buyer || (draftNeedsPayment && !this._payment) ? "disabled" : ""}>${esc(this.t("realPreview"))}</button></div><div id="draft-preview-missing" role="status">${this._draftMissing.length ? `<strong>${esc(this.t("missing"))}</strong><ul>${this._draftMissing.map(key => `<li>${esc(this._fieldLabel(key))}</li>`).join("")}</ul>` : ""}</div></section><div class="document-editor-layout ${this._inlinePreviewOpen ? "has-preview" : ""}"><div id="template-editor"></div><aside id="preview-panel" class="${this._inlinePreviewOpen ? "open" : ""}"><div id="inline-preview"></div></aside></div>` : `
+      .selection-context{margin:12px 0;padding:12px;border:1px solid var(--divider-color,#d5d9df);border-radius:8px}.selection-context dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:10px;margin:10px 0}.selection-context dl>div{min-width:0}.selection-context dt{font-size:.8rem;color:var(--secondary-text-color,#666)}.selection-context dd{margin:3px 0 0;overflow-wrap:anywhere}.selection-context p{margin:8px 0 0}</style><fieldset ${this._busy ? "disabled" : ""}>${model ? `<section id="document-selection-context" class="selection-context">${this._selectionContext()}</section>` : ""}${!model ? `<p>${esc(this.t("loading"))}</p><button type="button" id="refresh-documents">${esc(this.t("refresh"))}</button>` : this._editor ? `<section class="draft-preview-data"><h3>${esc(this.t("realPreview"))}</h3><p>${esc(this.t("realPreviewHint"))}</p><div class="grid"><label>${esc(this.t("litter"))}<select id="draft-litter">${this._options(model.litters.map(l => [l.id, l.name]), this._litter)}</select></label><label>${esc(this.t("puppy"))}<select id="draft-puppy">${this._options(puppies.map(p => [p.id, puppySelectorLabel(p)]), this._puppy)}</select></label><label>${esc(this.t("buyer"))}<select id="draft-buyer">${this._options(owners.map(o => [o.id, o.name]), this._buyer)}</select></label><label>${esc(this.t("others"))}<select multiple id="draft-others" size="2">${owners.filter(o => o.id !== this._buyer).map(o => `<option value="${esc(o.id)}" ${this._others.includes(o.id) ? "selected" : ""}>${esc(o.name)}</option>`).join("")}</select></label><label>${esc(this.t("date"))}<input type="date" id="draft-date" value="${esc(this._details.date)}"></label><label>${esc(this.t("place"))}<input id="draft-place" maxlength="200" value="${esc(this._details.place)}"></label></div>${draftNeedsPayment ? `<label>${esc(this.t("receipt"))}<select id="draft-payment">${this._options(payments.map(p => [p.id, `${p.date} · € ${p.amount} · ${paymentKinds[p.kind] || p.kind}`]), this._payment)}</select></label>` : ""}<div class="actions"><button type="button" id="preview-template-real" ${!this._litter || !this._puppy || !this._buyer || (draftNeedsPayment && !this._payment) ? "disabled" : ""}>${esc(this.t("realPreview"))}</button></div><div id="draft-preview-missing" role="status">${this._draftMissing.length ? `<strong>${esc(this.t("missing"))}</strong><ul>${this._draftMissing.map(key => `<li>${esc(this._fieldLabel(key))}</li>`).join("")}</ul>` : ""}</div></section><div class="document-editor-layout ${this._inlinePreviewOpen ? "has-preview" : ""}"><div id="template-editor"></div><aside id="preview-panel" class="${this._inlinePreviewOpen ? "open" : ""}"><div id="inline-preview"></div></aside></div>` : `
       <section class="document-workflow" aria-labelledby="create-document-heading"><h3 id="create-document-heading">${esc(this.t("createDocument"))}</h3>
       <div class="grid"><label>${esc(this.t("template"))}<select id="document-template">${this._templateOptions()}</select></label></div>
       <div class="actions"><button type="button" id="refresh-documents">${esc(this.t("refresh"))}</button></div>
       <div class="grid"><label>${esc(this.t("litter"))}<select id="document-litter">${this._options(model.litters.map(l => [l.id, l.name]), this._litter)}</select></label><label>${esc(this.t("puppy"))}<select id="document-puppy">${this._options(puppies.map(p => [p.id, puppySelectorLabel(p)]), this._puppy)}</select></label><label>${esc(this.t("buyer"))}<select id="document-buyer">${this._options(owners.map(o => [o.id, o.name]), this._buyer)}</select></label><label>${esc(this.t("others"))}<select multiple id="document-others" size="2">${owners.filter(o => o.id !== this._buyer).map(o => `<option value="${esc(o.id)}" ${this._others.includes(o.id) ? "selected" : ""}>${esc(o.name)}</option>`).join("")}</select></label><label>${esc(this.t("date"))}<input type="date" id="document-date" value="${esc(this._details.date)}"></label><label>${esc(this.t("place"))}<input id="document-place" maxlength="200" value="${esc(this._details.place)}"></label></div>
       ${needsPayment ? `<label>${esc(this.t("receipt"))}<select id="document-payment"><option value="">${esc(this.t("choose"))}</option>${payments.map(p => `<option value="${esc(p.id)}" ${p.id === this._payment ? "selected" : ""}>${esc(`${p.date} · € ${p.amount} · ${paymentKinds[p.kind] || p.kind}${p.reference ? ` · ${p.reference}` : ""}`)}</option>`).join("")}</select></label>${payments.length ? "" : `<p>${esc(this.t("noReceipts"))}</p>`}` : ""}
-      <p>${esc(this.t(owners.length ? "buyerHint" : "noBuyers"))}</p><div class="actions"><button type="button" id="preview-document" ${!this._buyer || !this._template || (needsPayment && !this._payment) ? "disabled" : ""}>${esc(this.t("preview"))}</button><button type="button" id="save-document" class="primary" ${!this._preview || this._preview.missing.length ? "disabled" : ""}>${esc(this.t("saveDocument"))}</button></div><div id="document-checks" role="status">${checks}</div>
-      <h3>${esc(this.t("archive"))}</h3><div class="archive">${model.documents.map(d => `<article><strong>${esc(d.name)} · ${esc(d.puppy_name)}</strong><small>${esc(new Date(d.created_at).toLocaleString(this.language, { timeZone: this._hass?.config?.time_zone || undefined }))}</small><div class="actions"><button type="button" data-download="${esc(d.id)}">${esc(this.t("download"))}</button><button type="button" data-delete="${esc(d.id)}">${esc(this.t("remove"))}</button></div></article>`).join("") || `<p>${esc(this.t("emptyArchive"))}</p>`}</div></section>
+      <p>${esc(this.t(!this._puppy ? "choosePuppy" : owners.length ? "buyerHint" : "noBuyers"))}</p><div class="actions"><button type="button" id="preview-document" ${!this._buyer || !this._template || (needsPayment && !this._payment) ? "disabled" : ""}>${esc(this.t("preview"))}</button><button type="button" id="save-document" class="primary" ${!this._preview || this._preview.missing.length ? "disabled" : ""}>${esc(this.t("saveDocument"))}</button></div><div id="document-checks" role="status">${checks}</div>
+      <h3>${esc(this.t("archive"))}</h3><p>${esc(this.t("archiveHint"))}</p><div class="archive">${model.documents.map(d => `<article><strong>${esc(d.name)} · ${esc(d.puppy_name)}</strong><small>${esc(new Date(d.created_at).toLocaleString(this.language, { timeZone: this._hass?.config?.time_zone || undefined }))}</small><div class="actions"><button type="button" data-download="${esc(d.id)}">${esc(this.t("download"))}</button><button type="button" data-delete="${esc(d.id)}">${esc(this.t("remove"))}</button></div></article>`).join("") || `<p>${esc(this.t("emptyArchive"))}</p>`}</div></section>
       <details id="template-management" ${this._manageOpen ? "open" : ""}><summary>${esc(this.t("manageTemplates"))}</summary><p>${esc(this.t("manageTemplatesHint"))}</p><div class="actions"><button type="button" id="edit-template" ${!selected ? "disabled" : ""}>${esc(this.t(selected?.builtin ? "copy" : "edit"))}</button><button type="button" id="new-template">${esc(this.t("create"))}</button><button type="button" id="export-template" ${!selected ? "disabled" : ""}>${esc(this.t("export"))}</button><button type="button" id="import-template">${esc(this.t("import"))}</button><input id="template-file" type="file" accept=".json,application/json" hidden></div></details>`}</fieldset><div id="draft-status" role="status"></div><div id="document-status" role="status">${esc(this._status)}</div><div id="document-error" class="error" role="alert">${esc(this._error)}</div>`;
     const on = (selector, event, fn) => this.shadowRoot.querySelector(selector)?.addEventListener(event, fn);
     on("#refresh-documents", "click", () => this._load());
@@ -395,11 +439,11 @@ class PuppyTrackerDocuments extends HTMLElement {
     on("#draft-payment", "change", e => { this._payment = e.target.value; this._draftPreviewChanged(true); });
     for (const key of ["date", "place"]) on(`#draft-${key}`, "input", e => { this._details[key] = e.target.value; this._draftPreviewChanged(); });
     on("#preview-template-real", "click", () => this._previewTemplate(true));
-    on("#document-template", "change", e => { this._template = e.target.value; this._payment = ""; this._invalidate(); this._render(); });
-    for (const [id, key] of [["litter", "_litter"], ["puppy", "_puppy"], ["buyer", "_buyer"]]) on(`#document-${id}`, "change", e => { this[key] = e.target.value; this._syncSelection(); this._invalidate(); this._render(); });
-    on("#document-others", "change", e => { this._others = [...e.target.selectedOptions].map(o => o.value); this._invalidate(); });
-    on("#document-payment", "change", e => { this._payment = e.target.value; this._invalidate(); this._render(); });
-    for (const key of ["date", "place"]) on(`#document-${key}`, "input", e => { this._details[key] = e.target.value; this._invalidate(); });
+    on("#document-template", "change", e => { this._selectionTouched = true; this._template = e.target.value; this._payment = ""; this._invalidate(); this._render(); });
+    for (const [id, key] of [["litter", "_litter"], ["puppy", "_puppy"], ["buyer", "_buyer"]]) on(`#document-${id}`, "change", e => { this._selectionTouched = true; this[key] = e.target.value; this._syncSelection(); this._invalidate(); this._render(); });
+    on("#document-others", "change", e => { this._selectionTouched = true; this._others = [...e.target.selectedOptions].map(o => o.value); this._invalidate(); });
+    on("#document-payment", "change", e => { this._selectionTouched = true; this._payment = e.target.value; this._invalidate(); this._render(); });
+    for (const key of ["date", "place"]) on(`#document-${key}`, "input", e => { this._selectionTouched = true; this._details[key] = e.target.value; this._invalidate(); });
     on("#preview-document", "click", () => this._check()); on("#save-document", "click", () => this._saveDocument());
     on("#edit-template", "click", () => this._edit(selected.template, selected.builtin ? null : selected.id, selected.builtin ? null : selected.revision, null, selected.builtin ? "simple" : "advanced"));
     if (model && !this._editor && selected && !selected.builtin) {

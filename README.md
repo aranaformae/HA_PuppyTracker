@@ -221,6 +221,11 @@ See [Puppy dossiers and owners](docs/puppy-dossiers.md) and the focused
   Owners has a separate contact and contract-data CSV for mail merge.
 - **JSON** is the importable backup and transfer format.
 
+Report/export sections show which litter, puppy and period they use. Documents
+and contracts have their own puppy and buyer selection. Opening Documents can
+prefill the report puppy, but never changes a form you have started. A whole-litter
+or mother report requires choosing a puppy explicitly for a document.
+
 Use **Settings -> Devices & services -> Puppy Tracker -> Configure -> Data
 management** for manual backup and restore. The `puppy_tracker.backup_to_file`
 action can create timestamped rotating backups from a Home Assistant
