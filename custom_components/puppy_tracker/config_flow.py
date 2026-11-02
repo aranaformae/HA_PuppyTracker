@@ -32,14 +32,11 @@ class PuppyTrackerOptionsFlow(
         """Show the complete management menu."""
         del user_input
         self._batch_litter_id = None
+        self._management_session = False
         return self.async_show_menu(
             step_id="init",
             menu_options=[
-                "create_litter",
                 "manage_litter",
-                "add_puppy",
-                "manage_puppy",
-                "litter_puppies",
                 "monitoring_and_notifications",
                 "breeder",
                 "data_tools",

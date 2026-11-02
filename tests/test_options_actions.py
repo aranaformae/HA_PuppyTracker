@@ -89,7 +89,7 @@ def _prefilled_litter_input(form):
     }
 
 
-@pytest.mark.parametrize("step", ["manage_puppy", "manage_measurements", "export_puppy"])
+@pytest.mark.parametrize("step", ["manage_measurements", "export_puppy"])
 async def test_puppy_management_selectors_include_collar_without_changing_ids(options_flow, step):
     flow, storage = options_flow
     litter_id, puppy_id = flow._selected_litter_id, flow._selected_puppy_id
@@ -106,10 +106,8 @@ async def test_puppy_management_selectors_include_collar_without_changing_ids(op
 async def test_litter_puppy_session_reuses_litter_after_edit(options_flow):
     flow, storage = options_flow
     root = await flow.async_step_init()
-    assert "manage_puppy" in root["menu_options"]
-    assert "add_puppy" in root["menu_options"]
-    assert "litter_puppies" in root["menu_options"]
-    choose = await flow.async_step_litter_puppies()
+    assert root["menu_options"] == ["manage_litter", "monitoring_and_notifications", "breeder", "data_tools"]
+    choose = await flow.async_step_manage_litter()
     assert choose["step_id"] == "choose_litter_puppy"
     puppy_id = flow._selected_puppy_id
     edit = await flow.async_step_choose_litter_puppy({"puppy_id": puppy_id})
@@ -130,9 +128,9 @@ async def test_litter_puppy_session_reuses_litter_after_edit(options_flow):
 async def test_litter_puppy_session_asks_for_litter_when_multiple_are_active(options_flow):
     flow, storage = options_flow
     await storage.async_create_litter("Second litter")
-    form = await flow.async_step_litter_puppies()
-    assert form["step_id"] == "litter_puppies"
-    result = await flow.async_step_litter_puppies(
+    form = await flow.async_step_manage_litter()
+    assert form["step_id"] == "manage_litter"
+    result = await flow.async_step_manage_litter(
         form["data_schema"]({"litter_id": flow._selected_litter_id})
     )
     assert result["step_id"] == "choose_litter_puppy"
@@ -159,7 +157,7 @@ async def test_litter_archive_has_separate_confirmation(options_flow):
     before = storage.get_litter(flow._selected_litter_id)["active"]
     menu = await flow.async_step_litter_actions()
     assert menu["menu_options"] == [
-        "edit_litter", "toggle_archive_litter", "confirm_delete_litter"
+        "toggle_archive_litter", "confirm_delete_litter", "choose_litter_puppy"
     ]
     form = await flow.async_step_toggle_archive_litter()
     assert storage.get_litter(flow._selected_litter_id)["active"] == before
@@ -186,7 +184,7 @@ async def test_collapsed_litter_sections_preserve_existing_details(options_flow)
 
 @pytest.mark.parametrize("step", [
     "create_litter", "manage_litter", "edit_litter", "confirm_delete_litter",
-    "add_puppy", "manage_puppy", "edit_puppy", "confirm_delete_puppy",
+    "add_puppy", "edit_puppy", "confirm_delete_puppy",
     "manage_measurements", "select_measurement", "edit_measurement",
     "confirm_delete_measurement", "settings", "notification_preferences",
     "test_notification", "export_data", "export_litter", "export_puppy",
@@ -376,3 +374,88 @@ async def test_confirmed_deletion_removes_matching_devices(options_flow, delete_
     )
     assert {device.id for device in after} < {device.id for device in before}
     assert storage.get_puppy(flow._selected_litter_id, flow._selected_puppy_id) is None
+
+
+def _hub_options(form):
+    return next(iter(form["data_schema"].schema.values())).config["options"]
+
+
+async def test_management_hub_keeps_litter_context_and_direct_edit(options_flow):
+    flow, storage = options_flow
+    litter_id, puppy_id = flow._selected_litter_id, flow._selected_puppy_id
+    hub = await flow.async_step_manage_litter()
+    assert hub["step_id"] == "choose_litter_puppy"
+    assert _hub_options(hub)[0]["label"] == "Rood"
+    edit = await flow.async_step_choose_litter_puppy({"puppy_id": "__edit_litter__"})
+    values = _prefilled_litter_input(edit)
+    values["basic"]["name"] = "Updated litter"
+    hub = await flow.async_step_edit_litter(edit["data_schema"](values))
+    assert hub["step_id"] == "choose_litter_puppy"
+    assert hub["description_placeholders"]["litter"] == "Updated litter"
+    assert flow._batch_litter_id == litter_id
+    assert storage.get_puppy(litter_id, puppy_id)["chip_number"] == "000123"
+    root = await flow.async_step_choose_litter_puppy({"puppy_id": "__done__"})
+    assert root["step_id"] == "init" and flow._batch_litter_id is None
+
+
+async def test_management_switches_context_and_creates_litter_without_finishing(options_flow):
+    flow, storage = options_flow
+    original = flow._selected_litter_id
+    other = await storage.async_create_litter("Second")
+    select = await flow.async_step_manage_litter()
+    assert select["step_id"] == "manage_litter"
+    await flow.async_step_manage_litter({"litter_id": other})
+    switch = await flow.async_step_choose_litter_puppy({"puppy_id": "__switch__"})
+    assert switch["step_id"] == "manage_litter"
+    await flow.async_step_manage_litter({"litter_id": original})
+    create = await flow.async_step_choose_litter_puppy({"puppy_id": "__new_litter__"})
+    hub = await flow.async_step_create_litter(create["data_schema"]({"name": "Third"}))
+    assert hub["step_id"] == "choose_litter_puppy"
+    assert flow._batch_litter_id not in {original, other}
+    add = await flow.async_step_choose_litter_puppy({"puppy_id": "__new__"})
+    await flow.async_step_add_puppy(add["data_schema"]({"name": "Third's pup"}))
+    assert len(storage.get_litter(original)["puppies"]) == 1
+    assert not storage.get_litter(other)["puppies"]
+    assert len(storage.get_litter(flow._batch_litter_id)["puppies"]) == 1
+
+
+async def test_management_empty_and_archived_litters_remain_navigable(options_flow):
+    flow, storage = options_flow
+    litter_id = flow._selected_litter_id
+    await flow.async_step_manage_litter()
+    hub = await flow.async_step_toggle_archive_litter({"confirm": True})
+    assert hub["step_id"] == "choose_litter_puppy"
+    assert "__new__" not in {item["value"] for item in _hub_options(hub)}
+    storage._data["litters"][litter_id]["puppies"] = {}
+    hub = await flow.async_step_choose_litter_puppy()
+    assert "__edit_litter__" in {item["value"] for item in _hub_options(hub)}
+    cancelled = await flow.async_step_confirm_delete_litter({"confirm": False})
+    assert cancelled["step_id"] == "choose_litter_puppy"
+    deleted = await flow.async_step_confirm_delete_litter({"confirm": True})
+    assert deleted["step_id"] == "create_litter"
+    assert not storage.get_litters()
+
+
+async def test_management_failed_forms_retain_drafts_and_do_not_change_context(options_flow):
+    flow, storage = options_flow
+    await flow.async_step_manage_litter()
+    litter_id = flow._batch_litter_id
+    edit = await flow.async_step_choose_litter_puppy({"puppy_id": flow._selected_puppy_id})
+    values = _prefilled_input(edit)
+    values.update(name="Draft pup", profile_note="Unsaved note", action="save")
+    storage.async_update_puppy = AsyncMock(side_effect=ValueError("Failed"))
+    failed = await flow.async_step_edit_puppy(edit["data_schema"](values))
+    assert _prefilled_input(failed)["name"] == "Draft pup"
+    assert _prefilled_input(failed)["profile_note"] == "Unsaved note"
+    assert flow._batch_litter_id == litter_id
+    assert storage.get_puppy(litter_id, flow._selected_puppy_id)["name"] == "Rood"
+    edit = await flow.async_step_edit_litter()
+    values = _prefilled_litter_input(edit)
+    values["basic"]["name"] = "Draft litter"
+    values["father_section"]["father_chip_number"] = "000456"
+    storage.async_update_litter = AsyncMock(side_effect=ValueError("Failed"))
+    failed = await flow.async_step_edit_litter(edit["data_schema"](values))
+    retained = _prefilled_litter_input(failed)
+    assert retained["basic"]["name"] == "Draft litter"
+    assert retained["father_section"]["father_chip_number"] == "000456"
+    assert storage.get_litter(litter_id)["name"] == "Luna 2026"

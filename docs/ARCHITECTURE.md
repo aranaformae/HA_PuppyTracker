@@ -2245,3 +2245,14 @@ Shared PDF layout/chart primitives support Celsius labels without changing
 weight-chart defaults. Independent mother controls persist separately from puppy
 profiles. No buyer or puppy data enters this projection; current/all litter
 scope is explicit both in the selection summary and the PDF.
+
+### Litter and puppy management context
+
+The integration options expose one `manage_litter` entry (Nests and puppies).
+A single litter opens directly; multiple litters use one context selector with
+a new-litter choice. `choose_litter_puppy` is the context hub for direct puppy
+editing/addition, litter details, separate archive/delete confirmation, changing
+context and returning to settings. Saves reuse this hub; no second quick-edit
+or batch-selection flow is maintained. Profile editors in the dashboard retain
+their existing direct API paths. Failed option forms retain suggested draft
+values, including grouped parent/growth inputs. No storage migration is needed.

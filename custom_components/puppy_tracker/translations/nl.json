@@ -16,17 +16,13 @@
     "step": {
       "init": {
         "menu_options": {
-          "create_litter": "Nest aanmaken",
-          "manage_litter": "Nest beheren",
-          "add_puppy": "Puppy toevoegen",
-          "manage_puppy": "Pup direct aanpassen",
+          "manage_litter": "Nesten en pups",
           "manage_measurements": "Metingen beheren",
           "data_management": "Databeheer",
           "settings": "Monitoringinstellingen",
           "breeder": "Fokkersgegevens",
           "notifications": "Meldingen",
           "integrity": "Data-integriteit controleren",
-          "litter_puppies": "Pups per nest beheren",
           "monitoring_and_notifications": "Groei en meldingen",
           "data_tools": "Data en onderhoud"
         }
@@ -150,8 +146,8 @@
         }
       },
       "manage_litter": {
-        "title": "Nest beheren",
-        "description": "Selecteer het nest dat je wilt beheren.",
+        "title": "Nesten en pups",
+        "description": "Kies een nest om nestgegevens en pups te beheren, of voeg een nieuw nest toe.",
         "data": {
           "litter_id": "Nest"
         }
@@ -329,13 +325,6 @@
           "birth_weight": "Gewicht direct na geboorte in gram",
           "birth_time": "Exacte geboortedatum en tijd indien bekend",
           "profile_note": "Blijvende samenvatting van de pup. Nieuwe chronologische notities worden straks los in het puppydossier opgeslagen."
-        }
-      },
-      "manage_puppy": {
-        "title": "Puppy beheren",
-        "description": "Selecteer de puppy die je wilt beheren.",
-        "data": {
-          "puppy": "Puppy"
         }
       },
       "edit_puppy": {
@@ -527,27 +516,20 @@
           "integrity": "Data-integriteit controleren"
         }
       },
-      "litter_puppies": {
-        "title": "Pups per nest beheren",
-        "description": "Kies eenmaal een nest. Na opslaan kun je meteen de volgende pup aanpassen of toevoegen.",
-        "data": {
-          "litter_id": "Nest"
-        }
-      },
       "choose_litter_puppy": {
-        "title": "Pup kiezen",
-        "description": "Nest **{litter}**. Kies een pup om deze aan te passen. De optie **+** voegt een nieuwe pup aan dit nest toe. Na opslaan kom je terug bij deze lijst.",
+        "title": "Nesten en pups",
+        "description": "Nest **{litter}**. Kies een pup om te wijzigen, voeg een pup toe of kies een nestactie. Na opslaan kom je terug in deze lijst.",
         "data": {
-          "puppy_id": "Pup of nieuwe pup"
+          "puppy_id": "Pup of nestactie"
         }
       },
       "litter_actions": {
         "title": "Nest beheren",
         "description": "Kies een actie voor **{litter}**.",
         "menu_options": {
-          "edit_litter": "Nestgegevens aanpassen",
           "toggle_archive_litter": "Nest archiveren of heractiveren",
-          "confirm_delete_litter": "Nest permanent verwijderen"
+          "confirm_delete_litter": "Nest permanent verwijderen",
+          "choose_litter_puppy": "Terug naar nest en pups"
         }
       },
       "toggle_archive_litter": {

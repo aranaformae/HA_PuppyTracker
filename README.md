@@ -84,12 +84,13 @@ Administrators starting without a litter see a **Getting started** checklist in
 the Home and Mobile Workspace. It follows the actual setup progress and can be
 hidden or reopened with the checklist icon. Existing litters remain opt-in.
 
-In the integration options, **Add puppy** and **Manage puppy** stay directly
-available. Use **Edit puppies in a litter** to choose a litter once, then add or
-edit several puppies in sequence; when only one litter exists, it is
-selected automatically. **Manage litter** separates editing from
-archiving and deletion; its details form groups parent and growth fields in
-collapsible sections. Growth thresholds and notification delivery are under
+In the integration options, **Nests and puppies** is the single entry for
+adding and changing litters and puppies. Choose a litter once (automatic for
+one litter), then select a puppy, add another or edit the litter details from
+the same list. Saving returns to that list for quick sequential editing.
+Archive/delete actions are separate and require confirmation. The litter
+form groups parent and growth fields in collapsible sections.
+Growth thresholds and notification delivery are under
 **Growth and notifications**; backups, measurement corrections and integrity
 checks are under **Data and maintenance**. An integrity check first previews
 issues and only repairs them after you confirm.

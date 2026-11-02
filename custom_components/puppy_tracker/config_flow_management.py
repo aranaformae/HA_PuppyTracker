@@ -131,12 +131,13 @@ class PuppyTrackerManagementOptionsFlow(
                 errors["base"] = "unknown"
 
             else:
-                return self.async_create_entry(
-                    title="",
-                    data={},
-                )
+                if getattr(self, "_management_session", False):
+                    self._selected_litter_id = litter_id
+                    self._batch_litter_id = litter_id
+                    return await self.async_step_choose_litter_puppy()
+                return self.async_create_entry(title="", data={})
 
-        return self.async_show_form(
+        form = self.async_show_form(
             step_id="create_litter",
             data_schema=vol.Schema(
                 {
@@ -196,53 +197,39 @@ class PuppyTrackerManagementOptionsFlow(
             errors=errors,
         )
 
+        form["data_schema"] = self.add_suggested_values_to_schema(form["data_schema"], user_input or {})
+        return form
+
     async def async_step_manage_litter(
-        self,
-        user_input: dict[str, Any] | None = None,
+        self, user_input: dict[str, Any] | None = None,
     ) -> ConfigFlowResult:
-        """Choose a litter to manage."""
-
-        storage = self._get_storage()
-        litters = storage.get_litters()
-
+        """Choose a context once for both litter and puppy management."""
+        self._management_session = True
+        self._batch_litter_id = None
+        litters = self._get_storage().get_litters()
         if not litters:
-            return self.async_abort(
-                reason="no_litters"
-            )
-
-        options = [
-            selector.SelectOptionDict(
-                value=litter_id,
-                label=litter.get(
-                    "name",
-                    "Litter",
-                ),
-            )
-            for litter_id, litter
-            in litters.items()
-        ]
-
+            return await self.async_step_create_litter()
+        if user_input is None and len(litters) == 1:
+            self._selected_litter_id = next(iter(litters))
+            self._batch_litter_id = self._selected_litter_id
+            return await self.async_step_choose_litter_puppy()
         if user_input is not None:
-            self._selected_litter_id = (
-                user_input["litter_id"]
-            )
-            return await self.async_step_litter_actions()
-
-        return self.async_show_form(
-            step_id="manage_litter",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(
-                        "litter_id"
-                    ): selector.SelectSelector(
-                        selector.SelectSelectorConfig(
-                            options=options,
-                            mode=selector.SelectSelectorMode.DROPDOWN,
-                        )
-                    )
-                }
-            ),
-        )
+            litter_id = user_input["litter_id"]
+            if litter_id == "__new__":
+                return await self.async_step_create_litter()
+            if litter_id not in litters:
+                return self.async_abort(reason="invalid_litter")
+            self._selected_litter_id = litter_id
+            self._batch_litter_id = litter_id
+            return await self.async_step_choose_litter_puppy()
+        options = [selector.SelectOptionDict(value=key, label=litter.get("name", "Litter"))
+                   for key, litter in litters.items()]
+        options.append(selector.SelectOptionDict(
+            value="__new__", label="+ Nieuw nest toevoegen" if self.hass.config.language == "nl" else "+ Add a new litter"))
+        return self.async_show_form(step_id="manage_litter", data_schema=vol.Schema({
+            vol.Required("litter_id"): selector.SelectSelector(selector.SelectSelectorConfig(
+                options=options, mode=selector.SelectSelectorMode.DROPDOWN))
+        }))
 
     async def async_step_litter_actions(
         self, user_input: dict[str, Any] | None = None,
@@ -253,7 +240,7 @@ class PuppyTrackerManagementOptionsFlow(
             return self.async_abort(reason="invalid_litter")
         return self.async_show_menu(
             step_id="litter_actions",
-            menu_options=["edit_litter", "toggle_archive_litter", "confirm_delete_litter"],
+            menu_options=["toggle_archive_litter", "confirm_delete_litter", "choose_litter_puppy"],
             description_placeholders={"litter": litter.get("name", "")},
         )
 
@@ -271,6 +258,8 @@ class PuppyTrackerManagementOptionsFlow(
                     self._selected_litter_id, not litter.get("active", True)
                 )
                 async_dispatcher_send(self.hass, SIGNAL_DASHBOARD_UPDATE)
+            if getattr(self, "_batch_litter_id", None):
+                return await self.async_step_choose_litter_puppy()
             return self.async_create_entry(title="", data={})
         return self.async_show_form(
             step_id="toggle_archive_litter",
@@ -391,10 +380,9 @@ class PuppyTrackerManagementOptionsFlow(
                     SIGNAL_DASHBOARD_UPDATE,
                 )
 
-                return self.async_create_entry(
-                    title="",
-                    data={},
-                )
+                if getattr(self, "_batch_litter_id", None):
+                    return await self.async_step_choose_litter_puppy()
+                return self.async_create_entry(title="", data={})
 
             except Exception:
                 _LOGGER.exception(
@@ -406,6 +394,7 @@ class PuppyTrackerManagementOptionsFlow(
                     data_schema=self._litter_section_schema(
                         litter,
                         mother_profile,
+                        draft=user_input,
                     ),
                     errors={
                         "base": "unknown"
@@ -422,6 +411,7 @@ class PuppyTrackerManagementOptionsFlow(
 
     def _litter_section_schema(
         self, litter: dict[str, Any], mother_profile: dict[str, Any] | None = None,
+        draft: dict[str, Any] | None = None,
     ) -> vol.Schema:
         """Show related litter fields together without extra navigation steps."""
         flat = self._litter_edit_schema(litter, mother_profile).schema
@@ -439,7 +429,8 @@ class PuppyTrackerManagementOptionsFlow(
             groups[group][marker] = validator
         return vol.Schema({
             (vol.Required(group) if group == "basic" else vol.Optional(group)): section(
-                vol.Schema(fields), {"collapsed": group != "basic"}
+                self.add_suggested_values_to_schema(vol.Schema(fields), draft or {}),
+                {"collapsed": group != "basic"}
             )
             for group, fields in groups.items()
         })
@@ -663,10 +654,11 @@ class PuppyTrackerManagementOptionsFlow(
                     SIGNAL_DASHBOARD_UPDATE,
                 )
 
-            return self.async_create_entry(
-                title="",
-                data={},
-            )
+            if getattr(self, "_management_session", False):
+                if user_input["confirm"]:
+                    return await self.async_step_manage_litter()
+                return await self.async_step_choose_litter_puppy()
+            return self.async_create_entry(title="", data={})
 
         return self.async_show_form(
             step_id="confirm_delete_litter",
@@ -718,6 +710,8 @@ class PuppyTrackerManagementOptionsFlow(
 
         errors: dict[str, str] = {}
         batch_litter_id = getattr(self, "_batch_litter_id", None)
+        if batch_litter_id and batch_litter_id not in active_litters:
+            return self.async_abort(reason="invalid_litter")
 
         if user_input is not None:
             if batch_litter_id:
@@ -895,38 +889,8 @@ class PuppyTrackerManagementOptionsFlow(
             })
         return self.async_show_form(
             step_id="add_puppy",
-            data_schema=form_schema,
+            data_schema=self.add_suggested_values_to_schema(form_schema, user_input or {}),
             errors=errors,
-        )
-
-    async def async_step_litter_puppies(
-        self, user_input: dict[str, Any] | None = None,
-    ) -> ConfigFlowResult:
-        """Select one litter for a continuous puppy editing session."""
-        litters = self._get_storage().get_litters()
-        if not litters:
-            return self.async_abort(reason="no_litters")
-        if user_input is None and len(litters) == 1:
-            self._batch_litter_id = next(iter(litters))
-            return await self.async_step_choose_litter_puppy()
-        if user_input is not None:
-            self._batch_litter_id = user_input["litter_id"]
-            if self._batch_litter_id not in litters:
-                return self.async_abort(reason="invalid_litter")
-            return await self.async_step_choose_litter_puppy()
-        options = [
-            selector.SelectOptionDict(value=litter_id, label=litter.get("name", "Litter"))
-            for litter_id, litter in litters.items()
-        ]
-        return self.async_show_form(
-            step_id="litter_puppies",
-            data_schema=vol.Schema({
-                vol.Required("litter_id"): selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=options, mode=selector.SelectSelectorMode.DROPDOWN
-                    )
-                )
-            }),
         )
 
     async def async_step_choose_litter_puppy(
@@ -939,8 +903,19 @@ class PuppyTrackerManagementOptionsFlow(
             return self.async_abort(reason="invalid_litter")
         if user_input is not None:
             puppy_id = user_input["puppy_id"]
-            if puppy_id == "__new__":
-                return await self.async_step_add_puppy()
+            actions = {
+                "__new__": self.async_step_add_puppy,
+                "__edit_litter__": self.async_step_edit_litter,
+                "__litter_status__": self.async_step_litter_actions,
+                "__new_litter__": self.async_step_create_litter,
+                "__switch__": self.async_step_manage_litter,
+                "__done__": self.async_step_init,
+            }
+            if puppy_id in actions:
+                self._selected_litter_id = litter_id
+                if puppy_id == "__new__" and not litter.get("active", True):
+                    return self.async_abort(reason="invalid_litter")
+                return await actions[puppy_id]()
             if puppy_id not in litter.get("puppies", {}):
                 return self.async_abort(reason="invalid_puppy")
             self._selected_litter_id = litter_id
@@ -956,8 +931,17 @@ class PuppyTrackerManagementOptionsFlow(
                 label="+ Nieuwe pup toevoegen" if self.hass.config.language == "nl"
                 else "+ Add a new puppy",
             ))
-        if not options:
-            return self.async_abort(reason="no_puppies")
+        nl = self.hass.config.language == "nl"
+        actions = [
+            ("__edit_litter__", "Nestgegevens wijzigen", "Edit litter details"),
+            ("__litter_status__", "Nest archiveren of verwijderen", "Archive or delete litter"),
+            ("__new_litter__", "+ Nieuw nest toevoegen", "+ Add a new litter"),
+        ]
+        if len(self._get_storage().get_litters()) > 1:
+            actions.append(("__switch__", "Ander nest kiezen", "Choose another litter"))
+        actions.append(("__done__", "Terug naar instellingen", "Back to settings"))
+        options.extend(selector.SelectOptionDict(value=key, label=dutch if nl else english)
+                       for key, dutch, english in actions)
         return self.async_show_form(
             step_id="choose_litter_puppy",
             description_placeholders={"litter": litter.get("name", "")},
@@ -968,78 +952,6 @@ class PuppyTrackerManagementOptionsFlow(
                     )
                 )
             }),
-        )
-
-    async def async_step_manage_puppy(
-        self,
-        user_input: dict[str, Any] | None = None,
-    ) -> ConfigFlowResult:
-        """Choose puppy to manage."""
-
-        storage = self._get_storage()
-        litters = storage.get_litters()
-
-        options: list[
-            selector.SelectOptionDict
-        ] = []
-
-        for litter_id, litter in litters.items():
-            for puppy_id, puppy in litter.get(
-                "puppies",
-                {},
-            ).items():
-                options.append(
-                    selector.SelectOptionDict(
-                        value=(
-                            f"{litter_id}|"
-                            f"{puppy_id}"
-                        ),
-                        label=(
-                            f"{litter.get('name', 'Litter')}"
-                            f" - "
-                            f"{puppy_selector_label(puppy)}"
-                        ),
-                    )
-                )
-
-        if not options:
-            return self.async_abort(
-                reason="no_puppies"
-            )
-
-        if user_input is not None:
-            litter_id, puppy_id = (
-                user_input[
-                    "puppy"
-                ].split(
-                    "|",
-                    1,
-                )
-            )
-
-            self._selected_litter_id = (
-                litter_id
-            )
-            self._selected_puppy_id = (
-                puppy_id
-            )
-
-            return await self.async_step_edit_puppy()
-
-        return self.async_show_form(
-            step_id="manage_puppy",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(
-                        "puppy"
-                    ): selector.SelectSelector(
-                        selector.SelectSelectorConfig(
-                            options=options,
-                            mode=selector.SelectSelectorMode.DROPDOWN,
-                        )
-                    )
-                }
-            ),
         )
 
     async def async_step_edit_puppy(
@@ -1162,8 +1074,8 @@ class PuppyTrackerManagementOptionsFlow(
 
                 return self.async_show_form(
                     step_id="edit_puppy",
-                    data_schema=self._puppy_edit_schema(
-                        puppy
+                    data_schema=self.add_suggested_values_to_schema(
+                        self._puppy_edit_schema(puppy), user_input
                     ),
                     errors={
                         "base": "unknown"

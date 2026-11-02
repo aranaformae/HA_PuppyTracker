@@ -16,17 +16,13 @@
     "step": {
       "init": {
         "menu_options": {
-          "create_litter": "Create litter",
-          "manage_litter": "Manage litter",
-          "add_puppy": "Add puppy",
-          "manage_puppy": "Quick edit a puppy",
+          "manage_litter": "Nests and puppies",
           "manage_measurements": "Manage measurements",
           "data_management": "Data management",
           "settings": "Monitoring settings",
           "breeder": "Breeder information",
           "notifications": "Notifications",
           "integrity": "Data integrity check",
-          "litter_puppies": "Edit puppies in a litter",
           "monitoring_and_notifications": "Growth and notifications",
           "data_tools": "Data and maintenance"
         }
@@ -150,8 +146,8 @@
         }
       },
       "manage_litter": {
-        "title": "Manage litter",
-        "description": "Select the litter you want to manage.",
+        "title": "Nests and puppies",
+        "description": "Choose a litter to manage its details and puppies, or add a new litter.",
         "data": {
           "litter_id": "Litter"
         }
@@ -329,13 +325,6 @@
           "birth_weight": "Weight immediately after birth in grams",
           "birth_time": "Exact date and time of birth if known",
           "profile_note": "Long-lived profile summary. New chronological notes will be stored separately in the puppy dossier."
-        }
-      },
-      "manage_puppy": {
-        "title": "Manage puppy",
-        "description": "Select the puppy you want to manage.",
-        "data": {
-          "puppy": "Puppy"
         }
       },
       "edit_puppy": {
@@ -527,27 +516,20 @@
           "integrity": "Check data integrity"
         }
       },
-      "litter_puppies": {
-        "title": "Edit puppies in a litter",
-        "description": "Choose a litter once. After saving, edit or add another puppy without returning to the main menu.",
-        "data": {
-          "litter_id": "Litter"
-        }
-      },
       "choose_litter_puppy": {
-        "title": "Choose puppy",
-        "description": "Litter **{litter}**. Select a puppy to edit. **+** adds a new puppy to this litter. After saving, you return to this list.",
+        "title": "Nests and puppies",
+        "description": "Litter **{litter}**. Edit a puppy, add a puppy or choose a litter action. After saving, you return to this list.",
         "data": {
-          "puppy_id": "Puppy or new puppy"
+          "puppy_id": "Puppy or litter action"
         }
       },
       "litter_actions": {
         "title": "Manage litter",
         "description": "Choose an action for **{litter}**.",
         "menu_options": {
-          "edit_litter": "Edit litter details",
           "toggle_archive_litter": "Archive or reactivate litter",
-          "confirm_delete_litter": "Permanently delete litter"
+          "confirm_delete_litter": "Permanently delete litter",
+          "choose_litter_puppy": "Back to litter and puppies"
         }
       },
       "toggle_archive_litter": {

@@ -60,7 +60,7 @@ tab options and saved data do not change.
 
 Administrators also have a settings icon beside Care navigation, labelled
 **Manage litter details**. It opens the Puppy Tracker integration page; choose
-**Configure → Manage litter → Edit litter details** there for litter details,
+**Configure → Nests and puppies → Edit litter details** there for litter details,
 or use the direct puppy actions. Existing inline drafts are
 protected by the usual discard confirmation and saves block navigation.
 

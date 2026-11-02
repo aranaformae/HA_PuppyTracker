@@ -23,6 +23,9 @@ they have not been reconstructed as a complete historical changelog.
 
 ### Changed
 
+- Use one **Nests and puppies** settings entry for litter details and direct,
+  continuous puppy editing/addition, with separate archive/delete confirmation.
+
 - Share notification scheduling, queued rechecks and shutdown handling while
   retaining separate weight/care/reminder rules and existing automation fields.
 
