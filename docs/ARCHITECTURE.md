@@ -2256,3 +2256,32 @@ context and returning to settings. Saves reuse this hub; no second quick-edit
 or batch-selection flow is maintained. Profile editors in the dashboard retain
 their existing direct API paths. Failed option forms retain suggested draft
 values, including grouped parent/growth inputs. No storage migration is needed.
+
+### Owner frontend module ownership
+
+`puppy-tracker-owner-card.js` remains the only owner card registered with
+Home Assistant. It owns canonical contact/puppy/litter snapshots, request and
+subscription lifecycles, permission checks, mutation/conflict handling, active
+selection and both FormState instances. There is no storage or API migration.
+
+Internal ES modules expose named functions that receive that controller
+explicitly; they retain no owner state, register no cards/listeners at import,
+and never replace prototypes:
+
+| Module | Responsibility |
+| --- | --- |
+| `puppy-tracker-owner-common.js` | Localized labels, input formatting and shared markup primitives |
+| `puppy-tracker-owner-placements.js` | Contact-to-litter projection, linked pups, scope/status filtering and assignment controls |
+| `puppy-tracker-owner-contacts.js` | Owner list, grouped details, editor sections, duplicate feedback and row event binding |
+| `puppy-tracker-owner-finance.js` | Financial fields, payment history and local balance/date feedback |
+| `puppy-tracker-owner-preferences.js` | Top-three preferences and desktop/mobile matrix models and rendering |
+| `puppy-tracker-owner-csv.js` | CSV projection and authenticated download lifecycle |
+
+Read helpers use the same per-litter placement projection for contact details,
+finance, matrix and CSV. Mutations continue through the controller's one busy
+guard and confirmed-write/refresh handling. Drafts, expanded groups, focus and
+scroll use their existing per-card owners, avoiding independent module state
+or duplicate subscriptions. The dependencies are acyclic and relative imports
+inherit the release-versioned static route; helpers are not extra frontend
+entrypoints in `CARD_FILES`. Load-order and two-card tests supplement existing
+editing, payment, cross-litter privacy, matrix, export and lifecycle tests.

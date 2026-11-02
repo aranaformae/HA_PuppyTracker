@@ -171,7 +171,7 @@ for (const language of ["nl", "en"]) {
     const saved = await page.evaluate(() => window.formFixture.calls.filter((c) => c.type === "puppy_tracker/owners/save").at(-1));
     expect(saved).toMatchObject({ owner_id: "o1", payment_status: "full", payment_balance: "0", payment_date: "2026-10-20", payment_method: "bank_transfer", payment_amount: "2500", registration_fee_amount: "250", deposit_amount: "500" });
     await expect(markPaid).toHaveCount(0);
-    expect(await card.evaluate((node) => node._ownerCsvContent())).toContain('"1750","0"');
+    expect(await card.evaluate((async (node) => (await import("/custom_components/puppy_tracker/frontend/puppy-tracker-owner-csv.js")).ownerCsvContent(node)))).toContain('"1750","0"');
     expect(await card.locator("ha-card").evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
     await card.screenshot({ path: test.info().outputPath(`owner-final-payment-${language}.png`) });
     await card.locator('[data-edit="o1"]').click();

@@ -27,14 +27,14 @@ test("HA calendar days and displayed times stay consistent on a device in anothe
     const owners = document.createElement("puppy-tracker-owner-card");
     owners._hass = hass;
     owners._config = {};
-    owners._visibleOwners = () => [{ id: "owner", name: "Alex" }];
-    owners._visibleLitterIds = () => ["l1"];
-    owners._ownerForLitter = (contact) => contact;
-    owners._linkedPuppies = () => [{ name: "Nova", litter_id: "l1", birth_time: "2026-03-28T23:30:00Z" }];
+    const { ownerCsvContent } = await import("/custom_components/puppy_tracker/frontend/puppy-tracker-owner-csv.js");
+    owners._owners = [{ id: "owner", name: "Alex", placements: { l1: {} } }];
+    owners._ownerScope = "l1";
+    owners._puppies = [{ name: "Nova", litter_id: "l1", birth_time: "2026-03-28T23:30:00Z", owner_ids: ["owner"] }];
     return { day: calendarDate(Date.now(), hass), dateOnly: calendarDate("2026-03-29", hass),
       tick: chartTimeTick.call({ _hass: hass, _rangeHours: 24 }, Date.parse("2026-03-29T01:30:00Z")),
       full: formatDateTime("2026-03-29T01:30:00Z", "", hass),
-      csv: owners._ownerCsvContent(),
+      csv: ownerCsvContent(owners),
       short: formatShortDateTime("2026-10-25T01:30:00Z", "", hass), today, attention };
   });
   expect(result.day).toBe("2026-03-29");

@@ -140,13 +140,9 @@ def test_workspace_owns_shared_litter_context_and_pauses_hidden_surfaces() -> No
 
 
 def test_owner_card_is_declarative_localized_and_keeps_long_notes_visible() -> None:
-    source = (
-        Path(__file__).parents[1]
-        / "custom_components"
-        / "puppy_tracker"
-        / "frontend"
-        / "puppy-tracker-owner-card.js"
-    ).read_text(encoding="utf-8")
+    frontend = Path(__file__).parents[1] / "custom_components" / "puppy_tracker" / "frontend"
+    source = "\n".join(path.read_text(encoding="utf-8")
+                       for path in sorted(frontend.glob("puppy-tracker-owner-*.js")))
 
     assert 'placementDate: "Plaatsingsdatum"' in source
     assert 'expectedPickupDate: "Verwachte ophaaldatum"' in source

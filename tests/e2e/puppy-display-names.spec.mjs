@@ -76,7 +76,7 @@ for (const language of ["nl", "en"]) {
     const owners = page.locator("puppy-tracker-owner-card");
     await owners.locator('[data-toggle-owner="owner"]').click();
     await expect(owners.locator(".owner-detail")).toContainText("Nova (paars)");
-    const csv = await owners.evaluate((node) => node._ownerCsvContent());
+    const csv = await owners.evaluate((async (node) => (await import("/custom_components/puppy_tracker/frontend/puppy-tracker-owner-csv.js")).ownerCsvContent(node)));
     expect(csv).not.toContain('"Nova (paars)"');
     const report = page.locator("puppy-tracker-report-card");
     await report.locator("#puppy").selectOption("p4");

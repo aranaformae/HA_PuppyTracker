@@ -23,6 +23,9 @@ they have not been reconstructed as a complete historical changelog.
 
 ### Changed
 
+- Split owner-card internals into contact, placement, finance, preference and
+  CSV modules while retaining one card and its shared save/draft lifecycle.
+
 - Use one **Nests and puppies** settings entry for litter details and direct,
   continuous puppy editing/addition, with separate archive/delete confirmation.
 
