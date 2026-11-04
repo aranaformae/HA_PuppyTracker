@@ -12,6 +12,10 @@ they have not been reconstructed as a complete historical changelog.
 
 ### Added
 
+- Show configurable per-kilogram amounts in care programs and recurring reminders,
+  with a maximum weight age per source, individual litter amounts, expiry warnings
+  and updated notification content. Execution records keep the reviewed actual amount.
+
 - Configure an age-based weighing schedule per litter: prefilled 12/24/48/72-hour
   phases ending at 10/28/42/52.5 days, with editable ages and intervals. Planned
   weighing alerts stop after the final phase; actual weight concerns remain.

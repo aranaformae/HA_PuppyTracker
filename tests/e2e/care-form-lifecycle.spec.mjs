@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test";
 
-async function mount(page, { course = false, fields = ["result", "score", "note"] } = {}) {
+async function mount(page, { course = false, fields = ["result", "score", "note"], weightDose = false } = {}) {
   await page.goto("/tests/e2e/cards.html?production");
   await page.waitForFunction(() => window.__puppyTrackerReady);
-  await page.evaluate(({ course, fields }) => {
+  await page.evaluate(({ course, fields, weightDose }) => {
     localStorage.clear();
     const today = new Date().toISOString().slice(0, 10);
     const puppy = { id: "p1", name: "Nova", collar_color: "paars", active: true };
@@ -11,11 +11,12 @@ async function mount(page, { course = false, fields = ["result", "score", "note"
       title: course ? "Medication" : "ESI", record_type: course ? "medication" : "test", schedule_type: course ? "course" : "range",
       age_days: 3, scheduled_date: today, scheduled_at: `${today}T09:00:00Z`, status: "due_today", days_until_due: 0,
       instructions: "Day 3: a mild scent. Observe and record the response.", result_fields: fields,
-      treatment_product: "Planned product", planned_dose: "0.5", planned_unit: "ml" };
+      treatment_product: "Planned product", planned_dose: "0.5", planned_unit: "ml", ...(weightDose ? { weight_dose: { amount_per_kg: 0.2, unit: "ml", max_weight_age_hours: 24 } } : {}) };
     const state = window.careForm = { occurrence, calls: [], callbacks: [], fail: false, pause: false, failRefresh: false, writes: 0 };
     const hass = { language: "en", locale: { language: "en" }, config: { time_zone: "UTC" }, user: { is_admin: true }, states: {},
       connection: { subscribeMessage: async (cb) => { state.callbacks.push(cb); return () => {}; } },
       callWS: async (msg) => {
+        if (msg.type === "puppy_tracker/weight_dose") return { dose: { amount: 0.6, unit: "ml", status: "stale_weight", weight_grams: 3000, weight_timestamp: new Date(Date.now()-48*3600000).toISOString(), max_weight_age_hours: 24 } };
         state.calls.push(structuredClone(msg));
         if (msg.type === "puppy_tracker/litters") return { litters: [{ id: "l1", name: "Nest", active: true }, { id: "l2", name: "Other litter", active: true }] };
         if (msg.type === "puppy_tracker/onboarding") return { visible: false };
@@ -39,7 +40,7 @@ async function mount(page, { course = false, fields = ["result", "score", "note"
     workspace.setConfig({ preset: "mobile", default_tab: "care", litter_id: "l1" });
     document.querySelector("#cards").append(workspace);
     workspace.hass = hass;
-  }, { course, fields });
+  }, { course, fields, weightDose });
   const card = page.locator("puppy-tracker-care-execution-card");
   await card.locator('[data-action="completed"]').click();
   return { card, editor: page.locator("puppy-tracker-record-editor") };
@@ -140,4 +141,15 @@ test("care draft keeps its litter during announcements and cancelable changes as
   await expect(editor).toHaveCount(0);
   expect(confirmations).toBe(2);
   expect(await page.evaluate(() => window.careForm.writes)).toBe(0);
+});
+
+test("weight-based treatment shows a warning and saves only the reviewed actual amount @cross-browser @tablet", async ({ page }) => {
+  const {editor}=await mount(page,{course:true,weightDose:true});
+  await expect(editor.locator("puppy-tracker-weight-dose")).toContainText("0.6 ml");
+  await expect(editor.locator("puppy-tracker-weight-dose")).toContainText("WEIGHT TOO OLD");
+  await expect(editor.locator("#record-data-dose")).toHaveValue("");
+  await editor.locator("#record-data-dose").fill("0.55");
+  await editor.locator("#record-save").click();
+  const saved=await page.evaluate(()=>window.careForm.calls.find(item=>item.type==="puppy_tracker/care_occurrence/record"));
+  expect(saved.data.dose).toBe("0.55");
 });

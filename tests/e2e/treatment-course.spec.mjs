@@ -38,6 +38,11 @@ test("treatment planning stays separate from ordinary age-based programs", async
   await card.locator("#care-course-end").fill("2026-10-29");
   await card.locator("#care-course-times").fill("08:00, 18:00");
   await card.locator(".course-puppy").check();
+  await card.locator("#care-dose-enabled").check();
+  await expect(card.locator("#care-course-dose")).toBeDisabled();
+  await expect(card.locator("#care-course-unit")).toBeDisabled();
+  await card.locator("#care-dose-enabled").uncheck();
+  await expect(card.locator("#care-course-dose")).toBeEnabled();
   await card.locator("#save-program").click();
   await expect.poll(() => page.evaluate(() => window.courseCalls.length)).toBe(1);
   const call = await page.evaluate(() => window.courseCalls[0]);

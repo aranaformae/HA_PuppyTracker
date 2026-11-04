@@ -1,3 +1,4 @@
+import { weightDoseMarkup } from "./puppy-tracker-weight-dose.js";
 import { FormState, bindSaveFeedback, savedRecordFeedback, savedEditButton } from "./puppy-tracker-form-state.js";
 import { canEditRecords, closeRecordEditor, openRecordEditor, recordReminderExecution, rememberReminderExecution, RECORD_ACTION_STYLE } from "./puppy-tracker-record-editor.js";
 import { loadRecurringReminders, renderRecurringSaveFeedback } from "./puppy-tracker-recurring-surfaces.js";
@@ -658,7 +659,22 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
         ${chosen && !current ? `<option value="__previous__" selected disabled>${escapeHtml(`${text(this._hass, "previousChoice")}: ${this._reminderLabel(chosen)}`)}</option>` : ""}
         ${items.map((item) => `<option value="${escapeHtml(item.id)}" ${current && chosen.id === item.id ? "selected" : ""}>${escapeHtml(this._reminderLabel(item))}</option>`).join("")}
       </select></label><button type="button" id="quick-reminders-refresh" title="${escapeHtml(text(this._hass, "refreshReminders"))}" aria-label="${escapeHtml(text(this._hass, "refreshReminders"))}" ${this._saving || this._busy || this._remindersLoading ? "disabled" : ""}><ha-icon icon="mdi:refresh"></ha-icon></button>
-      ${!this._remindersAvailable ? `<div class="reminder-load-error" role="status">${escapeHtml(text(this._hass, "remindersUnavailable"))}</div>` : ""}</div>`;
+      ${!this._remindersAvailable ? `<div class="reminder-load-error" role="status">${escapeHtml(text(this._hass, "remindersUnavailable"))}</div>` : ""}<div id="quick-weight-dose" style="grid-column:1/-1">${weightDoseMarkup(this._hass, (current ? items.find(item => item.id === chosen.id) : chosen)?.dose)}</div></div>`;
+  }
+
+  async _refreshReminderDose(reminder) {
+    const request = Symbol("dose"), draft = this._draft, hass = this._hass;
+    this._doseRequest = request;
+    const panel = this.shadowRoot.getElementById("quick-weight-dose");
+    if (!panel || !reminder?.weight_dose) return;
+    panel.textContent = languageForHass(hass) === "en" ? "Checking weight and amount…" : "Gewicht en hoeveelheid controleren…";
+    let dose;
+    try {
+      dose = (await hass.callWS({ type: "puppy_tracker/weight_dose", source: "reminder", source_id: reminder.id })).dose;
+    } catch (_error) { dose = { status: "unverified", amount: null }; }
+    if (!this.isConnected || this._doseRequest !== request || this._draft !== draft || this._hass !== hass || this._draft?.reminder?.id !== reminder.id) return;
+    const current = this.shadowRoot.getElementById("quick-weight-dose");
+    if (current) current.innerHTML = weightDoseMarkup(hass, dose);
   }
 
   async _reloadReminders() {
@@ -674,7 +690,7 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
     }
     finally {
       this._remindersLoading = false;
-      if (this.isConnected) this._render();
+      if (this.isConnected) { this._render(); this._refreshReminderDose(this._draft?.reminder); }
     }
   }
 
@@ -910,6 +926,9 @@ class PuppyTrackerQuickLogCard extends HTMLElement {
       if (!this._draft || !activePreset) return;
       const item = this._matchingReminders(activePreset).find((candidate) => candidate.id === event.target.value);
       this._draft.reminder = item ? structuredClone(item) : null;
+      const dose = this.shadowRoot.getElementById("quick-weight-dose");
+      if (dose) dose.innerHTML = weightDoseMarkup(this._hass, item?.dose);
+      this._refreshReminderDose(item);
     });
     this.shadowRoot.getElementById("quick-reminders-refresh")?.addEventListener("click", () => this._reloadReminders());
     this.shadowRoot.getElementById("quick-reuse")?.addEventListener("click", () => this._reusePrevious());

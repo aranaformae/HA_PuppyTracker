@@ -505,3 +505,13 @@ Regression coverage protects at least:
 - notification lead-time fallback and per-program overrides;
 - PDF care-result output and report-period filtering;
 - diagnostics scheduler/quarantine counts.
+
+## Weight-based amounts
+
+Care programs and recurring reminders can show an amount per kg per execution,
+with their own maximum weight age (for example 24 or 168 hours). Individual
+weights, missing-data messages and expiry warnings are shared by Care/Mobile,
+Today, Attention, Quick Log and execution forms. Whole-litter reminders list
+amounts per active puppy. See [Weight-based amounts](WEIGHT_BASED_AMOUNTS.md)
+for configuration, supported weight sources, notifications and recording actual
+administered quantities.

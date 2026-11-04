@@ -1,3 +1,4 @@
+import { weightDoseMarkup } from "./puppy-tracker-weight-dose.js";
 import { closeRecordEditor } from "./puppy-tracker-record-editor.js";
 import { renderRecurringSaveFeedback, captureLastExecutions } from "./puppy-tracker-recurring-surfaces.js";
 import {
@@ -286,6 +287,7 @@ class PuppyTrackerAttentionCard extends HTMLElement {
         kind: "recurring",
         puppy_id: null,
         recurring_id: item.id,
+        dose: item.dose,
         name: item.owner_scope === "puppy" ? puppyDisplayLabel(this, item.owner_id, item.owner_name || localize(this._hass, "puppy")) : item.owner_name || (languageForHass(this._hass) === "en" ? "Reminder" : "Herinnering"),
         collar_color: null,
         tone: item.status === "overdue" ? "danger" : "warning",
@@ -307,7 +309,7 @@ class PuppyTrackerAttentionCard extends HTMLElement {
         ? `<div class="list ${this._config.compact === true ? "compact" : ""}">${visibleEntries.map((entry) => `
             <div class="row ${entry.tone}" ${entry.puppy_id ? `data-puppy="${escapeHtml(entry.puppy_id)}"` : ""} ${entry.recurring_id ? `data-recurring-reminder="${escapeHtml(entry.recurring_id)}"` : ""}>
               <div class="icon ${["dossier", "recurring"].includes(entry.kind) ? "ha" : ""}">${entry.kind === "dossier" ? entry.icon : entry.kind === "recurring" ? `<ha-icon icon="${escapeHtml(entry.icon)}"></ha-icon>` : escapeHtml(entry.icon)}</div>
-              <div class="main"><div class="name">${escapeHtml(entry.name)}</div><div class="reason">${escapeHtml(entry.reason)}</div></div>
+              <div class="main"><div class="name">${escapeHtml(entry.name)}</div><div class="reason">${escapeHtml(entry.reason)}</div>${weightDoseMarkup(this._hass, entry.dose)}</div>
               <div class="status">${escapeHtml(entry.status)}</div>
             </div>`).join("")}</div>`
         : `<div class="all-ok"><span>✓</span><div><strong>${escapeHtml(localize(this._hass, "allInOrder"))}</strong><div>${escapeHtml(localize(this._hass, "goodWeightAndDossier"))}</div></div></div>`;

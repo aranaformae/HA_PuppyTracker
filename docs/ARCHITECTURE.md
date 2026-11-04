@@ -2335,3 +2335,32 @@ therefore share the same boundary rules. API summaries add
 `weighing_schedule_finished` and the effective `max_hours_between_weighings`
 (null when finished). There is no new status code, task store, timer or schema
 version; each existing monitoring refresh recomputes from canonical facts.
+
+### Shared weight-based care amount projection
+
+`weight_dose.py` owns optional `weight_dose` normalization and calculation for
+care programs, their templates and recurring reminders. The value contains
+`amount_per_kg`, `unit` and `max_weight_age_hours`; absent/null disables it.
+`dose` is a derived API projection with amount, individual measurement ID,
+weight/time, freshness and configuration. Litter reminders contain per-puppy
+items. Mother/no-history cases are explicitly unavailable. Effective positive
+non-future measurements are selected through canonical metric history; no
+aggregate weight, prescription or unit conversion is inferred.
+
+Notification projections and the admin-only `puppy_tracker/weight_dose` read
+command use the shared committed snapshot barrier. The read command accepts
+only a stored program/reminder identity and a validated target puppy, never a
+client formula. Notification fingerprints include basis, formula and freshness
+without continually changing age, so a new weight/expiry can update a tagged
+notice without sending on every check. Existing public automation-event
+payloads remain identifier/code-only.
+
+Frontend `puppy-tracker-weight-dose.js` owns shared form fields and an internal
+amount view. Each view schedules only its expiry boundary and removes that
+timer on disconnection. Relative ES imports own registration; there is no new
+Lovelace card, global observer or extra polling. Execution editors update only
+the hint after a fresh read, preserving focus and drafts. Actual quantities
+are entered and stored through the existing dossier fields. Calculation hints
+do not affect occurrence identity or rewrite completed records. Scheduler
+backup/template normalization preserves the optional object without a schema
+bump.

@@ -13,6 +13,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.util import dt as dt_util
 
 from .care_occurrences import derive_litter_care_occurrences
+from .weight_dose import dose_for_occurrence
 from .care_execution import async_execution_sources
 from .care_course_conflicts import course_schedule_conflicts
 from .care_programs import (
@@ -112,7 +113,7 @@ PROGRAM_FIELDS = {
     "notification_lead_minutes", "result_fields",
     "instructions", "instructions_by_age",
     "target_puppy_ids", "start_date", "end_date", "times_of_day", "timezone",
-    "treatment_product", "planned_dose", "planned_unit", "planned_route",
+    "weight_dose", "treatment_product", "planned_dose", "planned_unit", "planned_route",
 }
 
 
@@ -243,7 +244,7 @@ async def websocket_list_care_occurrences(hass, connection, msg) -> None:
                         storage.get_records(msg["litter_id"], puppy_id, newest_first=False)
                     )
                 records_by_occurrence = records_by_puppy[puppy_id]
-                occurrences.extend(care_occurrence_status(item, records_by_occurrence.get(item["id"], [])) for item in derived)
+                occurrences.extend(dose_for_occurrence(storage, care_occurrence_status(item, records_by_occurrence.get(item["id"], []))) for item in derived)
             except ValueError as err:
                 reason = str(err)
                 skipped.append({
@@ -343,6 +344,7 @@ async def websocket_record_care_occurrence(hass, connection, msg) -> None:
     vol.Optional("time_of_day"): vol.Any(str, None),
     vol.Optional("counts_for_attention", default=True): bool,
     vol.Optional("notifications_enabled", default=True): bool,
+    vol.Optional("weight_dose"): vol.Any(dict, None),
     vol.Optional("notification_lead_minutes"): vol.Any(vol.Coerce(int), None),
     vol.Optional("result_fields"): [vol.In(("result", "score", "note"))],
     vol.Optional("instructions"): vol.Any(str, None),
@@ -392,6 +394,7 @@ async def websocket_create_care_program(hass, connection, msg) -> None:
     vol.Optional("time_of_day"): vol.Any(str, None),
     vol.Optional("counts_for_attention"): bool,
     vol.Optional("notifications_enabled"): bool,
+    vol.Optional("weight_dose"): vol.Any(dict, None),
     vol.Optional("notification_lead_minutes"): vol.Any(vol.Coerce(int), None),
     vol.Optional("result_fields"): [vol.In(("result", "score", "note"))],
     vol.Optional("instructions"): vol.Any(str, None),

@@ -26,6 +26,7 @@ from .notification_delivery import async_clear_notify_entities, async_send_notif
 from .recurring_reminder_api import async_reconcile_recurring_reminders
 from .recurring_reminders import RecurringReminderStore, reminder_owner_is_active, reminder_status
 from .runtime import PuppyTrackerRuntimeData
+from .weight_dose import calculate_weight_dose, dose_fingerprint, dose_notice
 
 CHECK_INTERVAL = timedelta(minutes=10)
 
@@ -38,7 +39,7 @@ class RecurringReminderNotificationManager:
         self.entry = entry
         self.runtime = runtime
         self._runner = NotificationCheckRunner(hass, lambda: self.async_check())
-        self._states: dict[str, tuple[str, str | None]] = {}
+        self._states: dict[str, tuple[Any, ...]] = {}
 
     async def async_start(self) -> None:
         self._runner.start((SIGNAL_DASHBOARD_UPDATE,), CHECK_INTERVAL)
@@ -103,12 +104,21 @@ class RecurringReminderNotificationManager:
                         self._states.pop(reminder_id, None)
                     continue
                 active.add(reminder_id)
+                async with self.runtime.storage.mutations.snapshot():
+                    current = store.get_reminder(reminder_id)
+                    if current is None or current.get("updated_at") != item.get("updated_at") or not reminder_owner_is_active(self.runtime.storage, current):
+                        continue
+                    item["dose"] = calculate_weight_dose(self.runtime.storage, item.get("weight_dose"), item["litter_id"], item["owner_scope"], item["owner_id"])
                 state = (str(item.get("status")), item.get("next_due_at"))
+                if item["dose"] is not None:
+                    state += (dose_fingerprint(item["dose"]),)
                 if self._states.get(reminder_id) == state:
                     continue
                 self._states[reminder_id] = state
                 owner = self._owner_name(item)
                 message = self._message(item, owner)
+                if item["dose"]:
+                    message += "\n\n" + dose_notice(item["dose"], self.hass.config.language)
                 title = f"Puppy Tracker · {item.get('title') or 'Herinnering'}"
                 async_create_persistent_notification(
                     self.hass,

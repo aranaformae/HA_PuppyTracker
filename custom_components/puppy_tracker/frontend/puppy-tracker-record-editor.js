@@ -1,3 +1,4 @@
+import { weightDoseMarkup } from "./puppy-tracker-weight-dose.js";
 import { FormState, bindSaveFeedback, savedOwnerLabel, savedRecordFeedback } from "./puppy-tracker-form-state.js";
 import {
   puppySelectorLabel,
@@ -285,16 +286,36 @@ class PuppyTrackerRecordEditor extends HTMLElement {
             care_scheduled_at: item.scheduled_at, care_instruction: item.instructions,
             care_status: this._options.initialStatus === "missed" ? "missed" : "completed",
             ...(course ? { [productKey]: item.treatment_product || "",
-              dose: item.planned_dose || "", unit: item.planned_unit || "", route: item.planned_route || "" } : {}),
+              dose: item.weight_dose ? "" : item.planned_dose || "", unit: item.weight_dose?.unit || item.planned_unit || "", route: item.planned_route || "" } : {}),
           },
         };
         this.shadowRoot.getElementById("record-dialog-title").textContent = course
           ? copy(this._hass, "Uitvoering registreren", "Record completion") : item.title || copy(this._hass, "Zorgactie", "Care action");
       }
       this._renderForm();
+      await this._refreshWeightDose();
     } catch (error) {
       if (!this._closed) this.shadowRoot.querySelector(".body").innerHTML = `<div class="error" role="alert">${escape(error.message)}</div>`;
     }
+  }
+
+  async _refreshWeightDose() {
+    const item = this._mode === "care" ? this._options.occurrence : this._mode === "reminder" ? this._options.reminder : null;
+    if (!item?.weight_dose) return;
+    const panel = this.shadowRoot.getElementById("weight-dose-panel");
+    if (panel) panel.textContent = copy(this._hass, "Gewicht en hoeveelheid controleren…", "Checking weight and amount…");
+    try {
+      const result = await this._hass.callWS({ type: "puppy_tracker/weight_dose",
+        source: this._mode === "care" ? "program" : "reminder", source_id: this._mode === "care" ? item.program_id : item.id,
+        ...(this._mode === "care" ? { puppy_id: item.puppy_id } : {}) });
+      if (this._closed) return;
+      this._liveDose = result.dose;
+    } catch (_error) {
+      if (this._closed) return;
+      this._liveDose = { status: "unverified", amount: null };
+    }
+    const current = this.shadowRoot.getElementById("weight-dose-panel");
+    if (current) current.innerHTML = weightDoseMarkup(this._hass, this._liveDose);
   }
 
   _renderPostponement() {
@@ -473,7 +494,9 @@ class PuppyTrackerRecordEditor extends HTMLElement {
     const editContent = this._compactCare
       ? `${this._careFields()}${note}`
       : `<div class="grid"><label>${escape(localize(this._hass, "type"))}<select id="record-type" ${lockedType ? "disabled" : ""}>${recordTypeOptions(this._hass, this._draft.record_type)}</select></label><label>${escape(localize(this._hass, "dateAndTime"))}<input type="datetime-local" step="1" id="record-occurred" value="${escape(this._draft.occurred_at)}" required></label></div>${this._mode === "care" ? "" : `<label>${escape(localize(this._hass, "title"))}<input id="record-title" maxlength="160" value="${escape(this._draft.title)}"></label>`}${note}<div class="grid record-type-fields">${this._fields()}</div>${this._careFields()}${this._behaviorFields()}`;
-    body.innerHTML = `<form novalidate>${chooseOwner}${followupContext}${isEdit ? editContent
+    const doseSource = this._mode === "care" ? this._options.occurrence : this._mode === "reminder" ? this._options.reminder : null;
+    const dosePanel = doseSource?.weight_dose ? `<div id="weight-dose-panel" style="min-height:90px">${weightDoseMarkup(this._hass, this._liveDose)}</div>` : "";
+    body.innerHTML = `<form novalidate>${chooseOwner}${followupContext}${dosePanel}${isEdit ? editContent
       : this._mode === "move" ? `<label>${escape(localize(this._hass, "changeOwner"))}<select id="record-owner">${this._owners().map((owner, index) => `<option value="${index}">${escape(owner.name)}</option>`).join("")}</select></label>`
         : `<div class="context">${escape(this._record.title || recordTypeLabel(this._hass, this._record.type))}</div><p>${escape(this._mode === "restore" ? copy(this._hass, "Dit verwijderde item herstellen?", "Restore this deleted item?") : localize(this._hass, "confirmDeleteRecord", { title: this._record.title || recordTypeLabel(this._hass, this._record.type) }))}</p>`}
       <div class="error" role="alert" hidden></div><div class="actions"><button type="button" id="record-cancel">${escape(localize(this._hass, "cancel"))}</button><button type="submit" class="primary" id="record-save">${escape(label)}</button></div></form>`;

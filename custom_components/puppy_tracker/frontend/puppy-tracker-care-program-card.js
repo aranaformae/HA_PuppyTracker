@@ -1,3 +1,4 @@
+import { weightDoseFields, readWeightDose, bindWeightDose, weightDoseError } from "./puppy-tracker-weight-dose.js";
 import { FormState, SavedRecordRefresh, bindSaveFeedback, appendEditAction } from "./puppy-tracker-form-state.js";
 import {
   calendarDate,
@@ -198,6 +199,7 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
       counts_for_attention: item.counts_for_attention !== false,
       notifications_enabled: item.notifications_enabled !== false,
       notification_lead_minutes: item.notification_lead_minutes ?? "",
+      weight_dose: item.weight_dose || null,
       result_fields: item.result_fields || ["result", "note"],
       instructions: item.instructions || "",
       instructions_by_age: item.instructions_by_age || {},
@@ -218,6 +220,7 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
     const fields = ["result", "score", "note"].filter((name) => root.getElementById(`care-result-${name}`)?.checked);
     const data = {
       litter_id: this._selectedLitterId,
+      weight_dose: readWeightDose(root, "care"),
       title: root.getElementById("care-title")?.value?.trim() || "",
       description: root.getElementById("care-description")?.value?.trim() || null,
       record_type: root.getElementById("care-record-type")?.value || "note",
@@ -264,6 +267,8 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
     if (this._saving) return;
     this._formState.clearErrors();
     const data = this._captureEditor();
+    const doseError = weightDoseError(this._hass, data?.weight_dose);
+    if (doseError) { this._error = doseError; this._render(); this._formState.error("#care-dose-rate", doseError); return; }
     if (!data?.title) {
       this._error = t(this, "Geef het zorgprogramma een naam.", "Give the care program a name.");
       this._render();
@@ -525,7 +530,7 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
             <label>${escapeHtml(t(this, "Startdatum", "Start date"))}<input id="care-course-start" type="date" value="${escapeHtml(draft.start_date)}"></label>
             <label>${escapeHtml(t(this, "Einddatum", "End date"))}<input id="care-course-end" type="date" value="${escapeHtml(draft.end_date)}"></label>
             <label>${escapeHtml(t(this, "Tijdstippen (komma gescheiden)", "Times (comma separated)"))}<input id="care-course-times" value="${escapeHtml(draft.times_of_day.join(", "))}" placeholder="08:00, 18:00"></label>
-            <label>${escapeHtml(t(this, "Geplande hoeveelheid", "Planned amount"))}<input id="care-course-dose" value="${escapeHtml(draft.planned_dose)}"></label>
+            <label>${escapeHtml(t(this, "Vaste geplande hoeveelheid (zonder gewichtsberekening)", "Fixed planned amount (without weight calculation)"))}<input id="care-course-dose" value="${escapeHtml(draft.planned_dose)}"></label>
             <label>${escapeHtml(t(this, "Eenheid", "Unit"))}<input id="care-course-unit" value="${escapeHtml(draft.planned_unit)}" placeholder="ml / mg"></label>
             <label>${escapeHtml(t(this, "Toedieningswijze", "Route"))}<input id="care-course-route" value="${escapeHtml(draft.planned_route)}"></label>
           </div>
@@ -533,6 +538,7 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
           <div class="checks">${(this._litterData?.puppies || []).filter((puppy) => puppy.active !== false).map((puppy) => `<label><input class="course-puppy" type="checkbox" value="${escapeHtml(puppy.id)}" ${checked(draft.target_puppy_ids.includes(puppy.id))}> ${escapeHtml(puppyDisplayLabel(this, puppy.id, puppy.name, puppy.collar_color))}</label>`).join("")}</div>
           <p>${escapeHtml(t(this, "De geplande hoeveelheid is alleen een geheugensteun. Controleer het werkelijk toegediende middel en de hoeveelheid per pup bij het afvinken.", "The planned amount is a reminder. Confirm the actual product and amount for each puppy when recording administration."))}</p>
         </div>
+        ${weightDoseFields(this._hass, "care", draft.weight_dose)}
         <label>${escapeHtml(t(this, "Melding vooraf (min)", "Notify before (min)"))}<input id="care-lead-minutes" type="number" min="0" max="10080" step="5" value="${escapeHtml(String(draft.notification_lead_minutes))}" placeholder="${escapeHtml(t(this, "Integratie standaard", "Integration default"))}"></label>
         <div class="result-title age-only">${escapeHtml(t(this, "Resultaatvelden", "Result fields"))}</div>
         <div class="checks age-only">
@@ -660,6 +666,7 @@ class PuppyTrackerCareProgramCard extends HTMLElement {
       this._savedRefresh.bind(status);
     }
     bindSaveFeedback(this, "#save-program");
+    bindWeightDose(this.shadowRoot, "care", this._saving, ["care-course-dose", "care-course-unit"]);
   }
 }
 

@@ -27,6 +27,7 @@ TEMPLATE_FIELDS = (
     "time_of_day",
     "result_fields",
     "counts_for_attention",
+    "weight_dose",
     "notifications_enabled",
     "notification_lead_minutes",
     "instructions",

@@ -21,6 +21,7 @@ from .const import DEFAULT_NOTIFICATION_LEAD_MINUTES, DOMAIN
 from .records import record_sort_key, validate_record_type
 from .mother_storage import MotherScopeStorage
 from .storage_lock import CoordinatedLock, mutation_coordinator
+from .weight_dose import normalize_weight_dose
 from .time_utils import resolve_wall_time
 
 STORE_KEY = f"{DOMAIN}_recurring_reminders"
@@ -156,6 +157,7 @@ def normalize_reminder(
         "schedule_mode": mode,
         "interval_minutes": interval_minutes,
         "fixed_times": fixed_times,
+        "weight_dose": normalize_weight_dose(data.get("weight_dose")),
         "notification_lead_minutes": normalize_notification_lead_minutes(
             data.get("notification_lead_minutes")
         ),

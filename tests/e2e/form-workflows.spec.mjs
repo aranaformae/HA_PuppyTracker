@@ -337,3 +337,23 @@ test("a care-result draft survives cancelled closing and a failed save", { tag: 
   await card.locator(".care-save-feedback button").click();
   await expect(page.locator("puppy-tracker-record-editor #record-note")).toHaveValue("Keep this care observation");
 });
+
+for (const [tag, prefix, suffix] of [["puppy-tracker-recurring-reminder-card", "rem", "reminder"], ["puppy-tracker-care-program-card", "care", "program"]]) {
+  test(`${suffix} retains and saves per-kg settings after failed submission @cross-browser @tablet`, async ({ page }) => {
+    const card=await mount(page,tag);
+    await card.locator(`#add-${suffix}`).click();
+    await card.locator(`#${prefix}-title`).fill("Weight-dependent care");
+    await card.locator(`#${prefix}-dose-enabled`).check();
+    await card.locator(`#${prefix}-dose-rate`).fill("0.2");
+    await card.locator(`#${prefix}-dose-unit`).fill("ml");
+    await card.locator(`#${prefix}-dose-age`).fill("168");
+    await page.evaluate(()=>window.formFixture.failNext=true);
+    await card.locator(`#save-${suffix}`).click();
+    await expect(card.locator(`#${prefix}-dose-rate`)).toHaveValue("0.2");
+    await expect(card.locator(`#${prefix}-dose-age`)).toHaveValue("168");
+    await expect(card.locator(`#save-${suffix}`)).toBeEnabled();
+    await card.locator(`#save-${suffix}`).click();
+    const message=await page.evaluate(suffix=>window.formFixture.calls.filter(item=>item.type===`puppy_tracker/${suffix === "program" ? "care_program" : "recurring_reminder"}/create`).at(-1),suffix);
+    expect(message.weight_dose).toEqual({amount_per_kg:0.2,unit:"ml",max_weight_age_hours:168});
+  });
+}

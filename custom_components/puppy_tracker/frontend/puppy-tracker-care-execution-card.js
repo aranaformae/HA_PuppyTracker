@@ -1,3 +1,4 @@
+import { weightDoseMarkup } from "./puppy-tracker-weight-dose.js";
 import { calendarDate, escapeHtml, fetchLitters, formatDateTime, languageForHass, puppyDisplayLabel, requestLitterChange, selectDefaultLitter, subscribeUpdates } from "./puppy-tracker-card-common.js";
 import { openCareResultEditor, renderCareSaveFeedback } from "./puppy-tracker-care-result-editor.js";
 import { renderCareSkippedWarning } from "./puppy-tracker-care-surfaces.js";
@@ -510,7 +511,7 @@ class PuppyTrackerCareExecutionCard extends HTMLElement {
       ? `<button data-action="completed" data-id="${escapeHtml(item.id)}" ${this._renderAdmin ? "" : "disabled"}>${escapeHtml(t(this, "Uitvoering registreren", "Record completion"))}</button><button class="secondary" data-action="missed" data-id="${escapeHtml(item.id)}" ${this._renderAdmin ? "" : "disabled"}>${escapeHtml(t(this, "Als gemist registreren", "Record as missed"))}</button>`
       : source === "reminder" ? reminderActionButtons(this, item, { labels: true })
         : canEditRecords(this) ? `<button data-action="followup">${escapeHtml(t(this, "Uitvoering registreren", "Record completion"))}</button>` : "";
-    return `<div class="main"><span class="source-label">${escapeHtml(this._sourceLabel(source))}</span><strong>${escapeHtml(title)}</strong><span>${escapeHtml(owner)} · ${escapeHtml(date)} · ${escapeHtml(state)}</span>${item.instructions || item.source_title ? `<small>${escapeHtml(item.instructions || item.source_title)}</small>` : ""}</div><div class="actions">${actions}</div>`;
+    return `<div class="main"><span class="source-label">${escapeHtml(this._sourceLabel(source))}</span><strong>${escapeHtml(title)}</strong><span>${escapeHtml(owner)} · ${escapeHtml(date)} · ${escapeHtml(state)}</span>${weightDoseMarkup(this._hass, item.dose)}${item.instructions || item.source_title ? `<small>${escapeHtml(item.instructions || item.source_title)}</small>` : ""}</div><div class="actions">${actions}</div>`;
   }
 }
 

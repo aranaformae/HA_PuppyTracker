@@ -25,6 +25,7 @@ from .const import (
 from .due_status import CARE_NOTIFICATION_STATUSES as DUE_STATUSES
 from .notification_delivery import async_clear_notify_entities, async_send_notify_entities, normalize_notify_entities
 from .runtime import PuppyTrackerRuntimeData
+from .weight_dose import dose_for_occurrence, dose_fingerprint, dose_notice
 
 DATA_NOTIFICATION_STATE = f"{DOMAIN}_care_notification_state"
 
@@ -55,51 +56,54 @@ async def async_check_care_notifications(
     groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
     records_by_puppy: dict[tuple[str, str], dict[str, list[dict[str, Any]]]] = {}
 
-    for program in store.get_programs():
-        if (
-            not globally_enabled
-            or program.get("enabled", True) is False
-            or program.get("notifications_enabled", True) is False
-        ):
-            continue
-        litter_id = str(program.get("litter_id") or "")
-        litter = runtime.storage.get_litter(litter_id) or {}
-        if not litter or litter.get("active", True) is False:
-            continue
-        puppies = [
-            puppy
-            for puppy in (litter.get("puppies") or {}).values()
-            if isinstance(puppy, dict) and puppy.get("active", True) is not False
-        ]
-        for puppy in puppies:
-            try:
-                derived = derive_litter_care_occurrences(program, [puppy])
-            except ValueError:
+    async with runtime.storage.mutations.snapshot():
+        for program in store.get_programs():
+            if (
+                not globally_enabled
+                or program.get("enabled", True) is False
+                or program.get("notifications_enabled", True) is False
+            ):
                 continue
-            puppy_id = str(puppy.get("id") or "")
-            cache_key = (litter_id, puppy_id)
-            if cache_key not in records_by_puppy:
-                records_by_puppy[cache_key] = index_care_result_records(
-                    runtime.storage.get_records(
-                        litter_id, puppy_id, newest_first=False,
-                    )
-                )
-            records = records_by_puppy[cache_key]
-            for occurrence in derived:
-                item = care_occurrence_status(occurrence, records.get(occurrence["id"], []))
-                _apply_notification_lead(item, default_lead_minutes)
-                if item.get("status") not in DUE_STATUSES:
+            litter_id = str(program.get("litter_id") or "")
+            litter = runtime.storage.get_litter(litter_id) or {}
+            if not litter or litter.get("active", True) is False:
+                continue
+            puppies = [
+                puppy
+                for puppy in (litter.get("puppies") or {}).values()
+                if isinstance(puppy, dict) and puppy.get("active", True) is not False
+            ]
+            for puppy in puppies:
+                try:
+                    derived = derive_litter_care_occurrences(program, [puppy])
+                except ValueError:
                     continue
-                scheduled_date = str(item.get("scheduled_at") or "")[:10]
-                if item.get("schedule_type") == "course":
-                    key = f"{item.get('program_id')}:course:{scheduled_date}:{item.get('time_of_day')}"
-                else:
-                    key = f"{item.get('program_id')}:{item.get('age_days')}:{scheduled_date}"
-                groups[key].append(item)
+                puppy_id = str(puppy.get("id") or "")
+                cache_key = (litter_id, puppy_id)
+                if cache_key not in records_by_puppy:
+                    records_by_puppy[cache_key] = index_care_result_records(
+                        runtime.storage.get_records(
+                            litter_id, puppy_id, newest_first=False,
+                        )
+                    )
+                records = records_by_puppy[cache_key]
+                for occurrence in derived:
+                    item = dose_for_occurrence(runtime.storage, care_occurrence_status(occurrence, records.get(occurrence["id"], [])))
+                    _apply_notification_lead(item, default_lead_minutes)
+                    if item.get("status") not in DUE_STATUSES:
+                        continue
+                    scheduled_date = str(item.get("scheduled_at") or "")[:10]
+                    if item.get("schedule_type") == "course":
+                        key = f"{item.get('program_id')}:course:{scheduled_date}:{item.get('time_of_day')}"
+                    else:
+                        key = f"{item.get('program_id')}:{item.get('age_days')}:{scheduled_date}"
+                    groups[key].append(item)
 
     state = _state(hass)
+    fingerprints = state.setdefault("dose_fingerprints", {})
     active_groups = set(groups)
     for stale in state["active_groups"] - active_groups:
+        fingerprints.pop(stale, None)
         async_dismiss_persistent_notification(hass, _notification_id(stale))
         await async_clear_notify_entities(hass, notify_entities, _notification_id(stale))
     state["active_groups"] = active_groups
@@ -108,6 +112,9 @@ async def async_check_care_notifications(
         items.sort(key=lambda item: str(item.get("puppy_name") or ""))
         title = f"Puppy Tracker · {items[0].get('title') or 'Zorgprogramma'}"
         message = _message(items)
+        for item in items:
+            if item.get("dose"):
+                message += "\n\n" + str(item.get("puppy_name") or "Pup") + ": " + dose_notice(item["dose"], hass.config.language)
         async_create_persistent_notification(
             hass,
             message,
@@ -120,7 +127,10 @@ async def async_check_care_notifications(
             for item in items
             if str(item.get("id") or "") not in state["notified_occurrences"]
         ]
-        if fresh_ids:
+        fingerprint = tuple((item["id"], dose_fingerprint(item.get("dose"))) for item in items)
+        changed_dose = key in fingerprints and fingerprints[key] != fingerprint and any(item.get("dose") for item in items)
+        fingerprints[key] = fingerprint
+        if fresh_ids or changed_dose:
             await async_send_notify_entities(
                 hass,
                 notify_entities,

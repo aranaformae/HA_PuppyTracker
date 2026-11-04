@@ -288,3 +288,32 @@ test("a draft for a removed puppy never falls back to the litter owner @cross-br
   await expect(card.locator("#quick-save")).toHaveCount(0);
   expect(await page.evaluate(() => window.quickReminderFixture.records[0].scope)).toBe("mother");
 });
+
+for (const mobile of [false,true]) {
+  test(`quick log refreshes only the selected dose and keeps entered quantities (${mobile}) @cross-browser @tablet`, async ({ page }) => {
+    const card=await mount(page,mobile);
+    await card.evaluate(async node=>{
+      const state=window.quickReminderFixture;
+      state.reminders.find(item=>item.id==="puppy-a").weight_dose={amount_per_kg:10,unit:"g",max_weight_age_hours:24};
+      const call=node._hass.callWS.bind(node._hass);
+      node._hass.callWS=async message=>{
+        if(message.type!=="puppy_tracker/weight_dose")return call(message);
+        if(!state.doseReleased)await new Promise(resolve=>{state.releaseDose=()=>{state.doseReleased=true;resolve();};});
+        return {dose:{amount:30,unit:"g",status:"stale_weight",weight_grams:3000,weight_timestamp:new Date(Date.now()-48*3600000).toISOString(),max_weight_age_hours:24}};
+      };
+      await node._reloadReminders();
+    });
+    await card.locator("#quick-reminder").selectOption("puppy-a");
+    await card.locator("#quick-data-amount").fill("25");
+    await card.locator("#quick-note").fill("Review actual portion");
+    await expect.poll(()=>page.evaluate(()=>Boolean(window.quickReminderFixture.releaseDose))).toBe(true);
+    await card.locator("#quick-reminder").selectOption("puppy-b");
+    await page.evaluate(()=>window.quickReminderFixture.releaseDose());
+    await expect(card.locator("#quick-weight-dose puppy-tracker-weight-dose")).toHaveCount(0);
+    await card.locator("#quick-reminder").selectOption("puppy-a");
+    await expect(card.locator("#quick-weight-dose")).toContainText("30 g");
+    await expect(card.locator("#quick-weight-dose")).toContainText("WEIGHT TOO OLD");
+    await expect(card.locator("#quick-data-amount")).toHaveValue("25");
+    await expect(card.locator("#quick-note")).toHaveValue("Review actual portion");
+  });
+}

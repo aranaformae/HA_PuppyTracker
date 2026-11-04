@@ -675,3 +675,13 @@ tab_config:
 
 Restart Home Assistant and fully refresh the browser or Companion App after
 updating so the versioned frontend resource is reloaded.
+
+## Weight-based amounts
+
+Care programs and recurring reminders can show an amount per kg per execution,
+with their own maximum weight age (for example 24 or 168 hours). Individual
+weights, missing-data messages and expiry warnings are shared by Care/Mobile,
+Today, Attention, Quick Log and execution forms. Whole-litter reminders list
+amounts per active puppy. See [Weight-based amounts](WEIGHT_BASED_AMOUNTS.md)
+for configuration, supported weight sources, notifications and recording actual
+administered quantities.

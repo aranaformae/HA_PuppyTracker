@@ -1,3 +1,4 @@
+import { weightDoseFields, readWeightDose, bindWeightDose, weightDoseError, weightDoseMarkup } from "./puppy-tracker-weight-dose.js";
 import { FormState, SavedRecordRefresh, bindSaveFeedback, appendEditAction } from "./puppy-tracker-form-state.js";
 import {
   puppySelectorLabel,
@@ -204,6 +205,7 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
       due_at: dtLocal(item.due_at),
       enabled: item.enabled !== false,
       notification_lead_minutes: item.notification_lead_minutes ?? "",
+      weight_dose: item.weight_dose || null,
     };
   }
 
@@ -214,6 +216,7 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
     const [owner_scope, ...ownerParts] = ownerValue.split(":");
     return {
       litter_id: this._selectedLitterId,
+      weight_dose: readWeightDose(root, "rem"),
       owner_scope,
       owner_id: ownerParts.join(":"),
       title: root.getElementById("rem-title")?.value?.trim() || "",
@@ -234,6 +237,8 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
     if (this._saving) return;
     this._formState.clearErrors();
     const data = this._captureEditor();
+    const doseError = weightDoseError(this._hass, data?.weight_dose);
+    if (doseError) { this._error = doseError; this._render(); this._formState.error("#rem-dose-rate", doseError); return; }
     if (!data || !data.title) {
       this._error = t(this, "Geef de herinnering een naam.", "Give the reminder a name.");
       this._render();
@@ -328,7 +333,7 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
     const list = this._items.length ? `<div class="list">${this._items.map((item) => `
       <div class="item ${escapeHtml(item.status || "")}">
         <div class="ico"><ha-icon icon="${item.record_type === "temperature" ? "mdi:thermometer" : "mdi:bell-ring-outline"}"></ha-icon></div>
-        <div class="main"><strong>${escapeHtml(item.title)}</strong><div>${escapeHtml(item.owner_scope === "puppy" ? puppyDisplayLabel(this, item.owner_id, item.owner_name || t(this, "Pup", "Puppy")) : item.owner_name || "")} · ${escapeHtml(scheduleText(this, item))}${item.notification_lead_minutes != null ? ` · ${escapeHtml(t(this, `${item.notification_lead_minutes} min vooraf`, `${item.notification_lead_minutes} min before`))}` : ""}</div><div class="due">${escapeHtml(statusText(this, item))}</div>${lastExecutionDetails(this, item)}</div>
+        <div class="main"><strong>${escapeHtml(item.title)}</strong><div>${escapeHtml(item.owner_scope === "puppy" ? puppyDisplayLabel(this, item.owner_id, item.owner_name || t(this, "Pup", "Puppy")) : item.owner_name || "")} · ${escapeHtml(scheduleText(this, item))}${item.notification_lead_minutes != null ? ` · ${escapeHtml(t(this, `${item.notification_lead_minutes} min vooraf`, `${item.notification_lead_minutes} min before`))}` : ""}</div><div class="due">${escapeHtml(statusText(this, item))}</div>${weightDoseMarkup(this._hass, item.dose)}${lastExecutionDetails(this, item)}</div>
         <div class="item-actions">${reminderCompleteButton(this, item)}${reminderPostponeButton(this, item)}<button class="icon-button edit" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t(this, "Herinnering bewerken", "Edit reminder"))}" aria-label="${escapeHtml(t(this, "Herinnering bewerken", "Edit reminder"))}"><ha-icon icon="mdi:pencil-outline"></ha-icon></button></div>
       </div>`).join("")}</div>` : `<div class="empty">${escapeHtml(t(this, "Nog geen terugkerende herinneringen.", "No recurring reminders yet."))}</div>`;
 
@@ -349,6 +354,7 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
         <label class="mode interval">${escapeHtml(t(this, "Interval (minuten)", "Interval (minutes)"))}<input id="rem-interval" type="number" min="1" value="${escapeHtml(String(draft.interval_minutes))}"></label>
         <label class="mode fixed_times">${escapeHtml(t(this, "Tijden (komma gescheiden)", "Times (comma separated)"))}<input id="rem-times" value="${escapeHtml(draft.fixed_times)}"></label>
         <label class="mode once">${escapeHtml(t(this, "Datum en tijd", "Date and time"))}<input id="rem-due" type="datetime-local" value="${escapeHtml(draft.due_at)}"></label>
+        ${weightDoseFields(this._hass, "rem", draft.weight_dose)}
         <label>${escapeHtml(t(this, "Melding vooraf (min)", "Notify before (min)"))}<input id="rem-lead-minutes" type="number" min="0" max="10080" step="5" value="${escapeHtml(String(draft.notification_lead_minutes))}" placeholder="${escapeHtml(t(this, "Integratie standaard", "Integration default"))}"></label>
         <label class="check"><input id="rem-enabled" type="checkbox" ${draft.enabled ? "checked" : ""}> ${escapeHtml(t(this, "Actief", "Enabled"))}</label>
         <div class="editor-actions">
@@ -408,6 +414,7 @@ class PuppyTrackerRecurringReminderCard extends HTMLElement {
     }
     renderRecurringSaveFeedback(this);
     bindSaveFeedback(this, "#save-reminder");
+    bindWeightDose(this.shadowRoot, "rem", this._saving);
   }
 }
 

@@ -407,3 +407,31 @@ for (const surface of ["care", "mobilecare"]) {
     await expect(card.locator(".empty")).toContainText("No care sources selected");
   });
 }
+
+for (const language of ["nl", "en"]) {
+  test(`execution refreshes the dose without overwriting entered notes (${language}) @cross-browser @tablet`, async ({ page }, testInfo) => {
+    const card=await mount(page,"reminders","puppy","medication",language);
+    await card.evaluate(async node=>{
+      const state=window.recurringFixture;
+      state.reminder.weight_dose={amount_per_kg:0.2,unit:"ml",max_weight_age_hours:24};
+      const call=node._hass.callWS.bind(node._hass);
+      node._hass.callWS=async message=>{
+        if(message.type!=="puppy_tracker/weight_dose")return call(message);
+        state.calls.push(structuredClone(message));
+        await new Promise(resolve=>{state.releaseDose=resolve;});
+        return {dose:{amount:0.6,unit:"ml",weight_grams:3000,weight_timestamp:new Date(Date.now()-48*3600000).toISOString(),status:"stale_weight",max_weight_age_hours:24}};
+      };
+      await node._loadCurrent();
+    });
+    await card.locator('[data-complete-reminder="r1"]').click();
+    const editor=page.locator("puppy-tracker-record-editor");
+    await editor.locator("#record-note").fill("Check the actual amount first");
+    await expect.poll(()=>page.evaluate(()=>Boolean(window.recurringFixture.releaseDose))).toBe(true);
+    await page.evaluate(()=>window.recurringFixture.releaseDose());
+    await expect(editor.locator("puppy-tracker-weight-dose")).toContainText(language==="nl"?"GEWICHT TE OUD":"WEIGHT TOO OLD");
+    await expect(editor.locator("#record-note")).toHaveValue("Check the actual amount first");
+    await expect(editor.locator("#record-note")).toBeFocused();
+    expect(await page.evaluate(()=>window.recurringFixture.records.length)).toBe(1);
+    await editor.locator("dialog").screenshot({path:testInfo.outputPath(`weight-dose-execution-${language}.png`)});
+  });
+}

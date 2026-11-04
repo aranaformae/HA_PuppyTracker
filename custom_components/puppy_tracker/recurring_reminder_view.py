@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from .const import DEFAULT_NOTIFICATION_LEAD_MINUTES
+from .weight_dose import calculate_weight_dose
 from .mother_storage import MotherScopeStorage
 from .recurring_reminders import reminder_owner_records, reminder_status
 
@@ -28,6 +29,12 @@ def _owner_label(storage, reminder: dict[str, Any]) -> str:
 async def async_reminder_items(store, storage, *, litter_id: str | None = None) -> list[dict[str, Any]]:
     """Share reconciled reminder state between management and execution views."""
     await store.async_reconcile_records(storage, litter_id=litter_id)
+    async with storage.mutations.snapshot():
+        return _reminder_items(store, storage, litter_id=litter_id)
+
+
+def _reminder_items(store, storage, *, litter_id: str | None = None) -> list[dict[str, Any]]:
+    """Build only after the caller has obtained a committed snapshot."""
     settings = storage.get_settings()
     default_lead_minutes = int(
         settings.get("notification_lead_minutes", DEFAULT_NOTIFICATION_LEAD_MINUTES)
@@ -37,6 +44,7 @@ async def async_reminder_items(store, storage, *, litter_id: str | None = None) 
     for reminder in store.get_reminders(litter_id=litter_id):
         item = reminder_status(reminder, notification_lead_minutes=default_lead_minutes)
         item["owner_name"] = _owner_label(storage, reminder)
+        item["dose"] = calculate_weight_dose(storage, reminder.get("weight_dose"), reminder["litter_id"], reminder["owner_scope"], reminder["owner_id"])
         owner = tuple(reminder[key] for key in ("litter_id", "owner_scope", "owner_id"))
         if owner not in histories:
             try:

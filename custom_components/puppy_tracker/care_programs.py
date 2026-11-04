@@ -16,6 +16,7 @@ from homeassistant.util import dt as dt_util
 from .const import DOMAIN
 from .records import validate_record_type
 from .storage_lock import CoordinatedLock, mutation_coordinator
+from .weight_dose import normalize_weight_dose
 
 STORE_KEY = f"{DOMAIN}_care_programs"
 STORE_VERSION = 1
@@ -264,6 +265,7 @@ def normalize_care_program(
         "interval_days": interval_days,
         "time_of_day": time_of_day,
         "notifications_enabled": bool(data.get("notifications_enabled", True)),
+        "weight_dose": normalize_weight_dose(data.get("weight_dose")),
         "notification_lead_minutes": normalize_notification_lead_minutes(
             data.get("notification_lead_minutes")
         ),

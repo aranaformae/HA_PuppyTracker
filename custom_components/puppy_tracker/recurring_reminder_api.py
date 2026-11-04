@@ -11,6 +11,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .const import DOMAIN, SIGNAL_DASHBOARD_UPDATE
+from .weight_dose import calculate_weight_dose
 from .recurring_reminders import (
     RecurringReminderStore,
     validate_reminder_owner as _validate_owner,
@@ -71,6 +72,7 @@ async def websocket_list_reminders(hass, connection, msg) -> None:
     vol.Optional("start_at"): str,
     vol.Optional("due_at"): str,
     vol.Optional("enabled", default=True): bool,
+    vol.Optional("weight_dose"): vol.Any(dict, None),
     vol.Optional("notification_lead_minutes"): vol.Any(vol.Coerce(int), None),
 })
 @websocket_api.async_response
@@ -110,6 +112,7 @@ async def websocket_create_reminder(hass, connection, msg) -> None:
     vol.Optional("start_at"): str,
     vol.Optional("due_at"): str,
     vol.Optional("enabled"): bool,
+    vol.Optional("weight_dose"): vol.Any(dict, None),
     vol.Optional("notification_lead_minutes"): vol.Any(vol.Coerce(int), None),
 })
 @websocket_api.async_response
@@ -241,12 +244,51 @@ async def websocket_postpone_reminder(hass, connection, msg) -> None:
     connection.send_result(msg["id"], {"ok": True})
 
 
+@websocket_api.require_admin
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/weight_dose",
+    vol.Required("source"): vol.In(("program", "reminder")),
+    vol.Required("source_id"): str,
+    vol.Optional("puppy_id"): str,
+})
+@websocket_api.async_response
+async def websocket_weight_dose(hass, connection, msg) -> None:
+    """Refresh a stored source's calculation without trusting a client formula."""
+    runtime = get_runtime_data(hass)
+    if runtime is None:
+        connection.send_error(msg["id"], "not_loaded", "Puppy Tracker is not loaded")
+        return
+    try:
+        async with runtime.storage.mutations.snapshot():
+            if msg["source"] == "program":
+                item = runtime.care_programs.get_program(msg["source_id"]) if runtime.care_programs else None
+                if item is None:
+                    raise ValueError("Unknown care program")
+                scope, owner_id = "puppy", msg.get("puppy_id", "")
+                if not runtime.storage.get_puppy(item["litter_id"], owner_id):
+                    raise ValueError("Unknown puppy for this care program")
+                if item.get("schedule_type") == "course" and owner_id not in item.get("target_puppy_ids", []):
+                    raise ValueError("Puppy is not part of this treatment")
+            else:
+                item = runtime.recurring_reminders.get_reminder(msg["source_id"]) if runtime.recurring_reminders else None
+                if item is None:
+                    raise ValueError("Unknown reminder")
+                _validate_owner(runtime.storage, item)
+                scope, owner_id = item["owner_scope"], item["owner_id"]
+            dose = calculate_weight_dose(runtime.storage, item.get("weight_dose"), item["litter_id"], scope, owner_id)
+    except ValueError as err:
+        connection.send_error(msg["id"], "invalid_dose_source", str(err))
+        return
+    connection.send_result(msg["id"], {"dose": dose, "litter_id": item["litter_id"], "owner_scope": scope, "owner_id": owner_id})
+
+
 @callback
 def async_setup_recurring_reminder_api(hass: HomeAssistant) -> None:
     if hass.data.get(DATA_API_REGISTERED):
         return
     for command in (
         websocket_list_reminders,
+        websocket_weight_dose,
         websocket_create_reminder,
         websocket_update_reminder,
         websocket_delete_reminder,

@@ -20,6 +20,7 @@ feature overview.
 | [Documents and contracts](DOCUMENT_TEMPLATES.md) | Template editor, buyer/puppy fields, checked PDFs, immutable archive and template exchange |
 | [Logo uploads and managed files](MANAGED_FILES.md) | Central breeder logo, private storage, backup and restore |
 | [Age-based care programs](CARE_PROGRAMS.md) | Programs, built-in templates and the template JSON format |
+| [Weight-based amounts](WEIGHT_BASED_AMOUNTS.md) | Per-kg quantities, weight-age tolerance, per-puppy litter lists and execution hints |
 | [Notifications](NOTIFICATIONS.md) | Reminder delivery, lead times, mobile clearing and test workflow |
 | [Backup, restore and transfer](backup-restore.md) | Manual/automatic backup, restore and partial transfer |
 | [Home Assistant entities and actions](HOME_ASSISTANT.md) | Created devices/entities and automation actions |

@@ -1,3 +1,4 @@
+import { weightDoseMarkup } from "./puppy-tracker-weight-dose.js";
 import { escapeHtml, formatDateTime, languageForHass, puppyDisplayLabel } from "./puppy-tracker-card-common.js";
 import { appendEditAction } from "./puppy-tracker-form-state.js";
 import { canEditRecords, openRecordEditor, openReminderEditor, recordContext, refreshRecordSource, reminderActionButtons, RECORD_ACTION_STYLE } from "./puppy-tracker-record-editor.js";
@@ -97,7 +98,7 @@ export function renderTodayReminders(card) {
   bindReminderButtons(card, section, items);
   section.querySelectorAll("[data-recurring-reminder]").forEach((row) => {
     const item = items.find((candidate) => candidate.id === row.dataset.recurringReminder);
-    row.querySelector(".today-reminder-main").insertAdjacentHTML("beforeend", lastExecutionDetails(card, item));
+    row.querySelector(".today-reminder-main").insertAdjacentHTML("beforeend", weightDoseMarkup(card._hass, item.dose) + lastExecutionDetails(card, item));
   });
   bindLastExecutions(card, section, items);
   root.querySelector("ha-card")?.append(section);
