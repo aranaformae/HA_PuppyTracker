@@ -10,12 +10,20 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+## [0.40.0] - 2026-11-04
+
 ### Added
 
 - Compare puppies at the same age across the first eight weeks, with a compact
   littermate summary and collapsed charts/weekly tables. Historical references
   weight earlier litters equally, show their sample sizes and support filters
   for the same mother or size class. Missing measurements remain explicit.
+
+### Changed
+
+- Replace the separate nest-position and growth-rate boxes in the advanced
+  Analysis panel with one configurable comparison section. Existing monitoring
+  and notifications are unchanged; no data migration is required.
 
 ## [0.39.0] - 2026-11-04
 
@@ -512,7 +520,8 @@ for explicit assignment. See [storage migrations](docs/storage-migrations.md#own
 
 - Separated daily execution from schedule management in Care workspace navigation.
 
-[Unreleased]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.39.0...HEAD
+[Unreleased]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.40.0...HEAD
+[0.40.0]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.39.0...v0.40.0
 [0.39.0]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.38.0...v0.39.0
 [0.38.0]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.37.2...v0.38.0
 [0.37.2]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.37.1...v0.37.2
