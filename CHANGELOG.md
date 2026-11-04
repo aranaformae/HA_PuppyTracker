@@ -10,6 +10,8 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+## [0.40.1] - 2026-11-04
+
 ### Changed
 
 - Prepare for the Home Assistant Marketplace with the `pets` integration
@@ -529,7 +531,8 @@ for explicit assignment. See [storage migrations](docs/storage-migrations.md#own
 
 - Separated daily execution from schedule management in Care workspace navigation.
 
-[Unreleased]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.40.0...HEAD
+[Unreleased]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.40.1...HEAD
+[0.40.1]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.40.0...v0.40.1
 [0.40.0]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.39.0...v0.40.0
 [0.39.0]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.38.0...v0.39.0
 [0.38.0]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.37.2...v0.38.0
