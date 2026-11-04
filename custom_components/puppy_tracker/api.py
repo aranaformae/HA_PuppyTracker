@@ -21,6 +21,7 @@ from .backup import build_export_document
 from .dog_identity import parent_details_for_litter
 from .measurements import measurement_status, puppy_measurements
 from .metrics import calculate_puppy_metrics, preview_weight
+from .litter_growth_comparison import build_litter_growth_comparison
 from .pdf_export import build_pdf_export
 from .runtime import get_runtime_data, get_runtime_storage
 from .session import async_resolve_session, async_undo_station_weight, get_session, remaining_puppy_ids, sync_station_session
@@ -1484,6 +1485,28 @@ def websocket_subscribe_updates(
     connection.send_result(msg["id"])
 
 
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/growth_comparison",
+    vol.Required("litter_id"): str,
+    vol.Optional("include_history", default=False): bool,
+    vol.Optional("reference_filter", default="all"): vol.In(("all", "same_mother", "same_size")),
+})
+@websocket_api.async_response
+async def websocket_growth_comparison(hass, connection, msg) -> None:
+    """Read only the requested nest comparison from committed measurements."""
+    storage = _storage_or_error(hass, connection, msg)
+    if storage is None:
+        return
+    try:
+        async with storage.mutations.snapshot():
+            result = build_litter_growth_comparison(storage, msg["litter_id"],
+                include_history=msg["include_history"], reference_filter=msg["reference_filter"])
+    except ValueError as err:
+        connection.send_error(msg["id"], "invalid_comparison", str(err))
+        return
+    connection.send_result(msg["id"], result)
+
+
 @callback
 def async_setup_api(hass: HomeAssistant) -> None:
     """Register Puppy Tracker websocket commands once."""
@@ -1492,6 +1515,7 @@ def async_setup_api(hass: HomeAssistant) -> None:
 
     websocket_api.async_register_command(hass, websocket_get_litters)
     websocket_api.async_register_command(hass, websocket_get_data)
+    websocket_api.async_register_command(hass, websocket_growth_comparison)
     websocket_api.async_register_command(hass, websocket_preview_weight)
     websocket_api.async_register_command(hass, websocket_save_weight)
     websocket_api.async_register_command(hass, websocket_get_measurements)

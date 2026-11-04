@@ -19,6 +19,8 @@ Home Assistant 2026.9.4 or newer is the supported baseline.
 - Manage multiple litters, mother dogs and puppies.
 - Record weights with collar-colour charts, correction history and growth
   monitoring, interrupted-session recovery and Undo for the last saved weighing.
+- Compare development with littermates and earlier own litters, with optional
+  eight-week charts and weekly details in Growth.
 - Keep separate dossiers for the whole litter, the mother and every puppy.
 - Quickly log feeding, daily observations, temperature, medication, tests, vaccination,
   deworming, veterinary visits, milestones and notes.

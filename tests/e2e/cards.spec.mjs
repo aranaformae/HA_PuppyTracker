@@ -280,7 +280,7 @@ test("workspace editor switches preset options and writes existing tab config", 
     }));
     const valuesByPreset = {
       home: { show_summary: false, attention_max_items: 40 },
-      growth: { weighing_show_details: false, analysis_default_range: "14d" },
+      growth: { weighing_show_details: false, analysis_default_range: "14d", analysis_show_litter_comparison: false },
       journal: { default_selected: "mother", temperature_show_chart: false },
       care: { care_days_ahead: 21, programs_compact: true },
       mobile: { show_today_only: true, care_max_items: 30 },
@@ -342,6 +342,7 @@ test("workspace editor switches preset options and writes existing tab config", 
   expect(result.savedByPreset.home.tab_config.attention.max_items).toBe(40);
   expect(result.savedByPreset.growth.tab_config.weighing.show_details).toBe(false);
   expect(result.savedByPreset.growth.tab_config.analysis.default_range).toBe("14d");
+  expect(result.savedByPreset.growth.tab_config.analysis.show_litter_comparison).toBe(false);
   expect(result.savedByPreset.journal.default_selected).toBe("mother");
   expect(result.savedByPreset.journal.tab_config.temperature.show_chart).toBe(false);
   expect(result.savedByPreset.care.tab_config.care.days_ahead).toBe(21);

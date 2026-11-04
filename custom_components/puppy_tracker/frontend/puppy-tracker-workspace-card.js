@@ -74,6 +74,7 @@ const SURFACE_EDITOR_FIELDS = {
     analysis_show_advanced_analysis: { name: "analysis_show_advanced_analysis", surface: "analysis", key: "show_advanced_analysis", default: false, selector: { boolean: {} } },
     analysis_show_growth_milestones: { name: "analysis_show_growth_milestones", surface: "analysis", key: "show_growth_milestones", default: true, selector: { boolean: {} } },
     analysis_show_eight_week_weight: { name: "analysis_show_eight_week_weight", surface: "analysis", key: "show_eight_week_weight", default: true, selector: { boolean: {} } },
+    analysis_show_litter_comparison: { name: "analysis_show_litter_comparison", surface: "analysis", key: "show_litter_comparison", default: true, selector: { boolean: {} } },
     analysis_show_milestone_chart_annotations: { name: "analysis_show_milestone_chart_annotations", surface: "analysis", key: "show_milestone_chart_annotations", default: true, selector: { boolean: {} } },
   },
   dossier: {
@@ -127,7 +128,7 @@ const PRESET_FIELD_LAYOUT = {
     "show_summary", "show_today_only", "attention.attention_max_items", "attention.attention_compact", "puppies.puppies_active_only", "puppies.puppies_show_details", "puppies.puppies_default_sort",
   ],
   growth: [
-    "weighing.weighing_show_puppies", "weighing.weighing_show_details", "analysis.analysis_default_range", "analysis.analysis_default_metric", "analysis.analysis_show_summary", "analysis.analysis_show_puppy_cards", "analysis.analysis_show_advanced_analysis", "analysis.analysis_show_growth_milestones", "analysis.analysis_show_eight_week_weight", "analysis.analysis_show_milestone_chart_annotations",
+    "weighing.weighing_show_puppies", "weighing.weighing_show_details", "analysis.analysis_default_range", "analysis.analysis_default_metric", "analysis.analysis_show_summary", "analysis.analysis_show_puppy_cards", "analysis.analysis_show_advanced_analysis", "analysis.analysis_show_growth_milestones", "analysis.analysis_show_eight_week_weight", "analysis.analysis_show_litter_comparison", "analysis.analysis_show_milestone_chart_annotations",
   ],
   journal: [
     "default_selected", "puppy_id", "show_bulk_action", "dossier.dossier_show_profile_note", "dossier.dossier_show_history", "dossier.dossier_show_weights", "dossier.dossier_show_details", "dossier.dossier_max_items", "dossier.dossier_max_height", "temperature.temperature_default_range", "temperature.temperature_history_limit", "temperature.temperature_max_height", "temperature.temperature_chart_height", "temperature.temperature_history_sort", "temperature.temperature_show_selectors", "temperature.temperature_show_thresholds", "temperature.temperature_show_latest", "temperature.temperature_show_chart", "temperature.temperature_show_history", "temperature.temperature_show_editor", "behavior.behavior_show_profile", "behavior.behavior_show_history", "behavior.behavior_max_items",
@@ -233,6 +234,7 @@ const EDITOR_LABELS = {
     analysis_show_puppy_cards: "Pupkaarten tonen", analysis_show_advanced_analysis: "Geavanceerde analyse tonen",
     analysis_show_growth_milestones: "Groeimijlpalen tonen", analysis_show_milestone_chart_annotations: "Mijlpalen in grafieken tonen",
     analysis_show_eight_week_weight: "Geschat gewicht op 8 weken tonen",
+    analysis_show_litter_comparison: "Nestvergelijking tonen",
     default_selected: "Standaard eigenaar/scope", puppy_id: "Standaard pup-ID", show_bulk_action: "Actie voor meerdere pups tonen",
     dossier_show_profile_note: "Profielnotitie tonen", dossier_show_history: "Historie standaard tonen",
     dossier_show_weights: "Wegingen in historie tonen", dossier_show_details: "Itemdetails standaard uitklappen",
@@ -260,6 +262,7 @@ const EDITOR_LABELS = {
     analysis_show_puppy_cards: "Show puppy cards", analysis_show_advanced_analysis: "Show advanced analysis",
     analysis_show_growth_milestones: "Show growth milestones", analysis_show_milestone_chart_annotations: "Show milestones in charts",
     analysis_show_eight_week_weight: "Show estimated weight at 8 weeks",
+    analysis_show_litter_comparison: "Show litter comparison",
     default_selected: "Default owner/scope", puppy_id: "Default puppy ID", show_bulk_action: "Show multi-puppy action",
     dossier_show_profile_note: "Show profile note", dossier_show_history: "Show history by default",
     dossier_show_weights: "Show weights in history", dossier_show_details: "Expand entry details by default",

@@ -10,6 +10,13 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+### Added
+
+- Compare puppies at the same age across the first eight weeks, with a compact
+  littermate summary and collapsed charts/weekly tables. Historical references
+  weight earlier litters equally, show their sample sizes and support filters
+  for the same mother or size class. Missing measurements remain explicit.
+
 ## [0.39.0] - 2026-11-04
 
 ### Added

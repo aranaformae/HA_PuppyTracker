@@ -65,7 +65,7 @@ notifications are withdrawn when the session reopens.
 | Growth since birth | Percentage change from recorded birth weight to current weight |
 | Growth per 24 hours | Change normalized to 24 hours from the closest suitable earlier sample; intervals shorter than six hours are not extrapolated |
 | Last weighed | Timestamp of the newest effective measurement |
-| Litter position | Weight rank and percentage difference from the current litter median |
+| Litter comparison | Weight as a percentage of the other puppies' median at the same age |
 
 The trend labels describe the **rate of growth**, not whether the puppy became
 lighter. For example, **Growth slows** can still accompany a higher current
@@ -165,8 +165,8 @@ Every puppy series and every subgraph use the configured collar colour. The
 milestone annotations appear only on weight charts.
 
 Keep `show_advanced_analysis: false` for a concise operational view. Enable it
-when cadence, variability, litter comparisons and projection confidence are
-useful during a review.
+when cadence, variability and projection confidence are useful during a review.
+The separately configurable litter comparison does not require advanced mode.
 
 ## Rolling windows and input checks
 
@@ -268,3 +268,85 @@ mode, phase, interval and finished flag as attributes. The schedule is stored
 with the litter and included in full/litter backups and transfers; historical
 measurements are never rewritten. These prefilled phases are a configurable
 personal workflow, not a universal veterinary or breed-specific recommendation.
+
+## Compare littermates and earlier litters
+
+In **Growth → Analysis**, select a puppy. **Littermate comparison** initially
+shows just its relative weight and, when available, its change over a week.
+Open **Compare nest period and earlier litters** for a collar-colour chart and
+optional **View weekly figures** and **Calculation and data quality** sections
+covering birth through day 56. This overview uses the complete
+nest period independently of the main chart's selected date range.
+
+`100%` means the median weight of the **other** puppies at that same age.
+For example, `90%` means 10% lighter than those littermates; it is not a health
+score. Each puppy has its own elapsed-age axis, including when birth times
+within the litter differ. Inactive or placed puppies remain part of their nest
+history rather than silently disappearing from the comparison.
+
+The weekly table contains:
+
+- relative weight: `puppy weight / median other puppies' weights × 100`;
+- change in relative position versus seven days earlier, in percentage points;
+  this stays empty if the group of comparable littermates has changed;
+- growth rate: the puppy's seven-day gram gain per day divided by the median
+  corresponding rate of other puppies, times 100; no ratio is shown when the
+  reference growth is zero or negative;
+- birth-weight factor: `weight / recorded birth weight`;
+- median and arithmetic mean weight of the other puppies, plus their count.
+
+A lower relative weight can remain stable while the puppy grows normally.
+A declining relative position means it is becoming lighter **relative to those
+littermates**, even if its own weight increased. There are no new attention
+thresholds or automatic health labels attached to these comparisons.
+
+### A personal reference for later nests
+
+Choose **Earlier own litters** inside the expanded section. Historical data is
+only requested at this point. Filter by all earlier litters, the same registered
+mother, or the same configured size class. Missing mother IDs and unknown size
+classes do not count as a match. The current litter and litters with the same or
+later first birth time are excluded; archived litters remain available.
+
+For every age day, calculate each earlier puppy's birth-weight factor, then
+its litter's median factor. At least two puppies with usable birth weights and
+weights at that age are required for a historical litter to contribute. The
+personal reference is the median of these **litter medians**, so a large litter
+or a puppy weighed frequently does not dominate it.
+
+The historical graph shows the selected puppy's birth-weight factor against
+the personal reference. A weekly table shows the factors, percentage of the
+reference and contributing litter/puppy counts. With fewer than five eligible
+historical litters, their individual curves remain visible. At an age with at
+least five contributing litters, a band shows the 25th–75th percentiles of the
+litter medians. This is descriptive spread, not a prediction interval or a
+healthy-weight range. Breed, sex and parent size are not automatically corrected
+for; the filters and sample counts provide context, not statistical guarantees.
+
+### Missing data and display settings
+
+Only effective, positive, non-future weights are used. Recorded birth weight
+provides day zero. Between measurements at most 72 elapsed hours apart, linear
+interpolation supplies a daily-age point. Interpolated table values are marked
+with `*`; larger gaps stay empty and break chart lines. No extrapolation is used,
+including at day 56. The compact summary names the last comparable age day,
+which may precede the latest weighing. A missing birth weight prevents normalized
+historical comparison but does not prevent an ordinary littermate comparison.
+
+The expansion, selected comparison and filter survive normal card refreshes.
+Lists/tables scroll inside bounded regions on narrow screens. The new section
+replaces the older separate nest-position/tempo boxes in Analysis's advanced
+panel to avoid two different comparisons. Existing monitoring metrics and
+notifications are unchanged.
+
+To hide the entire new section, use the Growth visual editor or:
+
+```yaml
+tab_config:
+  analysis:
+    show_litter_comparison: false
+```
+
+It defaults to `true`, independently of `show_advanced_analysis`. This analysis
+is currently an interactive Growth view; it does not add a new PDF chapter or
+change stored measurements, exports or backups.

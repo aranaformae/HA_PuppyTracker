@@ -31,7 +31,7 @@ READ_COMMANDS = {
     "litters", "data", "weight/preview", "records", "upcoming", "subscribe",
     "report/logo", "mother/records", "mother/attention", "care_programs",
     "care_occurrences", "care_program_templates", "recurring_reminders",
-    "attention_acknowledgements",
+    "attention_acknowledgements", "growth_comparison",
 }
 
 

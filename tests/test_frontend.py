@@ -294,8 +294,8 @@ def test_logging_surfaces_share_the_dossier_record_type_contract() -> None:
     assert "RECORD_TYPES," in bulk_log
 
 
-def test_overview_renders_litter_weight_comparison() -> None:
-    """The overview card exposes the relative weight context from the backend."""
+def test_overview_keeps_optional_advanced_growth_and_milestones() -> None:
+    """Advanced context remains available beside the executed comparison view."""
     source = (
         Path(__file__).parents[1]
         / "custom_components"
@@ -311,11 +311,6 @@ def test_overview_renders_litter_weight_comparison() -> None:
         / "puppy-tracker-chart-time-navigation.js"
     ).read_text(encoding="utf-8")
 
-    assert "litter_comparison" in source
-    assert "Nestpositie" in source
-    assert "Afwijking mediaan" in source
-    assert "litter_growth_comparison" in source
-    assert "Nesttempo" in source
     assert "growth_variability" in source
     assert "Spreiding groeitempo" in source
     assert "birth_weight_recovery" in source

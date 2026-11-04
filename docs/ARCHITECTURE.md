@@ -2364,3 +2364,48 @@ are entered and stored through the existing dossier fields. Calculation hints
 do not affect occurrence identity or rewrite completed records. Scheduler
 backup/template normalization preserves the optional object without a schema
 bump.
+
+### On-demand nest-period growth comparison
+
+`litter_growth_comparison.py` derives daily ages 0–56 from canonical effective
+measurement series, independently of status/notification metrics. It uses a
+positive recorded birth weight at age zero, ignores future/nonpositive weights,
+and interpolates only between observations at most 72 elapsed hours apart.
+There is no extrapolation. Curve gaps remain missing values and separate SVG
+segments; original measurement precision is retained for calculations.
+
+Every puppy's relative weight uses the median of the other available puppies
+at the same elapsed age. The seven-day position change requires identical
+littermate membership at both ends; seven-day gram-rate comparisons require
+matching endpoints and a positive reference rate. The weekly payload retains
+both individual age points and peer comparisons, so a singleton can still be
+compared historically without inventing littermates. Inactive puppies remain
+in their historical cohort. A lower index is descriptive, not an attention rule.
+
+`puppy_tracker/growth_comparison` is an authenticated read-only WebSocket
+command, available to ordinary/read-only users like the existing growth data.
+Its projection runs under `storage.mutations.snapshot()` and never writes state.
+The default request reads only the selected litter. `include_history: true`
+adds earlier litters (by earliest known puppy birth), optionally filtered by
+`reference_filter: all|same_mother|same_size`. Missing stable mother identity
+or unknown size does not match. Historical normalized age points require two
+puppies per litter/day; the median of per-litter medians gives equal influence
+to each nest. A 25th–75th percentile band requires five contributing litters
+at that age. Counts accompany the reference; this is not a confidence interval.
+No migrations, breed standards or new persisted reference datasets are added.
+
+The internal `puppy-tracker-growth-comparison` element is owned by Analysis;
+it is not a new registered Lovelace card. `show_litter_comparison` is independent
+of advanced metrics and is exposed through the dynamic Workspace editor.
+The default UI shows only relative weight and weekly movement. The full graph,
+weekly table and optional historical comparison are disclosed progressively.
+The parent reuses the same element across renders, preserving mode, filter,
+disclosure and table position. It shares the parent's accepted history revision
+and update subscription; it owns no polling timers or global listeners.
+Historical reads occur only on selection; puppy selection and unchanged
+contexts reuse the loaded litter response. Request tokens reject stale responses
+after a changed litter, revision or filter. Async results patch read-only regions
+without replacing native selectors. A failed read offers an explicit retry.
+The older separate nest-position/tempo boxes were removed from the Analysis
+advanced panel; their backend summary attributes remain available to existing
+consumers. PDF output is unchanged in this increment.

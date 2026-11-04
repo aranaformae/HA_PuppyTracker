@@ -1,5 +1,6 @@
 // Puppy Tracker Overview Card v1.3.2
 import { collarColor } from "./puppy-tracker-collar-chart-colors.js";
+import "./puppy-tracker-growth-comparison.js";
 import { languageForHass, puppySelectorLabel } from "./puppy-tracker-card-common.js";
 import { PuppyProfileEditor, puppyProfileSaveMessage } from "./puppy-tracker-puppy-profile-editor.js";
 import {
@@ -72,6 +73,11 @@ class PuppyTrackerOverviewCard extends HTMLElement {
     this._renderScheduled = false;
     this._profileStatus = "";
     this._profileStatusTimer = null;
+    this._comparisonView = document.createElement("puppy-tracker-growth-comparison");
+    this._comparisonView.addEventListener("pointerdown", () => this._beginInteraction());
+    for (const type of ["pointerup", "pointercancel", "focusout"]) {
+      this._comparisonView.addEventListener(type, () => this._endInteraction());
+    }
   }
 
   static getStubConfig() {
@@ -85,6 +91,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
       show_advanced_analysis: false,
       show_growth_milestones: true,
       show_eight_week_weight: true,
+      show_litter_comparison: true,
       show_milestone_chart_annotations: true,
     };
   }
@@ -131,6 +138,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
         { name: "show_advanced_analysis", selector: { boolean: {} } },
         { name: "show_growth_milestones", selector: { boolean: {} } },
         { name: "show_eight_week_weight", label: "Geschat gewicht op 8 weken tonen", selector: { boolean: {} } },
+        { name: "show_litter_comparison", label: "Nestvergelijking tonen", selector: { boolean: {} } },
         { name: "show_milestone_chart_annotations", selector: { boolean: {} } },
       ],
     });
@@ -147,6 +155,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
       show_advanced_analysis: false,
       show_growth_milestones: true,
       show_eight_week_weight: true,
+      show_litter_comparison: true,
       show_milestone_chart_annotations: true,
       ...config,
     };
@@ -194,7 +203,8 @@ class PuppyTrackerOverviewCard extends HTMLElement {
   }
 
   _interactiveControlFocused() {
-    const active = this.shadowRoot?.activeElement;
+    const host = this.shadowRoot?.activeElement;
+    const active = host?.shadowRoot?.activeElement || host;
     return Boolean(active && active.matches?.("input, select, textarea"));
   }
 
@@ -1446,21 +1456,6 @@ class PuppyTrackerOverviewCard extends HTMLElement {
     return "neutral";
   }
 
-  _litterComparisonLabel(comparison) {
-    if (!comparison) return "Onvoldoende nestdata";
-    if (comparison.position_code === "below_median") return "Onder nestmediaan";
-    if (comparison.position_code === "above_median") return "Boven nestmediaan";
-    if (comparison.position_code === "near_median") return "Rond nestmediaan";
-    return "Onbekend";
-  }
-
-  _litterGrowthLabel(comparison) {
-    if (!comparison) return "Onvoldoende nesttempo-data";
-    if (comparison.position_code === "below_median") return "Onder nesttempo";
-    if (comparison.position_code === "above_median") return "Boven nesttempo";
-    return "Rond nesttempo";
-  }
-
   _dataQualityLabel(code) {
     return {
       none: "Geen data",
@@ -1593,6 +1588,13 @@ class PuppyTrackerOverviewCard extends HTMLElement {
   _setContent(content) {
     this.shadowRoot.innerHTML = this._shell(content);
     localizeOverviewRoot(this.shadowRoot, this._hass);
+    const slot = this.shadowRoot.querySelector("[data-growth-comparison]");
+    if (slot) {
+      slot.replaceWith(this._comparisonView);
+      this._comparisonView.setContext({ hass: this._hass,
+        litterId: this._selectedLitterStorageId(), puppyId: this._selectedPuppyId,
+        revision: this._history });
+    }
   }
 
   _render() {
@@ -1760,6 +1762,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
             <div><span>Totale groei</span><strong>${this._formatNumber(selected.growthBirth, "%", true)}</strong></div>
             <div><span>Laatste weging</span><strong>${this._escape(this._formatDateTime(selected.lastWeighed))}</strong></div>
           </div>
+          ${this._config.show_litter_comparison !== false ? '<div data-growth-comparison></div>' : ""}
           ${this._config.show_advanced_analysis !== false ? `<div class="analysis-panel ${this._statusClass(selected.analysis?.status_code)}">
             <div><span>Groeianalyse</span><strong>${this._escape(selected.analysis?.status || "Onvoldoende data")}</strong></div>
             <div><span>Trend</span><strong>${this._escape(selected.analysis?.trend || "Onvoldoende data")}</strong></div>
@@ -1767,10 +1770,6 @@ class PuppyTrackerOverviewCard extends HTMLElement {
             <div><span>Nestdrempel</span><strong>${this._formatNumber(selected.analysis?.min_daily_growth_percent, "%", true)}</strong></div>
             <div><span>Gewichtspatroon</span><strong>${this._escape(selected.analysis?.weight_pattern?.sustained_loss ? "Aanhoudende daling" : "Geen aanhoudende daling")}</strong></div>
             <div><span>Groeipatroon</span><strong>${this._escape(selected.analysis?.growth_pattern?.sustained_low_growth ? "Aanhoudend lage groei" : "Geen aanhoudend lage groei")}</strong></div>
-            <div><span>Nestpositie</span><strong>${this._escape(this._litterComparisonLabel(selected.analysis?.litter_comparison))}</strong></div>
-            <div><span>Afwijking mediaan</span><strong>${this._formatNumber(selected.analysis?.litter_comparison?.delta_percent, "%", true)}</strong></div>
-            <div><span>Nesttempo</span><strong>${this._escape(this._litterGrowthLabel(selected.analysis?.litter_growth_comparison))}</strong></div>
-            <div><span>Afwijking nesttempo</span><strong>${this._formatNumber(selected.analysis?.litter_growth_comparison?.delta_percentage_points, "%", true)}</strong></div>
             <div><span>Spreiding groeitempo</span><strong>${this._formatNumber(selected.analysis?.growth_variability?.range_percentage_points, "%-punt", true)}</strong></div>
             <div><span>Mediaan meetinterval</span><strong>${this._formatNumber(selected.analysis?.measurement_cadence?.median_interval_hours, "uur")}</strong></div>
             <div><span>Grootste meetgat</span><strong>${this._formatNumber(selected.analysis?.measurement_cadence?.longest_interval_hours, "uur")}</strong></div>

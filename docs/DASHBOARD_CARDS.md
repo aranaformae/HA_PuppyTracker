@@ -315,6 +315,7 @@ tab_config:
     show_summary: true
     show_puppy_cards: true
     show_advanced_analysis: false
+    show_litter_comparison: true
     show_growth_milestones: true
     show_milestone_chart_annotations: true
 ```
@@ -418,6 +419,13 @@ The selected puppy can also show an indicative eight-week weight from a broad
 14-day trend. `tab_config.analysis.show_eight_week_weight` controls visibility
 and is available in the Growth visual editor. It requires at least four
 different measurement times spanning seven days; it is not a breed norm.
+The selected puppy also has a compact age-aligned littermate comparison.
+Its eight-week chart, weekly table and earlier-litter reference stay collapsed
+until opened. Set `tab_config.analysis.show_litter_comparison: false` to hide
+the section, or use the corresponding visual-editor switch. Historical
+references load only when selected. See
+[Nest-period comparisons](GROWTH_ANALYSIS.md#compare-littermates-and-earlier-litters)
+for formulas, equal weighting of nests and missing-data rules.
 Administrators can use **Pup bewerken** beside the selected puppy in the
 Analysis tab to edit the same profile fields as in the Home Pups tab. The
 selection and chart view stay in place; a saved profile refreshes the growth
