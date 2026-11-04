@@ -10,6 +10,15 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+### Changed
+
+- Prepare for the Home Assistant Marketplace with the `pets` integration
+  category and installation instructions for Marketplace and older HACS.
+- Add an isolated Home Assistant 2026.11.0 native-runtime CI/local check for
+  setup, weighing/entity registration, HTTP/WebSocket dashboard access and
+  reload persistence. Retain full pytest coverage on 2026.9.4 and 2026.10.4
+  until a matching 2026.11 pytest harness is published.
+
 ## [0.40.0] - 2026-11-04
 
 ### Added

@@ -32,9 +32,12 @@ is documented in [Security and privacy](docs/SECURITY_PRIVACY.md).
 2. Use a separate development Home Assistant installation and synthetic data,
    not the only copy of a real litter's records. Back up before manual upgrade
    or migration checks.
-3. Create `.venv` with Python 3.14. CI tests Home Assistant 2026.9.4 (the
-   supported baseline) and 2026.10.4 (the current stable release). Local setup
-   uses the pinned current-stable test harness. Install the Python requirements
+3. Create `.venv` with Python 3.14. CI runs the full pytest suite on Home
+   Assistant 2026.9.4 (the supported baseline) and 2026.10.4, plus a separate
+   native-runtime compatibility check on 2026.11.0. Local pytest uses the pinned
+   2026.10.4 harness until a matching 2026.11 harness is published; see
+   [Native runtime compatibility](tests/README.md#native-runtime-compatibility-home-assistant-202611).
+   Install the Python requirements
    and Node.js 22 or newer frontend dependencies:
 
 ```sh

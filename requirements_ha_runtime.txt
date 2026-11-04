@@ -1,0 +1,4 @@
+# Independent runtime check until a matching 2026.11 pytest harness is published.
+homeassistant==2026.11.0
+# Exact requirement from this Home Assistant version's frontend manifest.
+home-assistant-frontend==20261028.4

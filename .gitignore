@@ -7,6 +7,7 @@ pycache/
 Virtual environments
 
 .venv/
+.venv-ha-*/
 venv/
 env/
 

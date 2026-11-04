@@ -1,6 +1,9 @@
 {
   "domain": "puppy_tracker",
   "name": "Puppy Tracker",
+  "categories": [
+    "pets"
+  ],
   "codeowners": [
     "@aranaformae"
   ],

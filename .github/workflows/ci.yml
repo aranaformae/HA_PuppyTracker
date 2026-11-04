@@ -71,6 +71,39 @@ jobs:
             pytest-results.xml
           if-no-files-found: ignore
 
+  runtime-compatibility:
+    name: Native runtime compatibility (HA 2026.11.0)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: requirements_ha_runtime.txt
+
+      - name: Install native runtime
+        run: python -m pip install --disable-pip-version-check -r requirements_ha_runtime.txt
+
+      - name: Verify setup, entities, frontend delivery and reload
+        timeout-minutes: 3
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/check-ha-runtime.py --expect-version 2026.11.0 2>&1 | tee runtime-compatibility.log
+
+      - name: Upload runtime diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-diagnostics-ha-2026.11.0
+          path: runtime-compatibility.log
+          if-no-files-found: ignore
+
   metadata:
     name: Metadata validation
     runs-on: ubuntu-latest

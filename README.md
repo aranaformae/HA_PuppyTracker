@@ -52,7 +52,20 @@ See [Security and privacy](docs/SECURITY_PRIVACY.md) for the exact permissions.
 
 ## Installation
 
-### HACS
+### Marketplace (Home Assistant 2026.11 and newer)
+
+1. Open **Settings -> Marketplace**.
+2. Add `https://github.com/aranaformae/HA_PuppyTracker` as a custom repository
+   with category **Integration** if it is not listed yet.
+3. Install **Puppy Tracker**. On a first install it can load without a restart.
+4. Open **Settings -> Devices & services -> Add integration** and search for
+   **Puppy Tracker** if setup did not open automatically.
+
+Marketplace takes over existing HACS installations and custom repositories;
+an existing Puppy Tracker installation does not need to be removed or recreated.
+See the [Home Assistant Marketplace guide](https://contributors.home-assistant.io/marketplace/how-it-works/).
+
+### HACS (Home Assistant 2026.9.4–2026.10)
 
 1. Open **HACS -> Integrations**.
 2. Add `https://github.com/aranaformae/HA_PuppyTracker` as a custom repository

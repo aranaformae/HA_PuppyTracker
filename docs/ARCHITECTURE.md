@@ -2154,7 +2154,7 @@ Regression tests should protect data meaning and cross-surface contracts, includ
   trusted automation services; see [Security and privacy](SECURITY_PRIVACY.md);
 - diagnostics scheduler health counts.
 
-Manual release testing should additionally cover HACS upgrade, browser refresh/cache behaviour, phone/tablet interaction, mother selection, reminder completion from real dossier logging, age-based care completion, notification-off production testing, explicit test-notification delivery and restart behaviour.
+Manual release testing should additionally cover Marketplace/HACS upgrade, browser refresh/cache behaviour, phone/tablet interaction, mother selection, reminder completion from real dossier logging, age-based care completion, notification-off production testing, explicit test-notification delivery and restart behaviour.
 
 CI is the single validation authority for a commit. Its browser matrix uses
 four file-level shards in matching preinstalled Playwright containers, retaining
@@ -2409,3 +2409,43 @@ without replacing native selectors. A failed read offers an explicit retry.
 The older separate nest-position/tempo boxes were removed from the Analysis
 advanced panel; their backend summary attributes remain available to existing
 consumers. PDF output is unchanged in this increment.
+
+### Marketplace packaging and native-runtime compatibility
+
+The integration remains one HACS-compatible repository, with `hacs.json` at the
+root, the versioned manifest and runtime files under
+`custom_components/puppy_tracker/`, and local icons in `brand/`. The manifest
+uses the optional `pets` category for Marketplace discovery. The minimum
+supported Home Assistant release remains 2026.9.4; using Marketplace from
+2026.11 does not itself require raising that baseline. Finished NL/EN
+translations ship with the integration. Cards remain bundled, automatically
+served ES modules, not separately installed Marketplace plugins.
+
+Marketplace replaces the integration directory during an update. Persistent
+records use Home Assistant Store; managed files use
+`<config>/puppy_tracker/files`, outside the integration directory, so no
+`persistent_directory` entry or file migration is needed for these stores.
+The README distinguishes Marketplace installation on 2026.11+ from HACS on
+older supported releases. Existing HACS installations/custom repositories are
+adopted by Marketplace; users should not remove or recreate their litter data.
+See the [official publisher guide](https://contributors.home-assistant.io/marketplace/guides/integrations/).
+
+CI retains matching pytest harnesses for 2026.9.4 and 2026.10.4. The PyPI
+pytest-homeassistant-custom-component harness has not yet published a 2026.11
+match, so a separate `runtime-compatibility` job installs pinned 2026.11.0 and
+its native frontend package from `requirements_ha_runtime.txt`. It executes
+`scripts/check-ha-runtime.py` using a disposable config and loopback HTTP
+server, without mocked HA APIs or an overridden/mismatched fixture package.
+Native config-flow setup, platform/entity registration, service-based data
+creation/weighing, HTTP module serving, authenticated dashboard WebSocket access
+and unload/reload persistence must pass. Version assertions prevent accidentally
+running this check against another runtime. Runtime diagnostics are uploaded
+and any failure fails the normal CI/release gate.
+
+This supplements the full pytest/browser suites, not substitutes for them.
+It does not test a Marketplace catalog/download, an actual HACS migration,
+file replacement during an update, a browser render or a complete HA process
+restart. Those manual checks remain part of release verification. Once a
+matching fixture package is published, validate it before adding 2026.11 to
+the full pytest matrix and updating the default local fixture pin. See
+[local runtime instructions](../tests/README.md#native-runtime-compatibility-home-assistant-202611).

@@ -4,7 +4,9 @@ This directory contains the regression test suite for the **Puppy Tracker** Home
 
 The suite is intended to protect the parts of the integration where a regression could silently change stored puppy data, monitoring results, correction history, exports, or timezone handling.
 
-> The tests use an in-memory Puppy Tracker storage instance. They do **not** read from or write to the `.storage/puppy_tracker` data of a real Home Assistant installation.
+> Pytest uses isolated test storage; the native-runtime check uses a disposable
+> configuration directory. Neither reads from or writes to the data of a real
+> Home Assistant installation.
 
 ## What is tested
 
@@ -105,7 +107,7 @@ npx playwright install chromium webkit
 
 - `pytest`
 - `pytest-timeout`
-- `pytest-homeassistant-custom-component` pinned to the current tested stable
+- `pytest-homeassistant-custom-component` pinned to the tested
   Home Assistant release, 2026.10.4.
 
 The Home Assistant pytest package provides the Home Assistant test harness and fixtures such as `hass` and `enable_custom_integrations`.
@@ -123,6 +125,43 @@ Backend CI runs the full Python suite against Home Assistant 2026.9.4 and
 supported baseline is 2026.9.4. Local `.venv` uses the pinned 2026.10.4 harness;
 reinstall `requirements_test.txt` to replace an older beta harness. Keep a
 separate virtual environment if you need to reproduce the baseline job locally.
+
+## Native runtime compatibility (Home Assistant 2026.11)
+
+CI also runs `scripts/check-ha-runtime.py` against the real Home Assistant
+2026.11.0 and its matching frontend package. As of 2026-11-04, the published pytest
+harness stops at 2026.10.4, so this is an additional runtime check, **not** a
+claim that the full pytest suite runs on 2026.11. Do not override the old
+harness's pinned Home Assistant dependency or invent a future harness version.
+Add the matching harness to the full matrix once it is published and verified.
+
+Use a separate local environment to keep the existing pytest setup intact:
+
+```sh
+.venv/bin/python -m venv .venv-ha-2026.11
+.venv-ha-2026.11/bin/python -m pip install -r requirements_ha_runtime.txt
+.venv-ha-2026.11/bin/python scripts/check-ha-runtime.py --expect-version 2026.11.0
+```
+
+This check is separate from `npm run test:all`. On Windows, use the matching
+`Scripts/python.exe` paths. The script verifies the exact Home Assistant version
+before running, starts native Home Assistant on a temporary loopback-only HTTP
+port, creates a synthetic litter/puppy, records a weight and checks native entity
+registration. It checks real HTTP delivery of the Workspace and imported
+JavaScript modules, an authenticated dashboard WebSocket request, and native
+integration unload/reload with unchanged stored measurements. Everything uses
+a disposable config directory, including the temporary test user/token.
+
+Core may install additional pinned integration dependencies on the first run;
+allow internet access for this setup. Full frontend startup can also report
+unrelated camera/FFmpeg performance warnings when optional native libraries are
+absent. These are not mocks or failed Puppy Tracker assertions. CI runs this
+check separately with a three-minute step limit and uploads its log on failure.
+
+The script does **not** download through Marketplace, migrate a real HACS
+installation or render a browser. Verify those installation/upgrade paths
+manually on a disposable HA instance; Playwright covers card rendering and
+interaction separately. No real litter data or user configuration is touched.
 
 ## Run all local checks
 

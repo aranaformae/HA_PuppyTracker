@@ -62,9 +62,12 @@ only the manifest or add a second independent frontend version.
    require repeating the same local browser tests. Record any limits. Remote CI
    still runs every required check for the exact release commit, once. Do not
    dismiss unexplained failures or disable checks to make a release pass.
-4. When relevant, verify real-device workflows, HACS upgrade, browser-cache
+4. When relevant, verify real-device workflows, Marketplace/HACS upgrade, browser-cache
    refresh, notifications and restart behavior. Record what was actually
    checked; automated WebKit is not a real iPhone/Companion App test.
+   On HA 2026.11+, also check first-install loading without a restart and an
+   installed update with a restart. Keep existing HACS migration separate from
+   the native-runtime check, which only verifies setup, routes and reload.
 5. Commit the reviewed files explicitly, then commit any separate version-only
    change as `Release v<version>`. Create an annotated `v<version>` tag on that
    exact commit, then push `main` and the tag atomically without force.
