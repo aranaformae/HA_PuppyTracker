@@ -11,11 +11,11 @@ installation can still recover the locally persisted active session.
 
 > **Pre-1.0 backup contract:** new exports use backup format **v7**. The restore workflow also accepts production backup formats **v4/v5/v6** for backward compatibility. Earlier experimental v2/v3 backups are intentionally rejected because backup/restore was not yet considered production-stable when those formats existed.
 
-## Open Data management
+## Open Backup and import
 
 1. Open **Settings → Devices & services → Puppy Tracker**.
 2. Open **Configure**.
-3. Choose **Data and maintenance → Data management**.
+3. Choose **Data and maintenance → Backup and import**.
 4. Choose **Export backup** or **Import / restore backup**.
 
 ## Export options
@@ -33,12 +33,13 @@ Use this for disaster recovery. A current full v7 backup contains the authoritat
   dossier records, settings and audit history;
 - reusable owner/contact records with shared split addresses and contact notes,
   plus every separate litter dossier (placement, payment schedule, actual balance,
-  ordered preferences, litter notes, archive state and history), unassigned legacy
+  ordered preferences, actual payment receipts and void history, litter notes,
+  archive state and history), unassigned legacy
   dossiers and puppy links to those contacts;
 - portable care-reminder preferences such as category toggles and the default notification lead time;
-- age-based care-program definitions, including optional per-program notification lead-time overrides;
+- age-based and finite-treatment care-program definitions, including notification lead-time overrides and weight-based amount settings;
 - user-owned care-program templates, including general and day-specific instructions;
-- recurring-reminder definitions, including optional per-reminder notification lead-time overrides;
+- recurring-reminder definitions, including notification lead-time overrides and weight-based amount settings;
 - quarantined scheduler definitions preserved byte-for-byte as opaque compatibility data where possible.
 
 Scheduler and template definitions remain in their existing dedicated stores; the v7 backup envelope carries snapshots of those stores, together with owner data and the main database, so disaster recovery can restore them as one coordinated operation. Built-in care templates are code-defined and are not replaced by a restore.
@@ -49,7 +50,7 @@ Before a v5/v6/v7 full backup is emitted, Puppy Tracker validates active schedul
 
 ### One complete litter
 
-Exports one litter with all puppies, full measurement/correction history, dossier records and the audit history belonging to that litter. This is an importable v7 partial backup. Global settings and scheduler stores are not included. The report card's JSON-nestback-up button produces this same format; it is not a full installation backup.
+Exports one litter with all puppies, full measurement/correction history, dossier records and the audit history belonging to that litter. This is an importable v7 partial backup. Litter-specific growth settings, the weighing schedule and feeding preferences travel with the litter. Global settings and scheduler stores are not included. The report card's JSON-nestback-up button produces this same format; it is not a full installation backup.
 
 ### One individual puppy
 
@@ -76,8 +77,8 @@ also be called from an automation. The path must be inside the Home Assistant
 configuration directory and must end in `.json`.
 It cannot point into the public `www` directory, including through a symlink.
 User-originating calls require an administrator; trusted HA automations without
-a user context remain supported. The status sensor reports `backup_failed` on
-failure without exposing the raw exception text.
+a user context remain supported. On failure the status sensor reports `error`
+with `last_error: backup_failed`, without exposing the raw exception text.
 
 ```yaml
 action:
@@ -105,7 +106,13 @@ The action fields have Home Assistant UI selectors, so scope, timestamping and
 retention can be configured without writing YAML. YAML remains useful when the
 same action is part of a scheduled automation.
 
-The diagnostic sensor `sensor.puppy_tracker_laatste_backup` changes to `ok` after a successful backup or `error` after a failed attempt. The attributes `last_backup_at`, `path`, `scope`, `file_count` and `last_error` can be used by automations for monitoring.
+The diagnostic **Puppy Tracker last backup** sensor starts at `unknown`, changes
+to `ok` after success and to `error` after failure. The failure code
+`backup_failed` belongs to its `last_error` attribute, not its main state.
+The other attributes are `last_backup_at`, `path`, `scope` and `file_count`.
+Select the actual sensor in Home Assistant; its entity ID can differ after
+renaming. These attributes describe the backup-to-file action, not proof that a
+manually downloaded file is stored safely outside Home Assistant.
 
 ## Import safety model
 
@@ -142,7 +149,7 @@ For a complete restore:
 
 1. Export a **Complete Puppy Tracker backup** regularly and store it outside Home Assistant.
 2. In the replacement or recovered Home Assistant installation, install a Puppy Tracker version that supports backup format v7/v6/v5/v4 and storage schema 7/8/9 restore.
-3. Open **Data and maintenance → Data management → Import / restore backup**.
+3. Open **Data and maintenance → Backup and import → Import / restore backup**.
 4. Upload the full JSON backup.
 5. Choose **Replace all current Puppy Tracker data with this backup**.
 6. Review the dry-run counts and integrity warnings carefully.
@@ -157,7 +164,7 @@ Portable care-reminder preferences are restored. Delivery state is rebuilt inste
 ## Transfer one puppy to another litter
 
 1. On the source installation, export **One individual puppy**.
-2. On the destination installation, open **Data and maintenance → Data management → Import / restore backup** and upload that JSON file.
+2. On the destination installation, open **Data and maintenance → Backup and import → Import / restore backup** and upload that JSON file.
 3. Choose one of the following:
    - **Create a new litter from the backup** to create a new litter using the source litter name, birth date and parent metadata; or
    - **Add to an existing litter** and choose the destination litter.
@@ -180,7 +187,7 @@ Because merge-as-new changes litter and puppy identities, a v5/v6/v7 full backup
 
 A v5/v6/v7 full backup with an empty scheduler envelope can still be merged as new. A legacy v4 merge keeps the destination installation's existing scheduler stores and global care-reminder preferences.
 
-Use full replacement only for intentional disaster recovery. Use merge-as-new when both the current and backup datasets need to remain available and the backup contains no scheduler identity data that would require remapping. For a quick litter transfer, use the importable litter v7 export from the report card or Data management.
+Use full replacement only for intentional disaster recovery. Use merge-as-new when both the current and backup datasets need to remain available and the backup contains no scheduler identity data that would require remapping. For a quick litter transfer, use the importable litter v7 export from the report card or **Backup and import**.
 
 ## Compatibility
 

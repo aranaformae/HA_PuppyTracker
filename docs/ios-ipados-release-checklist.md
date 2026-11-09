@@ -13,7 +13,7 @@ Use this checklist before a release that changes dashboard cards, frontend loadi
 
 ## Upgrade and cold start
 
-- [ ] Upgrade Puppy Tracker from the previous released version through HACS.
+- [ ] Upgrade Puppy Tracker from the previous released version through Marketplace or HACS, as appropriate for the installation.
 - [ ] Perform a full Home Assistant restart.
 - [ ] Open the Puppy Tracker dashboard from a cold Companion App start.
 - [ ] Confirm all configured Puppy Tracker cards appear without `Custom element doesn't exist`, `Configuratiefout`, or a delayed configuration error.
@@ -27,11 +27,11 @@ Use this checklist before a release that changes dashboard cards, frontend loadi
 - [ ] Weight input accepts numeric input and keeps focus while Home Assistant state updates arrive.
 - [ ] Start weighing session, save a weight, and reset the session.
 - [ ] Scroll below a Workspace with `preset: mobile`, leave the Weighing tab active for at least 30 seconds and confirm background updates do not move the page to the top.
-- [ ] Switch among Weighing, Quick Log, Today and Care today and confirm the surrounding dashboard keeps its scroll position.
+- [ ] Switch among Weighing, Quick Log, Today and Carry out care and confirm the surrounding dashboard keeps its scroll position.
 - [ ] Open Calculator, type a decimal comma and decimal point, and confirm keyboard focus and page position stay stable while live updates arrive.
 - [ ] Confirm Calculator shows the latest weight/time per puppy, marks stale or missing weights and excludes missing weights from the litter total.
 - [ ] Disable `show_litter_selector` and confirm the nest control is absent on Weighing, Quick Log, Today and Care while their other selectors remain usable.
-- [ ] Complete a Care today item, enter configured result/score/note values and confirm the dialog closes without moving the page.
+- [ ] Complete a Carry out care item, enter configured result/score/note values and confirm the dialog closes without moving the page.
 - [ ] The Home preset Attention tab loads alerts/upcoming actions after data arrives.
 - [ ] The Journal preset Temperature tab loads the selected nest, owner scope and period without clipped selectors.
 - [ ] Temperature can save a reading with an observation and shows it in the latest-reading area and history.
@@ -55,7 +55,7 @@ Use this checklist before a release that changes dashboard cards, frontend loadi
 - [ ] Create a general note.
 - [ ] Select the linked mother as a dossier owner when available.
 - [ ] Create at least one structured record type (feeding, vaccination, deworming, medication, test, vet visit, or milestone).
-- [ ] Confirm Dossier, Quick Log and Multiple puppies expose the same ten general categories and their matching structured fields.
+- [ ] Confirm Dossier, Quick Log and Multiple puppies expose the same eleven general categories, including Daily care, with their matching structured fields.
 - [ ] Switch Quick Log between two structured categories and confirm each category retains its own unsaved draft values.
 - [ ] Save a Quick Log note for the first puppy, select a different puppy and open Note again; confirm the selection and saved owner remain the second puppy. Repeat with mother and whole-litter ownership.
 - [ ] Configure a default puppy, then manually select another owner. Confirm saving, cancelling and live updates do not switch back to the configured puppy.
@@ -63,7 +63,7 @@ Use this checklist before a release that changes dashboard cards, frontend loadi
 - [ ] Move a dossier record between puppy, mother and litter owners and confirm it appears only under the new owner.
 - [ ] Change an ordinary record's type while editing and confirm entered values are preserved where expected; care results and behavior observations keep their specialized type locked.
 - [ ] Edit an existing record using its pencil without enabling a separate edit mode.
-- [ ] Open the same saved item from Dossier, Timeline, Today/Mobile and its applicable Attention, Temperature or Behavior history; confirm the dialog uses its original owner and values.
+- [ ] Open the same saved item from Dossier, Today/Mobile and its applicable Attention, Temperature or Behavior history; confirm the dialog uses its original owner and values.
 - [ ] Open the aggregate All scope and edit/delete/restore an existing litter, mother and puppy record.
 - [ ] Open a care-program result and verify status, result, score and day-specific instruction are visible; edit the supported result fields.
 - [ ] Create an age-based ENS/ESI program and confirm its short result form still records an observation.
@@ -82,12 +82,18 @@ Use this checklist before a release that changes dashboard cards, frontend loadi
 - [ ] Select a puppy and switch between one-puppy and all-puppies chart focus.
 - [ ] Open measurement management.
 - [ ] Edit a measurement and verify the corrected value appears.
-- [ ] Use a weight item's pencil in Timeline or Today and confirm it opens a measurement correction rather than a dossier form.
+- [ ] Use a weight item's pencil in Dossier or Today and confirm it opens a measurement correction rather than a dossier form.
 - [ ] Delete and restore a measurement.
 - [ ] Confirm tapping a chart point still opens/highlights its measurement on touch devices.
 - [ ] Confirm every puppy line and each weight/growth subgraph use the puppy's collar colour.
 - [ ] Verify that a slowing growth-rate label does not present itself as actual weight loss when the newest weight is still higher.
 - [ ] Check reached and projected birth-weight milestones, including confidence/range text when enough samples exist.
+
+## Growth and weight-based amounts
+
+- [ ] Check the litter's weighing-age bands around a boundary and after the final age; old measurements must not hide an actual weight-loss warning.
+- [ ] Open the litter comparison, weekly figures and historical filters; gaps and insufficient reference samples must remain explicit.
+- [ ] Check a weight-based care/reminder amount with a fresh, expired and missing weight. Confirm the actual administered amount remains editable before saving.
 
 ## Behavior and calculator
 

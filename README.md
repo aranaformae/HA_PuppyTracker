@@ -1,129 +1,102 @@
 # Puppy Tracker for Home Assistant
 
-Puppy Tracker is a Home Assistant custom integration for managing a litter, its
-mother dog and individual puppies. It combines weighing and growth monitoring
-with dossiers, temperature logging, care schedules, reminders, owner contacts,
-longitudinal behavior observations, reports and backups.
+Puppy Tracker helps you manage puppy litters from birth through handover:
+weighing and growth, daily observations, care schedules, owner contacts,
+payments, documents and backups.
 
-> **Personal project:** I originally developed Puppy Tracker for my own use.
-> Suggestions, practical tips and ideas for improvements are very welcome. Feel
-> free to share them through [GitHub Issues](https://github.com/aranaformae/HA_PuppyTracker/issues)!
+> **Personal project:** I developed Puppy Tracker for my own use. Suggestions,
+> practical tips and improvements are welcome through
+> [GitHub Issues](https://github.com/aranaformae/HA_PuppyTracker/issues).
 
-> **Status:** Puppy Tracker is pre-1.0. Back up your data before updating because
-> compatibility changes are still possible before 1.0.
+> **Pre-1.0:** compatibility changes are still possible. Make a full JSON backup
+> before updating. Home Assistant **2026.9.4 or newer** is supported.
 
-Home Assistant 2026.9.4 or newer is the supported baseline.
+**New to Puppy Tracker?** Start with the
+[practical Dutch user manual](docs/GEBRUIKERSHANDLEIDING.md). It explains basic
+actions step by step, without requiring YAML or programming knowledge.
+For English instructions, use the task guides in the [documentation index](docs/README.md).
 
-## What You Can Do
+## What you can do
 
-- Manage multiple litters, mother dogs and puppies.
-- Record weights with collar-colour charts, correction history and growth
-  monitoring, interrupted-session recovery and Undo for the last saved weighing.
-- Compare development with littermates and earlier own litters, with optional
-  eight-week charts and weekly details in Growth.
-- Keep separate dossiers for the whole litter, the mother and every puppy.
-- Quickly log feeding, daily observations, temperature, medication, tests, vaccination,
-  deworming, veterinary visits, milestones and notes.
-- Use recurring reminders and age-based care programs such as ENS, ESI and
-  deworming schedules.
-- Complete daily care from the Home, Care or Mobile workspace.
-- Calculate per-kilogram amounts or kibble/meat rations from the latest puppy
-  weights, with separate food portions and litter totals.
-- Score repeated behavior observations per puppy and build a neutral profile
-  over time.
-- Store owner/contact, placement and payment information, record an ordered top
-  three puppy shortlist with notes, and link contacts to puppies later.
-- Show weight-based care and feeding amounts, with an adjustable maximum age for the weight used.
-- Configure weighing intervals by puppy age per litter, including an end to planned weighing reminders.
-- Let Home Assistant automations react to care becoming due or changes in puppy attention.
-- Create configurable PDF reports with central breeder details and export CSV or JSON data.
-- Create puppy information sheets, payment overviews, receipts for individual recorded payments,
-  reservation notes, handover records and checklists from Dutch/English [document templates](docs/DOCUMENT_TEMPLATES.md).
-  Check missing details and retain generated PDFs in a private archive.
-- Make validated manual or automated JSON backups.
+- Weigh puppies, correct measurements without losing history and compare growth
+  with littermates or earlier own litters.
+- Keep separate litter, mother and puppy dossiers, including temperature,
+  feeding, daily care and repeated behavior observations.
+- Plan and carry out care programs, finite treatments and recurring reminders.
+- Calculate per-kg amounts or daily kibble/meat portions from recorded weights.
+- Manage reusable owner contacts, litter-specific placement/payment details,
+  puppy preferences and final puppy links.
+- Export PDF dossiers and CSV data, create documents from editable templates,
+  and make complete manual or automated JSON backups.
 
-Puppy Tracker is a registration and monitoring aid. Its templates, growth
-indicators and estimates are not veterinary advice or diagnoses.
-
-Owner/contact and payment details, reports, exports and custom data-management
-actions require a Home Assistant administrator. Dashboard information is shared
-with authenticated HA users; Puppy Tracker is not a private portal per owner.
-See [Security and privacy](docs/SECURITY_PRIVACY.md) for the exact permissions.
+Puppy Tracker is a registration and monitoring aid. Calculated amounts, growth
+estimates, templates and observations are not veterinary advice or diagnoses.
+Owner/contact information, payments, documents and exports require a Home
+Assistant administrator. Ordinary dashboard information is shared with
+signed-in HA users; this is not a private portal for puppy buyers.
+See [Security and privacy](docs/SECURITY_PRIVACY.md) for the permission boundaries.
 
 ## Installation
 
-### Marketplace (Home Assistant 2026.11 and newer)
+### Marketplace — Home Assistant 2026.11 and newer
 
-1. Open **Settings -> Marketplace**.
+1. Open **Settings → Marketplace**.
 2. Add `https://github.com/aranaformae/HA_PuppyTracker` as a custom repository
-   with category **Integration** if it is not listed yet.
-3. Install **Puppy Tracker**. On a first install it can load without a restart.
-4. Open **Settings -> Devices & services -> Add integration** and search for
-   **Puppy Tracker** if setup did not open automatically.
+   with category **Integration** if needed.
+3. Install **Puppy Tracker**. A first installation can load without a restart.
+4. If setup did not open, choose **Settings → Devices & services → Add
+   integration → Puppy Tracker**.
 
-Marketplace takes over existing HACS installations and custom repositories;
-an existing Puppy Tracker installation does not need to be removed or recreated.
-See the [Home Assistant Marketplace guide](https://contributors.home-assistant.io/marketplace/how-it-works/).
+Marketplace takes over existing HACS installations and custom repositories.
+Do not remove or recreate Puppy Tracker to migrate. See the
+[official Marketplace explanation](https://contributors.home-assistant.io/marketplace/how-it-works/).
 
-### HACS (Home Assistant 2026.9.4–2026.10)
+### HACS — Home Assistant 2026.9.4 through 2026.10
 
-1. Open **HACS -> Integrations**.
+1. Open **HACS → Integrations**.
 2. Add `https://github.com/aranaformae/HA_PuppyTracker` as a custom repository
-   if it is not listed yet.
-3. Install **Puppy Tracker**.
-4. Restart Home Assistant.
-5. Open **Settings -> Devices & services -> Add integration** and search for
-   **Puppy Tracker**.
+   with category **Integration** if needed.
+3. Install **Puppy Tracker** and restart Home Assistant.
+4. Choose **Settings → Devices & services → Add integration → Puppy Tracker**.
 
-### Manual
+### Manual installation
 
-Copy `custom_components/puppy_tracker/` to
-`/config/custom_components/puppy_tracker/`, restart Home Assistant and add the
-integration through **Settings -> Devices & services**.
+Copy `custom_components/puppy_tracker/` into your Home Assistant configuration's
+`custom_components/` directory, restart Home Assistant and add the integration
+through **Settings → Devices & services**.
 
-After an update, restart Home Assistant and fully refresh the browser or
-Companion App when a dashboard still shows an older card.
+After an **update**, restart Home Assistant. Fully refresh the browser or
+Companion App if the dashboard still displays an older card.
 
-## Getting Started
+## First use
 
-1. Add or select a mother dog and create a litter in the integration options.
-2. Add the puppies, including birth time, birth weight, collar colour and
-   optionally a chip number.
-3. Add a Workspace card to a dashboard and choose the Home, Growth, Journal,
-   Care or Mobile preset in its visual editor.
-4. Use the **Weigh** tab for weights and **Quick Log** or **Dossier** for daily
-   observations. Use **Calculator** in Care or Mobile for per-kilogram amounts
-   or daily feeding portions, including age-specific tables and optional kcal
-   allocation, and **Behavior** for scored puppy observations.
-5. Add recurring reminders or care programs when scheduled actions are needed.
-6. Create a full JSON backup after the initial setup.
+1. Open **Puppy Tracker → Configure → Nests and puppies**. Create a litter and
+   fill in the parent details.
+2. Add the puppies with their names, collar colours, birth times and birth
+   weights. Unknown optional information can be completed later.
+3. Add a **Workspace** dashboard card and choose a preset in the visual editor.
+4. Use **Weigh** for weights, **Quick Log** for new observations and **Dossier**
+   for finding or correcting saved entries.
+5. Create a full backup through **Configure → Data and maintenance → Backup
+   and import → Export backup**. Keep a copy outside Home Assistant.
 
-Administrators starting without a litter see a **Getting started** checklist in
-the Home and Mobile Workspace. It follows the actual setup progress and can be
-hidden or reopened with the checklist icon. Existing litters remain opt-in.
+Home and Mobile offer a **Getting started** checklist to administrators.
+Its steps follow the actual saved data; the checklist icon reopens it.
 
-In the integration options, **Nests and puppies** is the single entry for
-adding and changing litters and puppies. Choose a litter once (automatic for
-one litter), then select a puppy, add another or edit the litter details from
-the same list. Saving returns to that list for quick sequential editing.
-Archive/delete actions are separate and require confirmation. The litter
-form groups parent and growth fields in collapsible sections.
-Growth thresholds and notification delivery are under
-**Growth and notifications**; backups, measurement corrections and integrity
-checks are under **Data and maintenance**. An integrity check first previews
-issues and only repairs them after you confirm.
+## Dashboard cards
 
-## Dashboard Cards
+The integration loads its cards automatically. Add them through the dashboard
+card chooser; the Workspace editor exposes options for the selected preset.
 
-The integration serves and registers its cards automatically. The Workspace
-visual editor changes its option groups when a different preset is selected;
-the same settings can also be written in YAML.
-
-| Card | YAML type | Main use |
-| --- | --- | --- |
-| Workspace | `custom:puppy-tracker-workspace-card` | Home, Growth, Journal, Care or Mobile workflow |
-| Owners | `custom:puppy-tracker-owner-card` | Manage contacts and puppy links |
-| Report | `custom:puppy-tracker-report-card` | Create PDF, CSV and JSON exports |
+| Card | Purpose |
+| --- | --- |
+| **Workspace — Home** | Today, attention items and puppy overview |
+| **Workspace — Growth** | Weighing and growth analysis |
+| **Workspace — Journal** | Dossier, Quick Log, behavior and temperature |
+| **Workspace — Care** | Carry out care, calculator, programs and reminders |
+| **Workspace — Mobile** | Daily tasks together on a phone or tablet |
+| **Owners** | Contacts, puppy links, preferences and payments |
+| **Report & export** | PDF/CSV/JSON, documents and templates |
 
 Example phone card:
 
@@ -133,164 +106,44 @@ preset: mobile
 title: Puppy Tracker
 ```
 
-> **Breaking change in 0.25.0:** the former standalone dashboard card types
-> are no longer public or supported in dashboard YAML. Replace them with a
-> Workspace preset. Owners and Report keep their existing types. The migration
-> table is in [Dashboard cards](docs/DASHBOARD_CARDS.md#migrating-from-024).
+Only Workspace, Owners and Report are supported public card types. Old
+standalone cards were replaced in 0.25.0; the duplicate Timeline tab was removed
+in 0.29.0. Follow the [migration guide](docs/DASHBOARD_CARDS.md#migrating-from-024)
+for older dashboard YAML. Saved records are still available in Dossier.
 
-See [Dashboard cards](docs/DASHBOARD_CARDS.md) for card options, initial scope
-selection and focused examples. A complete six-view dashboard is available as
-[example YAML](docs/examples/puppy-tracker-dashboard.yaml).
+## Find the right instructions
 
-## Daily Use
+| Task | Guide |
+| --- | --- |
+| Basic daily actions, in simple Dutch | [User manual](docs/GEBRUIKERSHANDLEIDING.md) |
+| Dashboard layout and card options | [Dashboard cards](docs/DASHBOARD_CARDS.md) |
+| Weighing, milestones and nest comparisons | [Growth](docs/GROWTH_ANALYSIS.md) |
+| Find, edit or move a saved entry | [Dossier history](docs/DOSSIER_HISTORY.md) |
+| Care programs and templates | [Care programs](docs/CARE_PROGRAMS.md) |
+| Reminders, notifications and lead times | [Notifications](docs/NOTIFICATIONS.md) |
+| Per-kg calculations and feeding portions | [Calculator](docs/CALCULATOR.md) |
+| Weight-based care amounts and stale weights | [Weight-based amounts](docs/WEIGHT_BASED_AMOUNTS.md) |
+| Contacts, puppy links and payments | [Owners](docs/puppy-dossiers.md#ownercontact-card) |
+| PDF dossiers, contact CSV and backups | [Reports](docs/REPORTS_EXPORTS.md), [backup and restore](docs/backup-restore.md) |
+| Documents and breeder logo | [Templates](docs/DOCUMENT_TEMPLATES.md), [logo upload](docs/MANAGED_FILES.md) |
 
-### Owner scopes
+The [documentation index](docs/README.md) also covers temperature, behavior,
+preference matching and automations. Implementation details belong in
+[Architecture](docs/ARCHITECTURE.md); development and tests are in
+[Contributing](CONTRIBUTING.md) and [Local tests](tests/README.md).
 
-Dossier and care data always belongs to the **whole litter**, the linked
-**mother dog** or one **puppy**. Choosing the correct owner matters because
-filters, reminders, reports and completion matching use that ownership.
+## If something looks wrong
 
-Dossier combines care entries and optional weights in one history. Existing
-items remain editable in All. **New entry** asks for an explicit owner when
-opened from All, so a new observation is never assigned to the litter by default.
+- Check the selected litter, dossier owner, date range and category filters.
+  Selecting no categories deliberately shows no matching items.
+- Use **Record completion** for work just carried out; **Edit** changes an
+  existing entry. **Mark as seen** only acknowledges an alert.
+- Refresh the dashboard after updating. Inspect **Settings → System → Logs**
+  for `puppy_tracker` errors if a problem remains.
+- In older HACS, a missing update icon can be a
+  [known HACS limitation](https://github.com/hacs/integration/issues/5171#issuecomment-6222990878),
+  even when the integration icon is present in Devices & services.
+- Keep the original JSON backup until restored data has been checked. PDFs and
+  CSV files are readable exports, not restorable backups.
 
-Use the pencil beside an existing item to open the shared editor, including
-from Today on mobile, Temperature and Behavior history. Weight items open a
-correction instead. Quick Log keeps your chosen owner after saving or changing
-category. See [Dossier history](docs/DOSSIER_HISTORY.md) for filters, details and editing.
-Across cards, **Edit** changes an existing dossier item, **Correct measurement**
-preserves a weight's earlier version, and **Record completion** creates a new
-entry for a due reminder or care action. A status such as **Completed** describes
-an already saved action.
-Quick Log defaults to **Log only**, without completing reminders. Select an
-open reminder explicitly to save a new entry and complete only that reminder.
-For feeding and medication, **Use previous entry** fills an editable draft for
-the chosen owner with a fresh time. Check the values, especially the dose,
-before saving; nothing is logged automatically.
-Tests and veterinary visits can include a follow-up date. When it becomes due,
-**Record completion** opens a new entry with reusable details already filled;
-the original result or visit stays in the history.
-
-### Reminders and care programs
-
-Use a recurring reminder when the next action follows the last completion, a
-fixed daily time or one date. Use a care program when actions are tied to each
-puppy's age. For medication or deworming over a fixed period, choose
-**Treatment** in Care programs and select the pups, dates and times. Record the
-actual product and amount for each pup when carrying out a treatment. Care
-results are saved in the puppy dossier.
-Use **Postpone once** to move only the pending reminder moment, without changing
-its recurrence. You can cancel postponement from Today/Mobile or Reminders.
-
-In the Care workspace, **Daily** contains **Carry out care** and Calculator;
-**Management** contains Care programs and Reminders. Administrators can use
-the settings icon to open the integration's litter settings.
-Carry out care combines programs, recurring reminders and dossier follow-ups
-in one list, with filters for each source. Check the actual details before
-recording completion as a new logbook entry. Today's list also keeps overdue
-care visible; reminders show their current open moment. Programs remain
-available even when excluded from Attention. Every care action uses the same
-save-and-cancel controls. ENS/ESI stays short: day instructions and only the
-configured result, score and note fields. Treatments also show the actual
-product and amount. See
-[Age-based care programs](docs/CARE_PROGRAMS.md) and
-[Notifications](docs/NOTIFICATIONS.md).
-
-### Owners and puppy identity
-
-The Owners card keeps one reusable contact with a separate dossier per litter
-for placement, payments and an optional top-three puppy shortlist with notes.
-Filter by litter or status, or search contacts. Sold puppies stay visible until
-placed; placed and archived dossiers remain available through the status filter.
-Rows show pickup dates and outstanding amounts, with relevant next actions.
-The visible-owner count and **Clear filters** help find hidden contacts. An
-expandable pickup schedule groups the selected dossiers by date.
-Sort the list, use quick contact actions, and check possible duplicate contacts
-without losing a draft or blocking legitimate shared contact details.
-Contacts can be assigned to a litter before a puppy is chosen, and reused for
-later litters without overwriting earlier payments. A puppy's chip number,
-registered/nest name, call name, coat colour and breed/type are separate
-profile fields. Parent profiles can store registered/call names, birth date,
-breed/type, WALA number and microchip number. Owner addresses use separate street,
-postal-code and city fields; these contract-ready values are available in owner
-CSV and PDF reports.
-
-Within a litter dossier, **Payments received** records each new payment with
-its actual amount, date, type, method and optional reference. Mistakes can be
-voided with a reason; the original entry stays visible. Older payment figures
-and the outstanding balance remain separate until you reconcile them manually.
-
-The shortlist is planning information only: it does not reserve a puppy, change
-its placement status or create the final owner link. Switch the Owners card to
-**Preference matrix** to compare the ranked choices per litter, identify shared
-first choices and inspect preference notes or existing links. Narrow cards
-automatically use a puppy-focused list instead of a wide table.
-
-See [Puppy dossiers and owners](docs/puppy-dossiers.md) and the focused
-[owner puppy-preference matrix guide](docs/OWNER_PREFERENCE_MATRIX.md).
-
-## Reports And Backups
-
-- **PDF** is a readable puppy, litter or mother dossier with selectable sections, dossier
-  categories, report profiles, owner information, care results and
-  collar-colour charts. Individual puppy reports can include the derived
-  behavior profile and its observation history. Choose Dutch or English and
-  check the content summary before downloading.
-  Mother reports have separate identity, temperature, completed care and dossier
-  sections, with history from one litter or all linked litters.
-- **CSV** from Report contains effective weight measurements for analysis;
-  Owners has a separate contact and contract-data CSV for mail merge.
-- **JSON** is the importable backup and transfer format.
-
-Report/export sections show which litter, puppy and period they use. Documents
-and contracts have their own puppy and buyer selection. Opening Documents can
-prefill the report puppy, but never changes a form you have started. A whole-litter
-or mother report requires choosing a puppy explicitly for a document.
-
-Use **Settings -> Devices & services -> Puppy Tracker -> Configure -> Data
-management** for manual backup and restore. The `puppy_tracker.backup_to_file`
-action can create timestamped rotating backups from a Home Assistant
-automation.
-The `puppy_tracker.add_dossier_record` action can add a nest, mother or puppy
-entry from an automation; see [Home Assistant actions](docs/HOME_ASSISTANT.md).
-
-Read [Backup, restore and transfer](docs/backup-restore.md) before restoring or
-moving data.
-
-## Documentation
-
-The [documentation index](docs/README.md) links the user and technical guides.
-See the [changelog](CHANGELOG.md) for recent changes and
-[contributing guide](CONTRIBUTING.md) for reporting problems or sharing improvements.
-The most useful starting points are:
-
-- [Dashboard cards](docs/DASHBOARD_CARDS.md)
-- [Weighing and growth analysis](docs/GROWTH_ANALYSIS.md)
-- [Calculator and feeding portions](docs/CALCULATOR.md)
-- [Logo uploads and managed files](docs/MANAGED_FILES.md)
-- [Puppy dossiers and owners](docs/puppy-dossiers.md)
-- [Temperature card](docs/temperature-card.md)
-- [Behavior observations](docs/BEHAVIOR.md)
-- [Reports and exports](docs/REPORTS_EXPORTS.md)
-- [Automation events](docs/AUTOMATION_EVENTS.md)
-- [Age-based care programs and template format](docs/CARE_PROGRAMS.md)
-- [Notifications](docs/NOTIFICATIONS.md)
-- [Backup, restore and transfer](docs/backup-restore.md)
-- [Home Assistant entities and actions](docs/HOME_ASSISTANT.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Local tests](tests/README.md)
-
-## Troubleshooting
-
-- Restart Home Assistant after installing or updating the integration.
-- Fully refresh the dashboard when a card looks older than the installed
-  release.
-- Verify that the correct litter and owner scope are selected when data appears
-  in an unexpected dossier.
-- Check **Settings -> System -> Logs** for `puppy_tracker` errors.
-- Keep the original JSON backup until imported data and schedules have been
-  checked.
-
-## License
-
-See [LICENSE](LICENSE).
+See the [changelog](CHANGELOG.md) for changes and [LICENSE](LICENSE) for the license.

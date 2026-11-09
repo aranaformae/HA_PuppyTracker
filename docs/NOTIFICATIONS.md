@@ -7,8 +7,9 @@ does not stop schedules, dossier completion or dashboard attention items.
 
 ## Configure notifications
 
-Open **Settings -> Devices & services -> Puppy Tracker -> Configure ->
-Notifications**. The available preferences include:
+Open **Settings → Devices & services → Puppy Tracker → Configure →
+Growth and notifications → Manage notifications → Notification preferences**.
+The available preferences include:
 
 - general Puppy Tracker notifications;
 - default notification lead time;
@@ -21,7 +22,7 @@ The default lead time is used when a recurring reminder or care program leaves
 its own **Notify before** value empty. Per-item values accept 0 through 10080
 minutes. A value of 0 waits until the due time.
 
-Open **Growth and notifications → Notifications → Dossier reminders** to configure vaccination and
+Open **Growth and notifications → Manage notifications → Dossier reminders** to configure vaccination and
 deworming notifications for dossier entries with a next due date. Set the
 lead time in whole days (0-30) and enable or disable each category separately.
 This days-based window is separate from the minutes-based care-program and

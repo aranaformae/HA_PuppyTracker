@@ -1,7 +1,8 @@
 # Standalone Feeding Calculator Specification
 
-This specification describes the feeding calculator released with Puppy Tracker
-v0.28.15. It can be rebuilt as a public, mobile-first web tool for puppy owners,
+This specification describes the current feeding-calculator contract in
+`feeding.py` and `puppy-tracker-feeding-calculator.js`. A standalone website is
+not bundled with the integration; this describes how it can be rebuilt as a public, mobile-first web tool for puppy owners,
 without Home Assistant, integration credentials or access to breeder records.
 For the integration's user-facing instructions, see [CALCULATOR.md](CALCULATOR.md).
 

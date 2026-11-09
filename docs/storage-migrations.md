@@ -45,7 +45,9 @@ Every migrated fixture is then loaded a second time. The second load must be **i
 
 The separate `puppy_tracker_owners` Store keeps Home Assistant Store version 1,
 but its data envelope now has `version: 2`. This does not change main storage
-schema 9 or full backup format 6. Contacts have shared personal data plus a
+schema 9. Full backups currently use format v7 (owner dossiers were already
+supported before v7); storage and backup version numbers are independent.
+Contacts have shared personal data plus a
 `placements` map keyed by litter ID and an optional `unassigned_placement`.
 
 Legacy flat payment, preference and placement data moves to a litter only when

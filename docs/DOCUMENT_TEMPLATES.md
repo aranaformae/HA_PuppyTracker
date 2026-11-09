@@ -256,13 +256,16 @@ Templates are plain text with substitution, not HTML, Markdown, Jinja or DOCX.
 There are no executable expressions, loops or external file includes. Unknown
 fields, invalid blocks and unsupported format versions are rejected.
 
-Optional watermark settings within version 1:
+Optional watermark settings within version 1. Merge these keys into a complete
+template; this settings object alone is not an importable template:
 
 ```json
-"logo": false,
-"watermark": true,
-"watermark_type": "text",
-"watermark_text": "CONCEPT"
+{
+  "logo": false,
+  "watermark": true,
+  "watermark_type": "text",
+  "watermark_text": "CONCEPT"
+}
 ```
 
 `watermark_type` accepts `text` or `logo`; `watermark: false` switches either
@@ -276,10 +279,12 @@ these options.
 | --- | --- |
 | `fokker.` | `naam`, `vertegenwoordigers`, `straat`, `postcode`, `plaats`, `telefoon`, `email`, `registratie`, `ubn`, `iban`, `rekeninghouder` |
 | `koper.` | `naam`, `straat`, `postcode`, `plaats`, `telefoon`, `email` |
-| `nest.` | `naam` |
-| `pup.` | `nestnaam`, `naam`, `bandkleur`, `geboortedatum`, `geslacht`, `vachtkleur`, `chipnummer`, `soort` |
+| `nest.` | `naam`, `geboortedatum` |
+| `pup.` | `nestnaam`, `naam`, `bandkleur`, `geboortedatum`, `geboortetijd`, `geboortegewicht`, `huidig_gewicht`, `gewicht_gemeten_op`, `profielnotitie`, `geslacht`, `vachtkleur`, `chipnummer`, `soort` |
 | `vader.` / `moeder.` | `nestnaam`, `naam`, `geboortedatum`, `chipnummer`, `soort`, `registratie` |
 | `betaling.` | `totaal`, `inschrijfgeld`, `aanbetaling`, `datum_aanbetaling`, `slotbetaling`, `datum_slotbetaling`, `openstaand` |
+| `ontvangst.` | `bedrag`, `datum`, `soort`, `betaalwijze`, `referentie`, `notitie` |
+| `plaatsing.` | `status`, `datum` |
 | `overdracht.` | `datum` |
 | `contract.` | `datum`, `plaats` |
 

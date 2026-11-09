@@ -197,7 +197,7 @@ When **Dossier items** is enabled, its expandable filters control two separate
 dimensions:
 
 - sources: whole-litter records, selected-puppy records, both or neither;
-- categories: any combination of Note, Feeding, Temperature, Vaccination,
+- categories: any combination of Note, Feeding, Daily care, Temperature, Vaccination,
   Test/result, Deworming, Medication, Vet visit, Milestone and Other.
 
 For an individual puppy report, enabling both sources prints matching

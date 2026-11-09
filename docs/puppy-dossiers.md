@@ -497,15 +497,26 @@ offers each individual status, all dossiers or archived dossiers. Select a cell
 to read the complete preference note or open
 that owner in the editor.
 
-On a narrow card, the matrix automatically becomes a per-puppy list. Choose a
-puppy to see interested owners in rank order without horizontally scrolling the
-dashboard. These views never reserve, sell or link a puppy automatically.
+On a narrow card, the matrix offers compact lists **By puppy** and **By owner**.
+Choose a puppy to see interested owners in rank order, or an owner to inspect
+their shortlist without horizontally scrolling the dashboard. These views never reserve, sell or link a puppy automatically.
 
 See [Owner puppy-preference matrix](OWNER_PREFERENCE_MATRIX.md) for the complete
 matching workflow, exact inclusion and counting rules, signal legend, mobile
 behavior and troubleshooting.
 
 ### Payments
+
+The expanded owner has two separate groups: **Financial** holds the agreed
+payment schedule and manually maintained balance; **Payments received** holds
+actual receipts. In the correct litter dossier choose **Add receipt**, enter
+amount, date, kind and method, and optionally a reference or note. An incorrect
+receipt can be voided with a reason; it remains in the history.
+
+Adding or voiding a receipt does not automatically change the manual balance,
+payment status, deposit or final-payment date. Conversely, recording payment in
+full below does not create a receipt. A payment-receipt document needs an actual,
+non-voided receipt. Complete backups preserve these events and their void history.
 
 The final-payment amount is shown as a calculated read-only value:
 `total amount - registration fee - deposit`. **Actual outstanding amount** is a

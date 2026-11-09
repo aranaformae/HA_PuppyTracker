@@ -62,8 +62,9 @@ from active operational lists where applicable.
 - Mother dogs are persistent Home Assistant devices so one mother identity can
   be linked to several litters. Their dossier is managed through Puppy Tracker
   cards rather than a separate sensor set.
-- **Puppy Tracker last backup** reports `ok` or `error` and exposes the last
-  backup time, path, scope, file count and error in its attributes.
+- **Puppy Tracker last backup** starts at `unknown`, then reports `ok` or
+  `error` for the backup-to-file action. It exposes time, path, scope, file count
+  and `last_error`; `backup_failed` is an error attribute, not the sensor state.
 
 ## Home Assistant actions
 
@@ -78,7 +79,7 @@ data:
   name: Luna 2026
   birth_date: "2026-10-01"
   mother: Luna
-  mother_registered_name: Milky Way Moonlight
+  mother_registered_name: Example Moonlight
   mother_birth_date: "2022-05-06"
   mother_breed: Multi-generation Australian Labradoodle
   mother_wala_number: WALA-MOTHER
@@ -103,7 +104,7 @@ action: puppy_tracker.add_puppy
 data:
   litter_id: 00000000-0000-0000-0000-000000000000
   name: Rood
-  registered_name: Milky Way Aurora
+  registered_name: Example Aurora
   collar_color: rood
   coat_color: Caramel
   breed: Multi-generation Australian Labradoodle

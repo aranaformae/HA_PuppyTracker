@@ -4,12 +4,17 @@ This index separates day-to-day use from implementation and maintenance
 details. Start with the root [README](../README.md) for installation and a short
 feature overview.
 
+For step-by-step daily tasks in simple Dutch, start with the
+[gebruikershandleiding](GEBRUIKERSHANDLEIDING.md). The task guides below give
+more detail; implementation and release procedures stay in the technical section.
+
 ## User guides
 
 | Guide | Contents |
 | --- | --- |
+| [Eenvoudige gebruikershandleiding (Nederlands)](GEBRUIKERSHANDLEIDING.md) | First setup, weighing, logging, care, owners/payments, reports, documents and backups without YAML |
 | [Dashboard cards](DASHBOARD_CARDS.md) | Workspace presets, visual editor, recommended layout, migration and YAML options |
-| [Weighing and growth analysis](GROWTH_ANALYSIS.md) | Weighing workflow, metric meanings, monitoring, trends and milestones |
+| [Weighing and growth analysis](GROWTH_ANALYSIS.md) | Weighing, age-based intervals, milestones, eight-week nest comparisons and historical references |
 | [Calculator and feeding portions](CALCULATOR.md) | Per-kilogram amounts, configurable kibble/meat methods, kcal allocation and separate portions |
 | [Puppy dossiers and owners](puppy-dossiers.md) | Ownership scopes, shared item editing, Quick Log selection, contacts, puppy preferences and payments |
 | [Dossier history](DOSSIER_HISTORY.md) | One combined history, owner choice, compact details, filters, weight corrections and Timeline migration |
@@ -19,7 +24,7 @@ feature overview.
 | [Reports and exports](REPORTS_EXPORTS.md) | Puppy/litter/mother PDF sections, profiles, filters, CSV and JSON behavior |
 | [Documents and contracts](DOCUMENT_TEMPLATES.md) | Template editor, buyer/puppy fields, checked PDFs, immutable archive and template exchange |
 | [Logo uploads and managed files](MANAGED_FILES.md) | Central breeder logo, private storage, backup and restore |
-| [Age-based care programs](CARE_PROGRAMS.md) | Programs, built-in templates and the template JSON format |
+| [Care programs and treatments](CARE_PROGRAMS.md) | Age-based programs, finite treatments, built-in templates and the template JSON format |
 | [Weight-based amounts](WEIGHT_BASED_AMOUNTS.md) | Per-kg quantities, weight-age tolerance, per-puppy litter lists and execution hints |
 | [Notifications](NOTIFICATIONS.md) | Reminder delivery, lead times, mobile clearing and test workflow |
 | [Backup, restore and transfer](backup-restore.md) | Manual/automatic backup, restore and partial transfer |
@@ -31,6 +36,7 @@ feature overview.
 | Guide | Contents |
 | --- | --- |
 | [Architecture](ARCHITECTURE.md) | Data ownership, stores, APIs, frontend contracts and extension rules |
+| [Treatment design record](TREATMENT_WORKFLOW_DESIGN.md) | Rationale for the implemented finite-course variant of care programs; daily instructions are in the user guides |
 | [Contributing](../CONTRIBUTING.md) | Bug reports, feature requests, local setup and contribution expectations |
 | [Commit and release conventions](RELEASING.md) | Versioning, changelog maintenance, gated publication and failure handling |
 | [Changelog](../CHANGELOG.md) | Curated recent release changes and links to earlier releases |

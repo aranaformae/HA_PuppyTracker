@@ -187,6 +187,15 @@ end_age_days
 interval_days
 time_of_day
 result_fields
+target_puppy_ids
+start_date
+end_date
+times_of_day
+timezone
+treatment_product
+planned_dose
+planned_unit
+planned_route
 ```
 
 Changing one of these fields before any result exists increments the program revision. Operational toggles such as `enabled`, `notifications_enabled` and `notification_lead_minutes`, and presentation-only `description`, do not change occurrence identity.
@@ -237,12 +246,13 @@ occurrence as missed. See [Security and privacy](SECURITY_PRIVACY.md).
 
 ## Care-program templates
 
-`care_templates.py` owns a separate user-template store. The Care Programs card exposes four built-in, read-only starters:
+`care_templates.py` owns a separate user-template store. The Care Programs card exposes five built-in, read-only starters:
 
 - ENS: 14 daily occurrences from age day 3, with step-by-step handling instructions;
 - ESI: 14 daily occurrences from age day 3, with one day-specific scent suggestion per age day;
 - deworming: occurrences at 2, 4, 6 and 8 weeks, with a veterinary disclaimer;
-- daily neonatal check: a daily check from age day 0 through day 14.
+- daily neonatal check: a daily check from age day 0 through day 14;
+- treatment: a one-day finite-course starter with editable dates and times.
 
 Templates contain the fields needed to create a care program, including schedule, result fields, attention/notification settings, general instructions and optional `instructions_by_age`. Users can save an existing program as a user-owned template, edit it externally as JSON, download all visible templates and import them again. Built-in IDs are reserved and cannot be overwritten or deleted.
 

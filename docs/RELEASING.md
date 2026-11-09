@@ -62,6 +62,10 @@ only the manifest or add a second independent frontend version.
    require repeating the same local browser tests. Record any limits. Remote CI
    still runs every required check for the exact release commit, once. Do not
    dismiss unexplained failures or disable checks to make a release pass.
+   The isolated HA 2026.11 check is separate: run
+   `.venv-ha-2026.11/bin/python scripts/check-ha-runtime.py --expect-version 2026.11.0` when integration
+   setup, native entities, routes or reload behavior changes. It is not a full
+   pytest run on that HA version; see [test environments](../tests/README.md).
 4. When relevant, verify real-device workflows, Marketplace/HACS upgrade, browser-cache
    refresh, notifications and restart behavior. Record what was actually
    checked; automated WebKit is not a real iPhone/Companion App test.

@@ -429,6 +429,10 @@ export ordinary functions; their callers determine a fixed, reviewable order.
 A new one-card behavior should live in that card or be imported directly by it,
 never depend on replacing a prototype later in the sequence.
 
+User-facing setup and daily actions are explained in the
+[plain-language Dutch manual](GEBRUIKERSHANDLEIDING.md). This document describes
+the implementation contracts rather than replacing that guide.
+
 ## Integration identity
 
 ```text
@@ -530,9 +534,13 @@ CareProgramTemplateStore
 
 OwnerStore
 └── reusable owner/contact profiles{}
-    ├── contact, placement and payment fields
-    ├── puppy_preferences[] -> {puppy_id, note}
-    └── status_history[]
+    ├── shared contact/address fields and notes
+    ├── placements{litter_id}
+    │   ├── placement and manual payment fields
+    │   ├── puppy_preferences[] -> {puppy_id, note}
+    │   ├── payment receipts and void history
+    │   └── status_history[] and litter notes
+    └── unassigned legacy dossier, when present
 ```
 
 The recurring-reminder, age-based-care and care-template stores are intentionally separate from the main dossier storage. Owner/contact profiles are also reusable records outside the puppy profile. Dossier records describe facts that happened; scheduling definitions and templates describe future rules or reusable configuration. Derived reminder/care occurrences are projections and are not persisted as a second task database.
@@ -1984,9 +1992,9 @@ initial scopes. The aggregate
 `all` view combines litter, mother and puppy records where supported. Existing
 items in that combined Dossier view keep an internal source scope and source
 puppy id, so edit, delete, restore and owner-change actions are sent to the
-correct owner API. The add action is intentionally available only after a
-specific litter, mother or puppy scope is selected; this prevents a new item
-from being stored under an implicit owner. Quick Log deliberately keeps an
+correct owner API. The add action is also available in aggregate Dossier scope, but opens an
+explicit owner chooser before saving; a new item never receives an implicit
+aggregate owner. Quick Log deliberately keeps an
 explicit single owner selection because applying an aggregate default to a new
 log entry could store the action under the wrong owner.
 

@@ -188,9 +188,9 @@ the planning record should also reflect the choice.
 
 **The matrix is empty**
 
-Confirm that the litter contains puppies. Then add a preference, create an
-owner/co-owner without preferences, or link an existing contact to a puppy in
-that litter.
+Confirm that the litter contains puppies. Then add the contact to that litter with a litter dossier,
+add a preference in that dossier, or link an existing contact to a puppy in
+that litter. A contact role alone does not create a litter association.
 
 **The old card is still visible after updating**
 

@@ -1,7 +1,8 @@
 # Treatments within care programs (design)
 
-Status: implemented in the working tree. Finite course schedules, selected-pup
-results, reusable relative templates, explicit stopping and per-pup progress
+Status: implemented. This document records the design rationale; see
+[Care programs](CARE_PROGRAMS.md) for current usage and configuration. Finite
+course schedules, selected-pup results, reusable relative templates, explicit stopping and per-pup progress
 are implemented. Course moments use the same dossier editor as standalone and
 follow-up administrations; age-based ENS/ESI still use their short result form.
 
@@ -16,12 +17,12 @@ This addresses [issue #11](https://github.com/aranaformae/HA_PuppyTracker/issues
 and reuses the current deworming and vaccination follow-up workflows. Issue #12
 is about test and veterinary-visit follow-up fields, not deworming.
 
-## Why the existing program needs extension
+## Why the age-based model was extended
 
-Today `care_programs.py` defines a program for a litter; `care_occurrences.py`
+The original `care_programs.py` model defined a program for a litter; `care_occurrences.py`
 derives one occurrence per active puppy at a configured age day, with at most
 one clock time per day. `care_results.py` saves each result as a dossier record.
-That already fits the existing nest-wide deworming program. It does not yet fit
+That fits a nest-wide deworming program, but did not cover
 an individual course starting on a chosen calendar date or requiring several
 administrations on one day. Generic recurring reminders support multiple
 daily times, but have no finite course boundary or independent result per
@@ -68,8 +69,11 @@ course. Each puppy gets a separate scheduled moment and separate result.
 
 The first version supports a bounded local-date range with one or more fixed
 times per day. The user enters the dates and times; Puppy Tracker does not
-recommend or calculate a product, dose, interval or duration. The Calculator
-may copy a value into an editable draft only when explicitly requested.
+choose a product, dose, interval or duration. The Calculator is read-only;
+users review and enter the actual quantity.
+Optional [weight-based amounts](WEIGHT_BASED_AMOUNTS.md) provide a hint from
+the latest valid weight, with a configurable maximum weight age. Such a hint
+is never evidence that a dose was administered.
 Vaccination stays a standalone or age-based action in the first version;
 finite courses cover medication and, where needed, deworming.
 
@@ -141,32 +145,33 @@ normal frontend and PDF.
 - Dossier shows what actually happened, including missed results as such.
 - PDF follows its existing category and period choices. Only selected
   medication/deworming records appear; a planned dose is never reported as
-  administered. A short course summary may appear when its category is enabled.
-- Backup/restore and partial transfers carry the extended care-program
-  definition and linked dossier records. Old backups and records remain valid;
+  administered. Stored instructions remain part of the selected care results.
+- Complete backups carry care-program definitions and linked dossier records.
+  Partial puppy/litter transfers carry dossier records, not scheduler definitions.
+  Old backups and records remain valid;
   no historical medication record is automatically turned into a program.
 - Dutch and English labels distinguish **Plan treatment**, **Register
   administration**, **Mark missed**, **Stop treatment** and saved statuses.
 
 ## Implementation sequence and acceptance checks
 
-1. Completed in the working tree: extend care-program normalization and
+1. Implemented: extend care-program normalization and
    occurrence derivation with a bounded selected-puppy schedule; keep legacy
    occurrence IDs stable. Save per-moment completed/missed results, show the
    treatment form in Care, Today and Attention, and label course moments in
    notifications and PDF care rows.
-2. Completed in the working tree: reuse dossier administration field
+2. Implemented: reuse dossier administration field
    definitions in the care result form; add relative templates, stop reason,
    per-pup progress, full-backup round-trip coverage and PDF result labels.
-3. Completed in the working tree: advisory overlap review against other care
+3. Implemented: advisory overlap review against other care
    programs, recurring reminders and dossier follow-up dates, without changing
    their schedules.
-4. Completed in the working tree: course moments use the dossier editor for
+4. Implemented: course moments use the dossier editor for
    actual administration fields, date/time, note and missed status. Existing
    PDF export tests cover completed and missed course results.
-5. Completed locally: the Python suite and full browser suite pass, with
-   course completion and missed-status checks on desktop, iPhone and iPad.
-   The workflow still needs verification in a real Home Assistant installation.
+5. Automated regression coverage includes course completion and missed-status
+   checks on desktop and emulated iPhone/iPad. This does not replace checking
+   the workflow in a real Home Assistant installation and on actual devices.
 
 Test selected-puppy targeting, multiple times on one day, age-based program
 compatibility, standalone and follow-up records, duplicate/stale requests,

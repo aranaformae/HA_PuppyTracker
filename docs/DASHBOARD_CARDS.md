@@ -229,10 +229,11 @@ Clearing the query leaves owner and category filters unchanged. Search terms are
 not persisted or exported. See [Dossier editing](puppy-dossiers.md#one-editing-workflow).
 
 Quick Log, Dossier and the Journal **Multiple puppies** action share one
-category schema: Note, Feeding, Temperature, Vaccination, Test/result,
+category schema: Note, Feeding, Daily care, Temperature, Vaccination, Test/result,
 Deworming, Medication, Vet visit, Milestone and Other. Their structured fields
-and required-field validation therefore stay aligned. Quick Log also keeps a
-Stool/urine shortcut that saves a titled note. Bulk Log remains puppy-only,
+and required-field validation therefore stay aligned. Daily care replaces the
+former Stool/urine shortcut and requires a care area and observation. Bulk Log
+remains puppy-only,
 while Quick Log can write to the litter, mother or one puppy.
 The **Multiple puppies** action fixes the litter, selected puppies and shared
 values when saving starts. Selection, form changes and Workspace navigation
@@ -488,7 +489,7 @@ drafts; changing user or losing administrator access clears private card data.
 
 Selecting an owner reveals independently
 collapsible categories: **Contact details**, **Address details**, **Placement**,
-**Top 3 puppy preferences**, **Financial**, **Notes** and **Status history**.
+**Top 3 puppy preferences**, **Financial**, **Payments received**, **Notes** and **Status history**.
 Notes keeps general contact notes and litter-specific notes separately labelled.
 Contact, placement and notes start open; the remaining categories start closed.
 Open/closed choices are retained separately for each owner during the card session,
@@ -497,8 +498,9 @@ the card or make service calls. Notes use the full available width and remain
 fully readable without truncation when expanded. The ordered top-three shortlist
 has one short note per preference. The shortlist is
 planning data; it does not alter placement status or create a puppy link. Its
-selectors include puppies from all available litters and label them with litter
-and call name. Puppy linking remains a separate step. **Export CSV** downloads
+selectors include puppies from the selected litter dossier and label them with
+litter, call name and collar colour where distinct. Puppy linking remains a
+separate step. **Export CSV** downloads
 one Word/Excel-friendly row per owner-puppy link
 and retains unlinked candidates once per visible litter dossier, with empty
 puppy columns. The shared **Status filter** defaults to **Active (including
@@ -536,8 +538,9 @@ selection across tabs. An optional switch reduces the table to first-choice
 conflicts. Selecting a populated cell exposes its complete note
 and an edit action without rerendering the matrix.
 
-At narrow card widths the same information becomes a puppy-focused list with a
-puppy selector. This avoids horizontal page overflow on mobile while retaining
+At narrow card widths choose a compact list **By puppy** or **By owner**, with
+a selector for the focused puppy or contact. This avoids horizontal page
+overflow on mobile while retaining
 rank, note, placement status and link information. The matrix remains planning
 support only: use **Link owner to puppy** in the management view for an
 authoritative link.
@@ -608,7 +611,8 @@ importable litter backup and therefore does not follow presentation filters.
 | `internal` | Main sections except owner contact details |
 
 Configure breeder identity once under **Puppy Tracker -> Configure -> Breeder
-information**. Use a local HA PNG/JPEG path such as `/local/kennel-logo.png`;
+information**. Prefer **Upload logo** to store a PNG/JPEG inside the integration.
+A local HA image path such as `/local/kennel-logo.png` remains a fallback;
 invalid images use the bundled logo instead. The old `breeder_name`,
 `breeder_contact` and `logo_url` card fields no longer apply: copy their values
 into the integration form once. The Report card only controls visibility.
