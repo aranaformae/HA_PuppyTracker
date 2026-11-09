@@ -11,10 +11,10 @@ payments, documents and backups.
 > **Pre-1.0:** compatibility changes are still possible. Make a full JSON backup
 > before updating. Home Assistant **2026.9.4 or newer** is supported.
 
-**New to Puppy Tracker?** Start with the
-[practical Dutch user manual](docs/GEBRUIKERSHANDLEIDING.md). It explains basic
-actions step by step, without requiring YAML or programming knowledge.
-For English instructions, use the task guides in the [documentation index](docs/README.md).
+**New to Puppy Tracker?** Start with the practical user manual:
+[English](docs/USER_MANUAL.md) or [Nederlands](docs/GEBRUIKERSHANDLEIDING.md).
+It explains basic actions step by step, without requiring YAML or programming
+knowledge. The [documentation index](docs/README.md) links to detailed task guides.
 
 ## What you can do
 
@@ -115,7 +115,7 @@ for older dashboard YAML. Saved records are still available in Dossier.
 
 | Task | Guide |
 | --- | --- |
-| Basic daily actions, in simple Dutch | [User manual](docs/GEBRUIKERSHANDLEIDING.md) |
+| Basic daily actions, in simple language | [English](docs/USER_MANUAL.md), [Nederlands](docs/GEBRUIKERSHANDLEIDING.md) |
 | Dashboard layout and card options | [Dashboard cards](docs/DASHBOARD_CARDS.md) |
 | Weighing, milestones and nest comparisons | [Growth](docs/GROWTH_ANALYSIS.md) |
 | Find, edit or move a saved entry | [Dossier history](docs/DOSSIER_HISTORY.md) |

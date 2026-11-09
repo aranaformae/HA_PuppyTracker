@@ -12,7 +12,7 @@ they have not been reconstructed as a complete historical changelog.
 
 ### Changed
 
-- Add a plain-language Dutch guide for everyday tasks and shorten the main
+- Add plain-language Dutch and English guides for everyday tasks and shorten the main
   README. Align the focused guides with current settings menus, care workflows,
   owner payments, template fields, backups and dashboard navigation.
 

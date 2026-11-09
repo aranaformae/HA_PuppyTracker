@@ -1,5 +1,7 @@
 # Puppy Tracker: eenvoudig aan de slag
 
+[Nederlands](GEBRUIKERSHANDLEIDING.md) · [English](USER_MANUAL.md)
+
 Deze handleiding is voor dagelijks gebruik. Je hoeft niet te programmeren of
 YAML te schrijven. De namen hieronder horen bij een Nederlandstalige Home
 Assistant. In een instellingenformulier heet de bevestigingsknop soms

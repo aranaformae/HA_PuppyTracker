@@ -4,14 +4,15 @@ This index separates day-to-day use from implementation and maintenance
 details. Start with the root [README](../README.md) for installation and a short
 feature overview.
 
-For step-by-step daily tasks in simple Dutch, start with the
-[gebruikershandleiding](GEBRUIKERSHANDLEIDING.md). The task guides below give
+For step-by-step daily tasks in simple language, start with the user manual in
+[English](USER_MANUAL.md) or [Nederlands](GEBRUIKERSHANDLEIDING.md). The task guides below give
 more detail; implementation and release procedures stay in the technical section.
 
 ## User guides
 
 | Guide | Contents |
 | --- | --- |
+| [Simple user manual (English)](USER_MANUAL.md) | First setup, weighing, logging, care, owners/payments, reports, documents and backups without YAML |
 | [Eenvoudige gebruikershandleiding (Nederlands)](GEBRUIKERSHANDLEIDING.md) | First setup, weighing, logging, care, owners/payments, reports, documents and backups without YAML |
 | [Dashboard cards](DASHBOARD_CARDS.md) | Workspace presets, visual editor, recommended layout, migration and YAML options |
 | [Weighing and growth analysis](GROWTH_ANALYSIS.md) | Weighing, age-based intervals, milestones, eight-week nest comparisons and historical references |
