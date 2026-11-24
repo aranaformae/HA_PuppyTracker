@@ -7,6 +7,7 @@ import {
 import { confirmDiscardForms } from "./puppy-tracker-form-state.js";
 import { recordEditorState, requestCloseRecordEditor } from "./puppy-tracker-record-editor.js";
 import { WorkspaceSetup } from "./puppy-tracker-workspace-setup.js";
+import "./puppy-tracker-section-strategy.js";
 const TAG = "puppy-tracker-workspace-card";
 const EDITOR_TAG = "puppy-tracker-workspace-card-editor";
 

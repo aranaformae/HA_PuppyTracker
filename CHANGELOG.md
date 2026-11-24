@@ -10,6 +10,11 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+### Added
+
+- Add a visual Puppy Tracker section strategy for daily care, growth, journal,
+  mobile and owner/document layouts in the HA 2026.11 dashboard editor.
+
 ### Changed
 
 - Show dependent notification and weighing-schedule fields only when enabled on

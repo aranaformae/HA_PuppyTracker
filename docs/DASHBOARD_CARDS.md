@@ -13,6 +13,35 @@ cards automatically.
 | Owners | `custom:puppy-tracker-owner-card` | Contact, placement, payment and puppy-link management |
 | Report | `custom:puppy-tracker-report-card` | PDF, CSV and JSON export |
 
+## Add a complete section (HA 2026.11+)
+
+In a **Sections** dashboard choose **Edit dashboard → Add section → Automatic
+section → Community sections → Puppy Tracker**. A preview and visual editor let
+you choose a layout, optional title and litter, and whether to show litter selectors:
+
+| Layout | Generated cards |
+| --- | --- |
+| Daily | Home Workspace plus a Care Workspace limited to care execution and Calculator |
+| Growth | Growth Workspace with Weigh and Analysis |
+| Journal | Journal Workspace with Dossier and the logging views |
+| Mobile | Mobile Workspace |
+| Owners and documents | Separate Owners and Report cards |
+
+No data is created or changed by generating a section. Owner/export permissions
+remain enforced by their own cards and APIs. With no fixed litter, choose the
+litter on the cards. The automatic section manages its generated cards; use
+manual Workspace cards if you need individual tab-level configuration. Existing
+manual dashboards and older supported HA versions keep working unchanged.
+
+```yaml
+type: sections
+sections:
+  - strategy:
+      type: custom:puppy-tracker
+      layout: growth
+      show_litter_selector: true
+```
+
 ## Workspace presets
 
 Choose a preset in the visual editor or YAML. Each preset loads only its own

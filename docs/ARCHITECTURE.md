@@ -2466,3 +2466,13 @@ HA keeps ordinary required fields. Hidden notification preferences and saved
 weighing phases are retained by the handler when HA omits them; no UI-only
 visibility is used as validation or permission enforcement. The native runtime
 check exercises the options manager's filtering as well as the serialized schema.
+
+### Generated dashboard sections
+
+The Workspace entry point imports `puppy-tracker-section-strategy.js` once.
+It registers `ll-strategy-section-puppy-tracker` and section metadata, not new
+public cards. Generation is pure configuration: no writes, private reads or
+subscriptions. The editor loads public litter names per user/connection context,
+rejects stale responses and retains its native form/schema during ordinary HA
+updates. Generated sections reuse the existing Workspace, Owners and Report
+permission/lifecycle contracts. Older dashboards remain manual and unchanged.

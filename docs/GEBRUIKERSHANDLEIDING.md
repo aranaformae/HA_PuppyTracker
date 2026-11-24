@@ -63,6 +63,10 @@ het en bevestig. Je hoeft niet alle onderdelen opnieuw in te vullen.
 4. Pas alleen de opties aan die je nodig hebt en sla de kaart op.
 5. Voeg **Baasjes** en **Rapport & export** apart toe als je die wilt gebruiken.
 
+Vanaf Home Assistant 2026.11 kun je ook een complete sectie toevoegen via
+**Dashboard bewerken → Sectie toevoegen → Automatische sectie → Community-secties
+→ Puppy Tracker**. Kies daar een indeling en eventueel een vast nest.
+
 Begin op een telefoon gerust met alleen Mobiel. Je kunt daar wegen, snel
 loggen, zorg uitvoeren en de rekentool gebruiken. Je kunt later aparte
 werkruimtes voor beheer toevoegen. De kaarten worden automatisch geladen;

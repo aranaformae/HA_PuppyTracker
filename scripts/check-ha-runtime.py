@@ -94,7 +94,7 @@ async def check(config_dir: str) -> None:
         async def check_frontend():
             async with ClientSession() as client:
                 for name in ("puppy-tracker-workspace-card.js", "puppy-tracker-overview-card.js",
-                             "puppy-tracker-growth-comparison.js"):
+                             "puppy-tracker-growth-comparison.js", "puppy-tracker-section-strategy.js"):
                     async with client.get(f"http://127.0.0.1:{port}{FRONTEND_URL}/{name}") as response:
                         assert response.status == 200, (name, response.status)
                         assert "text/javascript" in response.headers.get("Content-Type", "")

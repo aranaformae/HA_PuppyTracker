@@ -63,6 +63,10 @@ need, make your changes and submit. You do not need to fill everything in again.
 4. Adjust the options you need and save the card.
 5. Add **Owners** and **Report & export** separately if you want to use them.
 
+On Home Assistant 2026.11+, you can also add a complete section through
+**Edit dashboard → Add section → Automatic section → Community sections →
+Puppy Tracker**. Choose a layout and optionally a fixed litter.
+
 On a phone, you can start with just Mobile. It brings together weighing,
 Quick Log, care and the calculator. You can add separate management workspaces
 later. Cards load automatically; you normally do not need to add dashboard
