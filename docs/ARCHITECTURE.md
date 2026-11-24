@@ -2488,3 +2488,14 @@ backup succeeds; a fresh runtime's unknown status cannot clear it. Native
 for the supported older API. Subscriptions detach on unload without deleting
 issues. Integrity previews use a technical-only dispatcher signal so they do not
 force dashboard rerenders. Registry placeholders contain counts only.
+
+### Isolated practice demo
+
+`demo/` is a separate static practice page, never registered by `frontend.py`.
+It imports production card modules and uses a synthetic, network-free in-memory
+backend. Unknown commands fail explicitly; there is no real-server fallback.
+Default local rendering has no remote dependencies. Optional HA embed rendering
+registers the same handlers through the official provider's `mockWS` API; a
+bounded remote-load attempt falls back locally. Demo records do not use persistent
+storage. Existing browser fixtures test this same model rather than a second
+demo implementation. Native embed assets remain external and are not vendored.

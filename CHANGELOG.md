@@ -12,6 +12,9 @@ they have not been reconstructed as a complete historical changelog.
 
 ### Added
 
+- Add a separate fictional-data practice demo for logging/editing, care, growth
+  and feeding, with optional native Home Assistant embed rendering and local fallback.
+
 - Surface failed file backups and unresolved integrity findings in Home Assistant
   Repairs, retaining ignored state across reloads and clearing resolved issues.
 

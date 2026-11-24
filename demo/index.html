@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Puppy Tracker · Demo</title>
+  <style>
+    :root{color-scheme:light;--primary-color:#00796b;--primary-text-color:#202b35;--secondary-text-color:#5c6974;--card-background-color:#fff;--ha-card-background:#fff;--secondary-background-color:#f0f4f5;--divider-color:#d9e2e5;--text-primary-color:#fff;--error-color:#c62828;--success-color:#267c39;--warning-color:#a36600;--ha-card-border-radius:16px;--ha-card-border-color:#d9e2e5;font:16px/1.5 system-ui,sans-serif;color:var(--primary-text-color);background:#f0f4f5}
+    *{box-sizing:border-box}body{margin:0}header,main{max-width:1080px;margin:auto;padding:20px}header{padding-bottom:0}h1{font-size:1.7rem;margin:0}p{margin:8px 0}a{color:#00685e}.brand{display:flex;align-items:center;gap:14px}.brand img{width:56px;height:56px}.controls,nav{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}button,select{font:inherit;min-height:44px;border:1px solid #bdcdd2;border-radius:10px;padding:8px 14px;background:white;color:inherit;cursor:pointer}button[aria-pressed=true]{background:var(--primary-color);color:white}button:focus-visible,a:focus-visible,select:focus-visible{outline:3px solid #f3b52a;outline-offset:3px}#status{color:var(--secondary-text-color);min-height:24px}#card-host>*,ha-embed-card{display:block;width:100%;min-width:0}ha-card{display:block}#privacy{font-weight:600}.note{font-size:.9rem;color:var(--secondary-text-color)}@media(max-width:600px){header,main{padding:12px}h1{font-size:1.35rem}.controls{gap:6px}button,select{padding:8px 10px}nav button{flex:1}}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand"><img src="../custom_components/puppy_tracker/brand/icon.png" alt=""><h1>Puppy Tracker · Demo</h1></div>
+    <p id="intro">Probeer notities, groei en dagelijkse zorg met een verzonnen nest.</p>
+    <p id="privacy">Alle gegevens zijn fictief. Registraties blijven alleen in het geheugen van deze pagina.</p>
+    <div class="controls">
+      <label><span id="language-label">Taal</span> <select id="language"><option value="nl">Nederlands</option><option value="en">English</option></select></label>
+      <button id="reset" type="button">Demo opnieuw beginnen</button>
+      <button id="renderer" type="button">Home Assistant-weergave</button>
+      <a id="manual" href="../docs/GEBRUIKERSHANDLEIDING.md">Handleiding</a>
+    </div>
+    <nav aria-label="Demo"><button type="button" data-view="journal" aria-pressed="true">Logboek</button><button type="button" data-view="growth" aria-pressed="false">Groei</button><button type="button" data-view="care" aria-pressed="false">Zorg</button></nav>
+    <p id="status" role="status">Demo laden…</p>
+    <p id="scope" class="note">Je kunt notities toevoegen en wijzigen, zorg afvinken en voedingsporties berekenen. Export, configuratie en echte Home Assistant-acties zitten niet in deze demo.</p>
+  </header>
+  <main id="card-host"></main>
+  <dialog id="unavailable" aria-label="Demo"><p id="unavailable-text"></p><form method="dialog"><button>OK</button></form></dialog>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

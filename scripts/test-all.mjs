@@ -2,13 +2,14 @@ import { existsSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { homedir } from "node:os";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 function findJavaScriptFiles(directory) {
   const files = [];
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
-    if (entry.name === ".git" || entry.name === ".venv" || entry.name === "node_modules") {
+    if ([".git", ".venv", "venv", "env", "node_modules"].includes(entry.name) || entry.name.startsWith(".venv-")) {
       continue;
     }
     const path = join(directory, entry.name);
@@ -26,6 +27,7 @@ function run(label, command, args) {
   const result = spawnSync(command, args, {
     cwd: root,
     stdio: "inherit",
+    env: { ...process.env, PYTHONPYCACHEPREFIX: process.env.PYTHONPYCACHEPREFIX || join(homedir(), ".cache", "puppy-tracker", "pycache") },
   });
   if (result.error) {
     console.error(`Could not start ${command}: ${result.error.message}`);

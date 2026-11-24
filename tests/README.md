@@ -14,6 +14,8 @@ The current suite covers the main backend, frontend contract and browser flows.
 
 | Test file | Coverage |
 | --- | --- |
+| `test_repairs.py` / native runtime check | Integrity/backup issue creation and resolution, ignored-state retention, entry ownership and unload/removal cleanup without extra scans |
+| `tests/e2e/section-strategy.spec.mjs` / `tests/e2e/demo.spec.mjs` | Generated public-card sections, stable editor context, isolated demo logging/editing/care/feeding/reset and remote-preview fallback |
 | `test_measurements_and_time.py` | Timezone-safe ordering, timestamp normalization, active/deleted/superseded measurements and deterministic sorting |
 | `test_metrics.py` | Current/previous weight, weight change, normalized 24-hour growth, monitoring status and per-litter threshold fallback |
 | `test_rolling_growth.py` / chart and weighing Playwright specs | 48/72-hour coverage/interpolation, time-weighted averages, correction/deletion isolation, shared anomaly preflight and exact-baseline save confirmation |
@@ -509,3 +511,8 @@ Patch `homeassistant.util.dt.now()` in the module under test. Existing metrics a
 The goal of this suite is not maximum line coverage. Its priority is protecting
 data integrity, correction history, monitoring calculations, timezone
 behavior, frontend workflows and exports as Puppy Tracker approaches 1.0.
+
+The all-checks runner excludes `.venv-*`, `.venv`, `venv`, `env` and
+`node_modules` from JavaScript discovery. Python compilation/tests use an external
+bytecode cache (or `PYTHONPYCACHEPREFIX` when explicitly set), so obsolete synced
+virtual environments and cached bytecode are not accidentally inspected.

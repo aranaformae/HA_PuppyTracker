@@ -11,6 +11,9 @@ Gebruik een Home Assistant-account met beheerdersrechten om gegevens toe te
 voegen of te wijzigen. Gewone gebruikers kunnen de meeste overzichten bekijken,
 maar krijgen niet alle knoppen en geen toegang tot baasjesgegevens of exports.
 
+Wil je eerst oefenen? De [losse demo](DEMO.md) gebruikt alleen verzonnen
+gegevens en maakt geen verbinding met je Home Assistant.
+
 ## Waar vind ik wat?
 
 | Ik wil… | Waar moet ik zijn? |

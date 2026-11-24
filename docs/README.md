@@ -14,6 +14,7 @@ more detail; implementation and release procedures stay in the technical section
 | --- | --- |
 | [Simple user manual (English)](USER_MANUAL.md) | First setup, weighing, logging, care, owners/payments, reports, documents and backups without YAML |
 | [Eenvoudige gebruikershandleiding (Nederlands)](GEBRUIKERSHANDLEIDING.md) | First setup, weighing, logging, care, owners/payments, reports, documents and backups without YAML |
+| [Practice demo](DEMO.md) | Try logging, editing, care and growth with fictional data; optional native HA preview |
 | [Dashboard cards](DASHBOARD_CARDS.md) | Workspace presets, visual editor, recommended layout, migration and YAML options |
 | [Weighing and growth analysis](GROWTH_ANALYSIS.md) | Weighing, age-based intervals, milestones, eight-week nest comparisons and historical references |
 | [Calculator and feeding portions](CALCULATOR.md) | Per-kilogram amounts, configurable kibble/meat methods, kcal allocation and separate portions |

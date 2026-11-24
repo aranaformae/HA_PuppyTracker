@@ -16,6 +16,9 @@ payments, documents and backups.
 It explains basic actions step by step, without requiring YAML or programming
 knowledge. The [documentation index](docs/README.md) links to detailed task guides.
 
+You can also [try the cards with fictional data](docs/DEMO.md) in a separate
+local practice demo, without connecting to Home Assistant.
+
 ## What you can do
 
 - Weigh puppies, correct measurements without losing history and compare growth

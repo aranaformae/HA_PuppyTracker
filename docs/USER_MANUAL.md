@@ -10,6 +10,9 @@ Use a Home Assistant administrator account to add or change information.
 Other users can view most everyday overviews, but do not have all controls or
 access to owner contact information and exports.
 
+Want to practice first? The [separate demo](DEMO.md) uses fictional data and
+does not connect to your Home Assistant.
+
 ## Where do I find things?
 
 | I want to… | Where to go |

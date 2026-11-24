@@ -94,6 +94,27 @@ async def check(config_dir: str) -> None:
         assert settings["notify_recovery"] and settings["notify_session_complete"]
         print("PASS: native conditional forms preserve hidden notification preferences", flush=True)
 
+        phases = [{"until_age_days": days, "interval_hours": hours}
+                  for days, hours in ((10, 7), (28, 24), (42, 48), (52.5, 72))]
+        storage._data["litters"][litter_id]["growth_analysis"]["weighing_schedule"] = {
+            "enabled": True, "phases": phases}
+        options = await hass.config_entries.options.async_init(entry.entry_id)
+        options = await hass.config_entries.options.async_configure(
+            options["flow_id"], {"next_step_id": "manage_litter"})
+        options = await hass.config_entries.options.async_configure(
+            options["flow_id"], {"puppy_id": "__edit_litter__"})
+        sections = {key.schema: value for key, value in options["data_schema"].schema.items()}
+        fields = {key.schema: key for key in sections["weighing_section"].schema.schema}
+        assert fields["weighing_phase_1_hours"].visible == {"field": "weighing_schedule_enabled", "value": True}
+        options = await hass.config_entries.options.async_configure(options["flow_id"], {
+            "basic": {"name": "Runtime test litter"},
+            "weighing_section": {"weighing_schedule_enabled": False}})
+        assert not options.get("errors"), options
+        assert storage.get_litter(litter_id)["growth_analysis"]["weighing_schedule"] == {
+            "enabled": False, "phases": phases}
+        hass.config_entries.options.async_abort(options["flow_id"])
+        print("PASS: native nested form filtering preserves disabled weighing-age bands", flush=True)
+
         try:
             await hass.services.async_call(DOMAIN, "backup_to_file", {
                 "path": "www/blocked.json"}, blocking=True)
