@@ -7,6 +7,12 @@ does not stop schedules, dossier completion or dashboard attention items.
 
 ## Configure notifications
 
+On HA 2026.11+, recovery and session-completion options appear only while
+general notifications are enabled; the lead-time field appears while recurring
+notifications are enabled. Switching these off retains their saved values.
+Recipient selection stays available because it is shared by notification types.
+Older supported HA releases show all fields.
+
 Open **Settings → Devices & services → Puppy Tracker → Configure →
 Growth and notifications → Manage notifications → Notification preferences**.
 The available preferences include:

@@ -329,6 +329,10 @@ bijvoorbeeld dagelijks wilt laten uitvoeren.
 
 ## 11. Meldingen instellen
 
+Vanaf Home Assistant 2026.11 verschijnen extra meldingsopties pas als je de
+bijbehorende meldingen inschakelt. Uitschakelen bewaart de eerdere instellingen.
+Hetzelfde geldt voor de leeftijdsfasen bij het weegschema van een nest.
+
 Open **Configureren → Groei en meldingen → Meldingen beheren**.
 Bij **Meldingsvoorkeuren** kies je onder andere de standaardmeldingstijd en de
 telefoons die meldingen mogen ontvangen. Controleer eerst een **Testmelding

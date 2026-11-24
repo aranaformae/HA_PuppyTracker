@@ -28,6 +28,7 @@ from .const import (
 from .notification_delivery import async_send_notify_entities, normalize_notify_entities
 from .care_reminders import MAX_CARE_REMINDER_LEAD_DAYS
 from .runtime import get_runtime_data
+from .flow_fields import required_when
 
 
 class NotificationSettingsMixin:
@@ -213,13 +214,19 @@ class NotificationSettingsMixin:
                     recurring_reminder_notifications_enabled=bool(
                         user_input["recurring_reminder_notifications_enabled"]
                     ),
-                    notify_recovery=bool(user_input["notify_recovery"]),
+                    notify_recovery=bool(user_input.get(
+                        "notify_recovery", settings.get("notify_recovery", DEFAULT_NOTIFY_RECOVERY)
+                    )),
                     notify_session_complete=bool(
-                        user_input["notify_session_complete"]
+                        user_input.get("notify_session_complete", settings.get(
+                            "notify_session_complete", DEFAULT_NOTIFY_SESSION_COMPLETE
+                        ))
                     ),
                     notify_entities=notify_entities,
                     notification_lead_minutes=int(
-                        user_input["notification_lead_minutes"]
+                        user_input.get("notification_lead_minutes", settings.get(
+                            "notification_lead_minutes", DEFAULT_NOTIFICATION_LEAD_MINUTES
+                        ))
                     ),
                 )
                 async_dispatcher_send(self.hass, SIGNAL_UPDATE, None)
@@ -249,8 +256,9 @@ class NotificationSettingsMixin:
                             DEFAULT_RECURRING_REMINDER_NOTIFICATIONS_ENABLED,
                         ),
                     ): selector.BooleanSelector(),
-                    vol.Required(
+                    required_when(
                         "notification_lead_minutes",
+                        "recurring_reminder_notifications_enabled",
                         default=settings.get(
                             "notification_lead_minutes",
                             DEFAULT_NOTIFICATION_LEAD_MINUTES,
@@ -264,12 +272,14 @@ class NotificationSettingsMixin:
                             mode=selector.NumberSelectorMode.BOX,
                         )
                     ),
-                    vol.Required(
+                    required_when(
                         "notify_recovery",
+                        "notifications_enabled",
                         default=settings.get("notify_recovery", DEFAULT_NOTIFY_RECOVERY),
                     ): selector.BooleanSelector(),
-                    vol.Required(
+                    required_when(
                         "notify_session_complete",
+                        "notifications_enabled",
                         default=settings.get(
                             "notify_session_complete",
                             DEFAULT_NOTIFY_SESSION_COMPLETE,

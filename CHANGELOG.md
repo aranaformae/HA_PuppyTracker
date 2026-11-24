@@ -12,6 +12,9 @@ they have not been reconstructed as a complete historical changelog.
 
 ### Changed
 
+- Show dependent notification and weighing-schedule fields only when enabled on
+  HA 2026.11+, retaining saved hidden values and the full forms on older HA.
+
 - Validate native Home Assistant 2026.11.3 with its matching frontend and keep
   the local runtime environment and bytecode cache outside synced project folders.
 

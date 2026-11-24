@@ -74,6 +74,23 @@ async def check(config_dir: str) -> None:
         assert any(e.unique_id == f"{puppy_id}_weight" for e in er.async_entries_for_config_entry(registry, entry.entry_id))
         print("PASS: create litter/puppy, weighing, persistent data and entity registration", flush=True)
 
+        # Exercise HA's actual hidden-field filtering, not just our form handler.
+        storage._data["settings"].update(notification_lead_minutes=25,
+            notify_recovery=True, notify_session_complete=True)
+        options = await hass.config_entries.options.async_init(entry.entry_id)
+        for step in ("monitoring_and_notifications", "notifications", "notification_preferences"):
+            options = await hass.config_entries.options.async_configure(
+                options["flow_id"], {"next_step_id": step})
+        markers = {key.schema: key for key in options["data_schema"].schema}
+        assert markers["notify_recovery"].visible == {"field": "notifications_enabled", "value": True}
+        options = await hass.config_entries.options.async_configure(options["flow_id"], {
+            "notifications_enabled": False, "recurring_reminder_notifications_enabled": False})
+        assert options["type"] == "create_entry", options
+        settings = storage.get_settings()
+        assert settings["notification_lead_minutes"] == 25
+        assert settings["notify_recovery"] and settings["notify_session_complete"]
+        print("PASS: native conditional forms preserve hidden notification preferences", flush=True)
+
         async def check_frontend():
             async with ClientSession() as client:
                 for name in ("puppy-tracker-workspace-card.js", "puppy-tracker-overview-card.js",

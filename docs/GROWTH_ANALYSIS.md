@@ -9,6 +9,10 @@ Puppy Tracker is a registration and monitoring aid. Growth thresholds,
 comparisons and projections are not diagnoses and do not replace veterinary
 assessment.
 
+On HA 2026.11+, the litter settings show weighing-age bands only when the
+age-based schedule is enabled. Disabling it retains saved bands for later use.
+Older supported versions show the fields continuously.
+
 ## Weighing workflow
 
 1. Open a Workspace with `preset: growth` or `preset: mobile`.

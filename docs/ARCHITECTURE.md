@@ -2457,3 +2457,12 @@ restart. Those manual checks remain part of release verification. Once a
 matching fixture package is published, validate it before adding 2026.11 to
 the full pytest matrix and updating the default local fixture pin. See
 [local runtime instructions](../tests/README.md#native-runtime-compatibility-home-assistant-202611).
+
+### Conditional options forms
+
+`flow_fields.required_when` uses native HA 2026.11 visible markers when available;
+it distinguishes them from the older module's `typing.Required` export. Older
+HA keeps ordinary required fields. Hidden notification preferences and saved
+weighing phases are retained by the handler when HA omits them; no UI-only
+visibility is used as validation or permission enforcement. The native runtime
+check exercises the options manager's filtering as well as the serialized schema.

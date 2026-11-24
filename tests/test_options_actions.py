@@ -495,3 +495,38 @@ async def test_invalid_weighing_age_order_keeps_the_draft(options_flow):
     assert result["errors"] == {"base": "invalid_weighing_schedule"}
     assert _prefilled_litter_input(result)["weighing_section"]["weighing_phase_2_until_days"] == 5
     assert storage.get_litter(flow._selected_litter_id)["growth_analysis"]["weighing_schedule"] is None
+
+
+async def test_hidden_notification_fields_keep_saved_preferences(options_flow):
+    flow, storage = options_flow
+    storage._data["settings"].update(
+        notification_lead_minutes=25, notify_recovery=True, notify_session_complete=True,
+    )
+    result = await flow.async_step_notification_preferences({
+        "notifications_enabled": False,
+        "recurring_reminder_notifications_enabled": False,
+    })
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    saved = storage.get_settings()
+    assert saved["notification_lead_minutes"] == 25
+    assert saved["notify_recovery"] and saved["notify_session_complete"]
+    assert not saved["notifications_enabled"]
+    assert not saved["recurring_reminder_notifications_enabled"]
+
+
+async def test_hidden_weighing_phases_survive_disabling_and_reenabling(options_flow):
+    flow, storage = options_flow
+    litter_id = flow._selected_litter_id
+    form = await flow.async_step_edit_litter()
+    values = _prefilled_litter_input(form)
+    values["weighing_section"].update(weighing_schedule_enabled=True, weighing_phase_1_hours=7)
+    await flow.async_step_edit_litter(form["data_schema"](values))
+    phases = storage.get_litter(litter_id)["growth_analysis"]["weighing_schedule"]["phases"]
+    for enabled in (False, True):
+        result = await flow.async_step_edit_litter({
+            "basic": {"name": "Luna"},
+            "weighing_section": {"weighing_schedule_enabled": enabled},
+        })
+        assert result["type"] is FlowResultType.CREATE_ENTRY
+        schedule = storage.get_litter(litter_id)["growth_analysis"]["weighing_schedule"]
+        assert schedule == {"enabled": enabled, "phases": phases}

@@ -37,6 +37,7 @@ from .measurements import measurement_status
 from .runtime import PuppyTrackerRuntimeData
 from .storage import PuppyTrackerStorage
 from .weighing_schedule import DEFAULT_WEIGHING_PHASES, InvalidWeighingSchedule
+from .flow_fields import required_when
 from .time_utils import (
     current_selector_datetime,
     format_local_timestamp,
@@ -71,9 +72,14 @@ def _litter_field_group(key: str) -> str:
 
 def _weighing_schedule_input(values: dict, litter: dict) -> dict | None:
     previous = (litter.get("growth_analysis") or {}).get("weighing_schedule")
-    phases = [{"until_age_days": values[f"weighing_phase_{index}_until_days"],
-               "interval_hours": values[f"weighing_phase_{index}_hours"]}
-              for index in range(1, len(DEFAULT_WEIGHING_PHASES) + 1)]
+    saved_phases = (previous or {}).get("phases") or [
+        {"until_age_days": days, "interval_hours": hours}
+        for days, hours in DEFAULT_WEIGHING_PHASES
+    ]
+    # HA omits hidden fields. Disabling the schedule must retain its saved bands.
+    phases = [{"until_age_days": values.get(f"weighing_phase_{index}_until_days", phase["until_age_days"]),
+               "interval_hours": values.get(f"weighing_phase_{index}_hours", phase["interval_hours"])}
+              for index, phase in enumerate(saved_phases, 1)]
     enabled = values.get("weighing_schedule_enabled", False)
     if not enabled and previous is None and phases == [
         {"until_age_days": days, "interval_hours": hours} for days, hours in DEFAULT_WEIGHING_PHASES
@@ -615,7 +621,7 @@ class PuppyTrackerManagementOptionsFlow(
                 ("until_days", "until_age_days", 56, 0.5),
                 ("hours", "interval_hours", 168, 1),
             ):
-                fields[vol.Required(f"weighing_phase_{index}_{suffix}", default=phase[key])] = selector.NumberSelector(
+                fields[required_when(f"weighing_phase_{index}_{suffix}", "weighing_schedule_enabled", default=phase[key])] = selector.NumberSelector(
                     selector.NumberSelectorConfig(min=0.5 if suffix == "until_days" else 1,
                                                   max=maximum, step=step, mode=selector.NumberSelectorMode.BOX)
                 )

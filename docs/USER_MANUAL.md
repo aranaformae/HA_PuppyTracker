@@ -326,6 +326,10 @@ itself: add it to an automation if you want it to run daily, for example.
 
 ## 11. Set up notifications
 
+On Home Assistant 2026.11+, extra notification options appear when their
+notification type is enabled. Switching it off retains the saved settings.
+The litter's weighing-age bands work the same way.
+
 Open **Configure → Growth and notifications → Manage notifications**.
 Under **Notification preferences**, choose the default lead time and the phones
 that may receive notifications. Use **Send test notification** before relying
