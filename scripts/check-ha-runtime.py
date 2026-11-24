@@ -27,10 +27,13 @@ async def check(config_dir: str) -> None:
     from homeassistant.config_entries import ConfigEntryState
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers import entity_registry as er
+    from homeassistant.helpers import issue_registry as ir
+    from homeassistant.exceptions import HomeAssistantError
     from homeassistant.util import dt as dt_util
 
     from custom_components.puppy_tracker.const import DOMAIN
     from custom_components.puppy_tracker.frontend import FRONTEND_URL
+    from custom_components.puppy_tracker.repairs import issue_id
 
     # Ask the OS for a local test port rather than claiming the user's HA port.
     with socket.socket() as probe:
@@ -91,6 +94,17 @@ async def check(config_dir: str) -> None:
         assert settings["notify_recovery"] and settings["notify_session_complete"]
         print("PASS: native conditional forms preserve hidden notification preferences", flush=True)
 
+        try:
+            await hass.services.async_call(DOMAIN, "backup_to_file", {
+                "path": "www/blocked.json"}, blocking=True)
+        except (ValueError, HomeAssistantError):
+            pass
+        else:
+            raise AssertionError("Public backup destinations must be rejected")
+        await hass.async_block_till_done()
+        backup_issue = issue_id(entry, "backup_failed")
+        assert ir.async_get(hass).async_get_issue(DOMAIN, backup_issue).config_entry_id == entry.entry_id
+
         async def check_frontend():
             async with ClientSession() as client:
                 for name in ("puppy-tracker-workspace-card.js", "puppy-tracker-overview-card.js",
@@ -127,6 +141,12 @@ async def check(config_dir: str) -> None:
         assert restored == measurements
         await check_frontend()
         print("PASS: native unload/reload preserves weights and card routes", flush=True)
+        assert ir.async_get(hass).async_get_issue(DOMAIN, backup_issue) is not None
+        await hass.services.async_call(DOMAIN, "backup_to_file", {
+            "path": "backups/runtime.json"}, blocking=True)
+        await hass.async_block_till_done()
+        assert ir.async_get(hass).async_get_issue(DOMAIN, backup_issue) is None
+        print("PASS: entry-linked Repairs survive reload and clear after a successful file backup", flush=True)
     finally:
         await hass.async_stop(force=True)
 

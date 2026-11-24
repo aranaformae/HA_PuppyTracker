@@ -344,6 +344,11 @@ Disabling notifications does not delete schedules or dossier records. Care
 remains available on the cards. See [Notifications](NOTIFICATIONS.md) for the
 difference between notifications, attention and scheduled actions.
 
+
+Technical problems, such as a failed file backup, also appear under
+**Settings → System → Repairs**. Open the explanation and review the problem.
+The notice does not apply repairs itself.
+
 ## If something is missing
 
 - Check litter, puppy/mother, categories, search text and period. Selecting no

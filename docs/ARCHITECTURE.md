@@ -2476,3 +2476,15 @@ subscriptions. The editor loads public litter names per user/connection context,
 rejects stale responses and retains its native form/schema during ordinary HA
 updates. Generated sections reuse the existing Workspace, Owners and Report
 permission/lifecycle contracts. Older dashboards remain manual and unchanged.
+
+### Technical Repairs lifecycle
+
+`repairs.py` observes cached integrity reports and file-backup outcome changes.
+It does not run integrity scans or duplicate medical/care alert delivery.
+Fingerprints avoid unchanged registry writes. Stable entry-scoped IDs preserve
+ignored issues across reloads. Backup failure is persistent until an actual file
+backup succeeds; a fresh runtime's unknown status cannot clear it. Native
+`config_entry_id` ownership is used on HA 2026.11+, with explicit removal cleanup
+for the supported older API. Subscriptions detach on unload without deleting
+issues. Integrity previews use a technical-only dispatcher signal so they do not
+force dashboard rerenders. Registry placeholders contain counts only.

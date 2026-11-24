@@ -23,6 +23,7 @@ from .const import (
     DEFAULT_MILESTONE_PROJECTION_MEASUREMENTS,
     DOMAIN,
     SIGNAL_DASHBOARD_UPDATE,
+    SIGNAL_TECHNICAL_ISSUES_UPDATE,
     SIGNAL_NEW_LITTER,
     SIGNAL_NEW_PUPPY,
     SIGNAL_UPDATE,
@@ -1703,6 +1704,7 @@ class PuppyTrackerManagementOptionsFlow(
         if user_input is not None:
             return self.async_create_entry(title="", data={})
         report = await storage.async_run_integrity_check(repair=False)
+        async_dispatcher_send(self.hass, SIGNAL_TECHNICAL_ISSUES_UPDATE)
         return self.async_show_form(
             step_id="integrity",
             description_placeholders=self._integrity_placeholders(report),

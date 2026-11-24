@@ -55,6 +55,7 @@ from .runtime import (
     reconcile_dashboard_selection,
 )
 from .updates import dispatch_dossier_update
+from .repairs import async_setup_repairs, async_remove_repairs
 from .session import (
     async_record_station_weight,
     recover_session,
@@ -246,6 +247,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     runtime.selected_puppy_id = (remaining_puppy_ids(runtime.weighing_session) or [None])[0]
     reconcile_dashboard_selection(runtime)
     entry.runtime_data = runtime
+    async_setup_repairs(hass, entry, runtime)
     async_setup_day_rollover(hass, entry)
     runtime.automation_event_manager = DerivedAutomationEventManager(hass, runtime)
     entry.async_on_unload(runtime.automation_event_manager.async_stop)
@@ -577,3 +579,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     entry.runtime_data = None
     return True
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Remove technical issues only on removal, not on ordinary reloads."""
+    async_remove_repairs(hass, entry)

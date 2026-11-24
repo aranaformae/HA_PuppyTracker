@@ -16,7 +16,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect, async_dispatcher_send
 from homeassistant.util import dt as dt_util
 
-from .const import API_VERSION, DOMAIN, SIGNAL_DASHBOARD_UPDATE
+from .const import API_VERSION, DOMAIN, SIGNAL_DASHBOARD_UPDATE, SIGNAL_TECHNICAL_ISSUES_UPDATE
 from .backup import build_export_document
 from .dog_identity import parent_details_for_litter
 from .measurements import measurement_status, puppy_measurements
@@ -1358,6 +1358,8 @@ async def websocket_integrity_check(
     )
     if msg.get("repair"):
         dispatch_dossier_update(hass)
+    else:
+        async_dispatcher_send(hass, SIGNAL_TECHNICAL_ISSUES_UPDATE)
     connection.send_result(msg["id"], report)
 
 

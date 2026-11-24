@@ -347,6 +347,11 @@ Uitschakelen van meldingen verwijdert de planning en dossiergegevens niet.
 Zorg blijft beschikbaar op de kaarten. Zie [Meldingen](NOTIFICATIONS.md) voor
 het onderscheid tussen meldingen, aandacht en geplande acties.
 
+
+Technische problemen, zoals een mislukte bestandsback-up, staan ook bij
+**Instellingen → Systeem → Reparaties**. Open de uitleg daar en controleer het
+probleem. Deze melding voert zelf geen reparatie uit.
+
 ## Als iets niet zichtbaar is
 
 - Controleer nest, pup/moeder, categorieën, zoektekst en periode. Alle categorieën

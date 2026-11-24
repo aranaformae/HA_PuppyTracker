@@ -12,6 +12,9 @@ they have not been reconstructed as a complete historical changelog.
 
 ### Added
 
+- Surface failed file backups and unresolved integrity findings in Home Assistant
+  Repairs, retaining ignored state across reloads and clearing resolved issues.
+
 - Add a visual Puppy Tracker section strategy for daily care, growth, journal,
   mobile and owner/document layouts in the HA 2026.11 dashboard editor.
 

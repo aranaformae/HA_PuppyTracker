@@ -679,5 +679,15 @@
     "platform_unload_failed": {
       "message": "Een of meer Puppy Tracker-platforms konden niet worden ontladen. Controleer het Home Assistant-logboek voordat je het opnieuw probeert."
     }
+  },
+  "issues": {
+    "backup_failed": {
+      "title": "Puppy Tracker bestandsback-up mislukt",
+      "description": "De laatste back-up naar bestand is mislukt. Controleer de doelmap en schrijfrechten en voer de actie opnieuw uit. Een geslaagde bestandsback-up verwijdert deze melding. Handmatig een back-up downloaden doet dat niet. Deze waarschuwing verwijdert geen bestaande back-up."
+    },
+    "storage_integrity": {
+      "title": "Puppy Tracker gegevens controleren",
+      "description": "De laatste integriteitscontrole vond {critical} onopgeloste kritieke problemen en {warnings} waarschuwingen. Maak een volledige back-up en open Puppy Tracker → Configureren → Data en onderhoud → Data-integriteit controleren. Bekijk eerst de uitkomst voordat je veilige reparaties toepast. Blijven er problemen over, download dan de integratiediagnostiek voor ondersteuning. Deze melding wijzigt geen gegevens."
+    }
   }
 }

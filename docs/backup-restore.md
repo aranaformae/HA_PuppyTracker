@@ -236,3 +236,7 @@ invalid snapshot formats or broken references prevent restoration. Older
 integration versions that do not support v7 cannot restore a v7 export.
 The file-import upload limit is 128 MiB; managed files have a 32 MB aggregate
 limit before base64 encoding. See [Document templates](DOCUMENT_TEMPLATES.md).
+
+A failed file backup also creates a technical notice in **Settings → System →
+Repairs**. A successful file backup clears it; manual downloads and restarts do
+not. See [technical Repairs](NOTIFICATIONS.md#technical-repairs).

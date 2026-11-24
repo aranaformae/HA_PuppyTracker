@@ -62,6 +62,7 @@ SIGNAL_UPDATE = f"{DOMAIN}_update"
 SIGNAL_NEW_LITTER = f"{DOMAIN}_new_litter"
 SIGNAL_NEW_PUPPY = f"{DOMAIN}_new_puppy"
 SIGNAL_DASHBOARD_UPDATE = f"{DOMAIN}_dashboard_update"
+SIGNAL_TECHNICAL_ISSUES_UPDATE = f"{DOMAIN}_technical_issues_update"
 
 # Public Home Assistant automation events. Keep names and payloads stable.
 EVENT_WEIGHT_RECORDED = f"{DOMAIN}_weight_recorded"

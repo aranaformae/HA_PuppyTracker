@@ -137,3 +137,21 @@ Today, Attention, Quick Log and execution forms. Whole-litter reminders list
 amounts per active puppy. See [Weight-based amounts](WEIGHT_BASED_AMOUNTS.md)
 for configuration, supported weight sources, notifications and recording actual
 administered quantities.
+
+## Technical Repairs
+
+**Settings → System → Repairs** shows technical problems separately from puppy
+attention and care. Puppy Tracker currently reports:
+
+- a failed backup-to-file attempt; it clears after a successful file backup, not
+  after a manual download. Reloading or restarting does not count as success;
+- unresolved critical integrity findings or warnings. Make a full backup, then
+  use **Configure → Data and maintenance → Check data integrity**. Preview first,
+  apply safe repairs only after review, and download integration diagnostics if
+  findings remain. It clears when the current integrity report is clean.
+
+These notices do not change data, run extra history scans, or automatically fix
+records. They contain only technical counts, never names, notes or file paths.
+Ignored issues stay ignored while unchanged; resolved issues are removed. On
+HA 2026.11+ issues belong to the integration entry. Older supported releases
+get explicit cleanup when that entry is removed. Ordinary reloads keep issues.

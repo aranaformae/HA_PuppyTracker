@@ -679,5 +679,15 @@
     "platform_unload_failed": {
       "message": "One or more Puppy Tracker platforms could not be unloaded. Check the Home Assistant log before retrying."
     }
+  },
+  "issues": {
+    "backup_failed": {
+      "title": "Puppy Tracker file backup failed",
+      "description": "The last backup-to-file attempt failed. Check the destination and write permissions, then run the action again. A successful file backup clears this issue. Downloading a backup manually does not clear it. No existing backup is deleted by this warning."
+    },
+    "storage_integrity": {
+      "title": "Puppy Tracker data needs review",
+      "description": "The latest integrity check found {critical} unresolved critical issues and {warnings} warnings. Make a full backup, then open Puppy Tracker → Configure → Data and maintenance → Check data integrity. Preview the findings before applying safe repairs. If anything remains unresolved, download the integration diagnostics for support. No data is changed by this notice."
+    }
   }
 }
