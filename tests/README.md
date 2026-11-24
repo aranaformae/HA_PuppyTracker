@@ -132,19 +132,25 @@ separate virtual environment if you need to reproduce the baseline job locally.
 ## Native runtime compatibility (Home Assistant 2026.11)
 
 CI also runs `scripts/check-ha-runtime.py` against the real Home Assistant
-2026.11.0 and its matching frontend package. As of 2026-11-04, the published pytest
+2026.11.3 and its matching frontend package. As of 2026-11-24, the published pytest
 harness stops at 2026.10.4, so this is an additional runtime check, **not** a
 claim that the full pytest suite runs on 2026.11. Do not override the old
 harness's pinned Home Assistant dependency or invent a future harness version.
 Add the matching harness to the full matrix once it is published and verified.
 
-Use a separate local environment to keep the existing pytest setup intact:
+Keep the native environment and bytecode cache outside the project folder. This
+avoids iCloud/OneDrive hydration delays while retaining the existing pytest setup:
 
 ```sh
-.venv/bin/python -m venv .venv-ha-2026.11
-.venv-ha-2026.11/bin/python -m pip install -r requirements_ha_runtime.txt
-.venv-ha-2026.11/bin/python scripts/check-ha-runtime.py --expect-version 2026.11.0
+npm run test:ha-runtime -- --setup
+npm run test:ha-runtime
 ```
+
+The first command creates `~/.cache/puppy-tracker/venvs/ha-2026.11.3`, installs
+`requirements_ha_runtime.txt` and runs the check. Later runs reuse that environment.
+The wrapper uses a three-minute execution limit and an external bytecode cache.
+Set `PUPPY_TRACKER_RUNTIME_PYTHON` to use an already installed matching interpreter.
+Existing `.venv-ha-*` environments are left untouched but are no longer selected.
 
 This check is separate from `npm run test:all`. On Windows, use the matching
 `Scripts/python.exe` paths. The script verifies the exact Home Assistant version

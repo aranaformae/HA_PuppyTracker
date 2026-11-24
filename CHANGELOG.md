@@ -12,6 +12,9 @@ they have not been reconstructed as a complete historical changelog.
 
 ### Changed
 
+- Validate native Home Assistant 2026.11.3 with its matching frontend and keep
+  the local runtime environment and bytecode cache outside synced project folders.
+
 - Add plain-language Dutch and English guides for everyday tasks and shorten the main
   README. Align the focused guides with current settings menus, care workflows,
   owner payments, template fields, backups and dashboard navigation.

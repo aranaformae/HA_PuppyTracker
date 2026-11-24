@@ -2440,7 +2440,7 @@ See the [official publisher guide](https://contributors.home-assistant.io/market
 
 CI retains matching pytest harnesses for 2026.9.4 and 2026.10.4. The PyPI
 pytest-homeassistant-custom-component harness has not yet published a 2026.11
-match, so a separate `runtime-compatibility` job installs pinned 2026.11.0 and
+match, so a separate `runtime-compatibility` job installs pinned 2026.11.3 and
 its native frontend package from `requirements_ha_runtime.txt`. It executes
 `scripts/check-ha-runtime.py` using a disposable config and loopback HTTP
 server, without mocked HA APIs or an overridden/mismatched fixture package.

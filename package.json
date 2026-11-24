@@ -6,6 +6,7 @@
     "node": ">=22"
   },
   "scripts": {
+    "test:ha-runtime": "node scripts/test-ha-runtime.mjs",
     "test:e2e": "playwright test",
     "test:browser-lifecycle": "node scripts/check-browser-lifecycle.mjs",
     "test:all": "node scripts/test-all.mjs"
