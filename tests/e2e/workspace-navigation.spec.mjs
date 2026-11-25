@@ -107,7 +107,7 @@ test("Care relabels navigation in place and preserves an open draft @cross-brows
   await expect(programs.locator("#care-title")).toHaveValue("Nieuwe ENS instructies");
 });
 
-test("Litter settings shortcut respects drafts, pending saves and current permissions @cross-browser @tablet", async ({ page }) => {
+test("Litter settings shortcut respects drafts, pending saves and current permissions @cross-browser", async ({ page }) => {
   const card = await mount(page, { default_tab: "programs" });
   const settings = card.getByRole("link", { name: "Nestgegevens beheren" });
   await expect(settings).toHaveAttribute("title", "Nestgegevens beheren");
@@ -138,7 +138,7 @@ test("Litter settings shortcut respects drafts, pending saves and current permis
 });
 
 for (const language of ["nl", "en"]) {
-  test(`Blocked workspace navigation explains pending writes and clears on retry (${language}) @cross-browser @tablet`, async ({ page }) => {
+  test(`Blocked workspace navigation explains pending writes and clears on retry (${language}) @cross-browser`, async ({ page }) => {
     const card = await mount(page, { language, default_tab: "programs" });
     await card.evaluate((el) => { el._children.get("programs")._saving = true; });
     await selectTab(card, "care");
@@ -155,7 +155,7 @@ for (const language of ["nl", "en"]) {
   });
 }
 
-test("Mobile keeps daily tasks without management tabs and uses the same care label @cross-browser @tablet", async ({ page }) => {
+test("Mobile keeps daily tasks without management tabs and uses the same care label @cross-browser", async ({ page }) => {
   const card = await mount(page, { preset: "mobile", default_tab: "care", language: "en", admin: false });
   await expect(card.locator("[data-tab='care'] span")).toHaveText("Carry out care");
   await expect(card.locator("puppy-tracker-care-execution-card .title")).toHaveText("Carry out care");

@@ -72,7 +72,7 @@ async function mount(page, surface, scope, recordType = "deworming") {
 
 for (const surface of ["dossier", "attention", "care", "mobile"]) {
   for (const scope of ["puppy", "mother", "litter"]) {
-    test(`${surface} completes ${scope} follow-up as a new editable fact @cross-browser @tablet`, async ({ page }, testInfo) => {
+    test(`${surface} completes ${scope} follow-up as a new editable fact @cross-browser ${scope === "puppy" ? "@tablet" : ""}`, async ({ page }, testInfo) => {
       const { card, button } = await mount(page, surface, scope);
       const original = await page.evaluate((scope) => structuredClone(window.followupFixture.records.find((r) => r.id === `${scope}-source`)), scope);
       await button.click();
@@ -107,7 +107,7 @@ for (const surface of ["dossier", "attention", "care", "mobile"]) {
   }
 }
 
-test("completion can be cancelled, retried after failure and saved without a next due date @cross-browser @tablet", async ({ page }) => {
+test("completion can be cancelled, retried after failure and saved without a next due date @cross-browser", async ({ page }) => {
   const { button } = await mount(page, "dossier", "puppy");
   await button.click();
   const editor = page.locator("puppy-tracker-record-editor");
@@ -133,7 +133,7 @@ test("completion can be cancelled, retried after failure and saved without a nex
   expect(await page.evaluate(() => window.followupFixture.records)).toHaveLength(4);
 });
 
-test("vaccination follow-up uses the same new-entry workflow and respects write permissions @cross-browser @tablet", async ({ page }) => {
+test("vaccination follow-up uses the same new-entry workflow and respects write permissions @cross-browser", async ({ page }) => {
   const { card, button } = await mount(page, "dossier", "puppy", "vaccination");
   await button.click();
   const editor = page.locator("puppy-tracker-record-editor");
@@ -147,7 +147,7 @@ test("vaccination follow-up uses the same new-entry workflow and respects write 
   await expect(card.locator("[data-complete-followup],[data-edit-item]")).toHaveCount(0);
 });
 
-test("test follow-up keeps the test identity and starts a fresh result @cross-browser @tablet", async ({ page }) => {
+test("test follow-up keeps the test identity and starts a fresh result @cross-browser", async ({ page }) => {
   const { button } = await mount(page, "dossier", "puppy", "test");
   await button.click();
   const editor = page.locator("puppy-tracker-record-editor");
@@ -166,7 +166,7 @@ test("test follow-up keeps the test identity and starts a fresh result @cross-br
   expect(saved).toMatchObject({ type: "test", data: { test_name: "Giardia", test_status: "completed", result: "Negatief", reference_number: "NEW-REF", followup_record_id: "puppy-source" } });
 });
 
-test("vet follow-up carries clinic but records new findings @cross-browser @tablet", async ({ page }) => {
+test("vet follow-up carries clinic but records new findings @cross-browser", async ({ page }) => {
   const { button } = await mount(page, "dossier", "puppy", "vet_visit");
   await button.click();
   const editor = page.locator("puppy-tracker-record-editor");

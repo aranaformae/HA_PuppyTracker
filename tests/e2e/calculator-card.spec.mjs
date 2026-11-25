@@ -332,7 +332,7 @@ test("feeding shows both daily rations and portions with stable sliders @cross-b
   await expect(card.locator("#calculator-amount")).toHaveValue("2,5");
 });
 
-test("separate food portions show actual feeding moments and survive reload @cross-browser @tablet", async ({ page }) => {
+test("separate food portions show actual feeding moments and survive reload @cross-browser", async ({ page }) => {
   let card = await mountCalculator(page, { default_mode: "feeding" });
   await expect(card.locator("#feeding-kibble-portions")).toHaveValue("1");
   await expect(card.locator("#feeding-meat-portions")).toHaveValue("2");
@@ -524,7 +524,7 @@ test("calculator arithmetic rejects missing values and accepts decimal commas", 
   expect(result).toEqual({ comma: 0.25, calculated: 0.3, empty: null, negative: null, missingWeight: null });
 });
 
-test("feeding preferences survive reload and remain separate per litter @cross-browser @tablet", async ({ page }) => {
+test("feeding preferences survive reload and remain separate per litter @cross-browser", async ({ page }) => {
   let card = await mountCalculator(page);
   await card.locator('[data-calculator-mode="feeding"]').click();
   await card.locator("#feeding-meat-portions").fill("3");
@@ -555,7 +555,7 @@ test("feeding preferences survive reload and remain separate per litter @cross-b
   await expect(card.locator("#feeding-meat")).toHaveValue("100");
 });
 
-test("failed feeding save keeps the draft through refresh and can be retried @cross-browser @tablet", async ({ page }) => {
+test("failed feeding save keeps the draft through refresh and can be retried @cross-browser", async ({ page }) => {
   const card = await mountCalculator(page, { default_mode: "feeding" });
   await page.evaluate(() => { window.__feedingSaveError = true; });
   await card.locator("#feeding-meat-portions").fill("6");
@@ -574,7 +574,7 @@ test("failed feeding save keeps the draft through refresh and can be retried @cr
   expect(calls.every((call) => call.settings.meat_portions_per_day === 6)).toBe(true);
 });
 
-test("in-flight feeding saves use the latest settings and keep their original litter @cross-browser @tablet", async ({ page }) => {
+test("in-flight feeding saves use the latest settings and keep their original litter @cross-browser", async ({ page }) => {
   const card = await mountCalculator(page, { default_mode: "feeding" });
   await page.evaluate(() => { window.__feedingSaveGate = new Promise((resolve) => { window.__releaseFeedingSave = resolve; }); });
   await card.locator("#feeding-meat").focus();

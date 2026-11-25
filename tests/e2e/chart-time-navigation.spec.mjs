@@ -5,7 +5,7 @@ async function openFixture(page) {
   await page.waitForFunction(() => window.__puppyTrackerReady === true);
 }
 
-test("eight-week forecast is optional and localized @cross-browser @tablet", async ({ page }) => {
+test("eight-week forecast is optional and localized @cross-browser", async ({ page }) => {
   await openFixture(page);
   const result = await page.evaluate(async () => {
     const { localizeOverviewRoot } = await import("/custom_components/puppy_tracker/frontend/puppy-tracker-overview-localization.js");

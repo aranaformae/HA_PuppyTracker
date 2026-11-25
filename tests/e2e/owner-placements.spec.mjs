@@ -68,7 +68,7 @@ async function mount(page, language = "nl") {
   return card;
 }
 
-test("Payment receipts stay with the selected litter and can be voided without disappearing @cross-browser @tablet", async ({ page }) => {
+test("Payment receipts stay with the selected litter and can be voided without disappearing @cross-browser", async ({ page }) => {
   const card = await mount(page);
   await card.locator('[data-toggle-owner="o1"]').click();
   await card.locator('[data-owner-group="payments"] > summary').click();
@@ -214,7 +214,7 @@ for (const language of ["nl", "en"]) {
     expect(await card.locator("ha-card").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
   });
 
-  test(`saving placement changes keeps the dossier visible without changing payments (${language}) @cross-browser @tablet`, async ({ page }) => {
+  test(`saving placement changes keeps the dossier visible without changing payments (${language}) @cross-browser`, async ({ page }) => {
     const card = await mount(page, language);
     const before = await page.evaluate(() => structuredClone(window.ownerPlacementFixture.owners[0].placements));
     for (const [status, archived, filter] of [["sold", false, "active"], ["placed", false, "placed"], ["placed", true, "placed"], ["sold", true, "archived"], ["option", false, "option"]]) {
@@ -237,7 +237,7 @@ for (const language of ["nl", "en"]) {
   });
 }
 
-test("editing another litter protects drafts and never changes the first payment @cross-browser @tablet", async ({ page }) => {
+test("editing another litter protects drafts and never changes the first payment @cross-browser", async ({ page }) => {
   const card = await mount(page);
   const before = await page.evaluate(() => structuredClone(window.ownerPlacementFixture.owners[0].placements.l1));
   await card.locator('[data-edit="o1"]').click();
@@ -271,7 +271,7 @@ test("editing another litter protects drafts and never changes the first payment
   expect(contact.notes).toBe("Contact note");
 });
 
-test("an existing contact can get a new nest dossier before choosing a puppy @cross-browser @tablet", async ({ page }) => {
+test("an existing contact can get a new nest dossier before choosing a puppy @cross-browser", async ({ page }) => {
   const card = await mount(page);
   await card.locator("#owner-scope").selectOption("l2");
   await card.locator('[data-toggle-owner="o2"]').click();
@@ -291,7 +291,7 @@ test("an existing contact can get a new nest dossier before choosing a puppy @cr
   await expect(card.locator(".preference-matrix tbody")).toContainText("Second candidate");
 });
 
-test("unassigned migration history moves explicitly and matrix membership stays litter-specific @cross-browser @tablet", async ({ page }) => {
+test("unassigned migration history moves explicitly and matrix membership stays litter-specific @cross-browser", async ({ page }) => {
   const card = await mount(page);
   await card.locator("#matrix-view").click();
   await expect(card.locator(".preference-matrix tbody")).not.toContainText("Second candidate");
@@ -311,7 +311,7 @@ test("unassigned migration history moves explicitly and matrix membership stays 
   expect(owner.placements.l1.placement_notes).toBe("Preserve this history");
 });
 
-test("CSV exports only visible litter dossiers and uses their own payments @cross-browser @tablet", async ({ page }) => {
+test("CSV exports only visible litter dossiers and uses their own payments @cross-browser", async ({ page }) => {
   const card = await mount(page, "en");
   for (const [litter, included, excluded] of [["l1", '"2500"', '"3000"'], ["l2", '"3000"', '"2500"']]) {
     await card.locator("#owner-scope").selectOption(litter);
@@ -398,7 +398,7 @@ for (const [section, field] of [["contact", "name"], ["address", "street"], ["pl
   });
 }
 
-test("collapsing edited sections preserves every value through failed save and retry @cross-browser @tablet", async ({ page }) => {
+test("collapsing edited sections preserves every value through failed save and retry @cross-browser", async ({ page }) => {
   const card = await mount(page);
   await card.locator('[data-edit="o1"]').click();
   await openOwnerSection(card, "address");

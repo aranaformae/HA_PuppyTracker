@@ -7,7 +7,7 @@ async function openFixture(page) {
 }
 
 for (const isAdmin of [true, false]) {
-test(`Attention care and acknowledgement actions match admin permissions (${isAdmin}) @cross-browser @tablet`, async ({ page }) => {
+test(`Attention care and acknowledgement actions match admin permissions (${isAdmin}) @cross-browser`, async ({ page }) => {
   await openFixture(page);
 
   await page.evaluate((isAdmin) => {
@@ -70,7 +70,7 @@ test(`Attention care and acknowledgement actions match admin permissions (${isAd
 });
 }
 
-test("non-admin care execution remains readable without write controls @cross-browser @tablet", async ({ page }) => {
+test("non-admin care execution remains readable without write controls @cross-browser", async ({ page }) => {
   await openFixture(page);
   await page.evaluate(() => {
     const now = new Date();

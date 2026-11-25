@@ -91,7 +91,7 @@ for (const language of ["nl", "en"]) {
     await card.screenshot({ path: test.info().outputPath(`care-list-${language}.png`) });
   });
 
-  test(`care surfaces missing birth warnings and clears them after recovery (${language}) @cross-browser @tablet`, async ({ page }) => {
+  test(`care surfaces missing birth warnings and clears them after recovery (${language}) @cross-browser`, async ({ page }) => {
     const card = await mountCare(page, language);
     await page.evaluate(async () => {
       window.careState.occurrences = [];
@@ -154,7 +154,7 @@ test("care config changes reload their context and reject stale responses", asyn
 });
 
 for (const language of ["nl", "en"]) {
-  test(`mixed care sources retain identity, date filters and drafts (${language}) @cross-browser @tablet`, async ({ page }, testInfo) => {
+  test(`mixed care sources retain identity, date filters and drafts (${language}) @cross-browser`, async ({ page }, testInfo) => {
     const card = await mountCare(page, language);
     await page.evaluate(async () => {
       for (const [key, value] of Object.entries({

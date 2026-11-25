@@ -313,7 +313,7 @@ for (const [tag, selector, titleSelector] of [
   });
 }
 
-test("owner linking updates assigned puppies across litters without expanding @cross-browser @tablet", async ({ page }) => {
+test("owner linking updates assigned puppies across litters without expanding @cross-browser", async ({ page }) => {
   await page.goto("/tests/e2e/cards.html?production=1");
   await page.waitForFunction(() => window.__puppyTrackerReady);
   await page.evaluate(() => {

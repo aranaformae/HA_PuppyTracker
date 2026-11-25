@@ -152,7 +152,7 @@ test("creates enriched individual deworming records for the whole litter after r
   expect(new Set(ids).size).toBe(3);
 });
 
-test("bulk test status is translated in review and saved per puppy @cross-browser @tablet", async ({ page }) => {
+test("bulk test status is translated in review and saved per puppy @cross-browser", async ({ page }) => {
   const card = await mountBulkDossier(page, "nl");
   await card.locator("#select-all").click();
   await card.locator("#bulk-type").selectOption("test");
@@ -290,7 +290,7 @@ async function pendingCount(page, type, count) {
 }
 
 for (const language of ["nl", "en"]) {
-  test(`bulk save pins litter, puppies and input through delayed failures and retries (${language}) @cross-browser @tablet`, async ({ page }) => {
+  test(`bulk save pins litter, puppies and input through delayed failures and retries (${language}) @cross-browser`, async ({ page }) => {
     const card = await mountBulkDossier(page, language, "p2");
     await card.locator("#select-all").click();
     await card.locator("#bulk-title").fill("Original entry");
@@ -333,7 +333,7 @@ for (const language of ["nl", "en"]) {
   });
 }
 
-test("a refresh started before typing cannot change an active bulk save @cross-browser @tablet", async ({ page }) => {
+test("a refresh started before typing cannot change an active bulk save @cross-browser", async ({ page }) => {
   const card = await mountBulkDossier(page);
   await page.evaluate(() => {
     window.__bulkHold.add("puppy_tracker/litters");
@@ -363,7 +363,7 @@ test("a refresh started before typing cannot change an active bulk save @cross-b
 });
 
 for (const outcome of ["success", "failure"]) {
-  test(`bulk litter changes ignore an older ${outcome} during A-B-A selection @cross-browser @tablet`, async ({ page }) => {
+  test(`bulk litter changes ignore an older ${outcome} during A-B-A selection @cross-browser`, async ({ page }) => {
     const card = await mountBulkDossier(page);
     await page.evaluate(() => window.__bulkHold.add("puppy_tracker/data"));
     await card.locator("#bulk-litter").selectOption("l2");
@@ -383,7 +383,7 @@ for (const outcome of ["success", "failure"]) {
   });
 }
 
-test("bulk reconnect ignores requests from the detached card lifecycle @cross-browser @tablet", async ({ page }) => {
+test("bulk reconnect ignores requests from the detached card lifecycle @cross-browser", async ({ page }) => {
   const card = await mountBulkDossier(page);
   await page.evaluate(() => window.__bulkHold.add("puppy_tracker/data"));
   await card.locator("#bulk-litter").selectOption("l2");
@@ -397,7 +397,7 @@ test("bulk reconnect ignores requests from the detached card lifecycle @cross-br
   await expect(card.locator(".puppy-option")).toContainText("Current puppy");
 });
 
-test("bulk configuration changes invalidate an unfinished initial load @cross-browser @tablet", async ({ page }) => {
+test("bulk configuration changes invalidate an unfinished initial load @cross-browser", async ({ page }) => {
   const card = await mountBulkDossier(page, "en", null, ["puppy_tracker/litters"]);
   await pendingCount(page, "puppy_tracker/litters", 1);
   await card.evaluate((node) => node.setConfig({ ...node._config, litter_id: "l2" }));
@@ -441,7 +441,7 @@ for (const inputEvent of ["input", "change"]) {
   });
 }
 
-test("bulk save reruns a refresh whose data was invalidated while saving @cross-browser @tablet", async ({ page }) => {
+test("bulk save reruns a refresh whose data was invalidated while saving @cross-browser", async ({ page }) => {
   const card = await mountBulkDossier(page);
   await page.evaluate(() => {
     window.__bulkHold.add("puppy_tracker/data");
@@ -463,7 +463,7 @@ test("bulk save reruns a refresh whose data was invalidated while saving @cross-
   expect(await recordAddCalls(page)).toHaveLength(3);
 });
 
-test("Workspace keeps the bulk tab and litter pinned until the save completes @cross-browser @tablet", async ({ page }) => {
+test("Workspace keeps the bulk tab and litter pinned until the save completes @cross-browser", async ({ page }) => {
   const standalone = await mountBulkDossier(page);
   await standalone.evaluate((node) => node.remove());
   await page.evaluate(() => {

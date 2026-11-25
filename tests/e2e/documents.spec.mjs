@@ -65,7 +65,7 @@ test("Document creation stays in front while template actions are separate and c
   await expect(panel.locator("#template-management")).toHaveAttribute("open", "");
 });
 
-test("Unsaved template can preview selected puppy and buyer data without saving @cross-browser @tablet", async ({ page }) => {
+test("Unsaved template can preview selected puppy and buyer data without saving @cross-browser", async ({ page }) => {
   const { panel } = await mountDocuments(page);
   await panel.locator("#edit-template").click();
   await panel.locator("#template-name").fill("Draft for Nova");
@@ -79,7 +79,7 @@ test("Unsaved template can preview selected puppy and buyer data without saving 
   expect(await page.evaluate(() => window.__docs.calls.some(c => c.type.endsWith("template/save")))).toBe(false);
 });
 
-test("Template undo and redo restore text and block changes @cross-browser @tablet", async ({ page }) => {
+test("Template undo and redo restore text and block changes @cross-browser", async ({ page }) => {
   const { panel } = await mountDocuments(page);
   await panel.locator("#edit-template").click();
   await expect(panel.locator("#undo-template")).toBeDisabled();
@@ -100,7 +100,7 @@ test("Template undo and redo restore text and block changes @cross-browser @tabl
   expect(await panel.evaluate(el => el._editor.template.name)).toBe("Revised draft");
 });
 
-test("Editor shows each field source and selected data availability @cross-browser @tablet", async ({ page }) => {
+test("Editor shows each field source and selected data availability @cross-browser", async ({ page }) => {
   const { panel } = await mountDocuments(page);
   await page.evaluate(() => {
     window.__docs.model.fields["pup.huidig_gewicht"] = { nl: "Laatst gemeten gewicht", en: "Last measured weight" };
@@ -144,7 +144,7 @@ test("Payment receipt requires an active receipt and clears it when the buyer ch
 });
 
 for (const language of ["nl", "en"]) {
-  test(`Contract preview, missing fields, save and archive (${language}) @cross-browser @tablet`, async ({ page }) => {
+  test(`Contract preview, missing fields, save and archive (${language}) @cross-browser`, async ({ page }) => {
     const { panel } = await mountDocuments(page, language);
     await expect(panel.locator("#document-puppy option").filter({ hasText: "Nova (paars)" })).toHaveCount(1);
     await expect(panel.locator("#preview-document")).toBeDisabled();
@@ -234,7 +234,7 @@ test("Simple template editor uses readable fields and inserts sections in place 
   expect(saved.blocks[2].text).toBe("Pup: {{ pup.naam }}");
 });
 
-test("Simple editor keeps mode, text and fields across draft recovery @cross-browser @tablet", async ({ page }) => {
+test("Simple editor keeps mode, text and fields across draft recovery @cross-browser", async ({ page }) => {
   let { panel } = await mountDocuments(page);
   await panel.locator("#new-template").click();
   await expect(panel.locator("#editor-mode")).toHaveValue("simple");
@@ -270,7 +270,7 @@ test("Simple field insertion keeps caret position and multiline text @cross-brow
   expect(await page.evaluate(() => window.__docs.calls.some(c => c.type.endsWith("template/save")))).toBe(false);
 });
 
-test("Template block identities, deletion recovery and explicit field order @cross-browser @tablet", async ({ page }) => {
+test("Template block identities, deletion recovery and explicit field order @cross-browser", async ({ page }) => {
   const { panel } = await mountDocuments(page);
   await panel.locator("#template-file").setInputFiles({ name: "template.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({
     format: "puppy_tracker_document_template", version: 1, name: "Ordered", language: "nl",
@@ -348,7 +348,7 @@ test("Editor validates locally, updates optional fields without losing focus and
   await panel.screenshot({ path: test.info().outputPath("template-editor-tools.png") });
 });
 
-test("Optional field controls stay in sync across text and data blocks and support undo @cross-browser @tablet", async ({ page }) => {
+test("Optional field controls stay in sync across text and data blocks and support undo @cross-browser", async ({ page }) => {
   const { panel } = await mountDocuments(page);
   await page.evaluate(() => {
     window.__docs.model.templates[0].template.blocks = [
@@ -431,7 +431,7 @@ test("Import safe template JSON and retain unsaved draft on cancelled discard", 
   await expect(panel.locator("#template-name")).toHaveValue("Imported");
 });
 
-test("Document import, block editing and archive IDs work without secure-context UUID API @cross-browser @tablet", async ({ page }) => {
+test("Document import, block editing and archive IDs work without secure-context UUID API @cross-browser", async ({ page }) => {
   const { panel } = await mountDocuments(page);
   await page.evaluate(() => { Object.defineProperty(window.crypto, "randomUUID", { value: undefined, configurable: true }); });
   await panel.locator("#template-file").setInputFiles({ name: "synthetic.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({
@@ -553,7 +553,7 @@ test("Discarding a draft clears the recovery copy and does not resurrect after r
   await expect(panel.locator("#document-buyer")).toBeVisible();
 });
 
-test("Local drafts stay isolated between HA users @cross-browser @tablet", async ({ page }) => {
+test("Local drafts stay isolated between HA users @cross-browser", async ({ page }) => {
   const { report, panel } = await mountDocuments(page);
   await panel.locator("#edit-template").click(); await panel.locator("#editor-mode").selectOption("advanced");
   await panel.locator("#template-name").fill("Private draft A");
@@ -635,7 +635,7 @@ test("Malformed local recovery data does not prevent starting a new draft @cross
   await expect(panel.locator("#draft-status")).toContainText("Concept lokaal bewaard");
 });
 
-for (const language of ["nl", "en"]) test(`Standard templates are grouped and default to the UI language (${language}) @cross-browser @tablet`, async ({ page }) => {
+for (const language of ["nl", "en"]) test(`Standard templates are grouped and default to the UI language (${language}) @cross-browser`, async ({ page }) => {
   const { panel } = await mountDocuments(page, language);
   await page.evaluate(() => {
     const source = window.__docs.model.templates[0];
@@ -679,7 +679,7 @@ test("Revoked admin permission discards a delayed preview", async ({ page }) => 
 });
 
 for (const language of ["nl", "en"]) {
-  test(`report and document summaries match their independent export selections (${language}) @cross-browser @tablet`, async ({ page }, testInfo) => {
+  test(`report and document summaries match their independent export selections (${language}) @cross-browser`, async ({ page }, testInfo) => {
     const { report, panel } = await mountDocuments(page, language, false, "a2");
     await expect(panel.locator("#document-puppy")).toHaveValue("a2");
     await expect(panel.locator("#document-buyer")).toHaveValue("o3");
@@ -704,7 +704,7 @@ for (const language of ["nl", "en"]) {
   });
 
   for (const scope of ["__litter__", "__mother__"]) {
-    test(`${scope} report never silently selects the first document puppy (${language}) @cross-browser @tablet`, async ({ page }) => {
+    test(`${scope} report never silently selects the first document puppy (${language}) @cross-browser`, async ({ page }) => {
       const { panel, report } = await mountDocuments(page, language, false, scope);
       await expect(panel.locator("#document-litter")).toHaveValue("a");
       await expect(panel.locator("#document-puppy")).toHaveValue("");
@@ -721,7 +721,7 @@ for (const language of ["nl", "en"]) {
   }
 }
 
-test("only pristine documents adopt a new report selection when reopened @cross-browser @tablet", async ({ page }) => {
+test("only pristine documents adopt a new report selection when reopened @cross-browser", async ({ page }) => {
   const { report, panel } = await mountDocuments(page, "en", false);
   await report.locator("#puppy").selectOption("a2");
   // Report changes alone never alter even a pristine open document.
@@ -770,7 +770,7 @@ test("report changes preserve template edits, preview parties and focused inputs
   await expect(panel.locator("#document-selection-context")).toContainText("Nova (paars)");
 });
 
-test("initial prefill uses the chosen litter rather than the first model litter @cross-browser @tablet", async ({ page }) => {
+test("initial prefill uses the chosen litter rather than the first model litter @cross-browser", async ({ page }) => {
   const { panel } = await mountDocuments(page, "en", false, "b1", "b");
   await expect(panel.locator("#document-litter")).toHaveValue("b");
   await expect(panel.locator("#document-puppy")).toHaveValue("b1");
@@ -780,7 +780,7 @@ test("initial prefill uses the chosen litter rather than the first model litter 
   await expect(panel.locator("#document-selection-context")).toContainText("Jamie");
 });
 
-test("a delayed document preview keeps its parties while report selection changes @cross-browser @tablet", async ({ page }) => {
+test("a delayed document preview keeps its parties while report selection changes @cross-browser", async ({ page }) => {
   const { report, panel } = await mountDocuments(page, "en", false);
   await panel.locator("#document-buyer").selectOption("o1");
   await panel.locator("#document-others").selectOption("o2");

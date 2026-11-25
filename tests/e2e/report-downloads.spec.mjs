@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("branding and profile note are independently selected without sending hidden contact data @cross-browser @mobile @tablet", async ({ page }) => {
+test("branding and profile note are independently selected without sending hidden contact data @cross-browser", async ({ page }) => {
   const card = await mountReport(page, { breeder_name: "Test kennel", breeder_contact: "private@example.com", logo_url: "https://external.invalid/logo.png" });
   await expect(card.locator('[data-pdf-section="breeder_contact"]')).not.toBeChecked();
   await expect(card.locator('[data-pdf-section="profile_note"]')).not.toBeChecked();
@@ -24,7 +24,7 @@ test("branding and profile note are independently selected without sending hidde
 });
 
 for (const logoUrl of ["/local/test-logo.png", "/api/puppy_tracker/files/managed-logo?authSig=test"]) {
-test(`local or signed managed logo ${logoUrl} is converted and skipped when excluded @cross-browser @mobile @tablet`, async ({ page }) => {
+test(`local or signed managed logo ${logoUrl} is converted and skipped when excluded @cross-browser`, async ({ page }) => {
   const card = await mountReport(page, { logo_url: "/local/obsolete-card-logo.png" }, null, logoUrl);
   const png = await page.evaluate(() => {
     const canvas = document.createElement("canvas");
@@ -199,7 +199,7 @@ test("report selection exposes one clear whole-litter scope and historical puppi
   await expect(card.locator(".report-section").last().locator("#pdf")).toHaveCount(0);
 });
 
-test("PDF and data export sections can be collapsed without losing selection @mobile @tablet", async ({ page }) => {
+test("PDF and data export sections can be collapsed without losing selection @mobile", async ({ page }) => {
   const card = await mountReport(page);
   await expect(card.locator("#profile")).toBeVisible();
   await expect(card.locator("#pdf-language")).toBeVisible();

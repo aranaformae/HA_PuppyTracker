@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test.use({ timezoneId: "America/Los_Angeles" });
 
-test("HA calendar days and displayed times stay consistent on a device in another timezone @cross-browser @tablet", async ({ page }) => {
+test("HA calendar days and displayed times stay consistent on a device in another timezone @cross-browser", async ({ page }) => {
   await page.clock.install({ time: new Date("2026-03-28T23:30:00Z") });
   await page.goto("/tests/e2e/cards.html?production=1");
   await page.waitForFunction(() => window.__puppyTrackerReady === true);

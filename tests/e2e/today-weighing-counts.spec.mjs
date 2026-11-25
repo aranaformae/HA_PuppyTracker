@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 for (const language of ["nl", "en"]) {
-  test(`Today keeps daily weights after completion, reset and reload (${language}) @cross-browser @tablet`, async ({ page }) => {
+  test(`Today keeps daily weights after completion, reset and reload (${language}) @cross-browser`, async ({ page }) => {
     await page.clock.install({ time: new Date("2026-10-21T22:30:00Z") });
     await page.goto("/tests/e2e/cards.html?production");
     await page.waitForFunction(() => window.__puppyTrackerReady);

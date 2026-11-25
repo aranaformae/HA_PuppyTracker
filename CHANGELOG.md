@@ -23,6 +23,10 @@ they have not been reconstructed as a complete historical changelog.
 
 ### Changed
 
+- Shorten browser validation by removing redundant tablet combinations while
+  retaining every unique scenario and existing Chromium/iPhone checks. Balance
+  CI shards across every browser profile and bound local parallelism to four workers.
+
 - Show dependent notification and weighing-schedule fields only when enabled on
   HA 2026.11+, retaining saved hidden values and the full forms on older HA.
 

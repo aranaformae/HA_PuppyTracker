@@ -5,7 +5,7 @@ async function openFixture(page) {
   await page.waitForFunction(() => window.__puppyTrackerReady === true);
 }
 
-test("temperature card shows selected puppy readings and saves a note", async ({ page }) => {
+test("temperature card shows selected puppy readings and saves a note @cross-browser", async ({ page }) => {
   await openFixture(page);
   await page.evaluate(() => {
     const now = new Date().toISOString();

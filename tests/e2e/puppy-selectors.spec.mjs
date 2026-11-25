@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 for (const language of ["nl", "en"]) {
-  test(`puppy selectors consistently identify collar colours (${language}) @cross-browser @tablet`, async ({ page }) => {
+  test(`puppy selectors consistently identify collar colours (${language}) @cross-browser`, async ({ page }) => {
     await page.goto("/tests/e2e/cards.html?production");
     await page.waitForFunction(() => window.__puppyTrackerReady === true);
     expect(await page.evaluate(() => window.__puppyTrackerModuleErrors)).toEqual([]);

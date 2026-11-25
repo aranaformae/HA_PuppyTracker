@@ -110,7 +110,7 @@ function recordAddCalls(page) {
   );
 }
 
-test("a chosen owner takes precedence over the remembered note owner", { tag: ["@cross-browser", "@tablet"] }, async ({ page }) => {
+test("a chosen owner takes precedence over the remembered note owner", { tag: ["@cross-browser"] }, async ({ page }) => {
   const card = await mountQuickLog(page);
   await card.locator("#owner-select").selectOption("p1");
   await card.locator('[data-preset="note"]').click();
@@ -138,7 +138,7 @@ test("a chosen owner takes precedence over the remembered note owner", { tag: ["
   expect(motherCalls[0].note).toBe("Observation for __mother__");
 });
 
-test("configured puppy is an initial default, not a forced owner on refresh", { tag: ["@cross-browser", "@tablet"] }, async ({ page }) => {
+test("configured puppy is an initial default, not a forced owner on refresh", { tag: ["@cross-browser"] }, async ({ page }) => {
   const card = await mountQuickLog(page, "en", { default_selected: "puppy", puppy_id: "p1" });
   await expect(card.locator("#owner-select")).toHaveValue("p1");
   for (const owner of ["p2", "__mother__", "__litter__"]) {
@@ -217,7 +217,7 @@ test("logs a feeding observation for the selected puppy with an editable current
   expect(calls[0].occurred_at).toBe(expectedOccurredAt);
 });
 
-test("logs a structured daily care observation for the selected puppy @cross-browser @tablet", async ({ page }) => {
+test("logs a structured daily care observation for the selected puppy @cross-browser", async ({ page }) => {
   const card = await mountQuickLog(page, "nl");
   await card.locator("#owner-select").selectOption("p1");
   await card.locator('[data-preset="daily_care"]').click();
@@ -296,7 +296,7 @@ test("exposes every shared dossier type and saves structured deworming", { tag: 
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
 });
 
-test("Quick Log validates and saves a completed test with its reference @cross-browser @tablet", async ({ page }) => {
+test("Quick Log validates and saves a completed test with its reference @cross-browser", async ({ page }) => {
   const card = await mountQuickLog(page, "nl");
   await card.locator("#owner-select").selectOption("p1");
   await card.locator('[data-preset="test"]').click();

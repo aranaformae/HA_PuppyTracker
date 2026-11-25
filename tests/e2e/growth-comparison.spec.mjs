@@ -91,7 +91,7 @@ test("late comparison responses preserve selection, filter focus and reject an o
   await expect(card.locator(".brief")).toContainText("107.2%");
 });
 
-test("overview retains comparison disclosure and avoids requests when hidden or unchanged @cross-browser @tablet", async ({ page }) => {
+test("overview retains comparison disclosure and avoids requests when hidden or unchanged @cross-browser", async ({ page }) => {
   await install(page, "en");
   await page.evaluate(() => {
     document.querySelector("#comparison-test").remove();
@@ -124,7 +124,7 @@ test("overview retains comparison disclosure and avoids requests when hidden or 
   await expect(comparison).toHaveCount(0);
 });
 
-test("failed comparison offers retry without automatic request loops @cross-browser @tablet", async ({ page }) => {
+test("failed comparison offers retry without automatic request loops @cross-browser", async ({ page }) => {
   await install(page, "en");
   const card = page.locator("#comparison-test");
   await expect(card.locator(".brief")).toContainText("99.2%");

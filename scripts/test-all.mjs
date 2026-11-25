@@ -62,6 +62,6 @@ for (const file of javascriptFiles) {
 }
 
 run("Check release status command syntax", "node", ["--check", "scripts/release-status.mjs"]);
-run("Check release gating behavior", "node", ["--test", "tests/release-gate.test.cjs"]);
+run("Check release gating and browser sharding", "node", ["--test", "tests/release-gate.test.cjs", "tests/browser-shard.test.mjs"]);
 run("Run Playwright tests", process.platform === "win32" ? "npm.cmd" : "npm", ["run", "test:e2e"]);
 console.log("\nAll local checks passed.");

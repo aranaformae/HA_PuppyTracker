@@ -46,6 +46,7 @@ more detail; implementation and release procedures stay in the technical section
 | [Storage migrations](storage-migrations.md) | Supported schema path and migration invariants |
 | [Standalone feeding calculator](FEEDING_CALCULATOR_STANDALONE.md) | Data model and calculation contract for a separate owner-facing web tool |
 | [Local tests](../tests/README.md) | Python, JavaScript and Playwright test environment |
+| [Test suite review](TEST_SUITE_REVIEW.md) | November 2026 timing measurements and browser coverage decisions |
 | [iOS/iPadOS checklist](ios-ipados-release-checklist.md) | Manual release verification for touch devices |
 
 The example care-program import file is available at

@@ -24,7 +24,7 @@ async function writes(page) {
 
 for (const language of ["nl", "en"]) {
   for (const [kind, scope] of [["temperature", "litter"], ["temperature", "mother"], ["temperature", "puppy"], ["behavior", "puppy"]]) {
-    test(`${kind} ${scope}: ${language} confirms saving despite failed refresh and retries only the read @cross-browser @tablet`, async ({ page }) => {
+    test(`${kind} ${scope}: ${language} confirms saving despite failed refresh and retries only the read @cross-browser`, async ({ page }) => {
       const card = await mountAsyncCard(page, kind, { language, config: { default_selected: scope, default_range: "all" } });
       await draft(card, kind);
       const read = scope === "mother" ? "puppy_tracker/mother/records" : "puppy_tracker/data";

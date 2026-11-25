@@ -84,7 +84,7 @@ test("behavior history shares the editor and supports partial criterion changes 
 });
 
 for (const surface of ["dossier", "today", "attention", "temperature", "behavior", "mobile"]) {
-  test(`${surface} removes saved-item write controls for non-admins @cross-browser @tablet`, async ({ page }) => {
+  test(`${surface} removes saved-item write controls for non-admins @cross-browser`, async ({ page }) => {
     const card = await mount(page, { surface });
     await card.evaluate((element) => { element._hass.user.is_admin = false; element._render(); });
     await expect(card.locator("[data-edit-item],[data-edit]")).toHaveCount(0);
@@ -114,7 +114,7 @@ for (const surface of ["dossier", "today", "attention", "temperature", "mobile"]
 
 for (const surface of ["dossier", "temperature", "attention"]) {
 for (const scope of ["litter", "mother"]) {
-  test(`${surface} edits the ${scope} source, not the selected puppy @cross-browser @tablet`, async ({ page }) => {
+  test(`${surface} edits the ${scope} source, not the selected puppy @cross-browser`, async ({ page }) => {
     const card = await mount(page, { surface, scope });
     const button = surface === "dossier" ? card.locator(`[data-edit-item="${scope === "mother" ? "mother-record" : "litter-record"}"]`)
       : surface === "attention" ? card.locator(scope === "mother" ? ".mother-action [data-edit-item]" : '[data-attention-id="dossier:litter-record:next_due_date"] [data-edit-item]')
@@ -132,7 +132,7 @@ for (const scope of ["litter", "mother"]) {
 }
 }
 
-test("canonical permission denial is shown without an editable form @cross-browser @tablet", async ({ page }) => {
+test("canonical permission denial is shown without an editable form @cross-browser", async ({ page }) => {
   const card = await mount(page);
   await page.evaluate(() => {
     const original = window.__editorHass.callWS;
@@ -147,7 +147,7 @@ test("canonical permission denial is shown without an editable form @cross-brows
   await expect(editor.locator("#record-save")).toHaveCount(0);
 });
 
-test("submitting twice sends one write and prevents closing during the request @cross-browser @tablet", async ({ page }) => {
+test("submitting twice sends one write and prevents closing during the request @cross-browser", async ({ page }) => {
   const card = await mount(page);
   await card.locator('[data-edit-item="puppy-record"]').click();
   const editor = page.locator("puppy-tracker-record-editor");
@@ -168,7 +168,7 @@ test("submitting twice sends one write and prevents closing during the request @
   await expect(editor).toHaveCount(0);
 });
 
-test("deleted timeline records offer restore before edit @cross-browser @tablet", async ({ page }) => {
+test("deleted timeline records offer restore before edit @cross-browser", async ({ page }) => {
   const card = await mount(page);
   await page.evaluate(() => { window.__editorRecords.find((record) => record.id === "puppy-record").deleted = true; });
   await card.locator("#show-deleted").check();
@@ -181,7 +181,7 @@ test("deleted timeline records offer restore before edit @cross-browser @tablet"
   await expect(card.locator('[data-edit-item="puppy-record"]')).toBeVisible();
 });
 
-test("draft survives failed saves and card rerenders; closing confirms discard @cross-browser @tablet", async ({ page }) => {
+test("draft survives failed saves and card rerenders; closing confirms discard @cross-browser", async ({ page }) => {
   const card = await mount(page);
   await card.locator('[data-edit-item="puppy-record"]').click();
   const editor = page.locator("puppy-tracker-record-editor");
@@ -199,7 +199,7 @@ test("draft survives failed saves and card rerenders; closing confirms discard @
   await expect(editor).toHaveCount(0);
 });
 
-test("dossier follow-up can edit its source while the timeline is collapsed @cross-browser @tablet", async ({ page }) => {
+test("dossier follow-up can edit its source while the timeline is collapsed @cross-browser", async ({ page }) => {
   const card = await mount(page, { surface: "dossier" });
   await card.locator("#toggle-timeline-items").click();
   await expect(card.locator(".timeline-items-content")).toBeHidden();
@@ -213,7 +213,7 @@ test("dossier follow-up can edit its source while the timeline is collapsed @cro
   expect(await page.evaluate(() => window.__editorCalls.find((call) => call.type.endsWith("record/update")))).toMatchObject({ record_id: "puppy-record", puppy_id: "p1" });
 });
 
-test("editing a saved care result changes its dossier fact without executing care again @cross-browser @tablet", async ({ page }) => {
+test("editing a saved care result changes its dossier fact without executing care again @cross-browser", async ({ page }) => {
   const card = await mount(page);
   await page.evaluate(async () => {
     Object.assign(window.__editorRecords.find((record) => record.id === "puppy-record"), {
@@ -235,7 +235,7 @@ test("editing a saved care result changes its dossier fact without executing car
   await expect(card.locator(".dossier-timeline-scroll").getByText("Nieuwsgierig", { exact: true })).toBeVisible();
 });
 
-test("deleted records are not edited from a stale card @cross-browser @tablet", async ({ page }) => {
+test("deleted records are not edited from a stale card @cross-browser", async ({ page }) => {
   const card = await mount(page);
   await page.evaluate(() => { window.__editorRecords.find((record) => record.id === "puppy-record").deleted = true; });
   await card.locator('[data-edit-item="puppy-record"]').click();
@@ -244,7 +244,7 @@ test("deleted records are not edited from a stale card @cross-browser @tablet", 
   await expect(editor.locator("#record-save")).toHaveCount(0);
 });
 
-test("weight entry uses correction API, never dossier updates @cross-browser @tablet", async ({ page }) => {
+test("weight entry uses correction API, never dossier updates @cross-browser", async ({ page }) => {
   const card = await mount(page);
   await card.locator('[data-edit-item="weight:p1:w1"]').click();
   const editor = page.locator("puppy-tracker-record-editor");
@@ -276,7 +276,7 @@ test("saving an item preserves the timeline list scroll position @cross-browser 
   await expect.poll(() => card.locator(".dossier-timeline-scroll").evaluate((list) => list.scrollTop)).toBeCloseTo(offset, 0);
 });
 
-test("role loss prevents saving; detaching the source cleans up the dialog @cross-browser @tablet", async ({ page }) => {
+test("role loss prevents saving; detaching the source cleans up the dialog @cross-browser", async ({ page }) => {
   const card = await mount(page);
   await card.locator('[data-edit-item="puppy-record"]').click();
   const editor = page.locator("puppy-tracker-record-editor");

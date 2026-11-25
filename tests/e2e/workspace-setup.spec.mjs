@@ -51,7 +51,7 @@ async function mount(page, { preset = "home", language = "nl", admin = true, vis
   return card;
 }
 
-test("existing litters have an opt-in checklist, with no hidden background subscription @cross-browser @tablet", async ({ page }) => {
+test("existing litters have an opt-in checklist, with no hidden background subscription @cross-browser", async ({ page }) => {
   const card = await mount(page, { visible: false });
   await expect(card.locator(".setup-panel")).toHaveCount(0);
   expect(await card.evaluate((el) => el._setup._unsubscribe)).toBe(null);
@@ -64,7 +64,7 @@ test("existing litters have an opt-in checklist, with no hidden background subsc
 });
 
 for (const language of ["nl", "en"]) {
-  test(`checklist derives progress and automatically finishes after a real backup (${language}) @cross-browser @tablet`, async ({ page }) => {
+  test(`checklist derives progress and automatically finishes after a real backup (${language}) @cross-browser`, async ({ page }) => {
     const card = await mount(page, { language, steps: { weighing: true } });
     const download = page.waitForEvent("download");
     await card.locator('[data-setup-action="next"]').click();
@@ -100,7 +100,7 @@ test("home opens the existing weighing surface in a bounded dialog and retains i
   expect(await today.evaluate((el) => el.isConnected)).toBe(false);
 });
 
-test("mobile reuses its own Weigh tab without changing the preset @cross-browser @tablet", async ({ page }) => {
+test("mobile reuses its own Weigh tab without changing the preset @cross-browser", async ({ page }) => {
   const card = await mount(page, { preset: "mobile" });
   await card.locator('[data-setup-action="next"]').click();
   expect(await card.evaluate((el) => ({ preset: el._preset, tab: el._tab }))).toEqual({ preset: "mobile", tab: "weighing" });

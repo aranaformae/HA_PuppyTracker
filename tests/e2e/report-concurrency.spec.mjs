@@ -6,7 +6,7 @@ const LOGO = "puppy_tracker/report/logo";
 const MOTHER = "puppy_tracker/mother/export_url";
 
 for (const [variant, language] of [["pdf", "nl"], ["csv", "en"], ["json", "nl"], ["mother", "en"]]) {
-  test(`${variant}: one export at a time, locked controls, clear failure and retry @cross-browser @tablet`, async ({ page }) => {
+  test(`${variant}: one export at a time, locked controls, clear failure and retry @cross-browser`, async ({ page }) => {
     const card = await mountAsyncCard(page, "report", { language });
     if (variant === "mother") {
       await card.locator("#puppy").selectOption("__mother__");
@@ -40,7 +40,7 @@ for (const [variant, language] of [["pdf", "nl"], ["csv", "en"], ["json", "nl"],
   });
 }
 
-test("PDF snapshots every option before a delayed logo and defers reconfiguration @cross-browser @tablet", async ({ page }) => {
+test("PDF snapshots every option before a delayed logo and defers reconfiguration @cross-browser", async ({ page }) => {
   const card = await mountAsyncCard(page, "report");
   await card.evaluate((el) => {
     el._selectedPuppyId = "a2";

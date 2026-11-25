@@ -219,7 +219,7 @@ for (const [surface, tag, title, lead, save, cancel] of [
     await expect(card.locator(title)).toHaveValue("Edited care title");
   });
 
-  test(`${surface} confirms a saved write when overview refresh fails and retries only the read`, { tag: ["@cross-browser", "@tablet"] }, async ({ page }) => {
+  test(`${surface} confirms a saved write when overview refresh fails and retries only the read`, { tag: ["@cross-browser"] }, async ({ page }) => {
     const card = await mount(page, tag);
     await card.locator("button.edit").first().click();
     await card.locator(title).fill("Confirmed saved schedule");
@@ -254,7 +254,7 @@ test("Workspace retains hidden drafts and asks once before a litter change disca
   await expect(quick.locator("#quick-note")).toHaveCount(0);
 });
 
-test("removing an instruction row alone remains a protected draft after save failure", { tag: ["@cross-browser", "@tablet"] }, async ({ page }) => {
+test("removing an instruction row alone remains a protected draft after save failure", { tag: ["@cross-browser"] }, async ({ page }) => {
   const card = await mount(page, "puppy-tracker-care-program-card");
   await card.locator("button.edit").click();
   await expect(card.locator(".age-instruction-row")).toHaveCount(1);
@@ -294,7 +294,7 @@ for (const [tag, config, open, note, save, cancel] of [
   ["puppy-tracker-behavior-card", { puppy_id: "p2" }, "#behavior-add", "#behavior-note", "#behavior-save", "#behavior-cancel"],
   ["puppy-tracker-dossier-card", { default_selected: "puppy", puppy_id: "p2" }, "#profile-edit", "#profile-note", "#profile-save", "#profile-cancel"],
 ]) {
-  test(`${tag} retains new or profile-note drafts after a failed save and cancelled discard`, { tag: ["@cross-browser", "@tablet"] }, async ({ page }) => {
+  test(`${tag} retains new or profile-note drafts after a failed save and cancelled discard`, { tag: ["@cross-browser"] }, async ({ page }) => {
     const card = await mount(page, tag, config);
     if (tag === "puppy-tracker-dossier-card") await card.locator(".profile-panel > summary").click();
     await card.locator(open).click();
@@ -315,7 +315,7 @@ for (const [tag, config, open, note, save, cancel] of [
   });
 }
 
-test("a care-result draft survives cancelled closing and a failed save", { tag: ["@cross-browser", "@tablet"] }, async ({ page }) => {
+test("a care-result draft survives cancelled closing and a failed save", { tag: ["@cross-browser"] }, async ({ page }) => {
   const card = await mount(page, "puppy-tracker-care-execution-card");
   await expect.poll(() => card.evaluate((element) => element._litters.length)).toBe(2);
   await card.evaluate(async (element) => {
@@ -339,7 +339,7 @@ test("a care-result draft survives cancelled closing and a failed save", { tag: 
 });
 
 for (const [tag, prefix, suffix] of [["puppy-tracker-recurring-reminder-card", "rem", "reminder"], ["puppy-tracker-care-program-card", "care", "program"]]) {
-  test(`${suffix} retains and saves per-kg settings after failed submission @cross-browser @tablet`, async ({ page }) => {
+  test(`${suffix} retains and saves per-kg settings after failed submission @cross-browser`, async ({ page }) => {
     const card=await mount(page,tag);
     await card.locator(`#add-${suffix}`).click();
     await card.locator(`#${prefix}-title`).fill("Weight-dependent care");

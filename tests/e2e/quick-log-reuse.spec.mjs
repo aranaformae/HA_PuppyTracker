@@ -64,7 +64,7 @@ async function releaseRead(page) {
   await page.evaluate(() => { window.reuseFixture.hold = false; window.reuseFixture.release(); });
 }
 
-test("Mobile feeding category is saved for the selected puppy @cross-browser @tablet", async ({ page }) => {
+test("Mobile feeding category is saved for the selected puppy @cross-browser", async ({ page }) => {
   const card = await mount(page, { mobile: true, language: "nl" });
   await card.locator('[data-preset="feeding"]').click();
   await expect(card.locator("#quick-data-feeding_category option")).toContainText(["", "Moedermelk", "Fles", "Sonde", "Pap", "Vast voer", "Brokken", "Vers vlees", "Houdbaar vlees", "Supplement"]);
@@ -126,7 +126,7 @@ for (const mobile of [false, true]) {
 }
 
 for (const [owner, amount] of [["p2", "52"], ["__mother__", "65"], ["__litter__", "120"]]) {
-  test(`Reuse only reads the selected ${owner} dossier @cross-browser @tablet`, async ({ page }) => {
+  test(`Reuse only reads the selected ${owner} dossier @cross-browser`, async ({ page }) => {
     const card = await mount(page, { mobile: true, language: "nl" });
     await card.locator("#owner-select").selectOption(owner);
     await card.locator('[data-preset="feeding"]').click();
@@ -145,7 +145,7 @@ for (const [owner, amount] of [["p2", "52"], ["__mother__", "65"], ["__litter__"
   });
 }
 
-test("Reuse ignores deleted, missed, future, foreign and unstructured records @cross-browser @tablet", async ({ page }) => {
+test("Reuse ignores deleted, missed, future, foreign and unstructured records @cross-browser", async ({ page }) => {
   const card = await mount(page);
   await page.evaluate(() => {
     const state = window.reuseFixture;
@@ -167,7 +167,7 @@ test("Reuse ignores deleted, missed, future, foreign and unstructured records @c
   await expect(card.locator("#quick-data-observation")).toHaveValue("");
 });
 
-test("Reuse errors, an empty history and cancelled replacement keep the draft intact @cross-browser @tablet", async ({ page }) => {
+test("Reuse errors, an empty history and cancelled replacement keep the draft intact @cross-browser", async ({ page }) => {
   const card = await mount(page, { language: "nl" });
   await card.locator('[data-preset="feeding"]').click();
   await card.locator("#quick-data-amount").fill("27");
@@ -188,7 +188,7 @@ test("Reuse errors, an empty history and cancelled replacement keep the draft in
 });
 
 for (const change of ["owner", "category", "litter", "permissions", "connection", "mutated-user", "mutated-connection", "cancel", "detach"]) {
-  test(`Late reuse cannot overwrite after ${change} changes @cross-browser @tablet`, async ({ page }) => {
+  test(`Late reuse cannot overwrite after ${change} changes @cross-browser`, async ({ page }) => {
     const card = await mount(page);
     await card.locator('[data-preset="feeding"]').click();
     await holdRead(page, card);
@@ -237,7 +237,7 @@ test("Typing and saving during a reuse request never applies a late copy @cross-
   expect(await page.evaluate(() => window.reuseFixture.saved[0].data)).toEqual({ amount: "27", recurring_completion: "none" });
 });
 
-test("Reuse locks double taps and clears fields absent from the source @cross-browser @tablet", async ({ page }) => {
+test("Reuse locks double taps and clears fields absent from the source @cross-browser", async ({ page }) => {
   const card = await mount(page);
   await page.evaluate(() => { window.reuseFixture.entries.p1[0].data = { amount: "45" }; });
   await card.locator('[data-preset="feeding"]').click();
@@ -257,7 +257,7 @@ test("Reuse locks double taps and clears fields absent from the source @cross-br
   await expect(card.locator(".reuse-feedback")).toContainText("Nova (paars)");
 });
 
-test("Reuse rejects history for a mother linked differently on the server @cross-browser @tablet", async ({ page }) => {
+test("Reuse rejects history for a mother linked differently on the server @cross-browser", async ({ page }) => {
   const card = await mount(page);
   await card.locator("#owner-select").selectOption("__mother__");
   await card.locator('[data-preset="feeding"]').click();

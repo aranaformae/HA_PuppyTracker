@@ -108,7 +108,7 @@ async function mount(page, mobile = false, scope = "puppy", language = "en") {
 
 for (const mobile of [false, true]) {
   for (const scope of ["puppy", "mother", "litter"]) {
-    test(`${mobile ? "Mobile" : "Quick Log"} explicitly completes only the chosen ${scope} reminder @cross-browser @tablet`, async ({ page }, testInfo) => {
+    test(`${mobile ? "Mobile" : "Quick Log"} explicitly completes only the chosen ${scope} reminder @cross-browser ${scope === "puppy" ? "@tablet" : ""}`, async ({ page }, testInfo) => {
       const card = await mount(page, mobile, scope);
       const choice = card.locator("#quick-reminder");
       await expect(choice).toHaveValue("");
@@ -150,7 +150,7 @@ for (const mobile of [false, true]) {
   }
 }
 
-test("changing owner or category drops only the reminder choice and background updates preserve the draft @cross-browser @tablet", async ({ page }) => {
+test("changing owner or category drops only the reminder choice and background updates preserve the draft @cross-browser", async ({ page }) => {
   const card = await mount(page);
   await card.locator("#quick-reminder").selectOption("puppy-a");
   await card.locator("#quick-note").fill("Keep this observation");
@@ -175,7 +175,7 @@ test("changing owner or category drops only the reminder choice and background u
   expect(await page.evaluate(() => window.quickReminderFixture.records[0])).toMatchObject({ scope: "mother", data: { recurring_completion: "none" } });
 });
 
-test("failed and busy reminder saves retain input without falling back to an ordinary log @cross-browser @tablet", async ({ page }) => {
+test("failed and busy reminder saves retain input without falling back to an ordinary log @cross-browser", async ({ page }) => {
   const card = await mount(page, true);
   await card.locator("#quick-reminder").selectOption("puppy-a");
   await card.locator("#quick-note").fill("Keep after failure");
@@ -197,7 +197,7 @@ test("failed and busy reminder saves retain input without falling back to an ord
   expect(await page.evaluate(() => window.quickReminderFixture.records)).toHaveLength(1);
 });
 
-test("refresh never changes a retry to the next scheduled slot after a lost response @cross-browser @tablet", async ({ page }) => {
+test("refresh never changes a retry to the next scheduled slot after a lost response @cross-browser", async ({ page }) => {
   const card = await mount(page);
   await card.locator("#quick-reminder").selectOption("puppy-a");
   await card.locator("#quick-note").fill("One actual execution");
@@ -216,7 +216,7 @@ test("refresh never changes a retry to the next scheduled slot after a lost resp
   await expect(card.getByRole("button", { name: "Undo execution", exact: true })).toHaveCount(0);
 });
 
-test("stale choices show a translated error and never silently reassign a log @cross-browser @tablet", async ({ page }) => {
+test("stale choices show a translated error and never silently reassign a log @cross-browser", async ({ page }) => {
   const card = await mount(page, false, "puppy", "nl");
   await expect(card.locator("#quick-reminder")).toHaveValue("");
   await expect(card.getByText("Herinnering afhandelen", { exact: true })).toBeVisible();
@@ -234,7 +234,7 @@ test("stale choices show a translated error and never silently reassign a log @c
   expect(await page.evaluate(() => window.quickReminderFixture.records[0])).toMatchObject({ puppy_id: "p2", data: { recurring_completion: "none" } });
 });
 
-test("reminder loading failures do not prevent log-only saving and a lone candidate is never preselected @cross-browser @tablet", async ({ page }) => {
+test("reminder loading failures do not prevent log-only saving and a lone candidate is never preselected @cross-browser", async ({ page }) => {
   const card = await mount(page);
   await page.evaluate(() => { window.quickReminderFixture.failLoad = true; });
   await card.locator("#quick-reminders-refresh").click();
@@ -256,7 +256,7 @@ test("reminder loading failures do not prevent log-only saving and a lone candid
   await expect(card.locator("#quick-reminder")).toBeDisabled();
 });
 
-test("undoing a saved execution keeps a newly opened Quick Log draft intact @cross-browser @tablet", async ({ page }) => {
+test("undoing a saved execution keeps a newly opened Quick Log draft intact @cross-browser", async ({ page }) => {
   const card = await mount(page, true);
   await card.locator("#quick-reminder").selectOption("puppy-a");
   await card.locator("#quick-note").fill("First execution");
@@ -273,7 +273,7 @@ test("undoing a saved execution keeps a newly opened Quick Log draft intact @cro
   expect(await page.evaluate(() => window.quickReminderFixture.records[0].deleted)).toBe(true);
 });
 
-test("a draft for a removed puppy never falls back to the litter owner @cross-browser @tablet", async ({ page }) => {
+test("a draft for a removed puppy never falls back to the litter owner @cross-browser", async ({ page }) => {
   const card = await mount(page);
   await card.locator("#quick-note").fill("Keep with the intended owner");
   await page.evaluate(() => { window.quickReminderFixture.removedPuppy = true; });
@@ -290,7 +290,7 @@ test("a draft for a removed puppy never falls back to the litter owner @cross-br
 });
 
 for (const mobile of [false,true]) {
-  test(`quick log refreshes only the selected dose and keeps entered quantities (${mobile}) @cross-browser @tablet`, async ({ page }) => {
+  test(`quick log refreshes only the selected dose and keeps entered quantities (${mobile}) @cross-browser`, async ({ page }) => {
     const card=await mount(page,mobile);
     await card.evaluate(async node=>{
       const state=window.quickReminderFixture;

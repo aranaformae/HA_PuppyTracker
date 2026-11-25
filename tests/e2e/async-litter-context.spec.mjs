@@ -8,7 +8,7 @@ for (const kind of ["behavior", "report"]) {
   const litter = kind === "behavior" ? "#behavior-litter" : "#litter";
   const puppy = kind === "behavior" ? "#behavior-puppy" : "#puppy";
   for (const oldError of [false, true]) {
-    test(`${kind}: A-B-A ignores old ${oldError ? "errors" : "successes"} and cannot end the new loading state @cross-browser @tablet`, async ({ page }) => {
+    test(`${kind}: A-B-A ignores old ${oldError ? "errors" : "successes"} and cannot end the new loading state @cross-browser`, async ({ page }) => {
       const card = await mountAsyncCard(page, kind);
       await page.evaluate(() => window.__async.hold.add("puppy_tracker/data"));
       await card.locator(litter).selectOption("b");

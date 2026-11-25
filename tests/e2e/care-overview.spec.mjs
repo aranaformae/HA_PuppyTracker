@@ -46,7 +46,7 @@ async function mount(page, language = "en", config = {}) {
 }
 
 for (const language of ["nl", "en"]) {
-  test(`Care explains missing, disabled and completed schedules (${language}) @cross-browser @tablet`, async ({ page }) => {
+  test(`Care explains missing, disabled and completed schedules (${language}) @cross-browser`, async ({ page }) => {
     const card = await mount(page, language);
     await page.evaluate(async () => {
       window.careOverview.occurrences = [];
@@ -80,7 +80,7 @@ for (const language of ["nl", "en"]) {
   });
 }
 
-test("Empty Care navigates to available management without adding mobile management tabs @cross-browser @tablet", async ({ page }) => {
+test("Empty Care navigates to available management without adding mobile management tabs @cross-browser", async ({ page }) => {
   const card = await mount(page);
   await page.evaluate(async () => {
     window.careOverview.occurrences = [];
@@ -104,7 +104,7 @@ test("Empty Care navigates to available management without adding mobile managem
   await expect(page.locator("#care-workspace [data-tab='programs']")).toHaveCount(0);
 });
 
-test("Care keeps the selected day after completion and can jump to pending care @cross-browser @tablet", async ({ page }) => {
+test("Care keeps the selected day after completion and can jump to pending care @cross-browser", async ({ page }) => {
   const card = await mount(page);
   await card.locator('.row [data-action="completed"]').click();
   await page.locator("puppy-tracker-record-editor").locator("#record-save").click();
@@ -124,7 +124,7 @@ test("Care keeps the selected day after completion and can jump to pending care 
   await expect(card.locator(".row")).toHaveCount(1);
 });
 
-test("Care takes its default day from HA and retains explicit dates @cross-browser @tablet", async ({ page }) => {
+test("Care takes its default day from HA and retains explicit dates @cross-browser", async ({ page }) => {
   const card = await mount(page);
   await page.evaluate(async () => {
     window.careOverview.context.today = "2099-01-01";
@@ -175,7 +175,7 @@ for (const language of ["nl", "en"]) {
   });
 }
 
-test("Mobile care progress is for HA today, not the entire pending list @cross-browser @tablet", async ({ page }) => {
+test("Mobile care progress is for HA today, not the entire pending list @cross-browser", async ({ page }) => {
   const card = await mount(page, "en", { preset: "mobile", tab_config: { care: { show_day_selector: false } } });
   await page.evaluate(async () => {
     const state = window.careOverview;
@@ -193,7 +193,7 @@ test("Mobile care progress is for HA today, not the entire pending list @cross-b
   await expect(card.locator(".care-progress")).toBeHidden();
 });
 
-test("Care progress follows the selected day and retains nodes during unchanged updates @cross-browser @tablet", async ({ page }) => {
+test("Care progress follows the selected day and retains nodes during unchanged updates @cross-browser", async ({ page }) => {
   const card = await mount(page);
   await page.evaluate(async () => {
     window.careOverview.occurrences.push({ id: "past-done", program_id: "esi", title: "ESI", scheduled_date: "2000-01-01", status: "completed" });
@@ -214,7 +214,7 @@ test("Care progress follows the selected day and retains nodes during unchanged 
   await expect(card.locator(".empty")).toHaveCount(0);
 });
 
-test("Care applies its future range equally to completed and pending actions @cross-browser @tablet", async ({ page }) => {
+test("Care applies its future range equally to completed and pending actions @cross-browser", async ({ page }) => {
   const card = await mount(page);
   await page.evaluate(async () => {
     window.careOverview.occurrences.push(

@@ -440,7 +440,7 @@ test("hiding the puppy list retains selected puppy and measurement context from 
   await expect(card.locator("#puppy-list")).toBeHidden();
 });
 
-test("weighing uses IDs when puppy names and collar colours are identical @cross-browser @tablet", async ({ page }) => {
+test("weighing uses IDs when puppy names and collar colours are identical @cross-browser", async ({ page }) => {
   await mountWeighingStation(page);
   await page.evaluate(() => {
     const card = window.__weighingCard;
@@ -576,7 +576,7 @@ test("last measurement correction targets the saved puppy and keeps compact sess
   expect(await page.evaluate(() => window.__correctionCalls.at(-1))).toEqual({ type: "puppy_tracker/measurement/correct", litter_id: "l1", puppy_id: "p1", measurement_id: "m1", weight: 420 });
 });
 
-test("unusual weight requires confirmation for the exact draft and current baseline @cross-browser @tablet", async ({ page }) => {
+test("unusual weight requires confirmation for the exact draft and current baseline @cross-browser", async ({ page }) => {
   await mountWeighingStation(page);
   await page.evaluate(() => {
     const original = window.__mockHass.callWS;
@@ -720,7 +720,7 @@ test("weight entry is atomic while session actions use their HA services", async
   expect(calls.filter((call) => call.domain === "number" || call.entityId === "button.pt_save")).toEqual([]);
 });
 
-test("a second dashboard cannot redirect a save through shared station controls @cross-browser @tablet", async ({ page }) => {
+test("a second dashboard cannot redirect a save through shared station controls @cross-browser", async ({ page }) => {
   await mountWeighingStation(page);
   await page.evaluate(() => {
     const original = window.__mockHass.callWS;
@@ -743,7 +743,7 @@ test("a second dashboard cannot redirect a save through shared station controls 
 });
 
 for (const change of ["refresh", "user", "connection", "role"]) {
-  test(`weight preflight handles a ${change} update without misapplying writes @cross-browser @tablet`, async ({ page }) => {
+  test(`weight preflight handles a ${change} update without misapplying writes @cross-browser`, async ({ page }) => {
     await mountWeighingStation(page);
     await page.evaluate((change) => {
       const hass = window.__mockHass;
@@ -773,7 +773,7 @@ for (const change of ["refresh", "user", "connection", "role"]) {
   });
 }
 
-test("atomic save errors are translated and keep the draft @cross-browser @tablet", async ({ page }) => {
+test("atomic save errors are translated and keep the draft @cross-browser", async ({ page }) => {
   await mountWeighingStation(page);
   await page.evaluate(() => {
     const original = window.__mockHass.callWS;

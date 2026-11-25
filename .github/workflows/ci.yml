@@ -199,10 +199,11 @@ jobs:
           find custom_components/puppy_tracker/frontend -type f -name '*.js' -print0 \
             | xargs -0 -n1 node --check
 
-      - name: Check release gating behavior
+      - name: Check release gating and browser sharding
         run: |
           node --check scripts/release-status.mjs
-          node --test tests/release-gate.test.cjs
+          node --check scripts/run-browser-shard.mjs
+          node --test tests/release-gate.test.cjs tests/browser-shard.test.mjs
 
   frontend-e2e:
     name: Frontend browser E2E

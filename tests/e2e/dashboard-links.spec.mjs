@@ -40,7 +40,7 @@ for (const surface of ["summary", "attention"]) {
   });
 }
 
-test("summary statistics navigate without hijacking selector clicks @cross-browser @tablet", async ({ page }) => {
+test("summary statistics navigate without hijacking selector clicks @cross-browser", async ({ page }) => {
   const card = await mount(page, "summary");
   await card.locator("#litter-select").dispatchEvent("click");
   await expect(page).toHaveURL(/cards.html\?production=1$/);
@@ -48,7 +48,7 @@ test("summary statistics navigate without hijacking selector clicks @cross-brows
   await expect(page).toHaveURL(/\/dashboard-puppies\/care$/);
 });
 
-test("attention acknowledgement and care execution stay on the dashboard @cross-browser @tablet", async ({ page }) => {
+test("attention acknowledgement and care execution stay on the dashboard @cross-browser", async ({ page }) => {
   const card = await mount(page, "attention");
   await card.locator('[data-attention-type="weight"] .attention-ack-button').click();
   await expect(page).toHaveURL(/cards.html\?production=1$/);

@@ -99,7 +99,7 @@ async function mount(page, surface = "attention", scope = "puppy", type = "medic
 
 for (const surface of ["attention", "today", "reminders", "mobile", "care", "mobilecare"]) {
   for (const scope of ["puppy", "mother", "litter"]) {
-    test(`${surface} executes ${scope} reminder without changing history @cross-browser @tablet`, async ({ page }, testInfo) => {
+    test(`${surface} executes ${scope} reminder without changing history @cross-browser ${scope === "puppy" || surface === "reminders" ? "@tablet" : ""}`, async ({ page }, testInfo) => {
       const type = scope === "mother" ? "temperature" : scope === "litter" ? "feeding" : "medication";
       const card = await mount(page, surface, scope, type);
       if (surface === "reminders" && scope === "puppy") {
@@ -142,7 +142,7 @@ for (const surface of ["attention", "today", "reminders", "mobile", "care", "mob
   }
 }
 
-test("seen does not execute, while cancelled, invalid, busy and failed executions preserve the draft @cross-browser @tablet", async ({ page }) => {
+test("seen does not execute, while cancelled, invalid, busy and failed executions preserve the draft @cross-browser", async ({ page }) => {
   const card = await mount(page, "attention", "mother", "temperature");
   await card.getByRole("button", { name: "Mark as seen", exact: true }).click();
   expect(await page.evaluate(() => window.recurringFixture.records)).toHaveLength(1);
@@ -200,7 +200,7 @@ for (const surface of ["attention", "today", "reminders", "mobile"]) {
     await expect(details.getByRole("button")).toHaveCount(0);
   });
 
-  test(`${surface} confirmed undo removes only the just-saved execution @cross-browser @tablet`, async ({ page }) => {
+  test(`${surface} confirmed undo removes only the just-saved execution @cross-browser`, async ({ page }) => {
     const card = await mount(page, surface);
     await card.locator('[data-complete-reminder="r1"]').click();
     await page.locator("puppy-tracker-record-editor #record-note").fill("Undo this execution");
@@ -228,7 +228,7 @@ for (const surface of ["attention", "today", "reminders", "mobile"]) {
   });
 }
 
-test("undo failures are retryable, stale execution is translated and duplicate saves never offer undo @cross-browser @tablet", async ({ page }) => {
+test("undo failures are retryable, stale execution is translated and duplicate saves never offer undo @cross-browser", async ({ page }) => {
   const card = await mount(page, "reminders", "puppy", "medication", "nl");
   await card.locator('[data-complete-reminder="r1"]').click();
   await page.locator("puppy-tracker-record-editor #record-save").click();
@@ -277,7 +277,7 @@ test("full notes remain readable and correcting a just-saved execution retires i
   await expect(details.locator(".recurring-execution-note")).toHaveText("Corrected execution");
 });
 
-test("Today reminder categories, today-only filtering and write permissions are respected @cross-browser @tablet", async ({ page }) => {
+test("Today reminder categories, today-only filtering and write permissions are respected @cross-browser", async ({ page }) => {
   const card = await mount(page, "today");
   await card.locator('[data-today-filter-type="__all__"]').click();
   await expect(card.locator(".today-reminder-row")).toBeHidden();
@@ -295,7 +295,7 @@ test("Today reminder categories, today-only filtering and write permissions are 
   await expect(card.locator("[data-postpone-reminder]")).toHaveCount(0);
 });
 
-test("Dutch reminder execution uses translated actions and retains a stale-definition draft @cross-browser @tablet", async ({ page }) => {
+test("Dutch reminder execution uses translated actions and retains a stale-definition draft @cross-browser", async ({ page }) => {
   const card = await mount(page, "reminders", "puppy", "medication", "nl");
   await card.getByRole("button", { name: "Uitvoering registreren", exact: true }).click();
   const editor = page.locator("puppy-tracker-record-editor");
@@ -344,7 +344,7 @@ for (const surface of ["attention", "today", "reminders", "mobile"]) {
   });
 }
 
-test("postpone validation, busy saves, cancellation and stale errors keep the chosen time @cross-browser @tablet", async ({ page }) => {
+test("postpone validation, busy saves, cancellation and stale errors keep the chosen time @cross-browser", async ({ page }) => {
   const card = await mount(page, "reminders", "mother", "temperature", "nl");
   await card.evaluate((element) => {
     element._items[0].postpone_before = new Date(Date.now() + 45 * 60000).toISOString();
@@ -377,7 +377,7 @@ test("postpone validation, busy saves, cancellation and stale errors keep the ch
 });
 
 for (const surface of ["care", "mobilecare"]) {
-  test(`${surface} retains filters and enables stable controls after undo @cross-browser @tablet`, async ({ page }) => {
+  test(`${surface} retains filters and enables stable controls after undo @cross-browser`, async ({ page }) => {
     const card = await mount(page, surface, "mother", "temperature");
     await card.locator('[data-source="program"]').click();
     await card.locator('[data-source="followup"]').click();

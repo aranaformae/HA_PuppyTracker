@@ -4,7 +4,7 @@ import { mountAsyncCard, pendingCount, release } from "./helpers/async-card.mjs"
 const PDF = "puppy_tracker/mother/pdf";
 
 for (const language of ["nl", "en"]) {
-  test(`mother PDF exposes relevant sections and preserves puppy report choices (${language}) @cross-browser @tablet`, async ({ page }, testInfo) => {
+  test(`mother PDF exposes relevant sections and preserves puppy report choices (${language}) @cross-browser`, async ({ page }, testInfo) => {
     const card = await mountAsyncCard(page, "report", { language });
     await card.locator("#puppy").selectOption("__mother__");
     await expect(card.locator('[data-pdf-section="chart"]').locator("..")).toContainText(language === "en" ? "Temperature chart" : "Temperatuurgrafiek");
@@ -42,7 +42,7 @@ for (const language of ["nl", "en"]) {
   });
 }
 
-test("mother PDF keeps its options through a delayed logo and deferred reconfiguration @cross-browser @tablet", async ({ page }) => {
+test("mother PDF keeps its options through a delayed logo and deferred reconfiguration @cross-browser", async ({ page }) => {
   const card = await mountAsyncCard(page, "report");
   await card.locator("#puppy").selectOption("__mother__");
   await card.locator("#mother-export-scope").selectOption("current");
@@ -63,7 +63,7 @@ test("mother PDF keeps its options through a delayed logo and deferred reconfigu
 });
 
 for (const change of ["revoke", "detach"]) {
-  test(`mother PDF rejects a pending download after ${change} @cross-browser @tablet`, async ({ page }) => {
+  test(`mother PDF rejects a pending download after ${change} @cross-browser`, async ({ page }) => {
     const card = await mountAsyncCard(page, "report");
     await card.locator("#puppy").selectOption("__mother__");
     await page.evaluate(type => window.__async.hold.add(type), PDF);

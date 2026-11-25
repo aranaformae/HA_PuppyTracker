@@ -98,7 +98,7 @@ for (const course of [false, true]) {
 }
 
 for (const course of [false, true]) {
-  test(`${course ? "course" : "age-based care"} respects disabled result fields @cross-browser @tablet`, async ({ page }) => {
+  test(`${course ? "course" : "age-based care"} respects disabled result fields @cross-browser`, async ({ page }) => {
     const { editor } = await mount(page, { course, fields: [] });
     await expect(editor.locator("#record-care-status")).toBeVisible();
     for (const id of ["record-note", "record-care-result", "record-care-score", "record-data-test_name"]) await expect(editor.locator(`#${id}`)).toHaveCount(0);
@@ -109,7 +109,7 @@ for (const course of [false, true]) {
   });
 }
 
-test("successful care write followed by a failed refresh never invites a second write @cross-browser @tablet", async ({ page }) => {
+test("successful care write followed by a failed refresh never invites a second write @cross-browser", async ({ page }) => {
   const { card, editor } = await mount(page);
   await page.evaluate(() => { window.careForm.failRefresh = true; });
   await editor.locator("#record-note").fill("Confirmed result");
@@ -143,7 +143,7 @@ test("care draft keeps its litter during announcements and cancelable changes as
   expect(await page.evaluate(() => window.careForm.writes)).toBe(0);
 });
 
-test("weight-based treatment shows a warning and saves only the reviewed actual amount @cross-browser @tablet", async ({ page }) => {
+test("weight-based treatment shows a warning and saves only the reviewed actual amount @cross-browser", async ({ page }) => {
   const {editor}=await mount(page,{course:true,weightDose:true});
   await expect(editor.locator("puppy-tracker-weight-dose")).toContainText("0.6 ml");
   await expect(editor.locator("puppy-tracker-weight-dose")).toContainText("WEIGHT TOO OLD");

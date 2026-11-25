@@ -1,4 +1,5 @@
 import { defineConfig } from "@playwright/test";
+import { availableParallelism } from "node:os";
 
 const webkitBase = {
   browserName: "webkit",
@@ -11,8 +12,10 @@ export default defineConfig({
   expect: {
     timeout: 5_000,
   },
-  fullyParallel: false,
-  workers: process.env.CI ? 1 : 2,
+  // Each test owns its browser context and mocked backend. Test-level sharding
+  // avoids leaving one CI shard with an entire large parametrized spec file.
+  fullyParallel: true,
+  workers: process.env.CI ? 1 : Math.min(4, Math.max(1, Math.floor(availableParallelism() / 2))),
   reporter: process.env.CI
     ? [["line"], ["html", { open: "never" }]]
     : "list",

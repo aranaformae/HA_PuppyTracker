@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("behavior surface saves observations and builds a neutral profile", async ({ page }) => {
+test("behavior surface saves observations and builds a neutral profile @cross-browser", async ({ page }) => {
   await page.goto("/tests/e2e/cards.html");
   await page.waitForFunction(() => window.__puppyTrackerReady === true);
   await page.evaluate(() => {

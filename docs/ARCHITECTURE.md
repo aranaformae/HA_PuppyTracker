@@ -2165,8 +2165,11 @@ Regression tests should protect data meaning and cross-surface contracts, includ
 Manual release testing should additionally cover Marketplace/HACS upgrade, browser refresh/cache behaviour, phone/tablet interaction, mother selection, reminder completion from real dossier logging, age-based care completion, notification-off production testing, explicit test-notification delivery and restart behaviour.
 
 CI is the single validation authority for a commit. Its browser matrix uses
-four file-level shards in matching preinstalled Playwright containers, retaining
-one worker per shard and every existing project/viewport test. Release
+four shards in matching preinstalled Playwright containers, with one worker
+per shard. Each shard runs a quarter of each browser profile; independent tests
+use test-level sharding. Tablet runs target layout, focus, scrolling and
+representative workflows, while the complete unique scenario set and existing
+Chromium/iPhone checks remain. See the [suite review](TEST_SUITE_REVIEW.md). Release
 publication reuses a successful same-repository, same-SHA push/manual CI run;
 pending CI resumes publication through `workflow_run` rather than a waiting job
 or agent poll loop. The privileged gate executes only trusted default-branch

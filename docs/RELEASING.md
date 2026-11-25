@@ -96,8 +96,10 @@ The [CI workflow](../.github/workflows/ci.yml) validates pushes to `main` and
 `release/v*`, pull requests and manual dispatches. It owns backend, metadata,
 JavaScript syntax, HACS, Hassfest and all browser checks. Browser tests are split
 across four jobs using the preinstalled Playwright container and one worker per
-job. The test set and project/viewport coverage are unchanged. File-level
-sharding preserves existing test-file execution order and isolation.
+job. Each job runs a quarter of each browser profile. Independent tests use
+test-level sharding, so large parametrized files do not occupy a single shard.
+Tablet tags target viewport/interaction risks; the full unique scenario set and
+Chromium/iPhone coverage are retained. See the [suite review](TEST_SUITE_REVIEW.md).
 
 The [release workflow](../.github/workflows/release.yml) does not repeat those
 tests. `scripts/release-gate.cjs` requires a successful trusted CI run for the
@@ -120,7 +122,7 @@ Use one compact, read-only status snapshot. A pushed tag is not a published
 release. GitHub Actions itself consumes no language-model tokens; avoiding
 repeated agent calls, full log dumps and regenerated release notes reduces
 agent usage. Four shards reduce elapsed browser-test time, not the amount of
-coverage; actual runtime depends on runners and test-file distribution.
+coverage; actual runtime depends on runners and individual test costs.
 
 ```sh
 node scripts/release-status.mjs vX.Y.Z

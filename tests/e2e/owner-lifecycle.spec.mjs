@@ -97,7 +97,7 @@ async function notify(page, change = false) {
   }, change);
 }
 
-test("two owner cards update each other without rebuilding identical content @cross-browser @tablet", async ({ page }) => {
+test("two owner cards update each other without rebuilding identical content @cross-browser", async ({ page }) => {
   const card = await mount(page, { cards: 2 });
   const other = page.locator("puppy-tracker-owner-card").nth(1);
   await card.locator('[data-edit="o1"]').click();
@@ -184,7 +184,7 @@ for (const language of ["nl", "en"]) {
     expect((await writes(page)).map((message) => message.expected_revision)).toEqual(["r1", "remote"]);
   });
 
-  test(`confirmed save survives failed refresh and retries only the read (${language}) @cross-browser @tablet`, async ({ page }) => {
+  test(`confirmed save survives failed refresh and retries only the read (${language}) @cross-browser`, async ({ page }) => {
     const card = await mount(page, { language });
     await card.locator('[data-edit="o1"]').click();
     await card.locator('[name="name"]').fill("Confirmed new name");
@@ -221,7 +221,7 @@ test("a late refresh retry cannot replace a new draft or steal focus @cross-brow
   expect(await writes(page)).toHaveLength(1);
 });
 
-test("linking uses the displayed baseline and cannot overwrite another device @cross-browser @tablet", async ({ page }) => {
+test("linking uses the displayed baseline and cannot overwrite another device @cross-browser", async ({ page }) => {
   const card = await mount(page);
   await card.locator('[name="linked_owner"][value="o1"]').check();
   await page.evaluate(() => { window.__async.puppies[0].owner_ids = ["o2"]; window.__async.emit(); });
@@ -235,7 +235,7 @@ test("linking uses the displayed baseline and cannot overwrite another device @c
   expect((await writes(page))[0].expected_owner_ids).toEqual([]);
 });
 
-test("an update received during a read is not lost @cross-browser @tablet", async ({ page }) => {
+test("an update received during a read is not lost @cross-browser", async ({ page }) => {
   const card = await mount(page);
   await page.evaluate(() => window.__async.hold.add("puppy_tracker/owners/list"));
   await notify(page);
@@ -248,7 +248,7 @@ test("an update received during a read is not lost @cross-browser @tablet", asyn
 });
 
 for (const outcome of ["failed", "obsolete"]) {
-  test(`a ${outcome} second-stage read cannot publish a partial snapshot @cross-browser @tablet`, async ({ page }) => {
+  test(`a ${outcome} second-stage read cannot publish a partial snapshot @cross-browser`, async ({ page }) => {
     const card = await mount(page);
     await page.evaluate(() => window.__async.hold.add("puppy_tracker/data"));
     await notify(page, true);
@@ -273,7 +273,7 @@ for (const outcome of ["failed", "obsolete"]) {
 }
 
 for (const change of ["connection", "user", "permission", "detach"]) {
-  test(`late reads and subscriptions are discarded after ${change} @cross-browser @tablet`, async ({ page }) => {
+  test(`late reads and subscriptions are discarded after ${change} @cross-browser`, async ({ page }) => {
     const card = await mount(page, { hold: ["puppy_tracker/owners/list", "subscription"] });
     await expect.poll(() => pendingCount(page, "puppy_tracker/owners/list")).toBe(1);
     await page.evaluate((change) => {
@@ -329,7 +329,7 @@ test("same-connection reconnect preserves drafts and ordinary hass updates do no
   expect(await page.evaluate(() => window.__async.connections.flatMap((connection) => [...connection.listeners.values()]).reduce((count, items) => count + items.size, 0))).toBe(0);
 });
 
-test("permission change during a write cannot restore private data from its late response @cross-browser @tablet", async ({ page }) => {
+test("permission change during a write cannot restore private data from its late response @cross-browser", async ({ page }) => {
   const card = await mount(page);
   await card.locator('[data-edit="o1"]').click();
   await openOwnerSection(card, "notes");
@@ -348,7 +348,7 @@ test("permission change during a write cannot restore private data from its late
 });
 
 for (const operation of ["delete", "link", "move"]) {
-  test(`confirmed ${operation} is reflected locally even when refreshing fails @cross-browser @tablet`, async ({ page }) => {
+  test(`confirmed ${operation} is reflected locally even when refreshing fails @cross-browser`, async ({ page }) => {
     const card = await mount(page);
     await page.evaluate(() => window.__async.hold.add("puppy_tracker/owners/list"));
     if (operation === "delete") {
@@ -376,7 +376,7 @@ for (const operation of ["delete", "link", "move"]) {
   });
 }
 
-test("failed writing keeps the draft and does not claim success @cross-browser @tablet", async ({ page }) => {
+test("failed writing keeps the draft and does not claim success @cross-browser", async ({ page }) => {
   const card = await mount(page);
   await card.locator('[data-edit="o1"]').click();
   await openOwnerSection(card, "notes");

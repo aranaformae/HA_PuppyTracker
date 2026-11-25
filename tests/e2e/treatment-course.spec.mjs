@@ -55,7 +55,7 @@ test("treatment planning stays separate from ordinary age-based programs", async
   expect(call).not.toHaveProperty("start_age_days");
 });
 
-test("course result records the actual product independently of the plan @cross-browser @tablet", async ({ page }) => {
+test("course result records the actual product independently of the plan @cross-browser", async ({ page }) => {
   await page.goto("/tests/e2e/cards.html");
   await page.waitForFunction(() => window.__puppyTrackerReady === true);
   await page.evaluate(() => {
@@ -97,7 +97,7 @@ test("course result records the actual product independently of the plan @cross-
   expect((await page.evaluate(() => window.courseRecords[0])).data).toMatchObject({ medication: "Middel B", dose: "0.5", unit: "ml" });
 });
 
-test("missed course moment never submits the planned product as administered @cross-browser @tablet", async ({ page }) => {
+test("missed course moment never submits the planned product as administered @cross-browser", async ({ page }) => {
   await page.goto("/tests/e2e/cards.html");
   await page.waitForFunction(() => window.__puppyTrackerReady === true);
   await page.evaluate(() => {

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("owner views can load before the card without registering extra cards or sharing state @cross-browser @tablet", async ({ page }) => {
+test("owner views can load before the card without registering extra cards or sharing state @cross-browser", async ({ page }) => {
   await page.route("**/owner-module-check.html", route => route.fulfill({
     contentType: "text/html", body: "<!doctype html><html><body></body></html>",
   }));

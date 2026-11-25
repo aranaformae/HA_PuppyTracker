@@ -77,7 +77,7 @@ test("one dossier replaces Timeline and starts with a readable combined history 
   await card.screenshot({ path: info.outputPath("unified-dossier.png") });
 });
 
-test("owner scopes, behavior category, dates and empty filters agree @cross-browser @tablet", async ({ page }) => {
+test("owner scopes, behavior category, dates and empty filters agree @cross-browser", async ({ page }) => {
   const card = await mount(page);
   await card.locator("#owner-select").selectOption("__litter__");
   await expect(card.locator(".record")).toHaveCount(1);
@@ -103,7 +103,7 @@ test("owner scopes, behavior category, dates and empty filters agree @cross-brow
 });
 
 for (const [owner, scope] of [["litter:", "litter"], ["mother:", "mother"], ["puppy:p2", "puppy"]]) {
-  test(`New entry requires an explicit ${scope} owner in All and keeps failed input @cross-browser @tablet`, async ({ page }) => {
+  test(`New entry requires an explicit ${scope} owner in All and keeps failed input @cross-browser`, async ({ page }) => {
     const card = await mount(page);
     await card.locator("#add-record").click();
     const editor = page.locator("puppy-tracker-record-editor");
@@ -133,7 +133,7 @@ for (const [owner, scope] of [["litter:", "litter"], ["mother:", "mother"], ["pu
   });
 }
 
-test("weight history retains correction semantics and no owner-change menu @cross-browser @tablet", async ({ page }) => {
+test("weight history retains correction semantics and no owner-change menu @cross-browser", async ({ page }) => {
   const card = await mount(page, { config: { default_selected: "puppy", puppy_id: "p1" } });
   await expect(card.locator('[data-event-type="weight"]')).toHaveCount(1);
   await expect(card.locator(".timeline-sub")).toHaveText("Alice (Red) · 3 active items");
@@ -172,7 +172,7 @@ test("history limits, simple configuration and read-only viewing remain independ
   await expect(card.locator(".record")).toHaveCount(40);
 });
 
-test("a missing selected puppy never becomes a litter entry @cross-browser @tablet", async ({ page }) => {
+test("a missing selected puppy never becomes a litter entry @cross-browser", async ({ page }) => {
   const card = await mount(page, { config: { default_selected: "puppy", puppy_id: "p1" } });
   await page.evaluate(() => { window.dossierHistory.removedPuppy = true; });
   await card.evaluate((node) => node._queueRefresh());
@@ -184,7 +184,7 @@ test("a missing selected puppy never becomes a litter entry @cross-browser @tabl
   await expect(card.locator("#owner-select")).toHaveValue("__all__");
 });
 
-test("late owner responses cannot replace the currently selected mother @cross-browser @tablet", async ({ page }) => {
+test("late owner responses cannot replace the currently selected mother @cross-browser", async ({ page }) => {
   const card = await mount(page);
   await card.evaluate((node) => {
     const original = node._hass.callWS;
@@ -222,7 +222,7 @@ test("background refresh keeps unchanged DOM, page position and explicit history
   await expect(card.locator(".timeline-items-content")).toBeHidden();
 });
 
-test("To do uses exact owners even when the litter API includes puppy follow-ups @cross-browser @tablet", async ({ page }) => {
+test("To do uses exact owners even when the litter API includes puppy follow-ups @cross-browser", async ({ page }) => {
   const card = await mount(page);
   await page.evaluate(() => {
     const state = window.dossierHistory;
@@ -252,7 +252,7 @@ test("To do uses exact owners even when the litter API includes puppy follow-ups
 });
 
 for (const language of ["nl", "en"]) {
-  test(`new entry owner heading follows switches and clearing (${language}) @cross-browser @tablet`, async ({ page }) => {
+  test(`new entry owner heading follows switches and clearing (${language}) @cross-browser`, async ({ page }) => {
     const card = await mount(page, { language });
     await card.locator("#add-record").click();
     const editor = page.locator("puppy-tracker-record-editor");

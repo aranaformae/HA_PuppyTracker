@@ -127,7 +127,7 @@ for (const language of ["nl", "en"]) {
     expect(await page.evaluate(() => window.ownerUsability.calls.some((call) => call.type.endsWith("/save")))).toBe(false);
   });
 
-  test(`shared contact values warn but never block explicit saving (${language}) @cross-browser @tablet`, async ({ page }) => {
+  test(`shared contact values warn but never block explicit saving (${language}) @cross-browser`, async ({ page }) => {
     const card = await mount(page, language);
     await card.locator('[data-edit="alex"]').click();
     await expect(card.locator(".owner-duplicates")).toBeHidden();
@@ -268,7 +268,7 @@ for (const language of ["nl", "en"]) {
   });
 }
 
-test("contact links reject unsafe text and normalize only explicit international numbers @cross-browser @tablet", async ({ page }) => {
+test("contact links reject unsafe text and normalize only explicit international numbers @cross-browser", async ({ page }) => {
   const card = await mount(page);
   await page.evaluate(() => {
     window.ownerUsability.owners[0].phone = "00 31 (6) 1234-5678";
@@ -289,7 +289,7 @@ test("contact links reject unsafe text and normalize only explicit international
   await expect(card.locator("#owner-detail-alex img")).toHaveCount(0);
 });
 
-test("late clipboard completion cannot restore private feedback after permissions change @cross-browser @tablet", async ({ page }) => {
+test("late clipboard completion cannot restore private feedback after permissions change @cross-browser", async ({ page }) => {
   const card = await mount(page);
   await page.evaluate(() => Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: () => new Promise((resolve) => { window.finishOwnerCopy = resolve; }) } }));
   await card.locator('[data-toggle-owner="alex"]').click();
@@ -300,7 +300,7 @@ test("late clipboard completion cannot restore private feedback after permission
   await expect(card).not.toContainText("alex@example.com");
 });
 
-test("duplicate detection normalizes explicit country prefixes and clears private indexes @cross-browser @tablet", async ({ page }) => {
+test("duplicate detection normalizes explicit country prefixes and clears private indexes @cross-browser", async ({ page }) => {
   const card = await mount(page);
   await page.evaluate(() => { window.ownerUsability.owners[0].phone = "+31 (6) 1234-5678"; });
   await page.evaluate(() => {

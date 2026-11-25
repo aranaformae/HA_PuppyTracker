@@ -5,7 +5,7 @@ async function ready(page) {
   await page.waitForFunction(() => window.__puppyTrackerReady);
 }
 
-test("Puppy Tracker sections generate supported cards without changing data @cross-browser @tablet", async ({ page }) => {
+test("Puppy Tracker sections generate supported cards without changing data @cross-browser", async ({ page }) => {
   await ready(page);
   const result = await page.evaluate(async () => {
     const Strategy = customElements.get("ll-strategy-section-puppy-tracker");

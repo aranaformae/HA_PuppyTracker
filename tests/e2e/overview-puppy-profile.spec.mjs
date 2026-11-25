@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("growth overview edits the selected puppy through the shared profile form @cross-browser @tablet", async ({ page }) => {
+test("growth overview edits the selected puppy through the shared profile form @cross-browser", async ({ page }) => {
   await page.goto("/tests/e2e/cards.html");
   await page.waitForFunction(() => window.__puppyTrackerReady === true);
   await page.evaluate(() => {

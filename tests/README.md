@@ -62,7 +62,7 @@ The current suite covers the main backend, frontend contract and browser flows.
 | `tests/e2e/quick-log-reminders.spec.mjs` | Journal/Mobile reminder choice across all owners, Log only opt-out, retained drafts, exact-context writes, stale definitions, response-loss idempotency, loading failures, permissions, undo and missing owners |
 | `tests/e2e/form-workflows.spec.mjs` | Changed versus untouched drafts, cancelled discard, failed-save retention across logging/contact/scheduler/profile forms, exact saved-item edit actions, inline validation, busy navigation and hidden drafts during litter changes |
 
-The Python tests protect backend behavior and frontend architecture contracts. Playwright owns observable Lovelace-card behavior. Browser-independent flows run once in desktop Chromium; tagged registration/render smoke tests also run in iPhone WebKit, mobile workflows run in iPhone WebKit, and scroll-stability checks run on iPhone plus both iPad orientations. HACS installation and Home Assistant Companion App push behavior still require manual release testing.
+The Python tests protect backend behavior and frontend architecture contracts. Playwright owns observable Lovelace-card behavior. Untagged flows run in desktop Chromium; `@cross-browser` flows also run in iPhone WebKit, and `@mobile` flows run only on iPhone. Tablet coverage targets responsive layout, dialogs, focus, scrolling and representative navigation workflows, rather than repeating every data/owner combination in both orientations. HACS installation and Home Assistant Companion App push behavior still require manual release testing.
 
 ## Test ownership
 
@@ -71,7 +71,11 @@ Keep each regression at the lowest useful level and avoid proving the same behav
 - Python behavior tests own storage, calculations, migrations, transactions and Home Assistant service contracts.
 - Python source-contract tests are reserved for architecture that cannot be observed reliably in a browser, such as module ownership and forbidden prototype patching.
 - Playwright owns rendered content, editor options, interaction flows, focus, scrolling and card registration.
-- Add `@cross-browser`, `@mobile` or `@tablet` only when the risk depends on the browser engine or viewport. Untagged Playwright tests run once in Chromium.
+- Use `@cross-browser` for engine-sensitive rendering/input and important end-to-end workflows. Use `@mobile` for phone-only flows and `@tablet` for tablet layout, dialogs, focus, scrolling or representative composition checks. Untagged tests run once in Chromium.
+- Keep full owner/category combinations on the relevant engines; use representative combinations on tablets when the form and layout are shared. A tag change must not remove a unique scenario or its last relevant engine check.
+- Each browser test must own its context, mock state and output files. Tests run independently, including within a file; do not rely on a previous test or add shared mutable state.
+
+See the [November 2026 suite review](../docs/TEST_SUITE_REVIEW.md) for measured timings, retained coverage and the rationale for the current matrix.
 
 ## Requirements
 
@@ -186,8 +190,9 @@ This runs Python compilation, all backend tests, JavaScript syntax checks and th
 The runner prefers the repository's `.venv` interpreter even without shell
 activation; install dependencies there rather than in the system Python.
 Hassfest and HACS validation run separately in GitHub Actions. CI runs browser
-tests in four shards with one worker each, compared with two workers locally,
-so timings can differ. CI owns `.github/workflows/browser-tests.yml`; release
+tests in four shards with one worker each. Local runs use half the available
+CPU parallelism, bounded to one through four workers; use `--workers=2` when
+sharing a busy machine. Timings differ between local and CI runners. CI owns `.github/workflows/browser-tests.yml`; release
 publication reuses the same commit's successful CI instead of repeating tests. The job
 uses the official Playwright Ubuntu Noble container with browsers and system
 dependencies already installed, rather than retrying `apt` inside the job.
@@ -196,10 +201,16 @@ package version matches the image and that Chromium/WebKit are executable.
 When updating Playwright, update `package.json`, `package-lock.json` and the
 shared workflow's `playwright_version` default together. Python is installed
 separately for the local fixture server. Failed browser runs retain their HTML
-report per failed shard. `--shard=1/4` through `--shard=4/4` together run the same
-tests as an unsharded run, without enabling `fullyParallel` within test files.
-`node --test tests/release-gate.test.cjs` checks release gating, wrong-SHA/failed
-CI rejection, event ordering, fork/PR exclusion, idempotency and retry behavior.
+report per project within each failed shard. Test-level `fullyParallel` sharding
+lets large parametrized files contribute to every shard.
+`node scripts/run-browser-shard.mjs 1/4` reproduces the first CI shard: it runs
+one quarter of **each** configured browser profile, with isolated output/report
+directories. Shards `1/4` through `4/4` together run the complete matrix once.
+The runner continues with the other profiles after a failure and returns failure
+if any profile fails.
+`node --test tests/release-gate.test.cjs tests/browser-shard.test.mjs` checks
+release gating, wrong-SHA/failed CI rejection, event ordering, fork/PR exclusion,
+idempotency, retries and shard/profile diagnostic isolation.
 `scripts/serve-test-fixtures.py` binds only to localhost and provides a larger
 connection queue for concurrent module loads. A reset test-server connection
 must not be mistaken for an unregistered production card.

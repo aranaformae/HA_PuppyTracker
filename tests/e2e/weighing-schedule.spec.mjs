@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("age-based weighing details explain the current interval without hiding real concerns @cross-browser @tablet", async ({ page }) => {
+test("age-based weighing details explain the current interval without hiding real concerns @cross-browser", async ({ page }) => {
   await page.goto("/tests/e2e/cards.html?production=1");
   await page.waitForFunction(() => window.__puppyTrackerReady === true);
   const result = await page.evaluate(async () => {

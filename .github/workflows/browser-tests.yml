@@ -59,7 +59,7 @@ jobs:
           JS
 
       - name: Run Playwright card tests
-        run: npm run test:e2e -- --shard=${{ matrix.shard }}/4
+        run: node scripts/run-browser-shard.mjs ${{ matrix.shard }}/4
 
       - name: Upload Playwright report on failure
         if: failure()
