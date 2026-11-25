@@ -1,4 +1,4 @@
-# Puppy Tracker for Home Assistant
+# Puppy Tracker — litter care and management for Home Assistant
 
 Puppy Tracker helps you manage puppy litters from birth through handover:
 weighing and growth, daily observations, care schedules, owner contacts,

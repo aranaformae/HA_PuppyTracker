@@ -21,6 +21,11 @@ they have not been reconstructed as a complete historical changelog.
 - Add an independent handover/checklist PDF section in Dutch and English, with
   scoped export, portable backup support and guarded concurrent/failed writes.
 
+### Changed
+
+- Describe Puppy Tracker as litter care and management in the README heading,
+  reflecting the workflow from birth through handover.
+
 ## [0.41.0] - 2026-11-25
 
 ### Added
