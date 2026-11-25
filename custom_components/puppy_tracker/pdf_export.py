@@ -18,7 +18,7 @@ from homeassistant.util import dt as dt_util
 
 from .behavior import BEHAVIOR_GROUPS, BEHAVIOR_RECORD_TYPE, build_behavior_profile
 from .dog_identity import parent_details_for_litter
-from .handoff import CHECKS as HANDOFF_CHECKS, handoff_summary
+from .handoff import handoff_summary, handoff_item_label
 from .measurements import puppy_measurements
 from .managed_files import normalize_logo
 from .metrics import calculate_puppy_metrics
@@ -30,17 +30,11 @@ _HANDOFF_LABELS = {
     "nl": {"title": "Overdracht", "status": "Status van de pup", "departure": "Werkelijke vertrekdatum",
         "available": "Beschikbaar", "option": "In optie", "reserved": "Gereserveerd", "assigned": "Toegewezen", "departed": "Vertrokken",
         "ready": "Checklist compleet", "missing": "Nog te controleren", "complete": "Gecontroleerd", "pending": "Open",
-        "item": "Controlepunt", "checked": "Bevestiging", "note": "Handmatige controlelijst voor de overdracht.",
-        "chip": "Chipnummer", "registration": "Registratie", "vaccination": "Vaccinatie", "deworming": "Ontworming",
-        "puppy_test": "Puppytest", "vet_check": "Dierenartscontrole", "contract": "Contract", "food": "Voeding en uitleg",
-        "passport": "Paspoort", "report": "Dossier / rapport", "departure_weight": "Vertrekgewicht"},
+        "item": "Controlepunt", "checked": "Bevestiging", "note": "Handmatige controlelijst voor de overdracht."},
     "en": {"title": "Handover", "status": "Puppy status", "departure": "Actual departure date",
         "available": "Available", "option": "On hold", "reserved": "Reserved", "assigned": "Assigned", "departed": "Departed",
         "ready": "Checklist complete", "missing": "Still to check", "complete": "Checked", "pending": "Open",
-        "item": "Checklist item", "checked": "Confirmation", "note": "Manually checked handover checklist.",
-        "chip": "Microchip number", "registration": "Registration", "vaccination": "Vaccination", "deworming": "Deworming",
-        "puppy_test": "Puppy test", "vet_check": "Vet check", "contract": "Contract", "food": "Food and instructions",
-        "passport": "Passport", "report": "Dossier / report", "departure_weight": "Departure weight"},
+        "item": "Checklist item", "checked": "Confirmation", "note": "Manually checked handover checklist."},
 }
 
 
@@ -1259,13 +1253,13 @@ def build_pdf_export(
                     report.paragraph(line)
         if visible["handoff"]:
             labels = _HANDOFF_LABELS[language]
-            handoff = handoff_summary(puppy)
+            handoff = handoff_summary(puppy, litter)
             report.heading(labels["title"], level=3)
             report.paragraph(f"{labels['status']}: {labels[handoff['status']]}", size=9, keep_with_next=True)
             report.paragraph(f"{labels['departure']}: {_format_date(handoff['departure_date'], language)}", size=9, keep_with_next=True)
             report.paragraph(f"{handoff['completed_count']}/{handoff['total_count']} - {labels['ready'] if handoff['ready'] else labels['missing']}", size=9, bold=True, keep_with_next=True)
             report.table([labels["item"], labels["checked"]],
-                         [[labels[key], labels["complete"] if handoff["checks"][key] else labels["pending"]] for key in HANDOFF_CHECKS],
+                         [[handoff_item_label(item, language), labels["complete"] if handoff["checks"][item["id"]] else labels["pending"]] for item in handoff["checklist"]["items"]],
                          [310, 171], font_size=8, keep_together=True)
             report.paragraph(labels["note"], size=8, gray=0.35)
         if visible["measurements"]:

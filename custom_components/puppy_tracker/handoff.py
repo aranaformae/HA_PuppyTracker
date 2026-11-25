@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, time
+import re
 from typing import Any
 
 from homeassistant.util import dt as dt_util
@@ -13,6 +14,57 @@ CHECKS = (
     "chip", "registration", "vaccination", "deworming", "puppy_test", "vet_check",
     "contract", "food", "passport", "report", "departure_weight",
 )
+MAX_CHECKLIST_ITEMS = 40
+_ITEM_ID = re.compile(r"^[a-zA-Z0-9_-]{1,80}$")
+_ITEM_LABELS = {
+    "nl": dict(zip(CHECKS, ("Chipnummer gecontroleerd", "Registratie geregeld", "Vaccinatie gecontroleerd", "Ontworming gecontroleerd", "Puppytest gecontroleerd", "Dierenartscontrole gecontroleerd", "Contract geregeld", "Voeding en uitleg meegegeven", "Paspoort klaar", "Dossier / rapport meegegeven", "Vertrekgewicht gecontroleerd"))),
+    "en": dict(zip(CHECKS, ("Microchip number checked", "Registration arranged", "Vaccination checked", "Deworming checked", "Puppy test checked", "Vet check confirmed", "Contract arranged", "Food and instructions provided", "Passport ready", "Dossier / report provided", "Departure weight checked"))),
+}
+
+
+def normalize_checklist_items(value: Any) -> list[dict[str, Any]]:
+    """Bound a nest's ordered checklist; IDs carry confirmations, never positions."""
+    if not isinstance(value, list) or not 1 <= len(value) <= MAX_CHECKLIST_ITEMS:
+        raise ValueError("A checklist needs 1 to 40 items")
+    items, seen = [], set()
+    for item in value:
+        if not isinstance(item, dict) or set(item) != {"id", "label"}:
+            raise ValueError("Invalid checklist item")
+        key, label = item["id"], item["label"]
+        if not isinstance(key, str) or not _ITEM_ID.fullmatch(key) or key in seen:
+            raise ValueError("Checklist item IDs must be unique")
+        if label is None:
+            if key not in CHECKS:
+                raise ValueError("Enter a checklist item label")
+        elif not isinstance(label, str) or not label.strip() or len(label.strip()) > 160 or any(ord(c) < 32 for c in label):
+            raise ValueError("Checklist labels need 1 to 160 printable characters")
+        else:
+            label = label.strip()
+        seen.add(key)
+        items.append({"id": key, "label": label})
+    return items
+
+
+def checklist_for_litter(litter: dict[str, Any]) -> dict[str, Any]:
+    """An unconfigured nest starts with the translated standard checklist."""
+    value = litter.get("handoff_checklist")
+    if value is None:
+        return {"revision": "default", "items": [{"id": key, "label": None} for key in CHECKS]}
+    if not isinstance(value, dict) or set(value) != {"revision", "items"} or not isinstance(value["revision"], str) or not 1 <= len(value["revision"]) <= 80:
+        raise ValueError("Invalid nest handoff checklist")
+    return {"revision": value["revision"], "items": normalize_checklist_items(value["items"])}
+
+
+def handoff_item_label(item: dict[str, Any], language: str) -> str:
+    """Custom text stays as entered; unchanged defaults follow the PDF/UI language."""
+    return item["label"] if item["label"] is not None else _ITEM_LABELS[language][item["id"]]
+
+
+def checklist_view(checklist: dict[str, Any]) -> dict[str, Any]:
+    return {"revision": checklist["revision"], "max_items": MAX_CHECKLIST_ITEMS,
+            "items": [{**item, "labels": {lang: handoff_item_label(item, lang) for lang in ("nl", "en")}} for item in checklist["items"]]}
+
+
 STAGES = ("available", "option", "reserved")
 
 
@@ -20,7 +72,7 @@ class HandoffConflict(ValueError):
     """A concurrent puppy edit must not be overwritten."""
 
 
-def normalize_handoff(value: Any = None) -> dict[str, Any]:
+def normalize_handoff(value: Any = None, *, items: list[dict[str, Any]]) -> dict[str, Any]:
     """Validate portable state without depending on current contacts or time."""
     if value is None:
         value = {}
@@ -41,20 +93,22 @@ def normalize_handoff(value: Any = None) -> dict[str, Any]:
         except ValueError as err:
             raise ValueError("Invalid departure date") from err
     checks = value.get("checks", {})
-    if not isinstance(checks, dict) or set(checks) - set(CHECKS) or any(type(v) is not bool for v in checks.values()):
+    if not isinstance(checks, dict) or set(checks) - {item["id"] for item in items} or any(type(v) is not bool for v in checks.values()):
         raise ValueError("Invalid handoff checklist")
     return {"stage": stage, "departure_date": departure,
-            "checks": {key: checks.get(key, False) for key in CHECKS}}
+            "checks": {item["id"]: checks.get(item["id"], False) for item in items}}
 
 
-def handoff_summary(puppy: dict[str, Any]) -> dict[str, Any]:
+def handoff_summary(puppy: dict[str, Any], litter: dict[str, Any]) -> dict[str, Any]:
     """Build a privacy-safe current view; assignment follows existing links."""
-    state = normalize_handoff(puppy.get("handoff"))
-    missing = [key for key in CHECKS if not state["checks"][key]]
+    checklist = checklist_for_litter(litter)
+    state = normalize_handoff(puppy.get("handoff"), items=checklist["items"])
+    missing = [item["id"] for item in checklist["items"] if not state["checks"][item["id"]]]
     return {**state,
             "status": "departed" if state["departure_date"] else "assigned" if puppy.get("owner_ids") else state["stage"],
             "assigned": bool(puppy.get("owner_ids")),
-            "completed_count": len(CHECKS) - len(missing), "total_count": len(CHECKS),
+            "checklist": checklist_view(checklist),
+            "completed_count": len(checklist["items"]) - len(missing), "total_count": len(checklist["items"]),
             "missing": missing, "ready": not missing}
 
 

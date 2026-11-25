@@ -470,7 +470,9 @@ clearer when every tab should behave consistently.
 
 Nest's Puppies tab provides a **Handover** action for each puppy, including in
 compact view. Growth provides the same action for its selected puppy. The
-shared modal edits puppy planning/checklist/departure, while assignment comes
+shared modal edits puppy planning/checklist/departure, and **Customize checklist
+for this litter** configures 1-40 ordered points for all its puppies. Renaming
+resets that point's confirmations; moving preserves them. Assignment comes
 from Owners links. It does not change weight attention or archive the puppy.
 Dossier's derived departure milestone opens that same form. See the
 [handover guide](HANDOVER.md) for status and correction rules.

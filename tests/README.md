@@ -31,7 +31,7 @@ The current suite covers the main backend, frontend contract and browser flows.
 | `test_config_flow.py` / `test_options_actions.py` / `test_litter_growth_settings.py` | Valid management-form prefills, read-only opening, saving/clearing profile and growth fields, timestamp precision and monitoring/notification setting isolation |
 | `test_options_actions.py` / `tests/e2e/puppy-selectors.spec.mjs` | Name/collar labels across HA management forms and frontend selectors, missing/duplicate labels, unchanged puppy IDs and owner/preference selection |
 | `test_translations.py` / `test_options_actions.py` | Complete NL/EN key and placeholder coverage, translated management-form fields and selector options, and parent identity labels loaded through Home Assistant |
-| `test_handoff.py` / `tests/e2e/handoff.spec.mjs` | Derived assignment, manual checklist, departure corrections, stale/failed/cancelled writes, real full/partial restore, independent/private PDF output and responsive modal focus/scroll |
+| `test_handoff.py` / `tests/e2e/handoff.spec.mjs` | Derived assignment, editable per-litter checklist, stable IDs/reordering, rename/remove reconciliation, template conflicts, departure corrections, stale/failed/cancelled writes, real full/partial restore, independent/private PDF output and responsive modal focus/scroll |
 | `test_records.py` | Profile-note migration, dossier record CRUD, owner scopes, sorting and integrity checks |
 | `test_upcoming.py` | Derived vaccination/deworming follow-ups, due-state classification, filtering and sorting |
 | `test_followup_completion.py` | New-entry follow-up completion, owner/date validation, concurrent duplicate prevention, failed-write rollback and real WebSocket routes |

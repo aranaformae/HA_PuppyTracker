@@ -276,10 +276,12 @@ Dat zet het openstaande bedrag op nul, maar maakt geen losse ontvangst aan.
 ### Het vertrek van een pup voorbereiden
 
 1. Open **Nest → Pups** en klik bij de pup op **Overdracht**. Dit kan ook vanuit het groeioverzicht.
-2. Vink af wat je hebt gecontroleerd, zoals chip, vaccinatie, contract en paspoort. Je kunt tussendoor opslaan.
+2. Vink af wat je hebt gecontroleerd, zoals chip, vaccinatie, contract en paspoort. Met **Checklist aanpassen voor dit nest** kun je punten toevoegen, hernoemen, verplaatsen en verwijderen. Opslaan geldt voor alle pups van dit nest.
 3. Na een baaskoppeling wordt de pup automatisch **Toegewezen**. Baasjesstatus en betalingen blijven op de baasjeskaart.
 4. Kies bij vertrek **Vertrokken** en vul de werkelijke vertrekdatum in. Open punten blijven zichtbaar; onvolledig vertrek moet je apart bevestigen.
 5. Kies op de rapportkaart **Overdracht en checklist** om dit mee te nemen in een pup-PDF. Contactgegevens blijven een aparte keuze.
+
+Verplaatsen behoudt vinkjes. Nieuwe of hernoemde punten staan bij alle pups weer open; verwijderen wist de bijbehorende vinkjes.
 
 De dossiermijlpaal **Vertrokken** opent dezelfde overdracht als je de datum wilt
 corrigeren. Gewichtswaarschuwingen blijven werken. Meer uitleg staat in de

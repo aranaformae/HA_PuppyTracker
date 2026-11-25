@@ -75,7 +75,7 @@ Every main section can be enabled or disabled independently.
 | Dossier items | Ordinary dossier entries selected by source and category |
 | Weight attention | Current canonical weight warnings and status column |
 | Owners and placement | Linked contact name, role, placement and payment state |
-| Handover and checklist | Current puppy status, actual departure date and eleven manually checked/open transfer items; independent of Identity and Owners |
+| Handover and checklist | Current puppy status, actual departure date and the nest's ordered, configurable checked/open transfer items; independent of Identity and Owners |
 | Contact details | E-mail, telephone, street/house number, postal code and city for linked owners |
 | Logo | Custom logo, or bundled logo when no valid custom image is available |
 | Breeder name | Configured kennel/breeder name |

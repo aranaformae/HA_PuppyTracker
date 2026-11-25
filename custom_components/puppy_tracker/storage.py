@@ -11,7 +11,7 @@ from uuid import uuid4
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
-from .handoff import HandoffConflict, normalize_handoff, handoff_departure_record, validate_departure
+from .handoff import HandoffConflict, normalize_handoff, handoff_departure_record, validate_departure, checklist_for_litter, normalize_checklist_items
 from .behavior import BEHAVIOR_RECORD_TYPE, validate_behavior_data
 from .care_results import normalize_course_record_edit
 from .storage_lock import CoordinatedLock, mutation_coordinator
@@ -1588,7 +1588,7 @@ class PuppyTrackerStorage:
 
     async def async_save_handoff(
         self, litter_id: str, puppy_id: str, value: dict,
-        *, expected_updated_at: str | None, confirm_incomplete: bool = False,
+        *, expected_updated_at: str | None, expected_checklist_revision: str, confirm_incomplete: bool = False,
     ) -> None:
         """Commit checklist/date atomically, sharing the puppy revision with links/profile edits."""
         async with self._mutation():
@@ -1596,9 +1596,12 @@ class PuppyTrackerStorage:
             puppy = self._require_puppy(litter_id, puppy_id)
             if puppy.get("updated_at") != expected_updated_at:
                 raise HandoffConflict("Puppy changed; reopen the handoff form")
-            state = normalize_handoff(value)
+            checklist = checklist_for_litter(litter)
+            if checklist["revision"] != expected_checklist_revision:
+                raise HandoffConflict("Nest checklist changed; reopen the handoff form")
+            state = normalize_handoff(value, items=checklist["items"])
             validate_departure(state, puppy, litter, confirm_incomplete=confirm_incomplete)
-            before = normalize_handoff(puppy.get("handoff"))
+            before = normalize_handoff(puppy.get("handoff"), items=checklist["items"])
             if state == before:
                 return
             puppy["handoff"] = state
@@ -1607,6 +1610,38 @@ class PuppyTrackerStorage:
             self._add_audit_entry(action="update_puppy_handoff", litter_id=litter_id,
                                   puppy_id=puppy_id, details={"before": before, "after": state})
             await self.async_save()
+
+    async def async_save_handoff_checklist(
+        self, litter_id: str, items: list[dict[str, Any]], *, expected_revision: str,
+    ) -> dict[str, Any]:
+        """Save a nest template and reconcile all puppy confirmations in one transaction."""
+        async with self._mutation():
+            litter = self._require_litter(litter_id)
+            before = checklist_for_litter(litter)
+            if before["revision"] != expected_revision:
+                raise HandoffConflict("Nest checklist changed; reopen the editor")
+            normalized = normalize_checklist_items(items)
+            if normalized == before["items"]:
+                return before
+            previous_labels = {item["id"]: item["label"] for item in before["items"]}
+            retained = {item["id"] for item in normalized
+                        if item["id"] in previous_labels and item["label"] == previous_labels[item["id"]]}
+            now = _now_iso()
+            for puppy in litter.get("puppies", {}).values():
+                if "handoff" not in puppy:
+                    continue
+                state = normalize_handoff(puppy["handoff"], items=before["items"])
+                state["checks"] = {item["id"]: state["checks"].get(item["id"], False) if item["id"] in retained else False
+                                   for item in normalized}
+                puppy["handoff"] = state
+                puppy["updated_at"] = now
+            saved = {"revision": str(uuid4()), "items": normalized}
+            litter["handoff_checklist"] = saved
+            litter["updated_at"] = now
+            self._add_audit_entry(action="update_handoff_checklist", litter_id=litter_id,
+                                  details={"before": before, "after": saved})
+            await self.async_save()
+            return deepcopy(saved)
 
     async def async_set_puppy_owner_ids(
         self, litter_id: str, puppy_id: str, owner_ids: list[str]

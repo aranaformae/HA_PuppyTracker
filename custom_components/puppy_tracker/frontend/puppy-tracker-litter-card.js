@@ -380,7 +380,7 @@ class PuppyTrackerLitterCard extends HTMLElement {
       if (!this._data?.can_manage_measurements) return;
       openHandoff({ hass: this._hass, litterId: this._selectedLitterId, trigger: button,
         puppy: rows.find((puppy) => puppy.id === button.dataset.handoffPuppy),
-        onSaved: () => { this._saveFeedback = handoffText(this._hass, "saved"); void this._queueRefresh(); } });
+        onSaved: (result) => this._profileSaved(true, handoffText(this._hass, result.templateSaved ? "templateSaved" : "saved")) });
     }));
     this.shadowRoot.getElementById("add-puppy")?.addEventListener("click", () => this._openProfileEditor());
     this.shadowRoot.querySelectorAll(".edit-puppy").forEach((button) => button.addEventListener("click", (event) => {
@@ -402,8 +402,8 @@ class PuppyTrackerLitterCard extends HTMLElement {
       onSaved: () => this._profileSaved(Boolean(puppy)) });
   }
 
-  _profileSaved(wasEdit) {
-    this._saveFeedback = puppyProfileSaveMessage(this._hass, wasEdit);
+  _profileSaved(wasEdit, message = puppyProfileSaveMessage(this._hass, wasEdit)) {
+    this._saveFeedback = message;
     if (this._feedbackTimer) clearTimeout(this._feedbackTimer);
     let feedback = this.shadowRoot.querySelector(".save-feedback");
     if (!feedback) {

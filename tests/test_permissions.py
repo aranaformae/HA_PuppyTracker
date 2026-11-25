@@ -573,7 +573,7 @@ async def test_admin_handoff_save_uses_real_api_and_rejects_stale_updates(
     storage = private_runtime[1].storage
     revision = storage.get_puppy("litter-1", "puppy-1")["updated_at"]
     message = {"type": f"{DOMAIN}/handoff/save", "litter_id": "litter-1", "puppy_id": "puppy-1",
-               "expected_updated_at": revision, "handoff": {"stage": "reserved", "checks": {"contract": True}}}
+               "expected_updated_at": revision, "expected_checklist_revision": "default", "handoff": {"stage": "reserved", "checks": {"contract": True}}}
     owners_before = deepcopy(private_runtime[1].owners._data)
     await client.send_json_auto_id(message)
     result = await client.receive_json()
@@ -587,3 +587,19 @@ async def test_admin_handoff_save_uses_real_api_and_rejects_stale_updates(
     await client.send_json_auto_id({"type": f"{DOMAIN}/export", "litter_id": "litter-1", "format": "pdf",
                                     "sections": {"handoff": True, "owners": False, "identity": False}})
     assert (await client.receive_json())["success"] is True
+
+
+async def test_real_template_api_invalidates_open_forms_and_rejects_stale_template_writes(hass, private_runtime, hass_ws_client):
+    register_api(hass)
+    client = await hass_ws_client(hass)
+    storage = private_runtime[1].storage
+    message = {"type": f"{DOMAIN}/handoff/checklist/save", "litter_id": "litter-1", "expected_revision": "default", "items": [{"id": "bag", "label": "Puppy bag"}]}
+    await client.send_json_auto_id(message)
+    result = await client.receive_json()
+    assert result["success"] and result["result"]["checklist"]["items"][0]["labels"] == {"nl": "Puppy bag", "en": "Puppy bag"}
+    await client.send_json_auto_id({"type": f"{DOMAIN}/handoff/save", "litter_id": "litter-1", "puppy_id": "puppy-1", "expected_updated_at": storage.get_puppy("litter-1", "puppy-1")["updated_at"], "expected_checklist_revision": "default", "handoff": {"checks": {"bag": True}}})
+    stale = await client.receive_json()
+    assert not stale["success"] and stale["error"]["code"] == "stale_handoff"
+    await client.send_json_auto_id(message)
+    stale = await client.receive_json()
+    assert not stale["success"] and stale["error"]["code"] == "stale_checklist"

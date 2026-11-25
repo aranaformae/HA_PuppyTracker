@@ -16,7 +16,7 @@ from .care_templates import normalize_care_template_backup_data
 from .const import DOMAIN
 from .weighing_schedule import normalize_weighing_schedule
 from .dog_identity import parent_details_for_litter
-from .handoff import normalize_handoff
+from .handoff import normalize_handoff, checklist_for_litter
 from .integrity import inspect_and_repair_data
 from .mother_integrity import inspect_mother_data, merge_integrity_reports
 from .mother_schema import migrate_mother_scope_data
@@ -353,6 +353,8 @@ def build_export_document(
         "father": litter.get("father"),
         "father_details": parent_details_for_litter(data, litter, "father"),
     }
+    if "handoff_checklist" in litter:
+        document["source_litter"]["handoff_checklist"] = deepcopy(litter["handoff_checklist"])
     document["puppy"] = puppy
     document["audit_log"] = _audit_for_puppy(data, litter_id, puppy_id)
     return document
@@ -402,14 +404,34 @@ def serialize_export(
     )
 
 
-def _normalize_puppy_handoffs(puppies) -> None:
-    """Validate optional portable handover state before any restore mutation."""
+def _normalize_litter_handoffs(litters) -> None:
+    """Validate portable definitions and their puppy confirmations together."""
     try:
-        for puppy in puppies:
-            if isinstance(puppy, dict) and "handoff" in puppy:
-                puppy["handoff"] = normalize_handoff(puppy["handoff"])
+        for litter in litters:
+            if not isinstance(litter, dict):
+                continue
+            checklist = checklist_for_litter(litter)
+            if "handoff_checklist" in litter:
+                litter["handoff_checklist"] = checklist
+            puppies = litter.get("puppies", {})
+            for puppy in puppies.values() if isinstance(puppies, dict) else ():
+                if isinstance(puppy, dict) and "handoff" in puppy:
+                    puppy["handoff"] = normalize_handoff(puppy["handoff"], items=checklist["items"])
     except ValueError as err:
         raise BackupValidationError("invalid_backup", str(err)) from err
+
+
+def _check_handoff_transfer(source: dict, target: dict) -> None:
+    """Never reinterpret confirmations using another nest's checklist labels."""
+    def definitions(litter):
+        return {item["id"]: item["label"] for item in checklist_for_litter(litter)["items"]}
+
+    try:
+        matches = definitions(source) == definitions(target)
+    except ValueError as err:
+        raise BackupValidationError("invalid_backup", str(err)) from err
+    if not matches:
+        raise BackupValidationError("incompatible_checklist", "Handoff checklists differ. Import as a new litter to retain the source checklist and confirmations.")
 
 
 def parse_export_json(content: str) -> dict[str, Any]:
@@ -544,17 +566,13 @@ def parse_export_json(content: str) -> dict[str, Any]:
         if not isinstance(document.get("audit_log", []), list):
             raise BackupValidationError("invalid_backup", "Puppy audit log is invalid")
 
-    # Optional additive state: old backups remain unchanged; new handoff data
-    # is validated before any live store or file is replaced.
     if scope == "full":
-        puppies = [p for litter in document["data"]["litters"].values()
-                   if isinstance(litter, dict) and isinstance(litter.get("puppies"), dict)
-                   for p in litter["puppies"].values()]
+        litters = document["data"]["litters"].values()
     elif scope == "litter":
-        puppies = list(document["litter"]["puppies"].values())
+        litters = [document["litter"]]
     else:
-        puppies = [document["puppy"]]
-    _normalize_puppy_handoffs(puppies)
+        litters = [{**document["source_litter"], "puppies": {document["puppy"]["id"]: document["puppy"]}}]
+    _normalize_litter_handoffs(litters)
     return document
 
 
@@ -762,11 +780,7 @@ def _validate_candidate(candidate: dict[str, Any]) -> dict[str, Any]:
                 normalize_weighing_schedule(litter["growth_analysis"].get("weighing_schedule"))
             except ValueError as err:
                 raise BackupValidationError("invalid_backup", str(err)) from err
-    _normalize_puppy_handoffs(
-        puppy for litter in (litters.values() if isinstance(litters, dict) else ())
-        if isinstance(litter, dict) and isinstance(litter.get("puppies"), dict)
-        for puppy in litter["puppies"].values()
-    )
+    _normalize_litter_handoffs(litters.values() if isinstance(litters, dict) else ())
     _normalize_candidate_schema(candidate)
     _changed, base_report = inspect_and_repair_data(candidate, repair=False)
     _mother_changed, mother_report = inspect_mother_data(candidate, repair=False)
@@ -797,6 +811,13 @@ def _remap_litter(
     id_map[old_litter_id] = new_litter_id
 
     remapped_litter = _remap_tree(litter, id_map)
+    # Checklist IDs identify task definitions, not dogs/records. Their labels and
+    # confirmation keys must survive even if they happen to equal an entity ID.
+    if "handoff_checklist" in litter:
+        remapped_litter["handoff_checklist"] = deepcopy(litter["handoff_checklist"])
+    for old_id, puppy in litter.get("puppies", {}).items():
+        if isinstance(puppy, dict) and "handoff" in puppy:
+            remapped_litter["puppies"][id_map[str(old_id)]]["handoff"] = deepcopy(puppy["handoff"])
     remapped_litter["id"] = new_litter_id
     remapped_audit = [
         _remap_tree(item, id_map)
@@ -822,6 +843,8 @@ def _remap_puppy(
     new_puppy_id = id_map[old_puppy_id]
 
     remapped_puppy = _remap_tree(puppy, id_map)
+    if "handoff" in puppy:
+        remapped_puppy["handoff"] = deepcopy(puppy["handoff"])
     remapped_puppy["id"] = new_puppy_id
 
     # Ownership is authoritative from the destination container.
@@ -843,6 +866,7 @@ def _new_litter_from_source(source_litter: dict[str, Any], litter_id: str) -> di
     now = _now_iso()
     return {
         "id": litter_id,
+        **({"handoff_checklist": deepcopy(source_litter["handoff_checklist"])} if "handoff_checklist" in source_litter else {}),
         "name": source_litter.get("name") or "Imported litter",
         "birth_date": source_litter.get("birth_date"),
         "mother": source_litter.get("mother"),
@@ -994,6 +1018,7 @@ def prepare_import(
                 target_litter_id=target_litter_id,
             )
             target = candidate["litters"][target_litter_id]
+            _check_handoff_transfer(source_litter, target)
             for puppy_id, puppy in remapped.get("puppies", {}).items():
                 target.setdefault("puppies", {})[puppy_id] = puppy
             target.setdefault("records", []).extend(remapped.get("records", []))
@@ -1029,6 +1054,7 @@ def prepare_import(
                 )
             destination_litter_id = target_litter_id
             destination_litter = candidate["litters"][destination_litter_id]
+            _check_handoff_transfer(source_litter, destination_litter)
 
         new_puppy_id, remapped_puppy, remapped_audit, _id_map = _remap_puppy(
             source_puppy,

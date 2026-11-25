@@ -311,7 +311,7 @@ def _litter_payload(
                 "birth_time": puppy.get("birth_time"),
                 "profile_note": puppy.get("profile_note"),
                 "chip_number": puppy.get("chip_number"),
-                "handoff": handoff_summary(puppy),
+                "handoff": handoff_summary(puppy, litter),
                 "owner_ids": list(puppy.get("owner_ids") or []) if can_manage_measurements else [],
                 "active": puppy.get("active", True),
                 "created_at": puppy.get("created_at"),

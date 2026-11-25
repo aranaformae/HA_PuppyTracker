@@ -1926,8 +1926,8 @@ class PuppyTrackerOverviewCard extends HTMLElement {
     editor.open({ hass: this._hass, litterId, puppy, onSaved: () => this._profileSaved() });
   }
 
-  _profileSaved() {
-    this._profileStatus = puppyProfileSaveMessage(this._hass, true);
+  _profileSaved(message = puppyProfileSaveMessage(this._hass, true)) {
+    this._profileStatus = message;
     let feedback = this.shadowRoot.querySelector(".detail-panel [role='status']");
     if (!feedback) {
       feedback = document.createElement("div");
@@ -1967,7 +1967,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
       if (!this._history?.can_manage_measurements) return;
       openHandoff({ hass: this._hass, litterId: this._selectedLitterStorageId(), trigger: event.currentTarget,
         puppy: this._history.puppies.find((p) => p.id === this._selectedPuppyId),
-        onSaved: () => { void this._refreshAfterProfileSave(); } });
+        onSaved: (result) => this._profileSaved(handoffText(this._hass, result.templateSaved ? "templateSaved" : "saved")) });
     });
     this.shadowRoot?.querySelector("#edit-puppy-profile")?.addEventListener("click", () => this._openSelectedPuppyEditor());
 

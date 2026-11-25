@@ -2122,8 +2122,10 @@ Names, notes, result contents and notification targets are not exposed merely to
 ## Puppy handover
 
 `handoff.py` defines optional `puppy.handoff` state: `stage` (available/option/
-reserved), `departure_date` (canonical ISO date or null) and eleven boolean
-`checks`. Old puppies/backups need no rewrite. `assigned` is derived from existing
+reserved), `departure_date` (canonical ISO date or null) and a boolean `checks`
+map keyed by stable item IDs. `litter.handoff_checklist` contains a revision and
+1-40 ordered `{id, label}` definitions. A null label selects the built-in NL/EN
+label for an unchanged standard item; custom labels are bounded literal text. Old puppies/backups need no rewrite. `assigned` is derived from existing
 owner links; `departed` takes precedence when a departure date exists. There is
 no mirrored owner status, copied contact data or additional call-name field.
 Manual confirmations are not inferred from clinical records, archive files or
@@ -2131,7 +2133,13 @@ PDF downloads. Link changes preserve the checklist; users review it explicitly.
 
 Admin-only `puppy_tracker/handoff/save`, registered with the puppy-profile API,
 uses `async_save_handoff` under the storage mutation lock. The shared puppy
-`updated_at` token rejects concurrent profile/link/checklist edits. Validation,
+`updated_at` token and required `expected_checklist_revision` reject concurrent
+profile/link/checklist edits. `handoff/checklist/save` checks its own expected
+revision under the same mutation lock and updates the litter definition plus all
+stored puppy confirmations atomically. Unchanged IDs/labels preserve checks;
+reordering preserves checks; new or renamed points become false, and removed
+points are pruned. Departure history is not erased. A new UUID revision also
+invalidates open forms for puppies without a saved handoff yet. Validation,
 state, timestamps and audit updates roll back together on failed/cancelled writes.
 Departure dates are bounded by birth/today on writes; incomplete departure needs
 an explicit confirmation. Archiving, weighing schedules and notifications remain
@@ -2150,7 +2158,11 @@ current handover state ignores the historical range, while the generated Dossier
 milestone obeys normal milestone/range filters. NL/EN check labels never print
 internal checklist keys. Backup v7's existing puppy envelope carries optional
 handover state in full/partial exports; parsing and restore-candidate validation
-reject malformed state before mutations. Remapped imports derive the milestone
+reject malformed definitions, unknown confirmation IDs and invalid state before
+mutations. Puppy exports carry the source nest definition too. Existing-litter
+transfers require matching item-ID/label maps (order may differ); mismatches
+fail preflight with guidance to import into a new litter. New-litter transfers
+retain the source definition. Remapped imports derive the milestone
 from the new puppy ID. See [Handover](HANDOVER.md).
 
 ## Testing strategy

@@ -275,10 +275,12 @@ outstanding amount to zero but does not create an individual receipt.
 ### Prepare a puppy's departure
 
 1. Open **Litter → Puppies** and choose **Handover** beside the puppy. The growth overview offers the same action.
-2. Tick what you have checked, such as the chip, vaccination, contract and passport. Save progress at any time.
+2. Tick what you have checked, such as the chip, vaccination, contract and passport. Choose **Customize checklist for this litter** to add, rename, reorder or remove points for all puppies in this litter.
 3. Linking an owner automatically shows **Assigned**. Owner status and payments stay on the Owners card.
 4. When the puppy leaves, choose **Departed** and enter the actual departure date. Remaining checks stay visible; incomplete departure needs explicit confirmation.
 5. Select **Handover and checklist** on the Report card to include this in a puppy PDF. Contact details remain a separate choice.
+
+Moving points preserves checks. New or renamed points become unchecked for all puppies; removing points removes their confirmations.
 
 The **Departed** dossier milestone opens the same form for date corrections.
 Weight warnings continue to work. See the [handover guide](HANDOVER.md).

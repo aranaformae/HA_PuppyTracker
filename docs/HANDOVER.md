@@ -18,17 +18,31 @@ not reset the puppy's checklist or departure history: review those confirmations
 when making a new arrangement. Use the existing call-name field when renaming a
 puppy; there is no second buyer-requested name field.
 
-## Checklist
+## Customize the checklist for a litter
 
-The eleven checks cover the chip, registration, vaccination, deworming, puppy
+Open a puppy's Handover and choose **Customize checklist for this litter**.
+You can add your own points, rename them, move them up/down or remove them.
+Save once to apply the definition to every puppy in this litter, including
+inactive puppies. Other litters keep their own list. A list has 1 to 40 points;
+labels can contain up to 160 characters.
+
+Moving points preserves their confirmations. A new or renamed point starts
+unchecked for every puppy, so an old check cannot silently confirm a new task.
+Removing a point removes its confirmations. Existing departure dates are retained,
+even when changing the list makes a departed puppy's checklist incomplete.
+The form explains these effects before saving. Back to puppy discards unsaved
+list edits and restores the puppy form; if that form already contained unsaved
+changes, opening the list asks for confirmation before proceeding.
+
+The default list has eleven checks covering the chip, registration, vaccination, deworming, puppy
 test, vet check, contract, food/instructions, passport, dossier/report and
 departure weight. Each starts unchecked. Tick an item after checking it yourself;
 a vaccination note, generated contract or PDF download never ticks it for you.
-The form shows the chip number and latest known weight/time as reference data;
+Unmodified default chip/weight points show the chip number and latest known weight/time as reference data;
 these are not an automatically recorded departure weight. Record that weighing
 through the ordinary weighing workflow.
 
-The status shows completed checks out of eleven. Remaining unchecked items stay
+The status shows completed checks out of the current number of points. Remaining unchecked items stay
 visible. You can save progress at any time. Departing with an incomplete
 checklist requires explicit confirmation. The departure date cannot be before
 birth or after today. This date is distinct from the owner's expected pickup date.
@@ -59,7 +73,13 @@ A report period filters historical dossier items, but the handover section alway
 shows the current planning/checklist state. Individual-puppy reports contain only
 that puppy's handover. Mother reports have no puppy handover section.
 
-Full, litter and puppy JSON backups retain handover state. Older backups without
+Full, litter and puppy JSON backups retain the nest checklist and handover state. Older backups without
 it still restore; their puppies start with an empty checklist. A failed save keeps
 the form open, and a concurrent puppy/profile/owner-link change requires reopening
-the form instead of silently overwriting it.
+the form instead of silently overwriting it. A changed nest checklist also
+invalidates already open puppy forms. For a partial transfer into an existing
+litter, the checklist item IDs and labels must match. If they differ, import
+as a new litter to preserve the source definition and confirmations.
+
+Default point labels follow the UI/PDF language until you rename them. Your own
+text is printed as entered in both languages and is not automatically translated.

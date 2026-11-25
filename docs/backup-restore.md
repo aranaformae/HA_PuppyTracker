@@ -243,8 +243,11 @@ not. See [technical Repairs](NOTIFICATIONS.md#technical-repairs).
 
 ## Puppy handover state
 
-Optional puppy planning, departure date and checklist state are included in full,
+The ordered per-litter handover checklist and optional puppy planning, departure
+date and confirmation state are included in full,
 litter and puppy backups. Old backups without these fields still import. Partial
 imports keep the state while remapping the puppy ID; the departure milestone is
-then derived from that new ID. No contact or payment data is added by this state.
+then derived from that new ID. A transfer into an existing litter requires matching checklist IDs
+and labels; otherwise choose a new litter to retain the source definition.
+No contact or payment data is added by this state.
 See [Handover](HANDOVER.md).

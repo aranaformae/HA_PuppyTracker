@@ -14,7 +14,7 @@ from .const import DOMAIN, SIGNAL_NEW_PUPPY
 from .devices import async_sync_devices
 from .runtime import get_runtime_storage
 from .updates import dispatch_measurement_update, dispatch_dossier_update
-from .handoff import HandoffConflict, handoff_summary
+from .handoff import HandoffConflict, handoff_summary, checklist_view
 
 
 PROFILE_SCHEMA = vol.Schema(
@@ -118,6 +118,7 @@ async def websocket_save_puppy_profile(
     vol.Required("puppy_id"): str,
     vol.Required("expected_updated_at"): vol.Any(str, None),
     vol.Required("handoff"): dict,
+    vol.Required("expected_checklist_revision"): str,
     vol.Optional("confirm_incomplete", default=False): bool,
 })
 @websocket_api.async_response
@@ -131,6 +132,7 @@ async def websocket_save_handoff(hass: HomeAssistant, connection, msg: dict[str,
         await storage.async_save_handoff(
             msg["litter_id"], msg["puppy_id"], msg["handoff"],
             expected_updated_at=msg["expected_updated_at"],
+            expected_checklist_revision=msg["expected_checklist_revision"],
             confirm_incomplete=msg["confirm_incomplete"],
         )
     except HandoffConflict as err:
@@ -141,10 +143,37 @@ async def websocket_save_handoff(hass: HomeAssistant, connection, msg: dict[str,
         return
     dispatch_dossier_update(hass)
     puppy = storage.get_puppy(msg["litter_id"], msg["puppy_id"])
-    connection.send_result(msg["id"], {"handoff": handoff_summary(puppy), "updated_at": puppy.get("updated_at")})
+    connection.send_result(msg["id"], {"handoff": handoff_summary(puppy, storage.get_litter(msg["litter_id"])), "updated_at": puppy.get("updated_at")})
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/handoff/checklist/save",
+    vol.Required("litter_id"): str,
+    vol.Required("expected_revision"): str,
+    vol.Required("items"): [dict],
+})
+@websocket_api.async_response
+async def websocket_save_handoff_checklist(hass: HomeAssistant, connection, msg: dict[str, Any]) -> None:
+    """Configure one nest's checklist without modifying other litters."""
+    storage = get_runtime_storage(hass)
+    if storage is None:
+        connection.send_error(msg["id"], "not_loaded", "Puppy Tracker is not loaded")
+        return
+    try:
+        saved = await storage.async_save_handoff_checklist(msg["litter_id"], msg["items"], expected_revision=msg["expected_revision"])
+    except HandoffConflict as err:
+        connection.send_error(msg["id"], "stale_checklist", str(err))
+        return
+    except ValueError as err:
+        connection.send_error(msg["id"], "invalid_checklist", str(err))
+        return
+    dispatch_dossier_update(hass)
+    connection.send_result(msg["id"], {"checklist": checklist_view(saved)})
 
 
 def async_setup_puppy_profile_api(hass: HomeAssistant) -> None:
     """Register the puppy profile command."""
     websocket_api.async_register_command(hass, websocket_save_puppy_profile)
     websocket_api.async_register_command(hass, websocket_save_handoff)
+    websocket_api.async_register_command(hass, websocket_save_handoff_checklist)
