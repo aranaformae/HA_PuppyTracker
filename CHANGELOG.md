@@ -10,6 +10,8 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+## [0.42.0] - 2026-11-25
+
 ### Added
 
 - Prepare puppy handovers with puppy-owned planning status, assignment derived
@@ -576,7 +578,8 @@ for explicit assignment. See [storage migrations](docs/storage-migrations.md#own
 
 - Separated daily execution from schedule management in Care workspace navigation.
 
-[Unreleased]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.41.0...HEAD
+[Unreleased]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.42.0...HEAD
+[0.42.0]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.41.0...v0.42.0
 [0.41.0]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.40.1...v0.41.0
 [0.40.1]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.40.0...v0.40.1
 [0.40.0]: https://github.com/aranaformae/HA_PuppyTracker/compare/v0.39.0...v0.40.0
