@@ -273,6 +273,18 @@ Houd dat ook bij onder Financieel. Bij volledige betaling kun je **Volledig
 betaald registreren** gebruiken: controleer datum en betaalwijze en sla op.
 Dat zet het openstaande bedrag op nul, maar maakt geen losse ontvangst aan.
 
+### Het vertrek van een pup voorbereiden
+
+1. Open **Nest → Pups** en klik bij de pup op **Overdracht**. Dit kan ook vanuit het groeioverzicht.
+2. Vink af wat je hebt gecontroleerd, zoals chip, vaccinatie, contract en paspoort. Je kunt tussendoor opslaan.
+3. Na een baaskoppeling wordt de pup automatisch **Toegewezen**. Baasjesstatus en betalingen blijven op de baasjeskaart.
+4. Kies bij vertrek **Vertrokken** en vul de werkelijke vertrekdatum in. Open punten blijven zichtbaar; onvolledig vertrek moet je apart bevestigen.
+5. Kies op de rapportkaart **Overdracht en checklist** om dit mee te nemen in een pup-PDF. Contactgegevens blijven een aparte keuze.
+
+De dossiermijlpaal **Vertrokken** opent dezelfde overdracht als je de datum wilt
+corrigeren. Gewichtswaarschuwingen blijven werken. Meer uitleg staat in de
+[overdrachtsgids](HANDOVER.md).
+
 ## 9. Een PDF, contactlijst of document maken
 
 ### Een dossier als PDF

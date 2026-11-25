@@ -466,6 +466,15 @@ one surface. This is useful for specialist layouts, but a single top-level
 `show_litter_selector`, `default_selected` or `show_today_only` setting is
 clearer when every tab should behave consistently.
 
+## Puppy handover
+
+Nest's Puppies tab provides a **Handover** action for each puppy, including in
+compact view. Growth provides the same action for its selected puppy. The
+shared modal edits puppy planning/checklist/departure, while assignment comes
+from Owners links. It does not change weight attention or archive the puppy.
+Dossier's derived departure milestone opens that same form. See the
+[handover guide](HANDOVER.md) for status and correction rules.
+
 ## Owners and Report
 
 Owners remains a separate card:
@@ -669,6 +678,10 @@ sections and matching item counts before download.
 
 See [Reports and exports](REPORTS_EXPORTS.md) for the exact section
 dependencies, individual-puppy behavior, dossier filters and CSV/JSON rules.
+
+**Handover and checklist** independently prints puppy transfer status, actual
+departure date and checklist progress; Full and Owner handover presets enable it.
+It does not require Identity, Owners or Contact details.
 
 **Contact details** is a privacy-sensitive sub-option of **Owners and placement** and is automatically
 disabled when that parent section is off. A selected section remains visible in

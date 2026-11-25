@@ -10,6 +10,14 @@ they have not been reconstructed as a complete historical changelog.
 
 ## [Unreleased]
 
+### Added
+
+- Prepare puppy handovers with puppy-owned planning status, assignment derived
+  from owner links, an eleven-item checklist and actual departure date. Reuse
+  the Nest/Growth views and show a single derived departure milestone in Dossier.
+- Add an independent handover/checklist PDF section in Dutch and English, with
+  scoped export, portable backup support and guarded concurrent/failed writes.
+
 ## [0.41.0] - 2026-11-25
 
 ### Added

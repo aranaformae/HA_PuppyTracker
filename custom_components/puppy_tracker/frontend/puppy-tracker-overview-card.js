@@ -1,3 +1,4 @@
+import { openHandoff, handoffText, handoffLabel } from "./puppy-tracker-handoff.js";
 // Puppy Tracker Overview Card v1.3.2
 import { collarColor } from "./puppy-tracker-collar-chart-colors.js";
 import "./puppy-tracker-growth-comparison.js";
@@ -1731,6 +1732,7 @@ class PuppyTrackerOverviewCard extends HTMLElement {
               <h3>${this._escape(selected.displayName)}</h3>
             </div>
             <div class="detail-actions">
+              ${this._history?.can_manage_measurements ? `<button class="mini-button" id="puppy-handoff">${this._escape(handoffText(this._hass, "title"))}: ${this._escape(handoffLabel(this._hass, this._history.puppies.find((p) => p.id === selected.puppyId)))}</button>` : ""}
               ${this._history?.can_manage_measurements && this._history?.puppies?.some((puppy) => puppy.id === selected.puppyId)
                 ? `<button class="mini-button" id="edit-puppy-profile">${languageForHass(this._hass) === "en" ? "Edit puppy" : "Pup bewerken"}</button>` : ""}
               <button class="mini-button" id="toggle-chart-focus">${
@@ -1961,6 +1963,12 @@ class PuppyTrackerOverviewCard extends HTMLElement {
     const exportJson = this.shadowRoot?.querySelector("#export-json");
     const toggleMeasurements = this.shadowRoot?.querySelector("#toggle-measurements");
     const toggleChartFocus = this.shadowRoot?.querySelector("#toggle-chart-focus");
+    this.shadowRoot?.querySelector("#puppy-handoff")?.addEventListener("click", (event) => {
+      if (!this._history?.can_manage_measurements) return;
+      openHandoff({ hass: this._hass, litterId: this._selectedLitterStorageId(), trigger: event.currentTarget,
+        puppy: this._history.puppies.find((p) => p.id === this._selectedPuppyId),
+        onSaved: () => { void this._refreshAfterProfileSave(); } });
+    });
     this.shadowRoot?.querySelector("#edit-puppy-profile")?.addEventListener("click", () => this._openSelectedPuppyEditor());
 
     const interactiveControls = this.shadowRoot?.querySelectorAll(

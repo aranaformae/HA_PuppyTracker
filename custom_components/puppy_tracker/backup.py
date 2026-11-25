@@ -16,6 +16,7 @@ from .care_templates import normalize_care_template_backup_data
 from .const import DOMAIN
 from .weighing_schedule import normalize_weighing_schedule
 from .dog_identity import parent_details_for_litter
+from .handoff import normalize_handoff
 from .integrity import inspect_and_repair_data
 from .mother_integrity import inspect_mother_data, merge_integrity_reports
 from .mother_schema import migrate_mother_scope_data
@@ -401,6 +402,16 @@ def serialize_export(
     )
 
 
+def _normalize_puppy_handoffs(puppies) -> None:
+    """Validate optional portable handover state before any restore mutation."""
+    try:
+        for puppy in puppies:
+            if isinstance(puppy, dict) and "handoff" in puppy:
+                puppy["handoff"] = normalize_handoff(puppy["handoff"])
+    except ValueError as err:
+        raise BackupValidationError("invalid_backup", str(err)) from err
+
+
 def parse_export_json(content: str) -> dict[str, Any]:
     """Parse and validate a Puppy Tracker JSON export."""
     try:
@@ -533,6 +544,17 @@ def parse_export_json(content: str) -> dict[str, Any]:
         if not isinstance(document.get("audit_log", []), list):
             raise BackupValidationError("invalid_backup", "Puppy audit log is invalid")
 
+    # Optional additive state: old backups remain unchanged; new handoff data
+    # is validated before any live store or file is replaced.
+    if scope == "full":
+        puppies = [p for litter in document["data"]["litters"].values()
+                   if isinstance(litter, dict) and isinstance(litter.get("puppies"), dict)
+                   for p in litter["puppies"].values()]
+    elif scope == "litter":
+        puppies = list(document["litter"]["puppies"].values())
+    else:
+        puppies = [document["puppy"]]
+    _normalize_puppy_handoffs(puppies)
     return document
 
 
@@ -740,6 +762,11 @@ def _validate_candidate(candidate: dict[str, Any]) -> dict[str, Any]:
                 normalize_weighing_schedule(litter["growth_analysis"].get("weighing_schedule"))
             except ValueError as err:
                 raise BackupValidationError("invalid_backup", str(err)) from err
+    _normalize_puppy_handoffs(
+        puppy for litter in (litters.values() if isinstance(litters, dict) else ())
+        if isinstance(litter, dict) and isinstance(litter.get("puppies"), dict)
+        for puppy in litter["puppies"].values()
+    )
     _normalize_candidate_schema(candidate)
     _changed, base_report = inspect_and_repair_data(candidate, repair=False)
     _mother_changed, mother_report = inspect_mother_data(candidate, repair=False)

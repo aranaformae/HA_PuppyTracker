@@ -20,6 +20,7 @@ more detail; implementation and release procedures stay in the technical section
 | [Calculator and feeding portions](CALCULATOR.md) | Per-kilogram amounts, configurable kibble/meat methods, kcal allocation and separate portions |
 | [Puppy dossiers and owners](puppy-dossiers.md) | Ownership scopes, shared item editing, Quick Log selection, contacts, puppy preferences and payments |
 | [Dossier history](DOSSIER_HISTORY.md) | One combined history, owner choice, compact details, filters, weight corrections and Timeline migration |
+| [Puppy handover](HANDOVER.md) | Puppy status, departure date, checklist and handover PDF |
 | [Owner puppy-preference matrix](OWNER_PREFERENCE_MATRIX.md) | Compare ranked choices, conflicts, notes and final puppy links per litter |
 | [Temperature](temperature-card.md) | Journal temperature view, entry and configuration |
 | [Behavior observations](BEHAVIOR.md) | Repeated puppy scoring, profile calculation and PDF output |

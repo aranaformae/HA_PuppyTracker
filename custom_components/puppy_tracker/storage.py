@@ -11,6 +11,7 @@ from uuid import uuid4
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
+from .handoff import HandoffConflict, normalize_handoff, handoff_departure_record, validate_departure
 from .behavior import BEHAVIOR_RECORD_TYPE, validate_behavior_data
 from .care_results import normalize_course_record_edit
 from .storage_lock import CoordinatedLock, mutation_coordinator
@@ -1585,6 +1586,28 @@ class PuppyTrackerStorage:
 
             await self.async_save()
 
+    async def async_save_handoff(
+        self, litter_id: str, puppy_id: str, value: dict,
+        *, expected_updated_at: str | None, confirm_incomplete: bool = False,
+    ) -> None:
+        """Commit checklist/date atomically, sharing the puppy revision with links/profile edits."""
+        async with self._mutation():
+            litter = self._require_litter(litter_id)
+            puppy = self._require_puppy(litter_id, puppy_id)
+            if puppy.get("updated_at") != expected_updated_at:
+                raise HandoffConflict("Puppy changed; reopen the handoff form")
+            state = normalize_handoff(value)
+            validate_departure(state, puppy, litter, confirm_incomplete=confirm_incomplete)
+            before = normalize_handoff(puppy.get("handoff"))
+            if state == before:
+                return
+            puppy["handoff"] = state
+            now = _now_iso()
+            puppy["updated_at"] = litter["updated_at"] = now
+            self._add_audit_entry(action="update_puppy_handoff", litter_id=litter_id,
+                                  puppy_id=puppy_id, details={"before": before, "after": state})
+            await self.async_save()
+
     async def async_set_puppy_owner_ids(
         self, litter_id: str, puppy_id: str, owner_ids: list[str]
     ) -> None:
@@ -2200,6 +2223,10 @@ class PuppyTrackerStorage:
         if not isinstance(records, list):
             return []
 
+        if puppy_id is not None:
+            milestone = handoff_departure_record(litter_id, puppy_id, owner)
+            if milestone is not None:
+                records = [*records, milestone]
         return sorted_records(
             records,
             include_deleted=include_deleted,

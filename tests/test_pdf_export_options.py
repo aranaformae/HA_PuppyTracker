@@ -23,6 +23,7 @@ SECTION_KEYS = (
     "dossier",
     "attention",
     "owners",
+    "handoff",
     "owner_contact",
     "brand_logo",
     "breeder_name",

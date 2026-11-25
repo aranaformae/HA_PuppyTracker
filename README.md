@@ -126,6 +126,7 @@ for older dashboard YAML. Saved records are still available in Dossier.
 | Reminders, notifications and lead times | [Notifications](docs/NOTIFICATIONS.md) |
 | Per-kg calculations and feeding portions | [Calculator](docs/CALCULATOR.md) |
 | Weight-based care amounts and stale weights | [Weight-based amounts](docs/WEIGHT_BASED_AMOUNTS.md) |
+| Puppy departure and handover checklist | [Handover](docs/HANDOVER.md) |
 | Contacts, puppy links and payments | [Owners](docs/puppy-dossiers.md#ownercontact-card) |
 | PDF dossiers, contact CSV and backups | [Reports](docs/REPORTS_EXPORTS.md), [backup and restore](docs/backup-restore.md) |
 | Documents and breeder logo | [Templates](docs/DOCUMENT_TEMPLATES.md), [logo upload](docs/MANAGED_FILES.md) |

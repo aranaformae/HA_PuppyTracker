@@ -267,3 +267,17 @@ for (const language of ["nl", "en"]) {
     await expect(editor.locator(".head .owner")).toHaveText(placeholder);
   });
 }
+
+
+test("departure milestone routes to handoff rather than creating an independently editable record @cross-browser", async ({ page }) => {
+  const card = await mount(page);
+  await page.evaluate(async () => {
+    window.dossierHistory.records.push({ id: "handoff:p1", generated: "handoff_departure", type: "milestone", scope: "puppy", puppy_id: "p1", litter_id: "l1", occurred_at: "2026-10-15T12:00:00+02:00", data: {} });
+    await document.querySelector("puppy-tracker-dossier-card")._loadLitterAndRecords();
+  });
+  const row = card.locator('.record[data-record-key="puppy:handoff:p1"]');
+  await expect(row).toContainText("Departed");
+  await expect(row.locator("[data-edit-item],.move-record,.delete-record")).toHaveCount(0);
+  await row.getByRole("button", { name: "Handover", exact: true }).click();
+  await expect(page.locator("puppy-tracker-handoff-editor h2")).toContainText("Alice (Red)");
+});

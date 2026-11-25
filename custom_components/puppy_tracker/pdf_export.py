@@ -18,12 +18,31 @@ from homeassistant.util import dt as dt_util
 
 from .behavior import BEHAVIOR_GROUPS, BEHAVIOR_RECORD_TYPE, build_behavior_profile
 from .dog_identity import parent_details_for_litter
+from .handoff import CHECKS as HANDOFF_CHECKS, handoff_summary
 from .measurements import puppy_measurements
 from .managed_files import normalize_logo
 from .metrics import calculate_puppy_metrics
 from .owners import final_payment_amount, owner_address_parts, owner_for_litter
 from .storage import PuppyTrackerStorage
 from .time_utils import format_local_timestamp, local_datetime, timestamp_sort_key
+
+_HANDOFF_LABELS = {
+    "nl": {"title": "Overdracht", "status": "Status van de pup", "departure": "Werkelijke vertrekdatum",
+        "available": "Beschikbaar", "option": "In optie", "reserved": "Gereserveerd", "assigned": "Toegewezen", "departed": "Vertrokken",
+        "ready": "Checklist compleet", "missing": "Nog te controleren", "complete": "Gecontroleerd", "pending": "Open",
+        "item": "Controlepunt", "checked": "Bevestiging", "note": "Handmatige controlelijst voor de overdracht.",
+        "chip": "Chipnummer", "registration": "Registratie", "vaccination": "Vaccinatie", "deworming": "Ontworming",
+        "puppy_test": "Puppytest", "vet_check": "Dierenartscontrole", "contract": "Contract", "food": "Voeding en uitleg",
+        "passport": "Paspoort", "report": "Dossier / rapport", "departure_weight": "Vertrekgewicht"},
+    "en": {"title": "Handover", "status": "Puppy status", "departure": "Actual departure date",
+        "available": "Available", "option": "On hold", "reserved": "Reserved", "assigned": "Assigned", "departed": "Departed",
+        "ready": "Checklist complete", "missing": "Still to check", "complete": "Checked", "pending": "Open",
+        "item": "Checklist item", "checked": "Confirmation", "note": "Manually checked handover checklist.",
+        "chip": "Microchip number", "registration": "Registration", "vaccination": "Vaccination", "deworming": "Deworming",
+        "puppy_test": "Puppy test", "vet_check": "Vet check", "contract": "Contract", "food": "Food and instructions",
+        "passport": "Passport", "report": "Dossier / report", "departure_weight": "Departure weight"},
+}
+
 
 PAGE_WIDTH = 595.28
 PAGE_HEIGHT = 841.89
@@ -988,7 +1007,7 @@ def build_pdf_export(
     visible = {
         "identity": True, "summary": True, "chart": True, "measurements": True,
         "care": True, "dossier": True, "behavior": True,
-        "attention": True, "owners": True, "owner_contact": False,
+        "attention": True, "owners": True, "owner_contact": False, "handoff": False,
         "brand_logo": True, "breeder_name": True, "breeder_contact": False,
         "profile_note": False,
     }
@@ -1195,9 +1214,9 @@ def build_pdf_export(
         for record in records:
             record_type = str(record.get("type") or "other")
             dossier_rows.append([
-                _format_local_datetime(record.get("occurred_at"), language),
+                _format_date(record.get("occurred_at", "")[:10], language) if record.get("generated") == "handoff_departure" else _format_local_datetime(record.get("occurred_at"), language),
                 _PDF_RECORD_TYPES[language].get(record_type, record_type.replace("_", " ").capitalize()),
-                str(record.get("title") or "—"),
+                _HANDOFF_LABELS[language]["departed"] if record.get("generated") == "handoff_departure" else str(record.get("title") or "—"),
                 _record_data_text(record, language),
                 str(record.get("note") or ""),
             ])
@@ -1213,7 +1232,7 @@ def build_pdf_export(
         render_dossier_records([], t("litter_source"))
 
     for current_id, puppy in puppies:
-        if any(visible[key] for key in ("identity", "measurements", "care", "behavior")) or (visible["dossier"] and "puppy" in dossier_scopes):
+        if any(visible[key] for key in ("identity", "measurements", "care", "behavior")) or visible["handoff"] or (visible["dossier"] and "puppy" in dossier_scopes):
             report.heading(str(puppy.get("name") or t("puppy")), level=2)
         if visible["identity"]:
             report.heading(t("identity_details"), level=3)
@@ -1238,6 +1257,17 @@ def build_pdf_export(
                 report.heading(t("profile_note"), level=3)
                 for line in str(puppy["profile_note"]).splitlines():
                     report.paragraph(line)
+        if visible["handoff"]:
+            labels = _HANDOFF_LABELS[language]
+            handoff = handoff_summary(puppy)
+            report.heading(labels["title"], level=3)
+            report.paragraph(f"{labels['status']}: {labels[handoff['status']]}", size=9, keep_with_next=True)
+            report.paragraph(f"{labels['departure']}: {_format_date(handoff['departure_date'], language)}", size=9, keep_with_next=True)
+            report.paragraph(f"{handoff['completed_count']}/{handoff['total_count']} - {labels['ready'] if handoff['ready'] else labels['missing']}", size=9, bold=True, keep_with_next=True)
+            report.table([labels["item"], labels["checked"]],
+                         [[labels[key], labels["complete"] if handoff["checks"][key] else labels["pending"]] for key in HANDOFF_CHECKS],
+                         [310, 171], font_size=8, keep_together=True)
+            report.paragraph(labels["note"], size=8, gray=0.35)
         if visible["measurements"]:
             all_rows = puppy_measurements(puppy, active_only=True)
             rows = _active_measurements(puppy, range_hours)

@@ -2119,6 +2119,40 @@ quarantined recurring reminders
 
 Names, notes, result contents and notification targets are not exposed merely to report these health counts.
 
+## Puppy handover
+
+`handoff.py` defines optional `puppy.handoff` state: `stage` (available/option/
+reserved), `departure_date` (canonical ISO date or null) and eleven boolean
+`checks`. Old puppies/backups need no rewrite. `assigned` is derived from existing
+owner links; `departed` takes precedence when a departure date exists. There is
+no mirrored owner status, copied contact data or additional call-name field.
+Manual confirmations are not inferred from clinical records, archive files or
+PDF downloads. Link changes preserve the checklist; users review it explicitly.
+
+Admin-only `puppy_tracker/handoff/save`, registered with the puppy-profile API,
+uses `async_save_handoff` under the storage mutation lock. The shared puppy
+`updated_at` token rejects concurrent profile/link/checklist edits. Validation,
+state, timestamps and audit updates roll back together on failed/cancelled writes.
+Departure dates are bounded by birth/today on writes; incomplete departure needs
+an explicit confirmation. Archiving, weighing schedules and notifications remain
+independent. No dossier-created automation event is emitted for this state edit.
+
+`get_records` derives a stable `handoff:<puppy_id>` milestone when departure exists,
+with `generated=handoff_departure`. Local noon anchors sorting without DST-midnight
+ambiguity; UI/PDF display a date only. It is not stored or separately mutable.
+Dossier routes its action back to the shared native-dialog handover editor,
+which is outside card renders and restores the explicit trigger's focus without
+scrolling (including WebKit). Nest and Growth use that same module.
+
+PDF `sections.handoff` defaults false and is independent of Identity/Owners;
+Full and Owner handover frontend presets opt in. The selected-puppy scope applies;
+current handover state ignores the historical range, while the generated Dossier
+milestone obeys normal milestone/range filters. NL/EN check labels never print
+internal checklist keys. Backup v7's existing puppy envelope carries optional
+handover state in full/partial exports; parsing and restore-candidate validation
+reject malformed state before mutations. Remapped imports derive the milestone
+from the new puppy ID. See [Handover](HANDOVER.md).
+
 ## Testing strategy
 
 Regression tests should protect data meaning and cross-surface contracts, including:

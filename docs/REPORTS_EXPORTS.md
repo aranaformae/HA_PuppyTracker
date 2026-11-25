@@ -75,6 +75,7 @@ Every main section can be enabled or disabled independently.
 | Dossier items | Ordinary dossier entries selected by source and category |
 | Weight attention | Current canonical weight warnings and status column |
 | Owners and placement | Linked contact name, role, placement and payment state |
+| Handover and checklist | Current puppy status, actual departure date and eleven manually checked/open transfer items; independent of Identity and Owners |
 | Contact details | E-mail, telephone, street/house number, postal code and city for linked owners |
 | Logo | Custom logo, or bundled logo when no valid custom image is available |
 | Breeder name | Configured kennel/breeder name |
@@ -107,9 +108,9 @@ The growth lines retain each puppy's collar colour.
 
 | Profile | Sections |
 | --- | --- |
-| `full` | Main sections, including owner contact details |
-| `handover` | Main sections except weight-attention warnings/status |
-| `internal` | Main sections except owner contact details |
+| `full` | Main sections, including handover/checklist and owner contact details |
+| `handover` | Main sections, including handover/checklist, except weight-attention warnings/status |
+| `internal` | Main sections except handover/checklist and owner contact details |
 
 All built-in profiles include the logo and configured breeder name. Breeder
 contact details and puppy profile notes require explicit selection, even in
@@ -205,6 +206,10 @@ whole-litter records once and that puppy's matching records. Mother records are
 not mixed into a puppy PDF; select Mother for a separate PDF or JSON export instead.
 
 ## Period and current state
+
+The optional [handover section](HANDOVER.md) always shows current state, not
+state reconstructed for the selected historical period. A departure milestone
+under Dossier follows that section's period/category filters independently.
 
 The period applies to:
 

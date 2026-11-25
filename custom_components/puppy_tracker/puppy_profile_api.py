@@ -13,7 +13,8 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from .const import DOMAIN, SIGNAL_NEW_PUPPY
 from .devices import async_sync_devices
 from .runtime import get_runtime_storage
-from .updates import dispatch_measurement_update
+from .updates import dispatch_measurement_update, dispatch_dossier_update
+from .handoff import HandoffConflict, handoff_summary
 
 
 PROFILE_SCHEMA = vol.Schema(
@@ -110,6 +111,40 @@ async def websocket_save_puppy_profile(
     connection.send_result(msg["id"], {"puppy_id": puppy_id, "updated_at": saved.get("updated_at")})
 
 
+@websocket_api.require_admin
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/handoff/save",
+    vol.Required("litter_id"): str,
+    vol.Required("puppy_id"): str,
+    vol.Required("expected_updated_at"): vol.Any(str, None),
+    vol.Required("handoff"): dict,
+    vol.Optional("confirm_incomplete", default=False): bool,
+})
+@websocket_api.async_response
+async def websocket_save_handoff(hass: HomeAssistant, connection, msg: dict[str, Any]) -> None:
+    """Save no contact information and never mutate owner/payment statuses."""
+    storage = get_runtime_storage(hass)
+    if storage is None:
+        connection.send_error(msg["id"], "not_loaded", "Puppy Tracker is not loaded")
+        return
+    try:
+        await storage.async_save_handoff(
+            msg["litter_id"], msg["puppy_id"], msg["handoff"],
+            expected_updated_at=msg["expected_updated_at"],
+            confirm_incomplete=msg["confirm_incomplete"],
+        )
+    except HandoffConflict as err:
+        connection.send_error(msg["id"], "stale_handoff", str(err))
+        return
+    except ValueError as err:
+        connection.send_error(msg["id"], "invalid_handoff", str(err))
+        return
+    dispatch_dossier_update(hass)
+    puppy = storage.get_puppy(msg["litter_id"], msg["puppy_id"])
+    connection.send_result(msg["id"], {"handoff": handoff_summary(puppy), "updated_at": puppy.get("updated_at")})
+
+
 def async_setup_puppy_profile_api(hass: HomeAssistant) -> None:
     """Register the puppy profile command."""
     websocket_api.async_register_command(hass, websocket_save_puppy_profile)
+    websocket_api.async_register_command(hass, websocket_save_handoff)

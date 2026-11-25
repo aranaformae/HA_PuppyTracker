@@ -563,3 +563,27 @@ async def test_file_backup_rejects_the_real_target_of_a_public_www_symlink(hass,
             "path": "shared/private.json", "scope": "litter", "litter_id": "litter-1",
         }, blocking=True)
     assert list(public.iterdir()) == []
+
+
+async def test_admin_handoff_save_uses_real_api_and_rejects_stale_updates(
+    hass, private_runtime, hass_ws_client,
+):
+    register_api(hass)
+    client = await hass_ws_client(hass)
+    storage = private_runtime[1].storage
+    revision = storage.get_puppy("litter-1", "puppy-1")["updated_at"]
+    message = {"type": f"{DOMAIN}/handoff/save", "litter_id": "litter-1", "puppy_id": "puppy-1",
+               "expected_updated_at": revision, "handoff": {"stage": "reserved", "checks": {"contract": True}}}
+    owners_before = deepcopy(private_runtime[1].owners._data)
+    await client.send_json_auto_id(message)
+    result = await client.receive_json()
+    assert result["success"] is True
+    assert result["result"]["handoff"]["checks"]["contract"] is True
+    assert result["result"]["handoff"]["status"] == "assigned"
+    assert private_runtime[1].owners._data == owners_before
+    await client.send_json_auto_id({**message, "handoff": {"stage": "available"}})
+    result = await client.receive_json()
+    assert result["success"] is False and result["error"]["code"] == "stale_handoff"
+    await client.send_json_auto_id({"type": f"{DOMAIN}/export", "litter_id": "litter-1", "format": "pdf",
+                                    "sections": {"handoff": True, "owners": False, "identity": False}})
+    assert (await client.receive_json())["success"] is True

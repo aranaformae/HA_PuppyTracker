@@ -240,3 +240,11 @@ limit before base64 encoding. See [Document templates](DOCUMENT_TEMPLATES.md).
 A failed file backup also creates a technical notice in **Settings → System →
 Repairs**. A successful file backup clears it; manual downloads and restarts do
 not. See [technical Repairs](NOTIFICATIONS.md#technical-repairs).
+
+## Puppy handover state
+
+Optional puppy planning, departure date and checklist state are included in full,
+litter and puppy backups. Old backups without these fields still import. Partial
+imports keep the state while remapping the puppy ID; the departure milestone is
+then derived from that new ID. No contact or payment data is added by this state.
+See [Handover](HANDOVER.md).

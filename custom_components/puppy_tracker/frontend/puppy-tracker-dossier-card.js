@@ -1,3 +1,4 @@
+import { openHandoff, handoffText } from "./puppy-tracker-handoff.js";
 import { FormState, bindSaveFeedback } from "./puppy-tracker-form-state.js";
 import {
   puppySelectorLabel,
@@ -828,7 +829,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
     const deleted = Boolean(record.deleted);
     const measurement = Boolean(record.measurement_id);
     const inactive = deleted || record.status === "superseded";
-    const title = record.title || (measurement && record.data.kind === "birth"
+    const title = record.generated === "handoff_departure" ? handoffText(this._hass, "departed") : record.title || (measurement && record.data.kind === "birth"
       ? dossierText(this._hass, "Geboortegewicht", "Birth weight") : labelForRecordType(this._hass, record.type));
     const recordKey = record.__aggregate_record_key || record.id;
     const detailKey = `${this._selectedLitterId}:${recordKey}`;
@@ -851,7 +852,9 @@ class PuppyTrackerDossierCard extends HTMLElement {
         return `${["weight", "temperature_c"].includes(key) ? "" : `${label}: `}${value}${key === "weight" ? " g" : key === "temperature_c" ? " °C" : key === "amount" && record.data.unit ? ` ${record.data.unit}` : ""}`;
       }).join(" · ");
     const details = this._renderRecordData(record);
-    const actions = measurement
+    const actions = record.generated === "handoff_departure"
+      ? (this._canManage ? `<button class="text-button" data-handoff-puppy="${escapeHtml(record.puppy_id)}">${escapeHtml(handoffText(this._hass, "title"))}</button>` : "")
+      : measurement
       ? recordEditButton(this, recordKey, { measurement: true, deleted: inactive })
       : !this._canManage ? "" : deleted
         ? `<button class="text-button restore-record" data-id="${escapeHtml(record.id)}" data-record-key="${escapeHtml(recordKey)}"><ha-icon icon="mdi:restore"></ha-icon>${escapeHtml(localize(this._hass, "restore"))}</button>`
@@ -861,7 +864,7 @@ class PuppyTrackerDossierCard extends HTMLElement {
       <div class="record-body"><div class="record-top"><div class="record-heading"><strong>${escapeHtml(title)}</strong>
       <span class="type-badge">${escapeHtml(labelForRecordType(this._hass, record.type))}</span>${ownerBadge}${litterBadge}
       ${inactive ? `<span class="deleted-badge">${escapeHtml(record.status === "superseded" ? dossierText(this._hass, "Gecorrigeerd", "Corrected") : localize(this._hass, "removed"))}</span>` : ""}
-      </div><div class="record-actions">${actions}</div></div><time>${escapeHtml(formatDateTime(record.occurred_at, "", this._hass))}</time>
+      </div><div class="record-actions">${actions}</div></div><time>${escapeHtml(record.generated === "handoff_departure" ? formatDateOnly(record.occurred_at.slice(0, 10), this._hass) : formatDateTime(record.occurred_at, "", this._hass))}</time>
       ${summary ? `<div class="record-summary" ${open ? "hidden" : ""}>${escapeHtml(summary)}</div>` : ""}
       ${details || record.note ? `<details class="record-details" data-detail-key="${escapeHtml(detailKey)}" ${open ? "open" : ""}><summary>${escapeHtml(dossierText(this._hass, "Details", "Details"))}</summary>${details}${record.note ? `<div class="record-note">${escapeHtml(record.note)}</div>` : ""}</details>` : ""}</div></article>`;
   }
@@ -1054,6 +1057,12 @@ class PuppyTrackerDossierCard extends HTMLElement {
       const action = this._recordData?.actions?.actions?.find((item) => item.id === (button?.dataset.completeFollowup || button?.dataset.editItem));
       if (action) openFollowupEditor(this, action, { trigger: button });
     });
+    this.shadowRoot.querySelectorAll("[data-handoff-puppy]").forEach((button) => button.addEventListener("click", () => {
+      if (!this._canManage) return;
+      openHandoff({ hass: this._hass, litterId: this._selectedLitterId, trigger: button,
+        puppy: this._litterData?.puppies?.find((p) => p.id === button.dataset.handoffPuppy),
+        onSaved: () => { void this._loadLitterAndRecords(); } });
+    }));
     this.shadowRoot.getElementById("add-record")?.addEventListener("click", () => this._startAdd());
     this.shadowRoot.getElementById("toggle-timeline-items")?.addEventListener("click", () => {
       this._timelineItemsVisible = !this._timelineItemsVisible;

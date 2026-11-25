@@ -61,8 +61,11 @@ Object.assign(REPORT_TEXT.en, {
 
 const LITTER_VALUE = "__litter__";
 const MOTHER_VALUE = "__mother__";
-const PDF_SECTION_DEFAULTS = { identity: true, summary: true, chart: true, measurements: true, care: true, behavior: true, dossier: true, attention: true, owners: true, owner_contact: false, brand_logo: true, breeder_name: true, breeder_contact: false, profile_note: false };
-const PDF_SECTION_LABELS = { identity: "identitySection", summary: "summarySection", chart: "chartSection", measurements: "measurementSection", care: "careSection", behavior: "behaviorSection", dossier: "dossierSection", attention: "attentionSection", owners: "ownersSection", owner_contact: "ownerContactSection", brand_logo: "brandLogoSection", breeder_name: "breederNameSection", breeder_contact: "breederContactSection", profile_note: "profileNoteSection" };
+REPORT_TEXT.nl.handoffSection = "Overdracht en checklist";
+REPORT_TEXT.en.handoffSection = "Handover and checklist";
+
+const PDF_SECTION_DEFAULTS = { identity: true, summary: true, chart: true, measurements: true, care: true, behavior: true, dossier: true, attention: true, owners: true, owner_contact: false, handoff: false, brand_logo: true, breeder_name: true, breeder_contact: false, profile_note: false };
+const PDF_SECTION_LABELS = { identity: "identitySection", summary: "summarySection", chart: "chartSection", measurements: "measurementSection", care: "careSection", behavior: "behaviorSection", dossier: "dossierSection", attention: "attentionSection", owners: "ownersSection", handoff: "handoffSection", owner_contact: "ownerContactSection", brand_logo: "brandLogoSection", breeder_name: "breederNameSection", breeder_contact: "breederContactSection", profile_note: "profileNoteSection" };
 const MOTHER_SECTION_DEFAULTS = { identity: true, summary: true, chart: true, measurements: true, care: true, dossier: true, litter_context: false, brand_logo: true, breeder_name: true, breeder_contact: false, profile_note: false };
 const MOTHER_SECTION_LABELS = { identity: "identitySection", summary: "motherSummary", chart: "motherChart", measurements: "motherMeasurements", care: "motherCare", dossier: "dossierSection", litter_context: "litterContext", brand_logo: "brandLogoSection", breeder_name: "breederNameSection", breeder_contact: "breederContactSection", profile_note: "motherProfileNote" };
 function motherSections(value = {}) {
@@ -150,8 +153,8 @@ function configHass() {
 }
 
 const REPORT_PROFILES = {
-  full: { nl: "Volledig dossier", en: "Full dossier", sections: { identity: true, summary: true, chart: true, measurements: true, care: true, behavior: true, dossier: true, attention: true, owners: true, owner_contact: true } },
-  handover: { nl: "Overdracht aan baasje", en: "Owner handover", sections: { identity: true, summary: true, chart: true, measurements: true, care: true, behavior: true, dossier: true, attention: false, owners: true, owner_contact: true } },
+  full: { nl: "Volledig dossier", en: "Full dossier", sections: { identity: true, summary: true, chart: true, measurements: true, care: true, behavior: true, dossier: true, handoff: true, attention: true, owners: true, owner_contact: true } },
+  handover: { nl: "Overdracht aan baasje", en: "Owner handover", sections: { identity: true, summary: true, chart: true, measurements: true, care: true, behavior: true, dossier: true, handoff: true, attention: false, owners: true, owner_contact: true } },
   internal: { nl: "Intern fokdossier", en: "Internal breeding record", sections: { identity: true, summary: true, chart: true, measurements: true, care: true, behavior: true, dossier: true, attention: true, owners: true, owner_contact: false } },
 };
 

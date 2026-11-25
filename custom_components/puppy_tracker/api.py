@@ -32,6 +32,7 @@ from .weighing import async_save_dashboard_weight
 from .managed_files_http import signed_file_path
 from .upcoming import DAYS_AHEAD_DEFAULT, upcoming_actions, upcoming_summary
 from .puppy_profile_api import async_setup_puppy_profile_api
+from .handoff import handoff_summary
 
 DATA_API_REGISTERED = f"{DOMAIN}_websocket_api_registered"
 
@@ -310,6 +311,7 @@ def _litter_payload(
                 "birth_time": puppy.get("birth_time"),
                 "profile_note": puppy.get("profile_note"),
                 "chip_number": puppy.get("chip_number"),
+                "handoff": handoff_summary(puppy),
                 "owner_ids": list(puppy.get("owner_ids") or []) if can_manage_measurements else [],
                 "active": puppy.get("active", True),
                 "created_at": puppy.get("created_at"),
@@ -1387,6 +1389,7 @@ async def websocket_integrity_check(
             vol.Optional("dossier", default=True): bool,
             vol.Optional("attention", default=True): bool,
             vol.Optional("owners", default=True): bool,
+            vol.Optional("handoff", default=False): bool,
             vol.Optional("owner_contact", default=False): bool,
             vol.Optional("brand_logo", default=True): bool,
             vol.Optional("breeder_name", default=True): bool,

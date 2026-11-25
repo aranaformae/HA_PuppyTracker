@@ -295,9 +295,9 @@ test("configured range and profile defaults are applied on first use", async ({ 
 test("all built-in PDF profiles select their documented sections", async ({ page }) => {
   const card = await mountReport(page);
   const profiles = {
-    full: [true, true, true, true, true, true, true, true, true, true],
-    handover: [true, true, true, true, true, true, true, false, true, true],
-    internal: [true, true, true, true, true, true, true, true, true, false],
+    full: [true, true, true, true, true, true, true, true, true, true, true],
+    handover: [true, true, true, true, true, true, true, false, true, true, true],
+    internal: [true, true, true, true, true, true, true, true, true, false, false],
   };
   const sectionNames = [
     "identity",
@@ -310,6 +310,7 @@ test("all built-in PDF profiles select their documented sections", async ({ page
     "attention",
     "owners",
     "owner_contact",
+    "handoff",
   ];
 
   for (const [profile, expected] of Object.entries(profiles)) {
@@ -531,3 +532,16 @@ for (const [buttonId, format, filename] of [
     if (format !== "pdf") expect(exportCall.sections).toBeUndefined();
   });
 }
+
+
+test("handoff export remains selected independently of identity and owner/contact sections @cross-browser", async ({ page }) => {
+  const card = await mountReport(page);
+  await card.locator('[data-pdf-section="handoff"]').check();
+  await card.locator('[data-pdf-section="identity"]').uncheck();
+  await card.locator('[data-pdf-section="owners"]').uncheck();
+  await expect(card.locator('[data-pdf-section="handoff"]')).toBeChecked();
+  const download = page.waitForEvent("download");
+  await card.locator("#pdf").click(); await download;
+  const call = await page.evaluate(() => window.__reportCalls.filter((call) => call.type === "puppy_tracker/export").at(-1));
+  expect(call.sections).toMatchObject({ handoff: true, owners: false, owner_contact: false, identity: false });
+});
